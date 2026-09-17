@@ -5,6 +5,7 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 ## Ссылки
 
 - [Доска задач](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
+- [Макеты в Figma](https://www.figma.com/design/iWGdAUKc8v8oaIGhM9X20T/Colab)
 - [Репозиторий бэкенда](https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development)
 - [Организация команды](https://github.com/Cringe-Driven-Development-Team)
 
