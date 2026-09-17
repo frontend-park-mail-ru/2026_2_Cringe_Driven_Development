@@ -23,8 +23,8 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 
 ## Как работать с задачами
 
-Все задачи команды живут на одной [доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
-вместе с бэковыми
+Все задачи команды, фронтовые и бэковые, живут на одной
+[доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
 
 > [!IMPORTANT]
 > Задача заводится issue в той репе, где будет код: фронтовые — здесь, бэковые —
