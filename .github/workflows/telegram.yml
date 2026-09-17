@@ -4,7 +4,7 @@ on:
   push:
     branches-ignore: [main]
   issues:
-    types: [opened, closed, reopened]
+    types: [opened, closed, reopened, edited]
   pull_request:
     types: [opened, ready_for_review, closed, review_requested]
   pull_request_review:
@@ -37,6 +37,9 @@ jobs:
           FORCED:    ${{ github.event.forced }}
           BODY:      ${{ github.event.issue.body }}
           ASSIGNEES: ${{ toJSON(github.event.issue.assignees) }}
+          CREATED:   ${{ github.event.issue.created_at }}
+          UPDATED:   ${{ github.event.issue.updated_at }}
+          CHG_BODY:  ${{ toJSON(github.event.changes.body) }}
         run: |
           WHO="$ACTOR"
           EXTRA=""
@@ -69,6 +72,13 @@ jobs:
             issues:opened)   HEAD="🆕 Новая задача" ;;
             issues:closed)   HEAD="✅ Задача закрыта" ;;
             issues:reopened) HEAD="♻️ Задача переоткрыта" ;;
+            issues:edited)
+              # правка заголовка — changes.body отсутствует
+              [ "$CHG_BODY" = "null" ] && exit 0
+              # доработка сразу после создания — часть создания, о ней уже сообщили
+              AGE=$(( $(date -d "$UPDATED" +%s) - $(date -d "$CREATED" +%s) ))
+              [ "$AGE" -lt 600 ] && exit 0
+              HEAD="✏️ Описание изменено" ;;
             pull_request:opened|pull_request:ready_for_review)
                              HEAD="🔀 Открыт pull request" ;;
             pull_request:review_requested)
@@ -134,8 +144,8 @@ jobs:
                 done
                 LINE="$LINE · исполнитель: $ML"
               fi
-              # описание показываем только при создании — на закрытии это шум
-              if [ "$ACTION" = "opened" ] && [ -n "$BODY" ]; then
+              # описание показываем при создании и правке, на закрытии это шум
+              if { [ "$ACTION" = "opened" ] || [ "$ACTION" = "edited" ]; } && [ -n "$BODY" ]; then
                 Q=$(printf '%s' "$BODY" | perl -CS -0777 -pe 's/<!--.*?-->//gs; s/\r//g; s/^#+[ \t]*//gm; s/\n{3,}/\n\n/g; s/^\s+|\s+$//g; $_ = substr($_,0,700) . "…" if length > 700; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g;')
                 [ -n "$Q" ] && EXTRA=$(printf '\n<blockquote expandable>%s</blockquote>' "$Q")
               fi
