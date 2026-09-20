@@ -2,23 +2,23 @@
 
 Frontend-репозиторий проекта «Colab» команды «Cringe Driven Development»
 
-<img src=".github/assets/dance.gif" alt="" align="right" width="270">
+<img src=".github/assets/dance.gif" alt="" align="right" width="250">
 
-## Ссылки
+### Ссылки
 
 - [Доска задач](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1)
 - [Макеты в Figma](https://www.figma.com/design/iWGdAUKc8v8oaIGhM9X20T/Colab)
 - [Репозиторий бэкенда](https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development)
 - [Организация команды](https://github.com/Cringe-Driven-Development-Team)
 
-## Участники команды
+### Участники команды
 
 1. [Ерофей Гаранин](https://github.com/ManInTheCoat)
 2. [Истратов Денис](https://github.com/iRedTea)
 3. [Шпакова Дарья](https://github.com/GrayMouse9)
 4. [Кунев Валентин](https://github.com/MrDuckVC)
 
-## Менторы
+### Менторы
 
 - [Михалёв Ярослав](https://github.com/YarikMix) — _Frontend_
 - [Батовкин Александр](https://github.com/blackHATred) — _Backend_
