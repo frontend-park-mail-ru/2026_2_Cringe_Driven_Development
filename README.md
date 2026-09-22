@@ -2,7 +2,7 @@
 
 Frontend-репозиторий проекта «Colab» команды «Cringe Driven Development»
 
-<img src=".github/assets/dance.gif" alt="" align="left" width="250">
+<img src=".github/assets/dance.gif" alt="" align="left" width="250" hspace="20">
 
 ### Ссылки
 
