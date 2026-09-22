@@ -4,7 +4,6 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 
 <picture>
 <source media="(max-width: 600px)" srcset=".github/assets/dance.gif 0.5x">
-<source srcset=".github/assets/dance.gif 1.1x">
 <img src=".github/assets/dance.gif" alt="" align="left">
 </picture>
 
