@@ -3,7 +3,8 @@
 Frontend-репозиторий проекта «Colab» команды «Cringe Driven Development»
 
 <picture>
-<source media="(max-width: 600px)" srcset=".github/assets/dance.gif 0.5x">
+<source media="(max-width: 600px)" srcset=".github/assets/dance.gif 1.2x">
+<source srcset=".github/assets/dance.gif 0.75x">
 <img src=".github/assets/dance.gif" alt="" align="right">
 </picture>
 
