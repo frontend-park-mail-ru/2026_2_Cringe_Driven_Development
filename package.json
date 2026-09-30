@@ -1,0 +1,28 @@
+{
+    "name": "cellestial",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "fmt": "oxfmt",
+        "fmt:check": "oxfmt --check",
+        "typecheck": "tsc --noEmit",
+        "check": "bun run fmt:check && bun run lint && bun run typecheck"
+    },
+    "dependencies": {
+        "@maninthecoat/react": "^1.1.0"
+    },
+    "devDependencies": {
+        "oxfmt": "^0.71.0",
+        "oxlint": "^1.86.0",
+        "typescript": "^7.0.2",
+        "vite": "^8.3.1"
+    },
+    "engines": {
+        "bun": ">=1.4.0"
+    }
+}
