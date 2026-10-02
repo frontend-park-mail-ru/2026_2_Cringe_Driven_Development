@@ -63,9 +63,17 @@ export function interpolatePath(pattern: string, params: ParamValues): string {
                 throw new Error(`Не передан параметр "${name}" для пути "${pattern}"`);
             }
 
-            return String(value).split('/').map(encodeURIComponent).join('/');
+            // Слэш разделяет сегменты только в сплате: в обычном параметре он часть значения
+            return segment === SPLAT_SEGMENT
+                ? encodeSegments(String(value))
+                : encodeURIComponent(String(value));
         })
         .join('/');
+}
+
+/** Приводит кодирование сегментов пути к тому виду, в котором его собирает `interpolatePath` */
+export function normalizePath(pathname: string): string {
+    return joinPaths(encodeSegments(splitPath(pathname).map(decodeSegment).join('/')));
 }
 
 /**
@@ -85,18 +93,19 @@ export function comparePatterns(a: string, b: string): number {
 }
 
 export function parseSearch(searchStr: string): Search {
-    const search: Search = {};
+    // Собираем в Map: у объекта ключи вроде `toString` и `__proto__` попали бы в прототип
+    const values = new Map<string, unknown>();
 
     for (const [key, raw] of new URLSearchParams(searchStr)) {
         const value = parseSearchValue(raw);
-        const existing = search[key];
+        const existing = values.get(key);
 
-        if (existing === undefined) search[key] = value;
+        if (!values.has(key)) values.set(key, value);
         else if (Array.isArray(existing)) existing.push(value);
-        else search[key] = [existing, value];
+        else values.set(key, [existing, value]);
     }
 
-    return search;
+    return Object.fromEntries(values);
 }
 
 /** Обратная к `parseSearch`: не-строки пишутся как JSON, так что типы значений переживают перезагрузку */
@@ -115,6 +124,10 @@ export function stringifySearch(search: Search): string {
 function segmentScore(segment: string): number {
     if (segment === SPLAT_SEGMENT) return 1;
     return segment.startsWith('$') ? 2 : 3;
+}
+
+function encodeSegments(path: string): string {
+    return path.split('/').map(encodeURIComponent).join('/');
 }
 
 function decodeSegment(segment: string): string {

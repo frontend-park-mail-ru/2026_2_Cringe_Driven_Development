@@ -38,15 +38,29 @@ export function useRouterState<TSelected>(options: {
 export function useRouterState(options?: { select: (state: RouterState) => unknown }): unknown {
     const router = useRouter();
     const [, setVersion] = useState(0);
+    const select = options?.select ?? selectState;
     const state = router.state;
+    const selected = select(state);
 
-    useLayoutEffect(() => router.subscribe(() => setVersion((version) => version + 1)), [router]);
+    // Перерисовываемся, только если изменилось выбранное значение, а не состояние целиком
+    useLayoutEffect(
+        () =>
+            router.subscribe(() => {
+                if (Object.is(select(router.state), selected)) return;
+                setVersion((version) => version + 1);
+            }),
+        [router, select, selected],
+    );
     // Состояние могло смениться между рендером и подпиской — тогда перерисовываемся
     useLayoutEffect(() => {
         if (router.state !== state) setVersion((version) => version + 1);
     }, [router, state]);
 
-    return options ? options.select(state) : state;
+    return selected;
+}
+
+function selectState(state: RouterState): RouterState {
+    return state;
 }
 
 export function useLocation(): ParsedLocation {

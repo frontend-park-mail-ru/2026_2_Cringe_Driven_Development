@@ -175,7 +175,8 @@ function isLocationActive(
     { exact = false, includeSearch = true }: ActiveOptions = {},
 ): boolean {
     const isSamePath = current.pathname === next.pathname;
-    const isParentPath = next.pathname === '/' || current.pathname.startsWith(`${next.pathname}/`);
+    // `/` — префикс любого пути, поэтому ссылка на главную активна только на самой главной
+    const isParentPath = next.pathname !== '/' && current.pathname.startsWith(`${next.pathname}/`);
     if (!isSamePath && (exact || !isParentPath)) return false;
     if (!includeSearch) return true;
 
