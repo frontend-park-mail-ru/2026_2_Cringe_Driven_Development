@@ -14,7 +14,8 @@
         "check": "bun run fmt:check && bun run lint && bun run typecheck"
     },
     "dependencies": {
-        "@maninthecoat/react": "^1.1.0"
+        "@maninthecoat/react": "^1.2.0",
+        "@maninthecoat/zustand": "^1.0.0"
     },
     "devDependencies": {
         "oxfmt": "^0.71.0",

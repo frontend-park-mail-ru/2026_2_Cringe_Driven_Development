@@ -5,7 +5,8 @@
     "": {
       "name": "2026_2_cringe_driven_development",
       "dependencies": {
-        "@maninthecoat/react": "^1.1.0",
+        "@maninthecoat/react": "^1.2.0",
+        "@maninthecoat/zustand": "^1.0.0",
       },
       "devDependencies": {
         "oxfmt": "^0.71.0",
@@ -16,7 +17,9 @@
     },
   },
   "packages": {
-    "@maninthecoat/react": ["@maninthecoat/react@1.1.0", "", {}, "sha512-oV4GEfPOIbYG7tnRDfUqiSuGjyqjYqlGRd5O+iODdVcnSlTWxEkFYztivawUX3LEemn34XWBZPQxGlOwmG73EQ=="],
+    "@maninthecoat/react": ["@maninthecoat/react@1.2.0", "", {}, "sha512-xdbIX05A/Qc4Z041nSJjH2N4edlEq1HLbJIaawLSW90AafeSehe7LZkei6zQgz6fXmerNVbgK74ruNqzDfsR0g=="],
+
+    "@maninthecoat/zustand": ["@maninthecoat/zustand@1.0.0", "", { "peerDependencies": { "@maninthecoat/react": "^1.2.0" }, "optionalPeers": ["@maninthecoat/react"] }, "sha512-JDvC9GJQO9r6J2ZMTxnrmUTbu4sLZw4Yk0KUotjHBFiimHO2Ny9/NoJdj8OgW4u2qMBCxWLfOHvu7LzZs9AWEA=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.151.0", "", {}, "sha512-J1yXrIlNDZVzE3ada310xeAw7nH8yCAyLPuUIsjKatFPmfn5bS1oW+cM+QsGOtVWd5nhSpbwZWx/rue+r5Z+PA=="],
 
