@@ -1,0 +1,6 @@
+.icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    mask: var(--icon) center / contain no-repeat;
+}

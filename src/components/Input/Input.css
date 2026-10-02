@@ -1,0 +1,111 @@
+.input {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.input__label {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+/* Граница — inset-тенью, а не border: в Figma обводка внутренняя и не сдвигает содержимое,
+   поэтому переход 1 px → 2 px в фокусе не должен двигать текст */
+.input__control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 12px 0 16px;
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border-control);
+    transition: box-shadow 0.15s;
+}
+
+.input__control:focus-within {
+    box-shadow: inset 0 0 0 2px var(--color-focus);
+}
+
+.input--error .input__control {
+    box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.input--error .input__control:focus-within {
+    box-shadow: inset 0 0 0 2px var(--color-error);
+}
+
+.input__field {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    font: var(--font-body);
+    color: var(--color-text-primary);
+    text-overflow: ellipsis;
+}
+
+/* Фокус показывает рамка .input__control, общий outline из global.css здесь лишний */
+.input__field:focus-visible {
+    outline: none;
+}
+
+.input__field::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+}
+
+/* В макете у поля в фокусе подсказки нет */
+.input__field:focus::placeholder {
+    color: transparent;
+}
+
+.input__reveal {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+/* Зона нажатия 32×32 вокруг иконки 18×18 — без влияния на раскладку */
+.input__reveal::before {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 8px;
+}
+
+.input__reveal:hover:not(:disabled) {
+    color: var(--color-text-primary);
+}
+
+.input__reveal:focus-visible {
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.input__message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: var(--font-caption);
+    color: var(--color-error);
+}
+
+.input--disabled {
+    opacity: 0.5;
+}
+
+.input--disabled .input__reveal {
+    cursor: default;
+}
