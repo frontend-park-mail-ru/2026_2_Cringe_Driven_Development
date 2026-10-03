@@ -81,6 +81,36 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 > Ветку, созданную руками (`git switch -c web-12 origin/main`), с задачей свяжет
 > та же строка `Closes …` — поэтому она обязательна всегда
 
+## Выкатка
+
+Клиент собирается в CI и выкатывается в S3 неизменяемыми релизами; откат — смена указателя.
+Шаги выкатки — в `.github/scripts/release.sh`
+
+| Workflow | Когда | Что делает |
+|---|---|---|
+| `CI` | pull request и push в `main` | `bun run check` и `bun run build` |
+| `CI` → `Upload release`, `CD` | push в `main` | сборка с `base` на CDN → `releases/{sha}/` → `index.html` и `current.json` → health check → в S3 остаются 5 релизов → сообщение в Telegram |
+| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow` из `main` | возвращает релиз `previous`, `stable` и `previous` меняются местами |
+
+В бакете: `releases/{sha}/` — сборка, корневой `index.html` — копия `index.html` текущего релиза,
+`current.json` — `{ "stable": "{sha}", "previous": "{sha}" }`. Повторный `Rollback` возвращает
+откаченный релиз обратно
+
+Выкатка и откат работают в environment `production` (`Settings` → `Environments`), доступном
+только из `main`:
+
+| Что | Имя | Откуда (`pulumi stack output` в `infra`) |
+|---|---|---|
+| секрет | `S3_ACCESS_KEY` | `s3AccessKey --show-secrets` |
+| секрет | `S3_SECRET_KEY` | `s3SecretKey --show-secrets` |
+| переменная | `S3_ENDPOINT` | `s3Endpoint` |
+| переменная | `S3_BUCKET` | `s3Bucket` |
+| переменная | `CDN_URL` | `cdnDefaultDomain` |
+
+> [!WARNING]
+> Ключ S3 действует на весь проект Selectel, а не только на бакет релизов: ограничение
+> environment веткой `main` снимать нельзя
+
 ## Типы коммитов
 
 > [!NOTE]
