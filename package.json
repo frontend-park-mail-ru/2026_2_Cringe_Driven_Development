@@ -11,9 +11,11 @@
         "fmt": "oxfmt",
         "fmt:check": "oxfmt --check",
         "typecheck": "tsc --noEmit",
+        "generate": "openapi-cdd spec/openapi.json -o src/api/schema.ts",
         "check": "bun run fmt:check && bun run lint && bun run typecheck"
     },
     "dependencies": {
+        "@iredtea/openapi": "^0.1.0",
         "@maninthecoat/react": "^1.2.0",
         "@maninthecoat/zustand": "^1.0.0"
     },

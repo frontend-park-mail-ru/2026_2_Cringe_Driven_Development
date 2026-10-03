@@ -6,7 +6,7 @@ export default defineConfig({
         correctness: 'error',
         suspicious: 'warn',
     },
-    ignorePatterns: ['dist/', 'node_modules/'],
+    ignorePatterns: ['dist/', 'node_modules/', 'src/api/schema.ts'],
     rules: {
         'react-hooks/rules-of-hooks': 'error',
         'react-hooks/exhaustive-deps': 'error',

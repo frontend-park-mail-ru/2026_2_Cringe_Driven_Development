@@ -22,8 +22,12 @@
     animation: toast-in 0.2s ease-out;
 }
 
-.toast__icon {
+.toast--success .toast__icon {
     color: var(--color-success);
+}
+
+.toast--error .toast__icon {
+    color: var(--color-error);
 }
 
 .toast__text {
