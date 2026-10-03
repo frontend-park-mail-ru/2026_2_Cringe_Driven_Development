@@ -1,9 +1,4 @@
 /**
- * Иконки макета (Components → icon/*). Геометрия перенесена из Figma как есть;
- * eyeSlash («пароль показан») — из прототипа ментора, в Figma её нет.
- *
- * @maninthecoat/react создаёт узлы через document.createElement, а не createElementNS, поэтому
- * inline-SVG в JSX не рисуется. Иконки подключаются как CSS-маска: форма — из SVG, цвет — currentColor.
  * @module components/Icon/icons
  */
 
@@ -20,7 +15,6 @@ const EYE_BODY =
 /** Исходники иконок: размер сетки и разметка SVG. */
 const SOURCES = {
     eye: svg(18, EYE_BODY),
-    // «Пароль показан»: глаз с косой чертой, как в прототипе
     eyeSlash: svg(18, `${EYE_BODY}<path d="m3 15 12-12"${stroke(1.3)}/>`),
     alert: svg(
         16,

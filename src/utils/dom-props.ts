@@ -1,10 +1,5 @@
 /**
- * Атрибуты, которых нет в JSX-типах @maninthecoat/react (autocomplete, autocapitalize, spellcheck…).
- *
- * Рантайм библиотеки умеет их ставить: имя, которое есть у DOM-узла, записывается свойством,
- * остальное — через setAttribute. Не хватает только типов. Аугментация JSX.IntrinsicElements умеет
- * добавлять новые теги, но не новые атрибуты существующим: свойство `input` уже объявлено, а повторное
- * объявление обязано иметь тот же тип. Поэтому атрибуты передаются через spread значения типа `object`.
+ * Атрибуты, которых нет в JSX-типах @maninthecoat/react (autocomplete, autocapitalize, spellcheck...).
  *
  * @example
  * <input {...domProps({ autocomplete: 'username', spellcheck: false })} />

@@ -10,14 +10,11 @@ interface InputProps {
     label: string;
     /** Text — обычное поле, Password — с кнопкой показа пароля */
     type?: 'text' | 'password';
-    /** Имя поля в форме (по нему браузер подставляет сохранённые данные) */
+    /** Имя поля в форме */
     name: string;
-    /**
-     * Текущее значение. Поле обновляет DOM, только когда это значение меняется, поэтому
-     * «отклонить» ввод, оставив прежнее значение, не получится — так работает @maninthecoat/react
-     */
+    /** Текущее значение. */
     value: string;
-    /** Подсказка внутри пустого поля; в фокусе прячется, как на экранах «Пустая форма» в макете */
+    /** Подсказка внутри пустого поля */
     placeholder?: string;
     /** Текст ошибки: красная граница, иконка и сообщение под полем */
     error?: string;
@@ -25,7 +22,7 @@ interface InputProps {
     disabled?: boolean;
     /** Значение атрибута autocomplete */
     autocomplete: string;
-    /** id подсказки вне поля, которую скринридер прочитает вместе с ним (требования к паролю) */
+    /** id подсказки вне поля, которую скринридер прочитает вместе с ним */
     describedBy?: string;
     /** Только для Password: пароль показан открытым текстом */
     revealed?: boolean;
@@ -38,7 +35,7 @@ interface InputProps {
 }
 
 /**
- * Поле ввода из макета (Components → Input): подпись сверху, поле 48 px, ошибка снизу.
+ * Поле ввода из макета (Components → Input).
  * @param props свойства поля
  * @returns разметка поля
  */
@@ -65,8 +62,6 @@ export function Input({
     if (disabled) classes.push('input--disabled');
     const describedByIds = [error ? errorId : '', describedBy ?? ''].filter(Boolean).join(' ');
 
-    // Все дети с key: библиотека выкидывает из списка false/null, и без ключей
-    // появление ошибки пересоздавало бы соседние узлы (и сбрасывало фокус)
     return (
         <div className={classes.join(' ')}>
             <label key="label" className="input__label" htmlFor={id}>

@@ -6,7 +6,7 @@ export type ToastType = 'success' | 'info';
 
 /** Сообщение тоста. */
 export interface ToastMessage {
-    /** Уникален для каждого показа: повтор того же текста снова проигрывает появление */
+    /** Уникален для каждого показа */
     id: number;
     /** Success — действие удалось, Info — просто сообщение */
     type: ToastType;
@@ -23,14 +23,12 @@ interface ToastProps {
 }
 
 /**
- * Тост внизу по центру экрана (Components → Toast). Когда скрывать — решает тот, кто показывает.
- * Область role="status" смонтирована всегда: так скринридер озвучивает каждое новое сообщение.
+ * Тост внизу по центру экрана (Components → Toast).
  * @param props свойства тоста
  * @returns область уведомлений
  */
 export function Toast({ toast }: ToastProps) {
     return (
-        // Тега output, который советует линтер, нет в JSX-типах @maninthecoat/react
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
         <div className="toast-region" role="status" aria-live="polite">
             {toast ? (

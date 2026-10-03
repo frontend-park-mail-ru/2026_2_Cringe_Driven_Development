@@ -17,8 +17,7 @@ interface PasswordRuleProps {
 }
 
 /**
- * Требование к паролю (Components → PasswordRule). Цвет всегда дублируется иконкой,
- * а для скринридера — словами «выполнено» / «не выполнено».
+ * Требование к паролю (Components → PasswordRule).
  * @param props свойства требования
  * @returns строка требования
  */

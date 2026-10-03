@@ -10,8 +10,6 @@
     color: var(--color-text-secondary);
 }
 
-/* Граница — inset-тенью, а не border: в Figma обводка внутренняя и не сдвигает содержимое,
-   поэтому переход 1 px → 2 px в фокусе не должен двигать текст */
 .input__control {
     display: flex;
     align-items: center;
@@ -49,7 +47,6 @@
     text-overflow: ellipsis;
 }
 
-/* Фокус показывает рамка .input__control, общий outline из global.css здесь лишний */
 .input__field:focus-visible {
     outline: none;
 }
@@ -59,7 +56,6 @@
     opacity: 0.7;
 }
 
-/* В макете у поля в фокусе подсказки нет */
 .input__field:focus::placeholder {
     color: transparent;
 }
@@ -77,7 +73,6 @@
     cursor: pointer;
 }
 
-/* Зона нажатия 32×32 вокруг иконки 18×18 — без влияния на раскладку */
 .input__reveal::before {
     content: '';
     position: absolute;
