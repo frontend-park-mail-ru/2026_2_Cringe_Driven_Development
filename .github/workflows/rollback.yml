@@ -15,7 +15,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-    # общая очередь с CD: указатель релиза меняет кто-то один
+    # указатель релиза меняет кто-то один: группа общая с CD. Очереди в ней нет — ожидает
+    # один запуск, более новый его вытесняет (README, «Выкатка»)
     concurrency:
       group: production
       cancel-in-progress: false
@@ -27,13 +28,26 @@ jobs:
       CDN_URL: ${{ vars.CDN_URL }}
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      - name: Find previous release
+        id: previous
+        run: bun run release previous
+      # как и в выкатке, релиз проверяется до переключения
+      - name: Release check
+        env:
+          SHA: ${{ steps.previous.outputs.sha }}
+        run: bun run release check "$SHA"
       - name: Switch release pointer
-        id: switch
-        run: .github/scripts/release.sh rollback
+        env:
+          SHA: ${{ steps.previous.outputs.sha }}
+        run: bun run release rollback "$SHA"
       - name: Health check
         env:
-          SHA: ${{ steps.switch.outputs.sha }}
-        run: .github/scripts/release.sh health "$SHA"
+          SHA: ${{ steps.previous.outputs.sha }}
+        run: bun run release health "$SHA"
       - name: Send to tg
         if: always()
         env:
@@ -41,5 +55,5 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
           STATUS: ${{ job.status }}
-          SHA: ${{ steps.switch.outputs.sha }}
-        run: .github/scripts/release.sh notify Откат "$STATUS" "$SHA"
+          SHA: ${{ steps.previous.outputs.sha }}
+        run: bun run release notify Откат "$STATUS" "$SHA"

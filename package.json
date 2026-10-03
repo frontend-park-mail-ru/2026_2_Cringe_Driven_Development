@@ -6,17 +6,20 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
+        "release": "bun scripts/release/index.ts",
         "lint": "oxlint",
         "lint:fix": "oxlint --fix",
         "fmt": "oxfmt",
         "fmt:check": "oxfmt --check",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
         "check": "bun run fmt:check && bun run lint && bun run typecheck"
     },
     "dependencies": {
         "@maninthecoat/react": "^1.2.0"
     },
     "devDependencies": {
+        "@aws-sdk/client-s3": "^3.1146.0",
+        "@types/bun": "^1.4.2",
         "oxfmt": "^0.71.0",
         "oxlint": "^1.86.0",
         "typescript": "^7.0.2",

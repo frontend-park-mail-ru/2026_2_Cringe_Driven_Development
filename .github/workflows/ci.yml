@@ -8,8 +8,9 @@ on:
 permissions:
   contents: read
 
-# в PR новый коммит отменяет проверку старого; запуски main идут по очереди и не отменяются,
-# чтобы релизы выкатывались в порядке коммитов
+# в PR новый коммит отменяет проверку старого. В main идущий запуск не отменяется, но очереди нет:
+# группа держит один ожидающий запуск, более новый push его вытесняет. Для выкатки это допустимо —
+# поздний коммит включает ранний
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -56,21 +57,22 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
-        run: .github/scripts/release.sh upload "$GITHUB_SHA"
+        run: bun run release upload "$GITHUB_SHA"
       - name: Send to tg
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
-        run: .github/scripts/release.sh notify Выкатка failure "$GITHUB_SHA"
+        run: bun run release notify Выкатка failure "$GITHUB_SHA"
 
   cd:
     name: CD
     needs: upload
     runs-on: ubuntu-latest
     environment: production
-    # общая очередь с Rollback: указатель релиза меняет кто-то один
+    # указатель релиза меняет кто-то один: группа общая с Rollback. Очереди в ней нет — ожидает
+    # один запуск, более новый его вытесняет (README, «Выкатка»)
     concurrency:
       group: production
       cancel-in-progress: false
@@ -82,12 +84,19 @@ jobs:
       CDN_URL: ${{ vars.CDN_URL }}
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      # релиз проверяется до переключения: сломанный не становится stable
+      - name: Release check
+        run: bun run release check "$GITHUB_SHA"
       - name: Promote to stable
-        run: .github/scripts/release.sh promote "$GITHUB_SHA"
+        run: bun run release promote "$GITHUB_SHA"
       - name: Health check
-        run: .github/scripts/release.sh health "$GITHUB_SHA"
+        run: bun run release health "$GITHUB_SHA"
       - name: Retention
-        run: .github/scripts/release.sh retention
+        run: bun run release retention
       - name: Send to tg
         if: always()
         env:
@@ -95,4 +104,4 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
           STATUS: ${{ job.status }}
-        run: .github/scripts/release.sh notify Выкатка "$STATUS" "$GITHUB_SHA"
+        run: bun run release notify Выкатка "$STATUS" "$GITHUB_SHA"
