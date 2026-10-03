@@ -129,7 +129,7 @@ Release check. Откатывались как раз от этого кода �
 | секрет | `S3_SECRET_KEY` | `s3SecretKey --show-secrets` |
 | переменная | `S3_ENDPOINT` | `s3Endpoint` |
 | переменная | `S3_BUCKET` | `s3Bucket` |
-| переменная | `CDN_URL` | `cdnDefaultDomain` |
+| переменная | `CDN_URL` | `cdnCustomDomain` |
 
 > [!WARNING]
 > Ключ S3 действует на весь проект Selectel, а не только на бакет релизов: ограничение
