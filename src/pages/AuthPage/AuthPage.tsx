@@ -76,7 +76,7 @@ export function AuthPage() {
                         </p>
                         <Link
                             key="switch"
-                            to={isRegister ? '/login' : '/register'}
+                            to={showRegister ? '/login' : '/register'}
                             className={buttonClassName('inverse')}
                         >
                             {showRegister ? 'Войти' : 'Создать аккаунт'}

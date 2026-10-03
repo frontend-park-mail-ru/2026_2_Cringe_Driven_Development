@@ -55,6 +55,7 @@ export function Button({
             className={className}
             type={type}
             aria-busy={loading ? 'true' : undefined}
+            aria-disabled={loading ? 'true' : undefined}
             onClick={(event) => {
                 // В макете кнопка в загрузке выглядит активной, но повторно срабатывать не должна
                 if (loading) {

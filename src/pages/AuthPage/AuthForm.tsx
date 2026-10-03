@@ -45,6 +45,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     const [serverErrors, setServerErrors] = useState<FieldTexts>({});
     const [revealed, setRevealed] = useState({ password: false, confirm: false });
     const [focusRequest, setFocusRequest] = useState<{ field: Field }>({ field: 'login' });
+    const [life] = useState({ alive: true });
 
     const fieldId = (field: Field) => `${mode}-${field}`;
 
@@ -52,7 +53,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         document.getElementById(`${mode}-${focusRequest.field}`)?.focus();
     }, [mode, focusRequest]);
 
-    useEffect(() => hideSnackbar, []);
+    useEffect(
+        () => () => {
+            life.alive = false;
+            hideSnackbar();
+        },
+        [life],
+    );
 
     const validationErrors: FieldTexts = {
         login: validateLogin(values.login),
@@ -90,9 +97,10 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         if (result.ok) {
             if (isRegister) showToast('Аккаунт создан');
-            navigate({ to: '/' });
+            navigate({ to: '/', replace: true });
             return;
         }
+        if (!life.alive) return;
 
         setPending(false);
         const message = authErrorMessage(result.error, mode);
@@ -107,9 +115,11 @@ export function AuthForm({ mode }: AuthFormProps) {
                 break;
             case 'validation_error':
                 showSnackbar(message);
+                setFocusRequest({ field: 'password' });
                 break;
             default:
                 showSnackbar(message, { label: 'Повторить', onClick: () => void send() });
+                setFocusRequest({ field: 'password' });
         }
     };
 

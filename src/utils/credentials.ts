@@ -64,7 +64,7 @@ export function authErrorMessage(error: AuthError, mode: AuthMode): string {
         case 'invalid_credentials':
             return 'Неверный логин или пароль';
         case 'login_taken':
-            return 'Этот логин уже занят. Войдите или выберите другой';
+            return 'Логин уже занят. Выберите другой';
         case 'validation_error':
             return error.message ?? 'Проверьте логин и пароль';
         case 'network':
