@@ -1,7 +1,7 @@
 import { createRoot } from '@maninthecoat/react';
 
-import { RouterProvider } from './router';
-import { router } from './routes';
+import { RouterProvider } from './modules/router';
+import { router } from './router';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Не найден элемент #root');

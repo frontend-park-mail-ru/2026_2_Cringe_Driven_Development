@@ -62,9 +62,10 @@ export interface RouterState {
 }
 
 /**
- * Регистрация роутера для вывода типов путей и параметров:
+ * Регистрация роутера для вывода типов путей и параметров. Блок лежит в `src/router.ts`
+ * рядом с `createRouter`:
  *
- *     declare module './router' {
+ *     declare module './modules/router' {
  *         interface Register { router: typeof router }
  *     }
  */

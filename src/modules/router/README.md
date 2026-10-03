@@ -5,8 +5,11 @@
 
 ## Быстрый старт
 
+Маршруты описываются в `src/routes/`, по файлу на раздел, и собираются в дерево:
+
 ```tsx
-import { createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from './router';
+// src/routes/routeTree.tsx
+import { createRootRoute, createRoute, Outlet } from '../modules/router';
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -23,21 +26,39 @@ const notebookRoute = createRoute({
     component: NotebookPage,
 });
 
-const routeTree = rootRoute.addChildren([notebooksRoute.addChildren([notebookRoute])]);
+export const routeTree = rootRoute.addChildren([notebooksRoute.addChildren([notebookRoute])]);
+```
+
+Экземпляр роутера и регистрация типов живут вместе в `src/router.ts`:
+
+```ts
+// src/router.ts
+import { createRouter } from './modules/router';
+import { routeTree } from './routes/routeTree';
 
 export const router = createRouter({ routeTree });
 
 // Регистрация включает проверку путей и параметров в Link, navigate и хуках
-declare module './router' {
+declare module './modules/router' {
     interface Register {
         router: typeof router;
     }
 }
+```
+
+```tsx
+// src/main.tsx
+import { RouterProvider } from './modules/router';
+import { router } from './router';
 
 createRoot(container).render(<RouterProvider router={router} />);
 ```
 
-Маршруты приложения объявлены в [`src/routes.tsx`](../routes.tsx).
+Маршруты приложения объявлены в [`src/routes/`](../../routes), страницы и лейауты — в
+[`src/pages/`](../../pages) и [`src/layouts/`](../../layouts).
+
+Снаружи модуль импортируется только через `index.ts` (`./modules/router`), без импортов вида
+`./modules/router/path`: при выносе роутера в npm-пакет поменяется только путь импорта.
 
 ## Пути
 
