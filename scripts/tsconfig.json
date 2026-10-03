@@ -1,0 +1,9 @@
+{
+    // скрипты выполняет bun, а не браузер: свои типы окружения, без DOM и JSX клиента
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "lib": ["ESNext"],
+        "types": ["bun"]
+    },
+    "include": ["release"]
+}
