@@ -1,5 +1,8 @@
 /* Геометрия — из макета «01. Вход» и «02. Регистрация» */
 .auth {
+    --sweep: 0ms;
+    position: relative;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -18,6 +21,7 @@
     overflow: hidden;
     background: var(--color-surface-solid);
     box-shadow: var(--shadow-popover);
+    container-type: inline-size;
 }
 
 .auth__card::after {
@@ -29,7 +33,7 @@
     pointer-events: none;
 }
 
-.auth--register .auth__card {
+.auth--show-register .auth__card {
     flex-direction: row-reverse;
 }
 
@@ -51,18 +55,28 @@
     min-width: 0;
 }
 
+/* Вход: левый край луны на границе половин (544 из 996), регистрация: правый (452 из 996) */
 .auth__moon {
     position: absolute;
     top: 50%;
-    margin-top: -300px;
-}
-
-.auth--login .auth__moon {
     left: 0;
+    margin-top: -300px;
+    transform: translateX(calc(100cqw * 544 / 996));
+    transition: transform var(--sweep) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .auth--register .auth__moon {
-    right: 0;
+    transform: translateX(calc(100cqw * 452 / 996 - 600px));
+}
+
+.auth__form,
+.auth__face {
+    transition: opacity calc(var(--sweep) / 4) ease;
+}
+
+.auth--fading .auth__form,
+.auth--fading .auth__face {
+    opacity: 0;
 }
 
 .auth__face {
@@ -104,7 +118,7 @@
     }
 
     .auth__card,
-    .auth--register .auth__card {
+    .auth--show-register .auth__card {
         flex-direction: column;
         min-height: 0;
     }
@@ -119,12 +133,12 @@
         height: 240px;
     }
 
-    .auth--login .auth__moon,
+    .auth__moon,
     .auth--register .auth__moon {
-        top: 24px;
+        top: calc(100% - 216px);
         left: 50%;
-        right: auto;
         margin: 0 0 0 -300px;
+        transform: none;
     }
 
     .auth__face {
