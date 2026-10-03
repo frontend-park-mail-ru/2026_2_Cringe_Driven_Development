@@ -4,10 +4,17 @@ import type { AuthError } from '../stores/session';
 const LOGIN_PATTERN = /^[a-zA-Z0-9_]+$/;
 const LOGIN_MIN = 3;
 const LOGIN_MAX = 32;
+const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 72;
 
-/** Минимальная длина пароля. */
-export const PASSWORD_MIN = 8;
+/** Вход или регистрация. */
+export type AuthMode = 'login' | 'register';
+
+/** Требование к логину: подсказка при регистрации и текст ошибки. */
+export const LOGIN_RULE = 'От 3 до 32 символов: a–z, A–Z, 0–9 и _';
+
+/** Требование к паролю: подсказка при регистрации. */
+export const PASSWORD_RULE = `Не меньше ${PASSWORD_MIN} символов`;
 
 /**
  * Проверяет логин.
@@ -17,7 +24,7 @@ export const PASSWORD_MIN = 8;
 export function validateLogin(login: string): string | undefined {
     if (login === '') return 'Введите логин';
     if (login.length < LOGIN_MIN || login.length > LOGIN_MAX || !LOGIN_PATTERN.test(login)) {
-        return 'От 3 до 32 символов: a–z, A–Z, 0–9, _';
+        return LOGIN_RULE;
     }
     return undefined;
 }
@@ -49,9 +56,10 @@ export function validateConfirm(password: string, confirm: string): string | und
 /**
  * Текст ошибки входа или регистрации для пользователя.
  * @param error ошибка
+ * @param mode вход или регистрация
  * @returns текст ошибки
  */
-export function authErrorMessage(error: AuthError): string {
+export function authErrorMessage(error: AuthError, mode: AuthMode): string {
     switch (error.code) {
         case 'invalid_credentials':
             return 'Неверный логин или пароль';
@@ -60,8 +68,8 @@ export function authErrorMessage(error: AuthError): string {
         case 'validation_error':
             return error.message ?? 'Проверьте логин и пароль';
         case 'network':
-            return 'Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз';
+            return 'Нет связи с сервером';
         default:
-            return 'Что-то пошло не так. Попробуйте ещё раз';
+            return mode === 'register' ? 'Не удалось создать аккаунт' : 'Не удалось войти';
     }
 }

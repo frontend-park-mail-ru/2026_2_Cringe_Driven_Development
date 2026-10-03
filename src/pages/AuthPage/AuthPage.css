@@ -1,0 +1,133 @@
+/* Геометрия — из макета «01. Вход» и «02. Регистрация» */
+.auth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+    min-height: 100vh;
+    padding: 64px 120px 48px;
+}
+
+.auth__card {
+    position: relative;
+    display: flex;
+    width: 100%;
+    max-width: 996px;
+    min-height: 560px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: var(--color-surface-solid);
+    box-shadow: var(--shadow-popover);
+}
+
+.auth__card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--color-border);
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.auth--register .auth__card {
+    flex-direction: row-reverse;
+}
+
+.auth__form {
+    display: flex;
+    flex: 1 1 544px;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 48px;
+}
+
+.auth__side {
+    position: relative;
+    display: flex;
+    flex: 1 1 452px;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+}
+
+.auth__moon {
+    position: absolute;
+    top: 50%;
+    margin-top: -300px;
+}
+
+.auth--login .auth__moon {
+    left: 0;
+}
+
+.auth--register .auth__moon {
+    right: 0;
+}
+
+.auth__face {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: var(--color-on-light);
+    text-align: center;
+}
+
+.auth__face-title {
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+}
+
+.auth__face-pitch {
+    font: var(--font-caption);
+    white-space: pre-line;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.auth-form__title {
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+}
+
+/* Узкий экран: форма сверху, под ней восходит край луны */
+@media (max-width: 860px) {
+    .auth {
+        gap: 32px;
+        padding: 32px 16px;
+    }
+
+    .auth__card,
+    .auth--register .auth__card {
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .auth__form {
+        flex: none;
+        padding: 32px 24px;
+    }
+
+    .auth__side {
+        flex: none;
+        height: 240px;
+    }
+
+    .auth--login .auth__moon,
+    .auth--register .auth__moon {
+        top: 24px;
+        left: 50%;
+        right: auto;
+        margin: 0 0 0 -300px;
+    }
+
+    .auth__face {
+        margin-top: 24px;
+    }
+}

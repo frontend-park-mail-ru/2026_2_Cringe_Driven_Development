@@ -1,4 +1,4 @@
-.toast-region {
+.snackbar-region {
     position: fixed;
     z-index: 10;
     left: 50%;
@@ -6,10 +6,9 @@
     max-width: calc(100vw - 32px);
     bottom: 24px;
     transform: translateX(-50%);
-    pointer-events: none;
 }
 
-.toast {
+.snackbar {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -17,21 +16,36 @@
     border-radius: 12px;
     background: var(--color-surface-solid);
     box-shadow:
-        inset 0 0 0 1px var(--color-border),
+        inset 0 0 0 1px var(--color-error),
         var(--shadow-popover);
-    animation: toast-in 0.2s ease-out;
+    animation: snackbar-in 0.2s ease-out;
 }
 
-.toast__icon {
-    color: var(--color-success);
+.snackbar__icon {
+    color: var(--color-error);
 }
 
-.toast__text {
+.snackbar__text {
     font: var(--font-caption);
     color: var(--color-text-primary);
 }
 
-@keyframes toast-in {
+.snackbar__action {
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: var(--font-caption);
+    font-weight: 600;
+    color: var(--color-primary-text);
+    cursor: pointer;
+}
+
+.snackbar__action:hover {
+    color: var(--color-focus);
+}
+
+@keyframes snackbar-in {
     from {
         opacity: 0;
         transform: translateY(8px);
@@ -39,7 +53,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .toast {
+    .snackbar {
         animation: none;
     }
 }

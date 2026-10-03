@@ -26,6 +26,16 @@ interface ButtonProps {
 }
 
 /**
+ * Классы кнопки: нужны и ссылке, которая выглядит как кнопка.
+ * @param variant вид кнопки
+ * @param block растянуть на ширину родителя
+ * @returns строка классов
+ */
+export function buttonClassName(variant: ButtonVariant, block = false): string {
+    return ['button', `button--${variant}`, block ? 'button--block' : ''].filter(Boolean).join(' ');
+}
+
+/**
  * Кнопка высотой 44 px (размер M из макета).
  * @param props свойства кнопки
  * @returns элемент button
@@ -38,13 +48,11 @@ export function Button({
     block = false,
     onClick,
 }: ButtonProps) {
-    const classes = ['button', `button--${variant}`];
-    if (block) classes.push('button--block');
-    if (loading) classes.push('button--loading');
+    const className = buttonClassName(variant, block) + (loading ? ' button--loading' : '');
 
     return (
         <button
-            className={classes.join(' ')}
+            className={className}
             type={type}
             aria-busy={loading ? 'true' : undefined}
             onClick={(event) => {

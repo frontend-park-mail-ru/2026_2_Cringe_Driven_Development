@@ -1,0 +1,41 @@
+.moon {
+    position: relative;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    overflow: hidden;
+    background:
+        radial-gradient(circle 150px at 150px 150px, rgb(92 74 140 / 0.1) 44%, rgb(92 74 140 / 0)),
+        radial-gradient(circle 170px at 430px 430px, rgb(92 74 140 / 0.09) 44%, rgb(92 74 140 / 0)),
+        radial-gradient(circle 110px at 500px 120px, rgb(92 74 140 / 0.07) 44%, rgb(92 74 140 / 0)),
+        radial-gradient(circle 586px at 34% 28%, #fdfcff, #e5dff6 46%, #c0b7dc 82%, #a89ecb);
+    box-shadow:
+        0 0 90px -10px rgb(210 198 255 / 0.5),
+        inset -34px -30px 90px -36px rgb(90 70 150 / 0.6),
+        inset 0 0 46px -8px rgb(146 128 196 / 0.3);
+}
+
+.moon__crater {
+    /* Значения задаёт Moon.tsx через style; здесь — значения по умолчанию */
+    --x: 0px;
+    --y: 0px;
+    --size: 0px;
+    --depth: 1;
+    position: absolute;
+    left: calc(var(--x) - var(--size) / 2);
+    top: calc(var(--y) - var(--size) / 2);
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    background: radial-gradient(
+        circle calc(var(--size) * 0.75) at 52% 46%,
+        rgb(58 44 96 / 0.14),
+        rgb(58 44 96 / 0.05) 62%,
+        rgb(58 44 96 / 0) 80%
+    );
+    box-shadow:
+        inset calc(var(--size) * 0.16) calc(var(--size) * 0.18) calc(var(--size) * 0.22)
+            calc(var(--size) * -0.08) rgb(58 44 96 / calc(0.55 * var(--depth))),
+        inset calc(var(--size) * -0.1) calc(var(--size) * -0.12) calc(var(--size) * 0.2)
+            calc(var(--size) * -0.1) rgb(255 255 255 / calc(0.72 * var(--depth)));
+}

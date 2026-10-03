@@ -16,14 +16,14 @@ interface InputProps {
     value: string;
     /** Подсказка внутри пустого поля */
     placeholder?: string;
+    /** Подсказка под полем; ошибка показывается вместо неё */
+    hint?: string;
     /** Текст ошибки: красная граница, иконка и сообщение под полем */
     error?: string;
     /** Состояние Disabled: поле полупрозрачное и не редактируется */
     disabled?: boolean;
     /** Значение атрибута autocomplete */
     autocomplete: string;
-    /** id подсказки вне поля, которую скринридер прочитает вместе с ним */
-    describedBy?: string;
     /** Только для Password: пароль показан открытым текстом */
     revealed?: boolean;
     /** Только для Password: нажатие на «глаз» */
@@ -36,6 +36,7 @@ interface InputProps {
 
 /**
  * Поле ввода из макета (Components → Input).
+ * Под полем всегда есть строка под подсказку или ошибку, поэтому форма не прыгает при валидации.
  * @param props свойства поля
  * @returns разметка поля
  */
@@ -46,21 +47,20 @@ export function Input({
     name,
     value,
     placeholder,
+    hint,
     error,
     disabled = false,
     autocomplete,
-    describedBy,
     revealed = false,
     onToggleReveal,
     onValueChange,
     onBlur,
 }: InputProps) {
     const isPassword = type === 'password';
-    const errorId = `${id}-error`;
+    const messageId = `${id}-message`;
     const classes = ['input'];
     if (error) classes.push('input--error');
     if (disabled) classes.push('input--disabled');
-    const describedByIds = [error ? errorId : '', describedBy ?? ''].filter(Boolean).join(' ');
 
     return (
         <div className={classes.join(' ')}>
@@ -78,7 +78,7 @@ export function Input({
                     placeholder={placeholder ?? ''}
                     disabled={disabled}
                     aria-invalid={error ? true : undefined}
-                    aria-describedby={describedByIds || undefined}
+                    aria-describedby={error || hint ? messageId : undefined}
                     {...domProps({
                         autocomplete,
                         autocapitalize: 'none',
@@ -102,12 +102,18 @@ export function Input({
                     </button>
                 ) : null}
             </div>
-            {error ? (
-                <p key="message" id={errorId} className="input__message" role="alert">
-                    <Icon key="icon" name="alert" />
-                    <span key="text">{error}</span>
-                </p>
-            ) : null}
+            <p key="message" id={messageId} className="input__message">
+                {error ? <Icon key="icon" name="alert" /> : null}
+                {error ? (
+                    <span key="error" className="input__message-text" role="alert">
+                        {error}
+                    </span>
+                ) : (
+                    <span key="hint" className="input__message-text">
+                        {hint ?? ''}
+                    </span>
+                )}
+            </p>
         </div>
     );
 }
