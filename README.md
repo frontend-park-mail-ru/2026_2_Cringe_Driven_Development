@@ -34,12 +34,8 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 [Cringe-Driven-Development-Team/frontend](https://github.com/Cringe-Driven-Development-Team/frontend)
 и на общей [доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1) вместе с бэковыми
 
-1. **Завести задачу.** На доске в нужной колонке `+ Add item` → ввести `#` →
-   выбрать `frontend` → `Create new issue`
-
-> [!WARNING]
-> Текст без `#` создаёт черновик: он живёт только на доске, из него нельзя создать ветку,
-> и pull request его не закроет
+1. **Завести задачу** в репозитории `frontend`. Как завести и что писать в описании —
+   в [гайдлайне организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md#как-завести)
 
 2. **Взять задачу.** На доске выбрать карточку из `Ready`, поставить себя
    в `Assignees`, перевести в `In progress`
@@ -72,7 +68,8 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
    Closes Cringe-Driven-Development-Team/frontend#12
    ```
 
-   Короткое `Closes #12` сошлётся на этот репозиторий, и задача не закроется.
+   Почему ссылка полная и что писать, если задача затрагивает ещё один репозиторий, —
+   в [гайдлайне](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md#как-закрыть).
    Убедиться, что в правой колонке PR в блоке `Development` указана задача
 
 6. **Получить апрув** от [Ярослава](https://t.me/Yaroslav738)
