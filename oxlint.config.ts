@@ -12,5 +12,17 @@ export default defineConfig({
         'react-hooks/exhaustive-deps': 'error',
         'react/jsx-key': 'error',
         'react/react-in-jsx-scope': 'off',
+        // Модули из src/modules импортируются только через их index.ts
+        'no-restricted-imports': [
+            'error',
+            {
+                patterns: [
+                    {
+                        group: ['**/modules/*/*'],
+                        message: 'Импортируй модуль через его index.ts: ./modules/<имя>',
+                    },
+                ],
+            },
+        ],
     },
 });
