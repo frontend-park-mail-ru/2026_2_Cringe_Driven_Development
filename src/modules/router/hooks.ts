@@ -59,12 +59,22 @@ export function useRouterState(options?: { select: (state: RouterState) => unkno
     return selected;
 }
 
+// Селекторы объявлены на уровне модуля: стрелочная функция в теле хука менялась бы на каждом
+// рендере и заставляла бы эффект в useRouterState переподписываться
 function selectState(state: RouterState): RouterState {
     return state;
 }
 
+function selectLocation(state: RouterState): ParsedLocation {
+    return state.location;
+}
+
+function selectMatches(state: RouterState): RouteMatch[] {
+    return state.matches;
+}
+
 export function useLocation(): ParsedLocation {
-    return useRouterState({ select: (state) => state.location });
+    return useRouterState({ select: selectLocation });
 }
 
 export function useNavigate(): RegisteredRouter['navigate'] {
@@ -72,7 +82,7 @@ export function useNavigate(): RegisteredRouter['navigate'] {
 }
 
 export function useMatches(): RouteMatch[] {
-    return useRouterState({ select: (state) => state.matches });
+    return useRouterState({ select: selectMatches });
 }
 
 /** Совпадение маршрута `from`, а без него — ближайшего к компоненту */
