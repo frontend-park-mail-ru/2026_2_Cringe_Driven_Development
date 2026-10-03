@@ -8,23 +8,35 @@
 Маршруты описываются в `src/routes/`, по файлу на раздел, и собираются в дерево:
 
 ```tsx
-// src/routes/routeTree.tsx
-import { createRootRoute, createRoute, Outlet } from '../modules/router';
+// src/routes/root.tsx
+import { createRootRoute, Outlet } from '../modules/router';
 
-const rootRoute = createRootRoute({ component: () => <Outlet /> });
+export const rootRoute = createRootRoute({ component: () => <Outlet /> });
+```
 
-const notebooksRoute = createRoute({
+```tsx
+// src/routes/notebooks.tsx
+import { createRoute } from '../modules/router';
+import { rootRoute } from './root';
+
+export const notebooksRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: 'notebooks',
     component: NotebooksLayout, // внутри — <Outlet />
 });
 
-const notebookRoute = createRoute({
+export const notebookRoute = createRoute({
     getParentRoute: () => notebooksRoute,
     path: '$notebookId',
     loader: ({ params }) => fetchNotebook(params.notebookId),
     component: NotebookPage,
 });
+```
+
+```ts
+// src/routes/routeTree.ts
+import { notebookRoute, notebooksRoute } from './notebooks';
+import { rootRoute } from './root';
 
 export const routeTree = rootRoute.addChildren([notebooksRoute.addChildren([notebookRoute])]);
 ```
