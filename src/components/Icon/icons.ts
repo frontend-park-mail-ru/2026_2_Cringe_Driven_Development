@@ -20,10 +20,6 @@ const SOURCES = {
         16,
         `<circle cx="8" cy="8" r="6.3"${stroke(1.3)}/><path d="M8 4.9v3.6M8 11v.1"${stroke(1.6)}/>`,
     ),
-    info: svg(
-        16,
-        `<circle cx="8" cy="8" r="6.3"${stroke(1.3)}/><path d="M8 7.3v3.8M8 4.9v.1"${stroke(1.6)}/>`,
-    ),
     check: svg(16, `<path d="M3.5 8.4l2.9 2.9 6.1-6.3"${stroke(1.6)}/>`),
     cross: svg(16, `<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"${stroke(1.6)}/>`),
     dot: svg(16, '<circle cx="8" cy="8" r="2" fill="#000"/>'),

@@ -8,10 +8,7 @@
     /* Поверхности */
     --color-bg: #05030f;
     --color-surface: rgb(255 255 255 / 0.04);
-    --color-surface-hover: rgb(255 255 255 / 0.07);
     --color-surface-solid: #120c2c;
-    --color-code-bg: rgb(3 2 12 / 0.5);
-    --color-overlay: rgb(5 3 15 / 0.72);
 
     /* Границы */
     --color-border: rgb(255 255 255 / 0.08);
@@ -20,19 +17,15 @@
     /* Акцент */
     --color-primary: #7a5af8;
     --color-primary-deep: #6543f5;
-    --color-primary-text: #8b6cff;
     --color-focus: #a48cff;
-    --color-secondary: #d08bff;
 
     /* Текст */
     --color-text-primary: #ece9ff;
     --color-text-secondary: #a09ac0;
-    --color-text-disabled: #6f6990;
     --color-on-primary: #ffffff;
 
     /* Статусы */
     --color-success: #5ef0a8;
-    --color-warning: #ffc98a;
     --color-error: #ff9a9a;
 
     /* «Луна»: светлая поверхность, тёмный текст */
