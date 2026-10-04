@@ -1,6 +1,7 @@
 import type { ReactNode } from '@maninthecoat/react';
 import { clsx } from '@modules/clsx';
 import { Icon } from '@components/Icon/Icon';
+import type { IconName } from '@components/Icon/icons';
 import './Button.css';
 
 /**
@@ -22,6 +23,8 @@ interface ButtonProps {
     loading?: boolean;
     /** Растянуть на ширину родителя */
     block?: boolean;
+    /** Иконка перед текстом (свойство Icon в макете) */
+    icon?: IconName;
     /** Нажатие; во время загрузки не вызывается */
     onClick?: (event: MouseEvent) => void;
 }
@@ -47,6 +50,7 @@ export function Button({
     type = 'button',
     loading = false,
     block = false,
+    icon,
     onClick,
 }: ButtonProps) {
     const className = clsx(buttonClassName(variant, block), { 'button--loading': loading });
@@ -67,6 +71,7 @@ export function Button({
             }}
         >
             {loading && <Icon key="spinner" name="spinner" className="button__spinner" />}
+            {icon && !loading && <Icon key="icon" name={icon} size={14} />}
             <span key="label">{children}</span>
         </button>
     );

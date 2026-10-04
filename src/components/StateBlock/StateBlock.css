@@ -1,0 +1,29 @@
+.state-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 792px;
+    margin: 0 auto;
+    padding: 56px 24px;
+    border: 1px dashed var(--color-border-control);
+    border-radius: 16px;
+    background: var(--color-surface);
+    text-align: center;
+}
+
+.state-block__title {
+    font: var(--font-body-accent);
+}
+
+.state-block__description {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.state-block__actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 8px;
+}

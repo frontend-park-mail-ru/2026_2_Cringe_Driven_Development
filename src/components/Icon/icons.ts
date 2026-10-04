@@ -20,6 +20,7 @@ const SOURCES = {
         16,
         `<circle cx="8" cy="8" r="6.3"${stroke(1.3)}/><path d="M8 4.9v3.6M8 11v.1"${stroke(1.6)}/>`,
     ),
+    plus: svg(14, `<path d="M7 1.5v11M1.5 7h11"${stroke(1.8)}/>`),
     check: svg(16, `<path d="M3.5 8.4l2.9 2.9 6.1-6.3"${stroke(1.6)}/>`),
     spinner: svg(16, `<path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2"${stroke(1.8)}/>`),
 } as const;

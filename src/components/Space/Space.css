@@ -1,6 +1,7 @@
 .space {
     position: absolute;
     inset: 0;
+    max-height: 1600px;
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
@@ -55,6 +56,10 @@
     box-shadow:
         0 -26px 90px -6px rgb(139 108 255 / 0.55),
         0 -2px 18px rgb(230 215 255 / 0.45);
+}
+
+.space--home .space__planet {
+    top: 330px;
 }
 
 .space__surface {

@@ -22,13 +22,20 @@ function makeStars() {
 
 const STARS = makeStars();
 
+/** Свойства {@link Space}. */
+interface SpaceProps {
+    /** Вариант из макета: auth — планета ниже карточки входа, home — под заголовком главной */
+    variant?: 'auth' | 'home';
+}
+
 /**
  * Фон «Космос». Декоративный.
+ * @param props свойства фона
  * @returns фон
  */
-export function Space() {
+export function Space({ variant = 'auth' }: SpaceProps) {
     return (
-        <div className="space" aria-hidden="true">
+        <div className={`space space--${variant}`} aria-hidden="true">
             <div key="glow" className="space__glow" />
             {STARS.map(({ x, y, size, opacity }, index) => (
                 <span
