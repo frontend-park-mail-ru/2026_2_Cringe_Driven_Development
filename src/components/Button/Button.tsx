@@ -1,4 +1,5 @@
 import type { ReactNode } from '@maninthecoat/react';
+import { clsx } from '../../modules/clsx';
 import { Icon } from '../Icon/Icon';
 import './Button.css';
 
@@ -32,7 +33,7 @@ interface ButtonProps {
  * @returns строка классов
  */
 export function buttonClassName(variant: ButtonVariant, block = false): string {
-    return ['button', `button--${variant}`, block ? 'button--block' : ''].filter(Boolean).join(' ');
+    return clsx('button', `button--${variant}`, { 'button--block': block });
 }
 
 /**
@@ -48,7 +49,7 @@ export function Button({
     block = false,
     onClick,
 }: ButtonProps) {
-    const className = buttonClassName(variant, block) + (loading ? ' button--loading' : '');
+    const className = clsx(buttonClassName(variant, block), { 'button--loading': loading });
 
     return (
         <button
