@@ -58,6 +58,21 @@ a.notebook-card:hover::before {
     background: var(--color-code-bg);
 }
 
+.notebook-card__code {
+    margin: 0;
+    font: var(--font-code);
+    color: var(--code-text);
+    white-space: pre;
+}
+
+.notebook-card__keyword {
+    color: #b79bff;
+}
+
+.notebook-card__number {
+    color: #ffc98a;
+}
+
 .notebook-card__body {
     display: flex;
     flex: 1;

@@ -10,6 +10,19 @@ interface NotebookCardProps {
 }
 
 /**
+ * Превью кода из макета (NotebookCard → State=Default). В списке блокнотов кода нет,
+ * поэтому превью у всех карточек одно.
+ */
+const PREVIEW_CODE = `def step(w, grad, lr=0.01):
+    return w - lr * grad
+
+for epoch in range(200):
+    w = step(w, loss_grad(w, X, y))`;
+
+/** Части превью. */
+const PREVIEW_PARTS = PREVIEW_CODE.split(/\b(def|return|for|in|\d+(?:\.\d+)?)\b/);
+
+/**
  * Свечение под курсором: координаты уходят в CSS-переменные карточки.
  * @param event движение указателя над карточкой
  */
@@ -36,7 +49,26 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
             title={notebook.name}
             onPointerMove={trackPointer}
         >
-            <div key="peek" className="notebook-card__peek" aria-hidden="true" />
+            <div key="peek" className="notebook-card__peek" aria-hidden="true">
+                <pre className="notebook-card__code">
+                    {PREVIEW_PARTS.map((part, index) =>
+                        index % 2 === 0 ? (
+                            part
+                        ) : (
+                            <span
+                                key={index}
+                                className={
+                                    /\d/.test(part)
+                                        ? 'notebook-card__number'
+                                        : 'notebook-card__keyword'
+                                }
+                            >
+                                {part}
+                            </span>
+                        ),
+                    )}
+                </pre>
+            </div>
             <div key="body" className="notebook-card__body">
                 <h2 key="title" className="notebook-card__title">
                     {notebook.name}
