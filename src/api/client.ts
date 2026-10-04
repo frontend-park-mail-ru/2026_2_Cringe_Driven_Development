@@ -13,6 +13,12 @@ export type ApiErrorCode = components['schemas']['Error']['code'];
 /** Блокнот в списке (схема NotebookSummary в Apidog). */
 export type NotebookSummary = components['schemas']['NotebookSummary'];
 
+/** Блокнот с ячейками (схема Notebook в Apidog). */
+export type Notebook = components['schemas']['Notebook'];
+
+/** Ячейка блокнота (схема Cell в Apidog). */
+export type Cell = components['schemas']['Cell'];
+
 /**
  * Клиент бэкенда.
  * authMiddleware хранит access-токен в памяти и после 401 обновляет его по refresh-cookie.

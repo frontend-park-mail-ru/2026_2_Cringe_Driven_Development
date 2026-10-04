@@ -1,0 +1,59 @@
+.cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 56px;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.cell__content {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font: var(--font-body);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.cell--code .cell__content {
+    font: var(--font-code);
+    color: var(--code-text);
+}
+
+.cell .cell__content--empty {
+    color: var(--color-text-secondary);
+}
+
+/* Строка кода ниже строки текста: подсказку ставим по центру ячейки */
+.cell--code .cell__content--empty {
+    padding: 2px 0;
+}
+
+/* Кнопка 36 px выше строки текста: отрицательные отступы не дают ей растянуть ячейку */
+.cell__delete {
+    margin: -6px -6px -6px 0;
+    background: none;
+    box-shadow: none;
+}
+
+.cell__delete:hover {
+    color: var(--color-error);
+}
+
+.cell--skeleton {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px;
+}
+
+.cell__bar {
+    display: block;
+    max-width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--color-surface-hover);
+}

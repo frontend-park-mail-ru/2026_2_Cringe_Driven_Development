@@ -1,0 +1,24 @@
+.chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    padding: 0 16px 0 12px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 0.15s,
+        color 0.15s;
+}
+
+.chip:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+}

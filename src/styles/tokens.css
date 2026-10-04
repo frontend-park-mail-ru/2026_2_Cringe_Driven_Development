@@ -32,18 +32,23 @@
     --color-success: #5ef0a8;
     --color-error: #ff9a9a;
 
+    /* Код */
+    --code-text: #cfc8f2;
+
     /* «Луна»: светлая поверхность, тёмный текст */
     --color-on-light: #1a1330;
     --color-inverse-surface: rgb(26 19 48 / 0.08);
     --color-inverse-surface-hover: rgb(26 19 48 / 0.16);
     --color-inverse-border: rgb(26 19 48 / 0.24);
 
-    /* Типографика: стили Title / Body / Body accent / Caption */
+    /* Типографика: стили Title / Body / Body accent / Caption / Code */
     --font-sans: 'Onest', system-ui, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     --font-title: 600 28px / 36px var(--font-sans);
     --font-body: 400 16px / 24px var(--font-sans);
     --font-body-accent: 600 16px / 24px var(--font-sans);
     --font-caption: 400 14px / 20px var(--font-sans);
+    --font-code: 400 14px / 20px var(--font-mono);
     --tracking-title: -0.02em;
 
     /* Эффекты */
