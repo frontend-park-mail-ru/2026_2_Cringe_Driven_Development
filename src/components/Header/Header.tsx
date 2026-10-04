@@ -5,6 +5,8 @@ import './Header.css';
 interface HeaderProps {
     /** Содержимое строки шапки: логотип слева, действия справа */
     children: ReactNode;
+    /** Панель под строкой шапки, отделена разделителем */
+    toolbar?: ReactNode;
 }
 
 /**
@@ -12,6 +14,18 @@ interface HeaderProps {
  * @param props свойства шапки
  * @returns шапка
  */
-export function Header({ children }: HeaderProps) {
-    return <header className="header">{children}</header>;
+export function Header({ children, toolbar }: HeaderProps) {
+    return (
+        <header className="header">
+            <div key="row" className="header__row">
+                {children}
+            </div>
+            {toolbar && <hr key="divider" className="header__divider" />}
+            {toolbar && (
+                <div key="toolbar" className="header__toolbar">
+                    {toolbar}
+                </div>
+            )}
+        </header>
+    );
 }

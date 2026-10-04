@@ -24,8 +24,11 @@ const STARS = makeStars();
 
 /** Свойства {@link Space}. */
 interface SpaceProps {
-    /** Вариант из макета: auth — планета ниже карточки входа, home — под заголовком главной */
-    variant?: 'auth' | 'home';
+    /**
+     * Вариант из макета: auth — планета ниже карточки входа, home — под заголовком главной,
+     * plain — без планеты
+     */
+    variant?: 'auth' | 'home' | 'plain';
 }
 
 /**
@@ -51,11 +54,13 @@ export function Space({ variant = 'auth' }: SpaceProps) {
                     }}
                 />
             ))}
-            <div key="planet" className="space__planet">
-                <div key="surface" className="space__surface">
-                    <div key="clouds" className="space__clouds" />
+            {variant !== 'plain' && (
+                <div key="planet" className="space__planet">
+                    <div key="surface" className="space__surface">
+                        <div key="clouds" className="space__clouds" />
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }
