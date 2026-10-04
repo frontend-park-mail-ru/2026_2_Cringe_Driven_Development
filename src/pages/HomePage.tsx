@@ -5,7 +5,7 @@ export const HomePage = () => {
 
     return (
         <section>
-            <h1>Cellestial: Vite работает</h1>
+            <h1>Cellestial: Vite работает!</h1>
             <button onClick={() => setCount(count + 1)}>Кликов: {count}</button>
         </section>
     );

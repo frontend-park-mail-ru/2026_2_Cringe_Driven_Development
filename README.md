@@ -81,6 +81,60 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 > Ветку, созданную руками (`git switch -c web-12 origin/main`), с задачей свяжет
 > та же строка `Closes …` — поэтому она обязательна всегда
 
+## Выкатка
+
+Клиент собирается в CI и выкатывается в S3 неизменяемыми релизами; откат — смена указателя.
+Шаги выкатки — команды скрипта `scripts/release/` (TypeScript под `bun`): `bun run release <команда>`
+
+| Workflow | Когда | Что делает |
+|---|---|---|
+| `CI` | pull request и push в `main` | `bun run check` и `bun run build` |
+| `CI` → `Upload release`, `CD` | push в `main` | сборка с `base` на CDN → `releases/{sha}/` → Release check → `index.html` и `current.json` → Health check → в S3 остаются 5 релизов → сообщение в Telegram |
+| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow` из `main` | Release check релиза `previous` → возвращает его, `stable` и `previous` меняются местами → Health check → сообщение в Telegram |
+
+В бакете: `releases/{sha}/` — сборка, корневой `index.html` — копия `index.html` текущего релиза,
+`current.json` — `{ "stable": "{sha}", "previous": "{sha}" }`. Повторный `Rollback` возвращает
+откаченный релиз обратно
+
+Релиз проверяется до переключения:
+
+- **Release check** — `index.html` релиза и чанк из него отдаются с CDN, чанк — с заголовком CORS.
+  Не прошёл — указатель не меняется, на сайте прежний релиз
+- **Health check** — после переключения `https://cellestial.ru/` отдаёт `<meta name="release">`
+  нового релиза, ожидание до 3 минут. Не прошёл — job красный, отката нет: релиз уже проверен,
+  сломана отдача через Caddy или кэш бакета, смотреть нужно их
+
+### Очередь выкатки
+
+Указатель релиза меняет кто-то один: `CD` и `Rollback` стоят в общей группе `concurrency`.
+Очереди в группе нет — она держит один идущий запуск и один ожидающий, более новый ожидающий
+вытесняет прежнего:
+
+- несколько push в `main` подряд — выкатится последний, промежуточный запуск отменится.
+  Это нормально: поздний коммит включает ранний
+- `Rollback`, запущенный, пока `CD` ждёт своей очереди, вытесняет этот `CD`. Его релиз загружен
+  в `releases/{sha}/`, но не выкачен, и сообщения в Telegram нет — job не стартовал
+
+Что делать, если `Rollback` вытеснил `CD`: в `Actions` запуск `CI` этого коммита отмечен
+`cancelled`. Релиз нужен — открыть запуск и нажать `Re-run failed jobs`: `CD` пройдёт с шага
+Release check. Откатывались как раз от этого кода — ничего не делать, следующий push в `main`
+выкатит свой релиз
+
+Выкатка и откат работают в environment `production` (`Settings` → `Environments`), доступном
+только из `main`:
+
+| Что | Имя | Откуда (`pulumi stack output` в `infra`) |
+|---|---|---|
+| секрет | `S3_ACCESS_KEY` | `s3AccessKey --show-secrets` |
+| секрет | `S3_SECRET_KEY` | `s3SecretKey --show-secrets` |
+| переменная | `S3_ENDPOINT` | `s3Endpoint` |
+| переменная | `S3_BUCKET` | `s3Bucket` |
+| переменная | `CDN_URL` | `cdnCustomDomain` |
+
+> [!WARNING]
+> Ключ S3 действует на весь проект Selectel, а не только на бакет релизов: ограничение
+> environment веткой `main` снимать нельзя
+
 ## Типы коммитов
 
 > [!NOTE]
