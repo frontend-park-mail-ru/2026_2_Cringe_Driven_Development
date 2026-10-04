@@ -1,4 +1,4 @@
-import { Icon } from '../Icon/Icon';
+import { Icon } from '@components/Icon/Icon';
 import './Toast.css';
 
 /** Сообщение тоста. */

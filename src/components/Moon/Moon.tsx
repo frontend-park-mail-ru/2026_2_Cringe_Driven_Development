@@ -1,4 +1,4 @@
-import { clsx } from '../../modules/clsx';
+import { clsx } from '@modules/clsx';
 import './Moon.css';
 
 /** Кратеры: центр x, центр y, диаметр (px на луне 600×600) и глубина тени. */

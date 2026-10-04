@@ -1,6 +1,6 @@
-import { clsx } from '../../modules/clsx';
-import { domProps } from '../../utils/dom-props';
-import { Icon } from '../Icon/Icon';
+import { clsx } from '@modules/clsx';
+import { domProps } from '@utils/dom-props';
+import { Icon } from '@components/Icon/Icon';
 import './Input.css';
 
 /** Свойства {@link Input}. */

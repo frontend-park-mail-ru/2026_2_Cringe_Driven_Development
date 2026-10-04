@@ -6,7 +6,7 @@ import {
     type ReactElement,
 } from '@maninthecoat/react';
 
-import { clsx } from '../clsx';
+import { clsx } from '@modules/clsx';
 import { MatchContext, RouterContext } from './context';
 import { useLocation, useMatches, useRouter } from './hooks';
 import type { AnyRoute, ErrorRouteComponent } from './route';

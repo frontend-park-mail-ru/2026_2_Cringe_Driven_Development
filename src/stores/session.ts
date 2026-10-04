@@ -1,5 +1,5 @@
 import { create } from '@maninthecoat/zustand';
-import { api, type ApiErrorCode, type Credentials, type User } from '../api/client';
+import { api, type ApiErrorCode, type Credentials, type User } from '@api/client';
 
 /** unknown — сессию ещё проверяем, guest — не вошёл, authed — вошёл. */
 export type SessionStatus = 'unknown' | 'guest' | 'authed';

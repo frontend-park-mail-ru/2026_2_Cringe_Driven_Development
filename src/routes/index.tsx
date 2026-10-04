@@ -1,5 +1,5 @@
-import { createRoute } from '../modules/router';
-import { HomePage } from '../pages/HomePage';
+import { createRoute } from '@modules/router';
+import { HomePage } from '@pages/HomePage';
 import { authRoute } from './auth';
 
 export const indexRoute = createRoute({

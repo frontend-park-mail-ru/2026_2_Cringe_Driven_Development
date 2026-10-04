@@ -9,14 +9,14 @@
 
 ```tsx
 // src/routes/root.tsx
-import { createRootRoute, Outlet } from '../modules/router';
+import { createRootRoute, Outlet } from '@modules/router';
 
 export const rootRoute = createRootRoute({ component: () => <Outlet /> });
 ```
 
 ```tsx
 // src/routes/notebooks.tsx
-import { createRoute } from '../modules/router';
+import { createRoute } from '@modules/router';
 import { rootRoute } from './root';
 
 export const notebooksRoute = createRoute({
@@ -69,8 +69,8 @@ createRoot(container).render(<RouterProvider router={router} />);
 Маршруты приложения объявлены в [`src/routes/`](../../routes), страницы и лейауты — в
 [`src/pages/`](../../pages) и [`src/layouts/`](../../layouts).
 
-Снаружи модуль импортируется только через `index.ts` (`./modules/router`), без импортов вида
-`./modules/router/path`: при выносе роутера в npm-пакет поменяется только путь импорта.
+Снаружи модуль импортируется только через `index.ts` (`@modules/router`), без импортов вида
+`@modules/router/path`: при выносе роутера в npm-пакет поменяется только путь импорта.
 
 ## Пути
 

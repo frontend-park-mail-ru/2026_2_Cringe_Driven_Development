@@ -1,5 +1,5 @@
 import { create } from '@maninthecoat/zustand';
-import type { ToastMessage } from '../components/Toast/Toast';
+import type { ToastMessage } from '@components/Toast/Toast';
 
 interface ToastState {
     /** Тост на экране; null — тоста нет */

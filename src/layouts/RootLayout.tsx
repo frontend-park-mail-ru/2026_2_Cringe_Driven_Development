@@ -1,8 +1,8 @@
-import { Snackbar } from '../components/Snackbar/Snackbar';
-import { Toast } from '../components/Toast/Toast';
-import { Outlet } from '../modules/router';
-import { useSnackbarStore } from '../stores/snackbar';
-import { useToastStore } from '../stores/toast';
+import { Snackbar } from '@components/Snackbar/Snackbar';
+import { Toast } from '@components/Toast/Toast';
+import { Outlet } from '@modules/router';
+import { useSnackbarStore } from '@stores/snackbar';
+import { useToastStore } from '@stores/toast';
 
 export const RootLayout = () => {
     const toast = useToastStore((state) => state.toast);

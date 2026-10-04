@@ -1,4 +1,4 @@
-import logoMarkUrl from '../../assets/logo-mark.svg';
+import logoMarkUrl from '@assets/logo-mark.svg';
 import './Logo.css';
 
 /**

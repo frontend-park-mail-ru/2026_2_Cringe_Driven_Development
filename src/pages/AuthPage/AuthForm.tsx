@@ -1,11 +1,11 @@
 import { useEffect, useState } from '@maninthecoat/react';
 
-import { Button } from '../../components/Button/Button';
-import { Input } from '../../components/Input/Input';
-import { useNavigate } from '../../modules/router';
-import { login, register } from '../../stores/session';
-import { hideSnackbar, showSnackbar } from '../../stores/snackbar';
-import { showToast } from '../../stores/toast';
+import { Button } from '@components/Button/Button';
+import { Input } from '@components/Input/Input';
+import { useNavigate } from '@modules/router';
+import { login, register } from '@stores/session';
+import { hideSnackbar, showSnackbar } from '@stores/snackbar';
+import { showToast } from '@stores/toast';
 import {
     authErrorMessage,
     LOGIN_RULE,
@@ -14,7 +14,7 @@ import {
     validateLogin,
     validatePassword,
     type AuthMode,
-} from '../../utils/credentials';
+} from '@utils/credentials';
 
 type Field = 'login' | 'password' | 'confirm';
 type FieldTexts = Partial<Record<Field, string>>;

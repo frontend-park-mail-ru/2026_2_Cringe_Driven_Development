@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
     return {
         // чанки релиза лежат в S3 под своим sha и грузятся с CDN: открытая вкладка живёт на своём релизе
         base: sha && cdnUrl ? `${cdnUrl}/releases/${sha}/` : '/',
+        // алиасы папок src берутся из paths в tsconfig.json
+        resolve: { tsconfigPaths: true },
         server: {
             host: '127.0.0.1',
             strictPort: true,

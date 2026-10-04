@@ -1,5 +1,5 @@
-import { createRoute, redirect } from '../modules/router';
-import { restoreSession, useSessionStore } from '../stores/session';
+import { createRoute, redirect } from '@modules/router';
+import { restoreSession, useSessionStore } from '@stores/session';
 import { rootRoute } from './root';
 
 /** Обёртка страниц для вошедшего пользователя: гостя перенаправляет на вход. */

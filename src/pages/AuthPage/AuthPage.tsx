@@ -1,12 +1,12 @@
 import { useEffect, useState } from '@maninthecoat/react';
 
-import { buttonClassName } from '../../components/Button/Button';
-import { Logo } from '../../components/Logo/Logo';
-import { Moon } from '../../components/Moon/Moon';
-import { Space } from '../../components/Space/Space';
-import { clsx } from '../../modules/clsx';
-import { Link, useMatches, type RouteIds } from '../../modules/router';
-import type { AuthMode } from '../../utils/credentials';
+import { buttonClassName } from '@components/Button/Button';
+import { Logo } from '@components/Logo/Logo';
+import { Moon } from '@components/Moon/Moon';
+import { Space } from '@components/Space/Space';
+import { clsx } from '@modules/clsx';
+import { Link, useMatches, type RouteIds } from '@modules/router';
+import type { AuthMode } from '@utils/credentials';
 import { AuthForm } from './AuthForm';
 import './AuthPage.css';
 

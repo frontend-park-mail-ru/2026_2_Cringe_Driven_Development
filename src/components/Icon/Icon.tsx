@@ -1,4 +1,4 @@
-import { clsx } from '../../modules/clsx';
+import { clsx } from '@modules/clsx';
 import { ICON_MASKS, type IconName } from './icons';
 import './Icon.css';
 

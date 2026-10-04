@@ -18,8 +18,8 @@ export default defineConfig({
             {
                 patterns: [
                     {
-                        group: ['**/modules/*/*'],
-                        message: 'Импортируй модуль через его index.ts: ./modules/<имя>',
+                        group: ['@modules/*/*', '**/modules/*/*'],
+                        message: 'Импортируй модуль через его index.ts: @modules/<имя>',
                     },
                 ],
             },

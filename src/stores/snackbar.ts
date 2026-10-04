@@ -1,5 +1,5 @@
 import { create } from '@maninthecoat/zustand';
-import type { SnackbarMessage } from '../components/Snackbar/Snackbar';
+import type { SnackbarMessage } from '@components/Snackbar/Snackbar';
 
 interface SnackbarState {
     /** Снекбар на экране; null — снекбара нет */

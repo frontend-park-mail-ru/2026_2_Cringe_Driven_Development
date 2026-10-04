@@ -1,6 +1,6 @@
-import { createRoute, redirect } from '../modules/router';
-import { AuthPage } from '../pages/AuthPage/AuthPage';
-import { restoreSession, useSessionStore } from '../stores/session';
+import { createRoute, redirect } from '@modules/router';
+import { AuthPage } from '@pages/AuthPage/AuthPage';
+import { restoreSession, useSessionStore } from '@stores/session';
 import { rootRoute } from './root';
 
 /**

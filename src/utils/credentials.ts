@@ -1,4 +1,4 @@
-import type { AuthError } from '../stores/session';
+import type { AuthError } from '@stores/session';
 
 /** Ограничения из схемы Credentials в Apidog. */
 const LOGIN_PATTERN = /^[a-zA-Z0-9_]+$/;
