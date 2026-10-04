@@ -62,6 +62,23 @@ async function createCell(id: number, kind: CellKind): Promise<CellData | undefi
 }
 
 /**
+ * Удаляет ячейку.
+ * @param id id блокнота
+ * @param index порядковый номер ячейки, с нуля
+ * @returns удалось ли удалить
+ */
+async function deleteCell(id: number, index: number): Promise<boolean> {
+    try {
+        const { response } = await api.DELETE('/notebooks/{id}/cells/{index}', {
+            params: { path: { id, index } },
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Название в шапке.
  * @param state состояние страницы
  * @returns текст названия
@@ -104,7 +121,7 @@ function AddCellChips({ onAdd }: AddCellChipsProps) {
 
 /**
  * Страница блокнота: шапка с названием и ячейки.
- * Ошибки загрузки и добавления ячейки — в снекбаре с «Повторить».
+ * Ошибки загрузки, добавления и удаления ячейки — в снекбаре с «Повторить».
  * @returns страница
  */
 export function NotebookPage() {
@@ -114,7 +131,8 @@ export function NotebookPage() {
     const [page, setPage] = useState<PageState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
     const [addedId, setAddedId] = useState<string | undefined>(undefined);
-    const [adding, setAdding] = useState(false);
+    // Ячейки удаляются по номеру, поэтому добавление и удаление идут строго по одному
+    const [busy, setBusy] = useState(false);
     const [life] = useState({ alive: true });
 
     useEffect(() => {
@@ -158,13 +176,13 @@ export function NotebookPage() {
     }, [addedId]);
 
     const addCell = async (kind: CellKind) => {
-        if (page.status !== 'ready' || adding) return;
-        setAdding(true);
+        if (page.status !== 'ready' || busy) return;
+        setBusy(true);
         hideSnackbar();
 
         const cell = await createCell(id, kind);
         if (!life.alive) return;
-        setAdding(false);
+        setBusy(false);
         if (!cell) {
             showSnackbar('Не удалось добавить ячейку', {
                 label: 'Повторить',
@@ -183,6 +201,36 @@ export function NotebookPage() {
         setAddedId(cell.id);
     };
     const handleAdd = (kind: CellKind) => void addCell(kind);
+
+    const removeCell = async (cellId: string) => {
+        if (page.status !== 'ready' || busy) return;
+        const index = page.notebook.cells.findIndex((cell) => cell.id === cellId);
+        if (index === -1) return;
+        setBusy(true);
+        hideSnackbar();
+
+        const deleted = await deleteCell(id, index);
+        if (!life.alive) return;
+        setBusy(false);
+        if (!deleted) {
+            showSnackbar('Не удалось удалить ячейку', {
+                label: 'Повторить',
+                onClick: () => void removeCell(cellId),
+            });
+            return;
+        }
+        setPage((current) =>
+            current.status === 'ready' && current.notebook.id === id
+                ? {
+                      status: 'ready',
+                      notebook: {
+                          ...current.notebook,
+                          cells: current.notebook.cells.filter((cell) => cell.id !== cellId),
+                      },
+                  }
+                : current,
+        );
+    };
 
     const cells = page.status === 'ready' ? page.notebook.cells : [];
     const isEmpty = page.status === 'ready' && cells.length === 0;
@@ -233,7 +281,7 @@ export function NotebookPage() {
                         <ul key="cells" className="notebook__cells">
                             {cells.map((cell) => (
                                 <li key={cell.id}>
-                                    <Cell cell={cell} />
+                                    <Cell cell={cell} onDelete={() => void removeCell(cell.id)} />
                                 </li>
                             ))}
                         </ul>

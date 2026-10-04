@@ -1,10 +1,12 @@
 import type { Cell as CellData } from '@api/client';
+import { IconButton } from '@components/IconButton/IconButton';
 import { clsx } from '@modules/clsx';
 import './Cell.css';
 
 /** Свойства {@link Cell}. */
 interface CellProps {
     cell: CellData;
+    onDelete: () => void;
 }
 
 /**
@@ -12,17 +14,28 @@ interface CellProps {
  * @param props свойства ячейки
  * @returns ячейка
  */
-export function Cell({ cell }: CellProps) {
+export function Cell({ cell, onDelete }: CellProps) {
     const isCode = cell.kind === 'code';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
 
     return (
         <div id={cellDomId(cell.id)} className={clsx('cell', { 'cell--code': isCode })}>
             {cell.source === '' ? (
-                <p className="cell__content cell__content--empty">{placeholder}</p>
+                <p key="content" className="cell__content cell__content--empty">
+                    {placeholder}
+                </p>
             ) : (
-                <pre className="cell__content">{cell.source}</pre>
+                <pre key="content" className="cell__content">
+                    {cell.source}
+                </pre>
             )}
+            <IconButton
+                key="delete"
+                icon="trash"
+                label="Удалить ячейку"
+                className="cell__delete"
+                onClick={onDelete}
+            />
         </div>
     );
 }

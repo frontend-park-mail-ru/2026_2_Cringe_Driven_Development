@@ -21,6 +21,10 @@ const SOURCES = {
         `<circle cx="8" cy="8" r="6.3"${stroke(1.3)}/><path d="M8 4.9v3.6M8 11v.1"${stroke(1.6)}/>`,
     ),
     back: svg(16, `<path d="M10 3 5 8l5 5"${stroke(1.6)}/>`),
+    trash: svg(
+        16,
+        `<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v4.5M9.2 6.5v4.5"${stroke(1.3)}/>`,
+    ),
     plus: svg(14, `<path d="M7 1.5v11M1.5 7h11"${stroke(1.8)}/>`),
     close: svg(16, `<path d="M4 4l8 8M12 4l-8 8"${stroke(1.6)}/>`),
     info: svg(

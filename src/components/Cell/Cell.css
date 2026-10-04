@@ -1,4 +1,7 @@
 .cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
     min-height: 56px;
     padding: 16px;
     border-radius: 16px;
@@ -7,6 +10,8 @@
 }
 
 .cell__content {
+    flex: 1;
+    min-width: 0;
     margin: 0;
     font: var(--font-body);
     white-space: pre-wrap;
@@ -27,9 +32,20 @@
     padding: 2px 0;
 }
 
+/* Кнопка 36 px выше строки текста: отрицательные отступы не дают ей растянуть ячейку */
+.cell__delete {
+    margin: -6px -6px -6px 0;
+    background: none;
+    box-shadow: none;
+}
+
+.cell__delete:hover {
+    color: var(--color-error);
+}
+
 .cell--skeleton {
-    display: flex;
     flex-direction: column;
+    align-items: stretch;
     justify-content: center;
     gap: 8px;
 }
