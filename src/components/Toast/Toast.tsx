@@ -24,14 +24,14 @@ export function Toast({ toast }: ToastProps) {
     return (
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
         <div className="toast-region" role="status" aria-live="polite">
-            {toast ? (
+            {toast && (
                 <div key={toast.id} className="toast">
                     <Icon key="icon" name="check" className="toast__icon" />
                     <p key="text" className="toast__text">
                         {toast.text}
                     </p>
                 </div>
-            ) : null}
+            )}
         </div>
     );
 }

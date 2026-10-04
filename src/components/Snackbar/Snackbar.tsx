@@ -25,13 +25,13 @@ interface SnackbarProps {
 export function Snackbar({ snackbar }: SnackbarProps) {
     return (
         <div className="snackbar-region">
-            {snackbar ? (
+            {snackbar && (
                 <div key={snackbar.id} className="snackbar" role="alert">
                     <Icon key="icon" name="alert" className="snackbar__icon" />
                     <p key="text" className="snackbar__text">
                         {snackbar.text}
                     </p>
-                    {snackbar.action ? (
+                    {snackbar.action && (
                         <button
                             key="action"
                             className="snackbar__action"
@@ -40,9 +40,9 @@ export function Snackbar({ snackbar }: SnackbarProps) {
                         >
                             {snackbar.action.label}
                         </button>
-                    ) : null}
+                    )}
                 </div>
-            ) : null}
+            )}
         </div>
     );
 }

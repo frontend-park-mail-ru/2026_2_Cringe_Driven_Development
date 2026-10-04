@@ -85,7 +85,7 @@ export function Input({
                     onInput={(event) => onValueChange((event.target as HTMLInputElement).value)}
                     onBlur={() => onBlur?.()}
                 />
-                {isPassword ? (
+                {isPassword && (
                     <button
                         key="reveal"
                         className="input__reveal"
@@ -98,10 +98,10 @@ export function Input({
                     >
                         <Icon name={revealed ? 'eyeSlash' : 'eye'} size={18} />
                     </button>
-                ) : null}
+                )}
             </div>
             <p key="message" id={messageId} className="input__message">
-                {error ? <Icon key="icon" name="alert" /> : null}
+                {error && <Icon key="icon" name="alert" />}
                 {error ? (
                     <span key="error" className="input__message-text" role="alert">
                         {error}

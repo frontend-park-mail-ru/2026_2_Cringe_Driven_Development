@@ -174,7 +174,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 onValueChange={change('password')}
                 onBlur={blur('password')}
             />
-            {isRegister ? (
+            {isRegister && (
                 <Input
                     key="confirm"
                     id={fieldId('confirm')}
@@ -191,7 +191,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                     onValueChange={change('confirm')}
                     onBlur={blur('confirm')}
                 />
-            ) : null}
+            )}
             <Button key="submit" type="submit" loading={pending} block>
                 {isRegister ? 'Создать аккаунт' : 'Войти'}
             </Button>

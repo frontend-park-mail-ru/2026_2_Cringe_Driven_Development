@@ -66,7 +66,7 @@ export function Button({
                 onClick?.(event);
             }}
         >
-            {loading ? <Icon key="spinner" name="spinner" className="button__spinner" /> : null}
+            {loading && <Icon key="spinner" name="spinner" className="button__spinner" />}
             <span key="label">{children}</span>
         </button>
     );
