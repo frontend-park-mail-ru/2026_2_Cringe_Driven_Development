@@ -1,0 +1,35 @@
+/* без [open] свой display перебил бы display: none закрытого <dialog> */
+.modal[open] {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.modal {
+    width: calc(100% - 32px);
+    max-width: 480px;
+    padding: 32px;
+    border: none;
+    border-radius: 16px;
+    color: var(--color-text-primary);
+    background: var(--color-surface-solid);
+    box-shadow:
+        inset 0 0 0 1px var(--color-border),
+        var(--shadow-popover);
+}
+
+.modal::backdrop {
+    background: var(--color-overlay);
+}
+
+.modal__title {
+    padding-right: 44px;
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+}
+
+.modal__close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+}

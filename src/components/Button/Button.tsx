@@ -6,10 +6,9 @@ import './Button.css';
 
 /**
  * Варианты кнопки из макета (Components → Button, Type).
- * Primary — главное действие экрана, Inverse — кнопка на светлой «луне».
- * Secondary и Danger из макета добавим, когда они понадобятся на других экранах.
+ * Primary — главное действие экрана, Secondary — остальные, Inverse — кнопка на светлой «луне».
  */
-export type ButtonVariant = 'primary' | 'inverse';
+export type ButtonVariant = 'primary' | 'secondary' | 'inverse';
 
 /** Свойства {@link Button}. */
 interface ButtonProps {

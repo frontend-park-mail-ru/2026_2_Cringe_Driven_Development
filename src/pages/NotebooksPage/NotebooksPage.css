@@ -48,6 +48,18 @@
     list-style: none;
 }
 
+.create-notebook {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.create-notebook__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 @media (max-width: 860px) {
     .notebooks {
         padding: 12px 16px 32px;

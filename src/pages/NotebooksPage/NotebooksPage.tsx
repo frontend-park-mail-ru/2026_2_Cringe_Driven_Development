@@ -12,6 +12,7 @@ import { Link } from '@modules/router';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
+import { CreateNotebookDialog } from './CreateNotebookDialog';
 import './NotebooksPage.css';
 
 /** Сколько скелетонов показывать, пока список загружается */
@@ -62,6 +63,7 @@ export function NotebooksPage() {
     const login = useSessionStore((state) => state.user?.login ?? '');
     const [list, setList] = useState<ListState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
+    const [creating, setCreating] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -86,6 +88,7 @@ export function NotebooksPage() {
     }, [attempt]);
 
     const isEmpty = list.status === 'ready' && list.notebooks.length === 0;
+    const openCreate = () => setCreating(true);
 
     return (
         <div className="notebooks">
@@ -112,7 +115,7 @@ export function NotebooksPage() {
                         </p>
                     </div>
                     {!isEmpty && (
-                        <Button key="create" icon="plus">
+                        <Button key="create" icon="plus" onClick={openCreate}>
                             Новый блокнот
                         </Button>
                     )}
@@ -141,10 +144,13 @@ export function NotebooksPage() {
                         title="Блокнотов пока нет"
                         description="Создайте первый — он откроется сразу. Python и популярные библиотеки уже установлены."
                     >
-                        <Button icon="plus">Новый блокнот</Button>
+                        <Button icon="plus" onClick={openCreate}>
+                            Новый блокнот
+                        </Button>
                     </StateBlock>
                 )}
             </div>
+            {creating && <CreateNotebookDialog key="create" onClose={() => setCreating(false)} />}
         </div>
     );
 }
