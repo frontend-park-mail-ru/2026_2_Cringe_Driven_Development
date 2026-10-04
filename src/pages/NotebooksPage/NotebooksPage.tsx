@@ -13,7 +13,7 @@ import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
-import './NotebooksPage.css';
+import styles from './NotebooksPage.module.css';
 
 /** Сколько скелетонов показывать, пока список загружается */
 const SKELETON_COUNT = 6;
@@ -91,37 +91,42 @@ export function NotebooksPage() {
     const openCreate = () => setCreating(true);
 
     return (
-        <div className="notebooks">
+        <div className={styles.page}>
             <Space key="space" variant="home" />
-            <div key="content" className="notebooks__content">
+            <div key="content" className={styles.content}>
                 <Header key="header">
                     <Link
                         key="home"
                         to="/"
-                        className="notebooks__home"
+                        className={styles.home}
                         aria-label="Cellestial — на главную"
                     >
                         <Logo />
                     </Link>
                     <ProfileMenu key="profile" login={login} />
                 </Header>
-                <div key="hero" className="notebooks__hero">
-                    <div key="heading" className="notebooks__heading">
-                        <h1 key="title" className="notebooks__title">
+                <div key="hero" className={styles.hero}>
+                    <div key="heading" className={styles.heading}>
+                        <h1 key="title" className={styles.title}>
                             {isEmpty ? 'Добро пожаловать на орбиту' : 'С возвращением на орбиту'}
                         </h1>
-                        <p key="subtitle" className="notebooks__subtitle">
+                        <p key="subtitle" className={styles.subtitle}>
                             {subtitle(list)}
                         </p>
                     </div>
                     {!isEmpty && (
-                        <Button key="create" icon="plus" onClick={openCreate}>
+                        <Button
+                            key="create"
+                            icon="plus"
+                            className={styles.create}
+                            onClick={openCreate}
+                        >
                             Новый блокнот
                         </Button>
                     )}
                 </div>
                 {list.status === 'loading' && (
-                    <ul key="skeletons" className="notebooks__grid" aria-hidden="true">
+                    <ul key="skeletons" className={styles.grid} aria-hidden="true">
                         {Array.from({ length: SKELETON_COUNT }, (_, index) => (
                             <li key={`skeleton-${index}`}>
                                 <NotebookCardSkeleton />
@@ -130,7 +135,7 @@ export function NotebooksPage() {
                     </ul>
                 )}
                 {list.status === 'ready' && !isEmpty && (
-                    <ul key="grid" className="notebooks__grid">
+                    <ul key="grid" className={styles.grid}>
                         {list.notebooks.map((notebook) => (
                             <li key={notebook.id}>
                                 <NotebookCard notebook={notebook} />

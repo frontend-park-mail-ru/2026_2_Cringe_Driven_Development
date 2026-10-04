@@ -7,7 +7,7 @@
     pointer-events: none;
 }
 
-.space__glow {
+.glow {
     position: absolute;
     top: -140px;
     left: 50%;
@@ -23,7 +23,7 @@
     filter: blur(24px);
 }
 
-.space__star {
+.star {
     --size: 1.5px;
     --opacity: 1;
     --duration: 3s;
@@ -34,16 +34,16 @@
     border-radius: 50%;
     background: #fff;
     opacity: var(--opacity);
-    animation: space-twinkle var(--duration) ease-in-out var(--delay) infinite alternate;
+    animation: twinkle var(--duration) ease-in-out var(--delay) infinite alternate;
 }
 
-@keyframes space-twinkle {
+@keyframes twinkle {
     to {
         opacity: calc(var(--opacity) * 0.35);
     }
 }
 
-.space__planet {
+.planet {
     position: absolute;
     top: 700px;
     left: 50%;
@@ -58,29 +58,29 @@
         0 -2px 18px rgb(230 215 255 / 0.45);
 }
 
-.space--home .space__planet {
+.home .planet {
     top: 330px;
 }
 
-.space__surface {
+.surface {
     position: absolute;
     inset: 1px;
     border-radius: 50%;
     overflow: hidden;
 }
 
-.space__clouds {
+.clouds {
     position: absolute;
     top: -2px;
     left: calc(50% - 960px);
     width: 7680px;
     height: 360px;
     mix-blend-mode: screen;
-    animation: space-drift 360s linear infinite;
+    animation: drift 360s linear infinite;
 }
 
-.space__clouds::before,
-.space__clouds::after {
+.clouds::before,
+.clouds::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -89,19 +89,19 @@
         url('../../assets/clouds.jpg') 3840px 0 / 1920px 360px no-repeat;
 }
 
-.space__clouds::after {
+.clouds::after {
     transform: scaleX(-1);
 }
 
-@keyframes space-drift {
+@keyframes drift {
     to {
         transform: translateX(-3840px);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .space__star,
-    .space__clouds {
+    .star,
+    .clouds {
         animation: none;
     }
 }

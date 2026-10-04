@@ -41,13 +41,19 @@ vite берёт их оттуда.
 
 - `api/` — клиент `@iredtea/openapi` (единственный экземпляр) и сгенерированная схема.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
-  `Snackbar`, `Toast`, `Space`. Каждый компонент — папка с `.tsx` и `.css`.
+  `Snackbar`, `Toast`, `Space`. Каждый компонент — папка с `.tsx` и `.module.css`.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `modules/router/` — командный роутер (API как у TanStack Router). Импорт только через
   `@modules/router`, не из внутренних файлов.
 - `pages/` — страницы. `routes/` — маршруты и дерево `routeTree.ts`.
 - `stores/` — сторы на `@maninthecoat/zustand`: `session`, `toast`, `snackbar`.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
+  Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
+
+Стили компонентов и страниц — CSS Modules: `import styles from './X.module.css'`,
+в JSX `className={styles.peek}`, несколько классов — через `clsx` из `@modules/clsx`.
+Имена классов короткие, в camelCase, без БЭМ-префиксов: область видимости даёт модуль.
+Компонент не стилизует классы другого — нужный класс передаётся ему пропом `className`.
 
 ## Сессия и авторизация
 

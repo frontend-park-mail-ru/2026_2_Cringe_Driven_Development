@@ -1,6 +1,6 @@
 import type { ReactNode } from '@maninthecoat/react';
 import { Icon } from '@components/Icon/Icon';
-import './Chip.css';
+import styles from './Chip.module.css';
 
 /** Свойства {@link Chip}. */
 interface ChipProps {
@@ -16,7 +16,7 @@ interface ChipProps {
  */
 export function Chip({ children, onClick }: ChipProps) {
     return (
-        <button className="chip" type="button" onClick={onClick}>
+        <button className={styles.chip} type="button" onClick={onClick}>
             <Icon key="icon" name="plus" size={12} />
             <span key="label">{children}</span>
         </button>

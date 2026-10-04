@@ -1,7 +1,7 @@
 import { clsx } from '@modules/clsx';
 import { Icon } from '@components/Icon/Icon';
 import type { IconName } from '@components/Icon/icons';
-import './IconButton.css';
+import styles from './IconButton.module.css';
 
 /** Свойства {@link IconButton}. */
 interface IconButtonProps {
@@ -20,7 +20,7 @@ interface IconButtonProps {
 export function IconButton({ icon, label, className, onClick }: IconButtonProps) {
     return (
         <button
-            className={clsx('icon-button', className)}
+            className={clsx(styles.button, className)}
             type="button"
             aria-label={label}
             onClick={onClick}

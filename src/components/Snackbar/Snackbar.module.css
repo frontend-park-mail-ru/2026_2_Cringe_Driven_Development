@@ -1,4 +1,4 @@
-.snackbar-region {
+.region {
     position: fixed;
     z-index: 10;
     left: 50%;
@@ -18,19 +18,19 @@
     box-shadow:
         inset 0 0 0 1px var(--color-error),
         var(--shadow-popover);
-    animation: snackbar-in 0.2s ease-out;
+    animation: appear 0.2s ease-out;
 }
 
-.snackbar__icon {
+.icon {
     color: var(--color-error);
 }
 
-.snackbar__text {
+.text {
     font: var(--font-caption);
     color: var(--color-text-primary);
 }
 
-.snackbar__action {
+.action {
     flex: none;
     padding: 0;
     border: 0;
@@ -41,11 +41,11 @@
     cursor: pointer;
 }
 
-.snackbar__action:hover {
+.action:hover {
     color: var(--color-focus);
 }
 
-@keyframes snackbar-in {
+@keyframes appear {
     from {
         opacity: 0;
         transform: translateY(8px);

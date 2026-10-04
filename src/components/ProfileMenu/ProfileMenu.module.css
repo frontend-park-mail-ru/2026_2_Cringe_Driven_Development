@@ -1,9 +1,9 @@
-.profile-menu {
+.menu {
     position: relative;
     display: flex;
 }
 
-.profile-menu__trigger {
+.trigger {
     display: flex;
     padding: 0;
     border: 0;
@@ -12,11 +12,11 @@
     cursor: pointer;
 }
 
-.profile-menu__trigger:hover .avatar {
+.trigger:hover .avatar {
     background: var(--color-primary-deep);
 }
 
-.profile-menu__popup {
+.popup {
     position: absolute;
     top: calc(100% + 20px);
     right: -12px;
@@ -32,32 +32,32 @@
         var(--shadow-popover);
 }
 
-.profile-menu__account {
+.account {
     display: flex;
     flex-direction: column;
     padding: 8px 12px;
 }
 
-.profile-menu__caption {
+.caption {
     font: var(--font-caption);
     color: var(--color-text-secondary);
 }
 
-.profile-menu__login {
+.login {
     overflow: hidden;
     font: var(--font-body-accent);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.profile-menu__divider {
+.divider {
     height: 1px;
     margin: 0;
     border: 0;
     background: var(--color-border);
 }
 
-.profile-menu__item {
+.item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -72,25 +72,25 @@
     transition: background-color 0.15s;
 }
 
-.profile-menu__item:hover {
+.item:hover {
     background: var(--color-surface-hover);
 }
 
-.profile-menu__item--danger {
+.danger {
     color: var(--color-error);
 }
 
-.logout-dialog {
+.dialog {
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 
-.logout-dialog__text {
+.dialogText {
     color: var(--color-text-secondary);
 }
 
-.logout-dialog__actions {
+.dialogActions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;

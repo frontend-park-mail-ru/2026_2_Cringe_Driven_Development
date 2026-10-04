@@ -5,6 +5,7 @@ import { useNavigate } from '@modules/router';
 import { logout } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
+import styles from './ProfileMenu.module.css';
 
 const STAY_ID = 'logout-stay';
 
@@ -57,11 +58,11 @@ export function LogoutDialog({ onClose }: LogoutDialogProps) {
 
     return (
         <Modal title="Выйти из аккаунта?" initialFocusId={STAY_ID} onClose={close}>
-            <div className="logout-dialog">
-                <p key="text" className="logout-dialog__text">
+            <div className={styles.dialog}>
+                <p key="text" className={styles.dialogText}>
                     Блокноты сохранятся — войдите снова, чтобы продолжить работу.
                 </p>
-                <div key="actions" className="logout-dialog__actions">
+                <div key="actions" className={styles.dialogActions}>
                     <Button key="stay" id={STAY_ID} variant="secondary" onClick={close}>
                         Остаться
                     </Button>

@@ -15,6 +15,7 @@ import {
     validatePassword,
     type AuthMode,
 } from '@utils/credentials';
+import styles from './AuthPage.module.css';
 
 type Field = 'login' | 'password' | 'confirm';
 type FieldTexts = Partial<Record<Field, string>>;
@@ -139,8 +140,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     };
 
     return (
-        <form className="auth-form" noValidate onSubmit={handleSubmit}>
-            <h1 key="title" className="auth-form__title">
+        <form className={styles.form} noValidate onSubmit={handleSubmit}>
+            <h1 key="title" className={styles.formTitle}>
                 {isRegister ? 'Создание аккаунта' : 'Вход'}
             </h1>
             <Input

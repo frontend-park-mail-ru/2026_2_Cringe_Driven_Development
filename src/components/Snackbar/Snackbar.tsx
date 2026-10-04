@@ -1,5 +1,5 @@
 import { Icon } from '@components/Icon/Icon';
-import './Snackbar.css';
+import styles from './Snackbar.module.css';
 
 /** Сообщение снекбара. */
 export interface SnackbarMessage {
@@ -24,17 +24,17 @@ interface SnackbarProps {
  */
 export function Snackbar({ snackbar }: SnackbarProps) {
     return (
-        <div className="snackbar-region">
+        <div className={styles.region}>
             {snackbar && (
-                <div key={snackbar.id} className="snackbar" role="alert">
-                    <Icon key="icon" name="alert" className="snackbar__icon" />
-                    <p key="text" className="snackbar__text">
+                <div key={snackbar.id} className={styles.snackbar} role="alert">
+                    <Icon key="icon" name="alert" className={styles.icon} />
+                    <p key="text" className={styles.text}>
                         {snackbar.text}
                     </p>
                     {snackbar.action && (
                         <button
                             key="action"
-                            className="snackbar__action"
+                            className={styles.action}
                             type="button"
                             onClick={snackbar.action.onClick}
                         >
