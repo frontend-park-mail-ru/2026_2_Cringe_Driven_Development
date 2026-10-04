@@ -86,6 +86,22 @@ export async function login(credentials: Credentials): Promise<AuthResult> {
 }
 
 /**
+ * Выход.
+ * 401 значит, что refresh уже недействителен, — пользователь и так вышел.
+ * @returns true, если вышли
+ */
+export async function logout(): Promise<boolean> {
+    try {
+        const { response } = await api.POST('/auth/logout');
+        if (!response.ok && response.status !== 401) return false;
+    } catch {
+        return false;
+    }
+    useSessionStore.setState(GUEST);
+    return true;
+}
+
+/**
  * Регистрация. Бэкенд сразу выдаёт токены, поэтому после неё пользователь уже вошёл.
  * @param credentials логин и пароль
  * @returns итог регистрации

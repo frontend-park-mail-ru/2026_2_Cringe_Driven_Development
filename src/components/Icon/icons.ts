@@ -22,6 +22,11 @@ const SOURCES = {
     ),
     plus: svg(14, `<path d="M7 1.5v11M1.5 7h11"${stroke(1.8)}/>`),
     close: svg(16, `<path d="M4 4l8 8M12 4l-8 8"${stroke(1.6)}/>`),
+    info: svg(
+        16,
+        `<circle cx="8" cy="8" r="6.3"${stroke(1.3)}/><path d="M8 7.3v3.8M8 4.9v.1"${stroke(1.6)}/>`,
+    ),
+    logout: svg(16, `<path d="M6.5 2.5h-3v11h3M10 5l3 3-3 3M13 8H6.5"${stroke(1.4)}/>`),
     check: svg(16, `<path d="M3.5 8.4l2.9 2.9 6.1-6.3"${stroke(1.6)}/>`),
     spinner: svg(16, `<path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2"${stroke(1.8)}/>`),
 } as const;

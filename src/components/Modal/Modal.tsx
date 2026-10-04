@@ -4,6 +4,7 @@ import './Modal.css';
 
 const DIALOG_ID = 'modal';
 const TITLE_ID = 'modal-title';
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
 
 /** Свойства {@link Modal}. */
 interface ModalProps {
@@ -15,11 +16,27 @@ interface ModalProps {
 }
 
 /**
- * @returns элемент модалки в DOM
+ * Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно.
+ * @param event нажатие клавиши
+ * @param dialog элемент модалки
  */
-function getDialog() {
-    const dialog = document.getElementById(DIALOG_ID);
-    return dialog instanceof HTMLDialogElement ? dialog : null;
+function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
+    if (event.key !== 'Tab') return;
+    const items = dialog.querySelectorAll<HTMLElement>(FOCUSABLE);
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (!first || !last) return;
+    const active = document.activeElement;
+    if (!dialog.contains(active)) {
+        event.preventDefault();
+        first.focus();
+    } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+    }
 }
 
 /**
@@ -30,45 +47,47 @@ function getDialog() {
  */
 export function Modal({ title, initialFocusId, onClose, children }: ModalProps) {
     useEffect(() => {
-        const dialog = getDialog();
-        if (!dialog) return;
         const opener =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        const reopen = () => dialog.showModal();
-        dialog.showModal();
-        dialog.addEventListener('close', reopen);
         document.getElementById(initialFocusId)?.focus();
-        return () => {
-            dialog.removeEventListener('close', reopen);
-            dialog.close();
-            opener?.focus();
-        };
+        return () => opener?.focus();
     }, [initialFocusId]);
 
     useEffect(() => {
-        const dialog = getDialog();
-        if (!dialog) return;
-        const handleCancel = (event: Event) => {
-            event.preventDefault();
-            onClose();
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                onClose();
+                return;
+            }
+            const dialog = document.getElementById(DIALOG_ID);
+            if (dialog) trapFocus(event, dialog);
         };
-        dialog.addEventListener('cancel', handleCancel);
-        return () => dialog.removeEventListener('cancel', handleCancel);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
 
     return (
-        <dialog id={DIALOG_ID} className="modal" aria-labelledby={TITLE_ID}>
-            <h2 key="title" id={TITLE_ID} className="modal__title">
-                {title}
-            </h2>
-            <IconButton
-                key="close"
-                icon="close"
-                label="Закрыть"
-                className="modal__close"
-                onClick={onClose}
-            />
-            <div key="body">{children}</div>
-        </dialog>
+        <div className="modal-overlay">
+            <dialog
+                id={DIALOG_ID}
+                className="modal"
+                open
+                aria-modal="true"
+                aria-labelledby={TITLE_ID}
+            >
+                <h2 key="title" id={TITLE_ID} className="modal__title">
+                    {title}
+                </h2>
+                <IconButton
+                    key="close"
+                    icon="close"
+                    label="Закрыть"
+                    className="modal__close"
+                    onClick={onClose}
+                />
+                <div key="body">{children}</div>
+            </dialog>
+        </div>
     );
 }

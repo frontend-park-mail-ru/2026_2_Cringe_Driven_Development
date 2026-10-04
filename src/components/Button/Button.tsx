@@ -6,12 +6,14 @@ import './Button.css';
 
 /**
  * Варианты кнопки из макета (Components → Button, Type).
- * Primary — главное действие экрана, Secondary — остальные, Inverse — кнопка на светлой «луне».
+ * Primary — главное действие экрана, Secondary — остальные, Danger — выход и удаление,
+ * Inverse — кнопка на светлой «луне».
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'inverse';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'inverse';
 
 /** Свойства {@link Button}. */
 interface ButtonProps {
+    id?: string;
     /** Текст кнопки */
     children: ReactNode;
     /** Вид кнопки (по умолчанию primary) */
@@ -44,6 +46,7 @@ export function buttonClassName(variant: ButtonVariant, block = false): string {
  * @returns элемент button
  */
 export function Button({
+    id,
     children,
     variant = 'primary',
     type = 'button',
@@ -56,6 +59,7 @@ export function Button({
 
     return (
         <button
+            id={id}
             className={className}
             type={type}
             aria-busy={loading ? 'true' : undefined}

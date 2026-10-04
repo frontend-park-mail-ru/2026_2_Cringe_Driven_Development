@@ -1,11 +1,11 @@
 import { useEffect, useState } from '@maninthecoat/react';
 
 import { api, type NotebookSummary } from '@api/client';
-import { Avatar } from '@components/Avatar/Avatar';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Logo } from '@components/Logo/Logo';
 import { NotebookCard, NotebookCardSkeleton } from '@components/NotebookCard/NotebookCard';
+import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { Link } from '@modules/router';
@@ -103,7 +103,7 @@ export function NotebooksPage() {
                     >
                         <Logo />
                     </Link>
-                    <Avatar key="avatar" login={login} />
+                    <ProfileMenu key="profile" login={login} />
                 </Header>
                 <div key="hero" className="notebooks__hero">
                     <div key="heading" className="notebooks__heading">
