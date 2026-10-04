@@ -1,0 +1,1039 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Default module",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "auth"
+    },
+    {
+      "name": "users"
+    },
+    {
+      "name": "notebooks"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Регистрация",
+        "deprecated": false,
+        "description": "",
+        "operationId": "registerUser",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь создан, выданы токены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "headers": {
+              "Authorization": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Конфликт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Вход",
+        "deprecated": false,
+        "description": "",
+        "operationId": "loginUser",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вход выполнен, выданы токены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "headers": {
+              "Authorization": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Обновление токенов",
+        "deprecated": false,
+        "description": "",
+        "operationId": "refreshToken",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "refresh_token",
+            "in": "cookie",
+            "description": "Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth)",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Выданы новые токены, старый refresh-токен погашен",
+            "headers": {
+              "Authorization": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "required": false,
+                "description": "",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Выход",
+        "deprecated": false,
+        "description": "",
+        "operationId": "logoutUser",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "refresh_token",
+            "in": "cookie",
+            "description": "Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth)",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Сессия удалена, cookie погашена",
+            "headers": {
+              "Set-Cookie": {
+                "required": false,
+                "description": "Cookie `refresh_token` с истёкшим сроком",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/users/me": {
+      "get": {
+        "summary": "Текущий пользователь",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getCurrentUser",
+        "tags": [
+          "users"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Текущий пользователь",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}/cells": {
+      "post": {
+        "summary": "Добавление блока",
+        "deprecated": false,
+        "description": "",
+        "operationId": "createCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCellRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Блок добавлен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cell"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "В блокноте уже максимальное число блоков (1000)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}": {
+      "get": {
+        "summary": "Блокнот",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getNotebook",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Блокнот",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notebook"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks": {
+      "get": {
+        "summary": "Список блокнотов",
+        "deprecated": false,
+        "description": "",
+        "operationId": "listNotebooks",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Блокноты текущего пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotebookSummary"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Создание блокнота",
+        "deprecated": false,
+        "description": "",
+        "operationId": "createNotebook",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNotebookRequest"
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Блокнот создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notebook"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}/cells/{index}": {
+      "delete": {
+        "summary": "Удаление блока",
+        "deprecated": false,
+        "description": "",
+        "operationId": "deleteCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "description": "Порядковый номер блока в блокноте, с нуля",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Блок удалён",
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "webhooks": {},
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "ID"
+          },
+          "login": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "login"
+        ]
+      },
+      "Notebook": {
+        "type": "object",
+        "description": "Блокнот (.ipynb)",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название блокнота"
+          },
+          "cells": {
+            "type": "array",
+            "description": "Блоки в порядке блокнота",
+            "items": {
+              "$ref": "#/components/schemas/Cell"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "cells",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "NotebookSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cells_count": {
+            "type": "integer",
+            "description": "Число блоков"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "updated_at",
+          "cells_count"
+        ]
+      },
+      "Credentials": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9_]+$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72
+          }
+        },
+        "required": [
+          "login",
+          "password"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "invalid_credentials",
+              "login_taken",
+              "unauthorized",
+              "not_found",
+              "not_implemented",
+              "internal"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "Cell": {
+        "type": "object",
+        "description": "Блок блокнота",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "description": "ID блока внутри блокнота"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "markdown"
+            ],
+            "description": "Вид блока"
+          },
+          "source": {
+            "type": "string",
+            "description": "Содержимое блока"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source"
+        ]
+      },
+      "CreateCellRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "markdown"
+            ],
+            "description": "Вид блока"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Позиция нового блока, с нуля. Без поля блок добавляется в конец"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "CreateNotebookRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "servers": [],
+  "security": []
+}

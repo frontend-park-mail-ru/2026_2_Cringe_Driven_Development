@@ -1,0 +1,12 @@
+.logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: var(--font-body-accent);
+    color: var(--color-text-primary);
+}
+
+.logo__mark {
+    display: block;
+    flex: none;
+}

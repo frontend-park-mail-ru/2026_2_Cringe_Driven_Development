@@ -6,7 +6,7 @@ export default defineConfig({
         correctness: 'error',
         suspicious: 'warn',
     },
-    ignorePatterns: ['dist/', 'node_modules/'],
+    ignorePatterns: ['dist/', 'node_modules/', 'src/api/schema.ts'],
     rules: {
         'react-hooks/rules-of-hooks': 'error',
         'react-hooks/exhaustive-deps': 'error',
@@ -18,8 +18,8 @@ export default defineConfig({
             {
                 patterns: [
                     {
-                        group: ['**/modules/*/*'],
-                        message: 'Импортируй модуль через его index.ts: ./modules/<имя>',
+                        group: ['@modules/*/*', '**/modules/*/*'],
+                        message: 'Импортируй модуль через его index.ts: @modules/<имя>',
                     },
                 ],
             },

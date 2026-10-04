@@ -1,0 +1,52 @@
+/*
+ * Имена совпадают с code syntax переменных в макете: color/bg → --color-bg.
+ * Менять значения — только вместе с макетом.
+ */
+:root {
+    color-scheme: dark;
+
+    /* Поверхности */
+    --color-bg: #05030f;
+    --color-surface: rgb(255 255 255 / 0.04);
+    --color-surface-solid: #120c2c;
+
+    /* Границы */
+    --color-border: rgb(255 255 255 / 0.08);
+    --color-border-control: rgb(255 255 255 / 0.4);
+
+    /* Акцент */
+    --color-primary: #7a5af8;
+    --color-primary-deep: #6543f5;
+    --color-focus: #a48cff;
+    --color-primary-text: #8b6cff;
+
+    /* Текст */
+    --color-text-primary: #ece9ff;
+    --color-text-secondary: #a09ac0;
+    --color-on-primary: #ffffff;
+
+    /* Статусы */
+    --color-success: #5ef0a8;
+    --color-error: #ff9a9a;
+
+    /* «Луна»: светлая поверхность, тёмный текст */
+    --color-on-light: #1a1330;
+    --color-inverse-surface: rgb(26 19 48 / 0.08);
+    --color-inverse-surface-hover: rgb(26 19 48 / 0.16);
+    --color-inverse-border: rgb(26 19 48 / 0.24);
+
+    /* Типографика: стили Title / Body / Body accent / Caption */
+    --font-sans: 'Onest', system-ui, 'Segoe UI', sans-serif;
+    --font-title: 600 28px / 36px var(--font-sans);
+    --font-body: 400 16px / 24px var(--font-sans);
+    --font-body-accent: 600 16px / 24px var(--font-sans);
+    --font-caption: 400 14px / 20px var(--font-sans);
+    --tracking-title: -0.02em;
+
+    /* Эффекты */
+    --shadow-glow-primary:
+        0 8px 32px -8px rgb(124 92 255 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.35);
+    --shadow-glow-primary-hover:
+        0 12px 40px -6px rgb(140 110 255 / 0.95), inset 0 1px 0 rgb(255 255 255 / 0.45);
+    --shadow-popover: 0 16px 40px -10px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.1);
+}

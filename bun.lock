@@ -5,7 +5,9 @@
     "": {
       "name": "2026_2_cringe_driven_development",
       "dependencies": {
+        "@iredtea/openapi": "^0.1.0",
         "@maninthecoat/react": "^1.2.0",
+        "@maninthecoat/zustand": "^1.0.0",
       },
       "devDependencies": {
         "@aws-sdk/client-s3": "^3.1146.0",
@@ -18,6 +20,7 @@
     },
   },
   "packages": {
+    "@iredtea/openapi": ["@iredtea/openapi@0.1.0", "", { "bin": { "openapi-cdd": "dist/bin.js" } }, "sha512-mm+uUUoXmfcx5bZPsSYL8VQ3n6jCi8jZpd9GyD5kL7vXy+3HJYhy34stNxlptlfoGn7lR7CEA3YNMj1DUBQZUQ=="],
     "@aws-sdk/checksums": ["@aws-sdk/checksums@3.1001.1", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-x12Q17KYlJAd3nKf8LV5LV0vt8sh8/6YfQLGPtrGnQf/tW4jqxPGq5GPpuVitpQYM3eUR4XB7CbxZf751NMbLw=="],
 
     "@aws-sdk/client-s3": ["@aws-sdk/client-s3@3.1146.0", "", { "dependencies": { "@aws-sdk/checksums": "^3.1001.1", "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/middleware-sdk-s3": "^3.972.77", "@aws-sdk/signature-v4-multi-region": "^3.996.47", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-WY0YCBzxc4muFfY6UbGpA+oib0nGT/Px2aEPGYX7pp1la2OmDLChnK81mu8H7LdYvwGU1pLAsLIa/qgad0Wd7g=="],
@@ -55,6 +58,8 @@
     "@aws/lambda-invoke-store": ["@aws/lambda-invoke-store@0.3.0", "", {}, "sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ=="],
 
     "@maninthecoat/react": ["@maninthecoat/react@1.2.0", "", {}, "sha512-xdbIX05A/Qc4Z041nSJjH2N4edlEq1HLbJIaawLSW90AafeSehe7LZkei6zQgz6fXmerNVbgK74ruNqzDfsR0g=="],
+
+    "@maninthecoat/zustand": ["@maninthecoat/zustand@1.0.0", "", { "peerDependencies": { "@maninthecoat/react": "^1.2.0" }, "optionalPeers": ["@maninthecoat/react"] }, "sha512-JDvC9GJQO9r6J2ZMTxnrmUTbu4sLZw4Yk0KUotjHBFiimHO2Ny9/NoJdj8OgW4u2qMBCxWLfOHvu7LzZs9AWEA=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.151.0", "", {}, "sha512-J1yXrIlNDZVzE3ada310xeAw7nH8yCAyLPuUIsjKatFPmfn5bS1oW+cM+QsGOtVWd5nhSpbwZWx/rue+r5Z+PA=="],
 

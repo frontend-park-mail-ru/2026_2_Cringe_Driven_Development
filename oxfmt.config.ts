@@ -5,5 +5,12 @@ export default defineConfig({
     printWidth: 100,
     endOfLine: 'lf',
     tabWidth: 4,
-    ignorePatterns: ['.claude/**', '.github/**', 'README.md', 'dist/**'],
+    ignorePatterns: [
+        '.claude/**',
+        '.github/**',
+        'README.md',
+        'dist/**',
+        'spec/**',
+        'src/api/schema.ts',
+    ],
 });

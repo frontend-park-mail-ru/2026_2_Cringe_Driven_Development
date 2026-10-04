@@ -1,4 +1,4 @@
-import { Link } from '../modules/router';
+import { Link } from '@modules/router';
 
 export const NotFoundPage = () => (
     <section>

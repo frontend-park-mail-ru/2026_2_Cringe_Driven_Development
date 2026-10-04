@@ -17,6 +17,18 @@
         "resolveJsonModule": true,
         "noEmit": true,
 
+        // Алиасы папок src; vite читает их отсюда
+        "paths": {
+            "@api/*": ["./src/api/*"],
+            "@assets/*": ["./src/assets/*"],
+            "@components/*": ["./src/components/*"],
+            "@layouts/*": ["./src/layouts/*"],
+            "@modules/*": ["./src/modules/*"],
+            "@pages/*": ["./src/pages/*"],
+            "@stores/*": ["./src/stores/*"],
+            "@utils/*": ["./src/utils/*"]
+        },
+
         // Best practices
         "strict": true,
         "skipLibCheck": true,

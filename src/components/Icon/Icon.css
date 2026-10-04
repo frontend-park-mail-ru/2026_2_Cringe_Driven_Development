@@ -1,0 +1,8 @@
+/* --icon задаёт Icon.tsx через style; none здесь — значение по умолчанию */
+.icon {
+    --icon: none;
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    mask: var(--icon) center / contain no-repeat;
+}
