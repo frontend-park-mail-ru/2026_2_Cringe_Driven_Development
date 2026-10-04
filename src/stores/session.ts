@@ -28,24 +28,31 @@ const GUEST: SessionState = { status: 'guest', user: null };
 let restoring: Promise<void> | undefined;
 
 /**
- * Восстанавливает сессию при старте: refresh-cookie меняется на access-токен, затем запрашивается
- * пользователь. Если refresh не прошёл — гость. Повторные вызовы ждут ту же проверку.
+ * Проверка сессии: refresh-cookie меняется на access-токен, затем запрашивается пользователь.
+ * Если refresh не прошёл — гость.
+ */
+async function doRestore(): Promise<void> {
+    try {
+        const refreshed = await api.POST('/auth/refresh');
+        if (!refreshed.response.ok) {
+            useSessionStore.setState(GUEST);
+            return;
+        }
+        const { data } = await api.GET('/users/me');
+        useSessionStore.setState(data ? { status: 'authed', user: data } : GUEST);
+    } catch {
+        useSessionStore.setState(GUEST);
+    }
+}
+
+/**
+ * Восстанавливает сессию при старте. Проверка запускается один раз, повторные вызовы ждут её же.
  * @returns промис, который выполнится, когда статус перестанет быть unknown
  */
 export function restoreSession(): Promise<void> {
-    restoring ??= (async () => {
-        try {
-            const refreshed = await api.POST('/auth/refresh');
-            if (!refreshed.response.ok) {
-                useSessionStore.setState(GUEST);
-                return;
-            }
-            const { data } = await api.GET('/users/me');
-            useSessionStore.setState(data ? { status: 'authed', user: data } : GUEST);
-        } catch {
-            useSessionStore.setState(GUEST);
-        }
-    })();
+    if (!restoring) {
+        restoring = doRestore();
+    }
     return restoring;
 }
 
