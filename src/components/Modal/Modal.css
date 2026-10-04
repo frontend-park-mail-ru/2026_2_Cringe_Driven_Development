@@ -1,0 +1,40 @@
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: var(--color-overlay);
+}
+
+.modal {
+    position: relative;
+    inset: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    max-width: 480px;
+    margin: 0;
+    padding: 32px;
+    border: none;
+    border-radius: 16px;
+    color: var(--color-text-primary);
+    background: var(--color-surface-solid);
+    box-shadow:
+        inset 0 0 0 1px var(--color-border),
+        var(--shadow-popover);
+}
+
+.modal__title {
+    padding-right: 44px;
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+}
+
+.modal__close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+}

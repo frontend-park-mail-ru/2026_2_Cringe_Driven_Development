@@ -10,6 +10,9 @@ export type Credentials = components['schemas']['Credentials'];
 /** Код ошибки из ответа бэкенда (схема Error в Apidog). */
 export type ApiErrorCode = components['schemas']['Error']['code'];
 
+/** Блокнот в списке (схема NotebookSummary в Apidog). */
+export type NotebookSummary = components['schemas']['NotebookSummary'];
+
 /**
  * Клиент бэкенда.
  * authMiddleware хранит access-токен в памяти и после 401 обновляет его по refresh-cookie.

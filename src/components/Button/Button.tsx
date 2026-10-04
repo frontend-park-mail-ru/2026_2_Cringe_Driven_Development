@@ -1,17 +1,19 @@
 import type { ReactNode } from '@maninthecoat/react';
 import { clsx } from '@modules/clsx';
 import { Icon } from '@components/Icon/Icon';
+import type { IconName } from '@components/Icon/icons';
 import './Button.css';
 
 /**
  * Варианты кнопки из макета (Components → Button, Type).
- * Primary — главное действие экрана, Inverse — кнопка на светлой «луне».
- * Secondary и Danger из макета добавим, когда они понадобятся на других экранах.
+ * Primary — главное действие экрана, Secondary — остальные, Danger — выход и удаление,
+ * Inverse — кнопка на светлой «луне».
  */
-export type ButtonVariant = 'primary' | 'inverse';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'inverse';
 
 /** Свойства {@link Button}. */
 interface ButtonProps {
+    id?: string;
     /** Текст кнопки */
     children: ReactNode;
     /** Вид кнопки (по умолчанию primary) */
@@ -22,6 +24,8 @@ interface ButtonProps {
     loading?: boolean;
     /** Растянуть на ширину родителя */
     block?: boolean;
+    /** Иконка перед текстом (свойство Icon в макете) */
+    icon?: IconName;
     /** Нажатие; во время загрузки не вызывается */
     onClick?: (event: MouseEvent) => void;
 }
@@ -42,17 +46,20 @@ export function buttonClassName(variant: ButtonVariant, block = false): string {
  * @returns элемент button
  */
 export function Button({
+    id,
     children,
     variant = 'primary',
     type = 'button',
     loading = false,
     block = false,
+    icon,
     onClick,
 }: ButtonProps) {
     const className = clsx(buttonClassName(variant, block), { 'button--loading': loading });
 
     return (
         <button
+            id={id}
             className={className}
             type={type}
             aria-busy={loading ? 'true' : undefined}
@@ -67,6 +74,7 @@ export function Button({
             }}
         >
             {loading && <Icon key="spinner" name="spinner" className="button__spinner" />}
+            {icon && !loading && <Icon key="icon" name={icon} size={14} />}
             <span key="label">{children}</span>
         </button>
     );
