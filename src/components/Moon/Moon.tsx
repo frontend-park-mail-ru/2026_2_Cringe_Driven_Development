@@ -1,3 +1,4 @@
+import { clsx } from '../../modules/clsx';
 import './Moon.css';
 
 /** Кратеры: центр x, центр y, диаметр (px на луне 600×600) и глубина тени. */
@@ -53,7 +54,7 @@ interface MoonProps {
  */
 export function Moon({ className }: MoonProps) {
     return (
-        <div className={className ? `moon ${className}` : 'moon'} aria-hidden="true">
+        <div className={clsx('moon', className)} aria-hidden="true">
             {CRATERS.map(([x, y, size, depth]) => (
                 <span
                     key={`${x}-${y}`}

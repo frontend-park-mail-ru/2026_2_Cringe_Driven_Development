@@ -1,3 +1,4 @@
+import { clsx } from '../../modules/clsx';
 import { domProps } from '../../utils/dom-props';
 import { Icon } from '../Icon/Icon';
 import './Input.css';
@@ -58,12 +59,9 @@ export function Input({
 }: InputProps) {
     const isPassword = type === 'password';
     const messageId = `${id}-message`;
-    const classes = ['input'];
-    if (error) classes.push('input--error');
-    if (disabled) classes.push('input--disabled');
 
     return (
-        <div className={classes.join(' ')}>
+        <div className={clsx('input', { 'input--error': error, 'input--disabled': disabled })}>
             <label key="label" className="input__label" htmlFor={id}>
                 {label}
             </label>

@@ -1,3 +1,4 @@
+import { clsx } from '../../modules/clsx';
 import { ICON_MASKS, type IconName } from './icons';
 import './Icon.css';
 
@@ -19,7 +20,7 @@ interface IconProps {
 export function Icon({ name, size = 16, className }: IconProps) {
     return (
         <span
-            className={className ? `icon ${className}` : 'icon'}
+            className={clsx('icon', className)}
             style={{ '--icon': ICON_MASKS[name], width: size, height: size }}
             aria-hidden="true"
         />

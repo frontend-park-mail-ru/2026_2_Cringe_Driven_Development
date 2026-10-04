@@ -6,6 +6,7 @@ import {
     type ReactElement,
 } from '@maninthecoat/react';
 
+import { clsx } from '../clsx';
 import { MatchContext, RouterContext } from './context';
 import { useLocation, useMatches, useRouter } from './hooks';
 import type { AnyRoute, ErrorRouteComponent } from './route';
@@ -128,14 +129,12 @@ export const Link = <TTo extends NavigateTo = '.'>(props: LinkProps<TTo>) => {
     const next = router.buildLocation(target);
     const isActive = isLocationActive(current, next, activeOptions);
     const stateProps = (isActive ? activeProps : inactiveProps) ?? {};
-    const className = [
+    const className = clsx(
         anchorProps.class,
         anchorProps.className,
         stateProps.class,
         stateProps.className,
-    ]
-        .filter(Boolean)
-        .join(' ');
+    );
 
     const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);

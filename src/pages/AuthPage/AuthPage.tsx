@@ -4,6 +4,7 @@ import { buttonClassName } from '../../components/Button/Button';
 import { Logo } from '../../components/Logo/Logo';
 import { Moon } from '../../components/Moon/Moon';
 import { Space } from '../../components/Space/Space';
+import { clsx } from '../../modules/clsx';
 import { Link, useMatches, type RouteIds } from '../../modules/router';
 import type { AuthMode } from '../../utils/credentials';
 import { AuthForm } from './AuthForm';
@@ -48,12 +49,9 @@ export function AuthPage() {
     }, [fading, mode, shownMode]);
 
     const showRegister = shownMode === 'register';
-    const className = [
-        'auth',
-        `auth--${mode}`,
-        `auth--show-${shownMode}`,
-        fading ? 'auth--fading' : '',
-    ].join(' ');
+    const className = clsx('auth', `auth--${mode}`, `auth--show-${shownMode}`, {
+        'auth--fading': fading,
+    });
 
     return (
         <div className={className} style={{ '--sweep': `${SWEEP_MS}ms` }}>
