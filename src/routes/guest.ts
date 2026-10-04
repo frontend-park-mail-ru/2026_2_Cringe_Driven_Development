@@ -1,6 +1,6 @@
 import { createRoute, redirect } from '../modules/router';
 import { AuthPage } from '../pages/AuthPage/AuthPage';
-import { restoreSession, useSession } from '../stores/session';
+import { restoreSession, useSessionStore } from '../stores/session';
 import { rootRoute } from './root';
 
 /**
@@ -12,7 +12,7 @@ export const guestRoute = createRoute({
     id: '_guest',
     beforeLoad: async () => {
         await restoreSession();
-        if (useSession.getState().status === 'authed') throw redirect({ to: '/' });
+        if (useSessionStore.getState().status === 'authed') throw redirect({ to: '/' });
     },
     component: AuthPage,
 });

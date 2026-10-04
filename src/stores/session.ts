@@ -11,7 +11,7 @@ interface SessionState {
 }
 
 /** Стор сессии. */
-export const useSession = create<SessionState>()(() => ({ status: 'unknown', user: null }));
+export const useSessionStore = create<SessionState>()(() => ({ status: 'unknown', user: null }));
 
 /** Ошибка входа или регистрации: код бэкенда или network — сервер недоступен. */
 export interface AuthError {
@@ -37,13 +37,13 @@ export function restoreSession(): Promise<void> {
         try {
             const refreshed = await api.POST('/auth/refresh');
             if (!refreshed.response.ok) {
-                useSession.setState(GUEST);
+                useSessionStore.setState(GUEST);
                 return;
             }
             const { data } = await api.GET('/users/me');
-            useSession.setState(data ? { status: 'authed', user: data } : GUEST);
+            useSessionStore.setState(data ? { status: 'authed', user: data } : GUEST);
         } catch {
-            useSession.setState(GUEST);
+            useSessionStore.setState(GUEST);
         }
     })();
     return restoring;
@@ -71,7 +71,7 @@ export async function login(credentials: Credentials): Promise<AuthResult> {
     try {
         const { data, error } = await api.POST('/auth/login', { body: credentials });
         if (!data) return { ok: false, error: toAuthError(error) };
-        useSession.setState({ status: 'authed', user: data });
+        useSessionStore.setState({ status: 'authed', user: data });
         return { ok: true };
     } catch {
         return { ok: false, error: { code: 'network' } };
@@ -87,7 +87,7 @@ export async function register(credentials: Credentials): Promise<AuthResult> {
     try {
         const { data, error } = await api.POST('/auth/register', { body: credentials });
         if (!data) return { ok: false, error: toAuthError(error) };
-        useSession.setState({ status: 'authed', user: data });
+        useSessionStore.setState({ status: 'authed', user: data });
         return { ok: true };
     } catch {
         return { ok: false, error: { code: 'network' } };

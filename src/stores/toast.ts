@@ -7,7 +7,7 @@ interface ToastState {
 }
 
 /** Стор тоста: показывается один, новый заменяет предыдущий. */
-export const useToast = create<ToastState>()(() => ({ toast: null }));
+export const useToastStore = create<ToastState>()(() => ({ toast: null }));
 
 const HIDE_AFTER_MS = 4000;
 
@@ -20,6 +20,6 @@ let hideTimer: ReturnType<typeof setTimeout> | undefined;
  */
 export function showToast(text: string): void {
     clearTimeout(hideTimer);
-    useToast.setState({ toast: { id: nextId++, text } });
-    hideTimer = setTimeout(() => useToast.setState({ toast: null }), HIDE_AFTER_MS);
+    useToastStore.setState({ toast: { id: nextId++, text } });
+    hideTimer = setTimeout(() => useToastStore.setState({ toast: null }), HIDE_AFTER_MS);
 }

@@ -1,12 +1,12 @@
 import { Snackbar } from '../components/Snackbar/Snackbar';
 import { Toast } from '../components/Toast/Toast';
 import { Outlet } from '../modules/router';
-import { useSnackbar } from '../stores/snackbar';
-import { useToast } from '../stores/toast';
+import { useSnackbarStore } from '../stores/snackbar';
+import { useToastStore } from '../stores/toast';
 
 export const RootLayout = () => {
-    const toast = useToast((state) => state.toast);
-    const snackbar = useSnackbar((state) => state.snackbar);
+    const toast = useToastStore((state) => state.toast);
+    const snackbar = useSnackbarStore((state) => state.snackbar);
 
     return (
         <>

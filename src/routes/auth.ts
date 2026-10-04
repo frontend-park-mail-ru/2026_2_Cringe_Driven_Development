@@ -1,5 +1,5 @@
 import { createRoute, redirect } from '../modules/router';
-import { restoreSession, useSession } from '../stores/session';
+import { restoreSession, useSessionStore } from '../stores/session';
 import { rootRoute } from './root';
 
 /** Обёртка страниц для вошедшего пользователя: гостя перенаправляет на вход. */
@@ -8,6 +8,6 @@ export const authRoute = createRoute({
     id: '_auth',
     beforeLoad: async () => {
         await restoreSession();
-        if (useSession.getState().status !== 'authed') throw redirect({ to: '/login' });
+        if (useSessionStore.getState().status !== 'authed') throw redirect({ to: '/login' });
     },
 });
