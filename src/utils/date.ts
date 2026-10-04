@@ -11,6 +11,15 @@ const dayMonthYear = new Intl.DateTimeFormat('ru', {
 });
 
 /**
+ * Начало дня.
+ * @param value момент времени
+ * @returns начало его дня по местному времени, мс
+ */
+function startOfDay(value: Date): number {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+}
+
+/**
  * Сколько назад было время: «только что», «5 мин назад», «2 ч назад», «вчера», «3 дня назад»,
  * дальше недели — дата.
  * @param iso время в формате ISO 8601
@@ -24,8 +33,6 @@ export function timeAgo(iso: string, now = new Date()): string {
     if (diff < HOUR) return `${Math.floor(diff / MINUTE)} мин назад`;
     if (diff < 24 * HOUR) return `${Math.floor(diff / HOUR)} ч назад`;
 
-    const startOfDay = (value: Date) =>
-        new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
     const days = Math.round((startOfDay(now) - startOfDay(date)) / (24 * HOUR));
     if (days <= 1) return 'вчера';
     if (days < 7) return `${plural(days, 'день', 'дня', 'дней')} назад`;
