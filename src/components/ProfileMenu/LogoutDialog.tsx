@@ -22,14 +22,16 @@ export function LogoutDialog({ onClose }: LogoutDialogProps) {
     const navigate = useNavigate();
     const [pending, setPending] = useState(false);
     const [life] = useState({ alive: true });
+    const [snackbarId, setSnackbarId] = useState(0);
 
     useEffect(
         () => () => {
             life.alive = false;
-            hideSnackbar();
         },
         [life],
     );
+
+    useEffect(() => () => hideSnackbar(snackbarId), [snackbarId]);
 
     const close = () => {
         if (!pending) onClose();
@@ -37,7 +39,7 @@ export function LogoutDialog({ onClose }: LogoutDialogProps) {
 
     const confirm = async () => {
         setPending(true);
-        hideSnackbar();
+        hideSnackbar(snackbarId);
 
         const ok = await logout();
         if (!life.alive) return;
@@ -48,7 +50,9 @@ export function LogoutDialog({ onClose }: LogoutDialogProps) {
         }
 
         setPending(false);
-        showSnackbar('Не удалось выйти', { label: 'Повторить', onClick: () => void confirm() });
+        setSnackbarId(
+            showSnackbar('Не удалось выйти', { label: 'Повторить', onClick: () => void confirm() }),
+        );
     };
 
     return (

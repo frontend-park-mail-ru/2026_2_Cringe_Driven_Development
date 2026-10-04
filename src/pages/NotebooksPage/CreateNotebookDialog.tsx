@@ -58,6 +58,7 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
     const [pending, setPending] = useState(false);
     const [serverError, setServerError] = useState<string | undefined>(undefined);
     const [life] = useState({ alive: true });
+    const [snackbarId, setSnackbarId] = useState(0);
 
     useEffect(() => {
         if (!pending) document.getElementById(FIELD_ID)?.focus();
@@ -66,10 +67,11 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
     useEffect(
         () => () => {
             life.alive = false;
-            hideSnackbar();
         },
         [life],
     );
+
+    useEffect(() => () => hideSnackbar(snackbarId), [snackbarId]);
 
     const error = serverError ?? (submitted ? validateName(name) : undefined);
 
@@ -80,7 +82,7 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
     const send = async () => {
         setPending(true);
         setServerError(undefined);
-        hideSnackbar();
+        hideSnackbar(snackbarId);
 
         const result = await createNotebook(name.trim());
         if (!life.alive) return;
@@ -94,10 +96,12 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
             setServerError('Проверьте название');
             return;
         }
-        showSnackbar('Не удалось создать блокнот', {
-            label: 'Повторить',
-            onClick: () => void send(),
-        });
+        setSnackbarId(
+            showSnackbar('Не удалось создать блокнот', {
+                label: 'Повторить',
+                onClick: () => void send(),
+            }),
+        );
     };
 
     const handleSubmit = (event: Event) => {
@@ -128,7 +132,7 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
                     onValueChange={(value) => {
                         setName(value);
                         setServerError(undefined);
-                        hideSnackbar();
+                        hideSnackbar(snackbarId);
                     }}
                 />
                 <div key="actions" className="create-notebook__actions">
