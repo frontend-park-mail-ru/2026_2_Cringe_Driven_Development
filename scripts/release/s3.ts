@@ -2,8 +2,10 @@ import {
     CopyObjectCommand,
     DeleteObjectCommand,
     GetObjectCommand,
+    HeadObjectCommand,
     ListObjectsV2Command,
     NoSuchKey,
+    NotFound,
     PutObjectCommand,
     S3Client,
 } from '@aws-sdk/client-s3';
@@ -62,6 +64,19 @@ export async function putObject(
             CacheControl: cacheControl,
         }),
     );
+}
+
+/** Релиз залит целиком: upload пишет index.html последним */
+export async function hasRelease(bucket: Bucket, sha: string): Promise<boolean> {
+    try {
+        await bucket.client.send(
+            new HeadObjectCommand({ Bucket: bucket.name, Key: `releases/${sha}/index.html` }),
+        );
+        return true;
+    } catch (err) {
+        if (err instanceof NotFound) return false;
+        throw err;
+    }
 }
 
 /** null — файла ещё нет (первый релиз) */

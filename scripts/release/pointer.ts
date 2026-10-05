@@ -1,10 +1,53 @@
 import { ReleaseError, output } from './env.ts';
-import { openBucket, publishIndex, readCurrent, writeCurrent } from './s3.ts';
+import { hasRelease, openBucket, publishIndex, readCurrent, writeCurrent } from './s3.ts';
+
+function git(...args: string[]): boolean {
+    return Bun.spawnSync(['git', ...args], { stdout: 'ignore', stderr: 'ignore' }).exitCode === 0;
+}
+
+function isAncestor(ancestor: string, commit: string): boolean {
+    return git('merge-base', '--is-ancestor', ancestor, commit);
+}
+
+// выкатка идёт только вперёд по истории main. Иначе previous укажет на более новый релиз,
+// и следующий Rollback «откатит» вперёд
+function checkForward(stable: string, sha: string): void {
+    if (isAncestor(stable, sha)) return;
+    for (const [name, commit] of [
+        ['stable', stable],
+        ['релиза', sha],
+    ]) {
+        if (!git('cat-file', '-e', `${commit}^{commit}`)) {
+            throw new ReleaseError(
+                `Коммита ${name} ${commit} нет в истории репозитория: force-push в main ` +
+                    'или checkout без fetch-depth: 0',
+            );
+        }
+    }
+    if (isAncestor(sha, stable)) {
+        throw new ReleaseError(`${sha} старше stable ${stable} — для отката есть Rollback`);
+    }
+    throw new ReleaseError(
+        `stable ${stable} — не предок ${sha}: истории разошлись, выкатка идёт только вперёд по main`,
+    );
+}
+
+/** Релиз есть в бакете; выполняется до Release check, чтобы ошибка была понятнее, чем 404 с CDN */
+export async function exists(sha: string): Promise<void> {
+    if (!(await hasRelease(openBucket(), sha))) {
+        throw new ReleaseError(
+            `Релиза ${sha} нет в бакете: не залит или удалён retention. ` +
+                'Перезалейте — перезапустите CI этого коммита в main',
+        );
+    }
+    console.log(`OK: релиз ${sha} есть в бакете`);
+}
 
 /** Сделать релиз текущим */
 export async function promote(sha: string): Promise<void> {
     const bucket = openBucket();
     const current = await readCurrent(bucket);
+    if (current) checkForward(current.stable, sha);
     // повторная выкатка того же релиза previous не трогает, иначе откатываться будет некуда
     const previous = current?.stable === sha ? current.previous : (current?.stable ?? null);
     // сначала index.html, потом указатель: атомарной записи двух объектов в S3 нет,
