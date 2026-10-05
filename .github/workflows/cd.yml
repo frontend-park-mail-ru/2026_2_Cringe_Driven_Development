@@ -1,0 +1,61 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Sha залитого релиза (40 символов). Пусто — голова main
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SITE_URL: https://cellestial.ru
+
+jobs:
+  cd:
+    name: CD
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    # указатель релиза меняет кто-то один: группа общая с Rollback. Очереди в ней нет — ожидает
+    # один запуск, более новый его вытесняет (README, «Выкатка»)
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+      S3_BUCKET: ${{ vars.S3_BUCKET }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      CDN_URL: ${{ vars.CDN_URL }}
+      SHA: ${{ inputs.sha || github.sha }}
+    steps:
+      # вся история: promote проверяет, что stable — предок выкатываемого релиза
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      - name: Release exists
+        run: bun run release exists "$SHA"
+      # релиз проверяется до переключения: сломанный не становится stable
+      - name: Release check
+        run: bun run release check "$SHA"
+      - name: Promote to stable
+        run: bun run release promote "$SHA"
+      - name: Health check
+        run: bun run release health "$SHA"
+      - name: Retention
+        run: bun run release retention
+      - name: Send to tg
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
+          STATUS: ${{ job.status }}
+        run: bun run release notify Выкатка "$STATUS" "$SHA"
