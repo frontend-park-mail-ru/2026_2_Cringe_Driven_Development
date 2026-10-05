@@ -85,8 +85,8 @@
     position: absolute;
     inset: 0;
     background:
-        url('../../assets/clouds.jpg') 0 0 / 1920px 360px no-repeat,
-        url('../../assets/clouds.jpg') 3840px 0 / 1920px 360px no-repeat;
+        url('%STATIC_URL%/img/clouds.jpg') 0 0 / 1920px 360px no-repeat,
+        url('%STATIC_URL%/img/clouds.jpg') 3840px 0 / 1920px 360px no-repeat;
 }
 
 .clouds::after {

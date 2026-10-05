@@ -49,6 +49,11 @@ vite берёт их оттуда.
 - `stores/` — сторы на `@maninthecoat/zustand`: `session`, `toast`, `snackbar`.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
+- `assets/` — SVG (знак логотипа, иконки) и favicon: Vite встраивает их в бандл.
+  Картинки и шрифты лежат в репозитории
+  [static](https://github.com/Cringe-Driven-Development-Team/static) и берутся с
+  `https://static.cellestial.ru` (переменная `STATIC_URL` в `.env`). В CSS адрес пишется как
+  `url('%STATIC_URL%/img/…')`: плагин в `vite.config.ts` подставляет его при сборке и в dev.
 
 Стили компонентов и страниц — CSS Modules: `import styles from './X.module.css'`,
 в JSX `className={styles.peek}`, несколько классов — через `clsx` из `@modules/clsx`.
