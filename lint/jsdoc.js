@@ -82,7 +82,11 @@ const requireJsdoc = {
         const check = (node) => {
             // реэкспорт (`export { a } from './a'`) и `export default <выражение>` — не объявления
             const declaration = node.declaration;
-            if (!declaration || !declaration.type.endsWith('Declaration')) return;
+            // сигнатура перегрузки — TSDeclareFunction, остальные объявления — *Declaration
+            const isDeclaration =
+                declaration?.type.endsWith('Declaration') ||
+                declaration?.type === 'TSDeclareFunction';
+            if (!declaration || !isDeclaration) return;
             if (jsdocBefore(context, node) !== null) return;
             const id = declaration.id ?? declaration.declarations?.[0]?.id;
             // у перегрузок JSDoc несёт первая сигнатура
