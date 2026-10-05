@@ -19,8 +19,8 @@ interface SnackbarProps {
 
 /**
  * Ошибка отправки формы внизу по центру экрана (Components → Snackbar, Type=Error).
- * @param props свойства снекбара
- * @returns область снекбара
+ * @param {SnackbarProps} props свойства снекбара
+ * @returns {JSX.Element} область снекбара
  */
 export function Snackbar({ snackbar }: SnackbarProps) {
     return (

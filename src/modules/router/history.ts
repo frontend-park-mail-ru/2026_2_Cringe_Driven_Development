@@ -1,3 +1,4 @@
+/** Адрес в истории: части URL и состояние записи. */
 export interface HistoryLocation {
     pathname: string;
     search: string;
@@ -5,6 +6,7 @@ export interface HistoryLocation {
     state: unknown;
 }
 
+/** История переходов, с которой работает роутер: браузерная или в памяти. */
 export interface RouterHistory {
     readonly location: HistoryLocation;
     push(href: string, state?: unknown): void;
@@ -16,6 +18,10 @@ export interface RouterHistory {
     subscribe(listener: () => void): () => void;
 }
 
+/**
+ * История поверх `window.history`.
+ * @returns {RouterHistory} история браузера
+ */
 export function createBrowserHistory(): RouterHistory {
     const listeners = new Set<() => void>();
     const notify = () => listeners.forEach((listener) => listener());
@@ -42,12 +48,17 @@ export function createBrowserHistory(): RouterHistory {
     };
 }
 
+/** Настройки {@link createMemoryHistory}. */
 export interface MemoryHistoryOptions {
     initialEntries?: string[];
     initialIndex?: number;
 }
 
-/** История в памяти: для тестов и окружений без `window` */
+/**
+ * История в памяти: для тестов и окружений без `window`.
+ * @param {MemoryHistoryOptions} [options] начальные записи и номер текущей
+ * @returns {RouterHistory} история в памяти
+ */
 export function createMemoryHistory(options: MemoryHistoryOptions = {}): RouterHistory {
     const entries = (options.initialEntries ?? ['/']).map((href) => parseHref(href, null));
     const listeners = new Set<() => void>();

@@ -29,8 +29,9 @@ type PageState =
 
 /**
  * Загружает блокнот.
- * @param id id блокнота
- * @returns блокнот, 'missing', если такого блокнота нет, или undefined, если загрузить не удалось
+ * @param {number} id id блокнота
+ * @returns {Promise<Notebook | 'missing' | undefined>} блокнот, 'missing', если такого блокнота
+ *     нет, или undefined, если загрузить не удалось
  */
 async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
@@ -45,9 +46,9 @@ async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefine
 
 /**
  * Добавляет ячейку в конец блокнота.
- * @param id id блокнота
- * @param kind вид ячейки
- * @returns новая ячейка или undefined, если добавить не удалось
+ * @param {number} id id блокнота
+ * @param {CellKind} kind вид ячейки
+ * @returns {Promise<CellData | undefined>} новая ячейка или undefined, если добавить не удалось
  */
 async function createCell(id: number, kind: CellKind): Promise<CellData | undefined> {
     try {
@@ -63,9 +64,9 @@ async function createCell(id: number, kind: CellKind): Promise<CellData | undefi
 
 /**
  * Удаляет ячейку.
- * @param id id блокнота
- * @param index порядковый номер ячейки, с нуля
- * @returns удалось ли удалить
+ * @param {number} id id блокнота
+ * @param {number} index порядковый номер ячейки, с нуля
+ * @returns {Promise<boolean>} удалось ли удалить
  */
 async function deleteCell(id: number, index: number): Promise<boolean> {
     try {
@@ -80,8 +81,8 @@ async function deleteCell(id: number, index: number): Promise<boolean> {
 
 /**
  * Название в шапке.
- * @param state состояние страницы
- * @returns текст названия
+ * @param {PageState} state состояние страницы
+ * @returns {string} текст названия
  */
 function title(state: PageState): string {
     switch (state.status) {
@@ -103,8 +104,8 @@ interface AddCellChipsProps {
 
 /**
  * Чипы «+ Код» и «+ Текст».
- * @param props свойства чипов
- * @returns чипы
+ * @param {AddCellChipsProps} props свойства чипов
+ * @returns {JSX.Element} чипы
  */
 function AddCellChips({ onAdd }: AddCellChipsProps) {
     return (
@@ -122,7 +123,7 @@ function AddCellChips({ onAdd }: AddCellChipsProps) {
 /**
  * Страница блокнота: шапка с названием и ячейки.
  * Ошибки загрузки, добавления и удаления ячейки — в снекбаре с «Повторить».
- * @returns страница
+ * @returns {JSX.Element} страница
  */
 export function NotebookPage() {
     const navigate = useNavigate();

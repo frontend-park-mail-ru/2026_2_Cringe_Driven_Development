@@ -16,8 +16,8 @@ interface ProfileMenuProps {
 
 /**
  * Аватар с меню профиля (Components → Menu / Profile): кто вошёл и выход.
- * @param props свойства меню
- * @returns аватар с меню
+ * @param {ProfileMenuProps} props свойства меню
+ * @returns {JSX.Element} аватар с меню
  */
 export function ProfileMenu({ login }: ProfileMenuProps) {
     const [open, setOpen] = useState(false);

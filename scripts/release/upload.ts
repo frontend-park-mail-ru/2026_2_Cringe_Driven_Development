@@ -28,7 +28,11 @@ const TYPES: Record<string, string> = {
 };
 const PARALLEL = 8;
 
-/** dist → releases/{sha}/ */
+/**
+ * dist → releases/{sha}/
+ * @param {string} sha sha релиза
+ * @param {string} [dir] каталог сборки (по умолчанию dist)
+ */
 export async function upload(sha: string, dir = 'dist'): Promise<void> {
     const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
     const files = entries

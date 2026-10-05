@@ -16,8 +16,8 @@ let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
 /**
  * Показывает тост и прячет его через 4 секунды.
- * @param text текст сообщения
- * @param type вид тоста (по умолчанию success)
+ * @param {string} text текст сообщения
+ * @param {ToastType} [type] вид тоста (по умолчанию success)
  */
 export function showToast(text: string, type: ToastType = 'success'): void {
     clearTimeout(hideTimer);

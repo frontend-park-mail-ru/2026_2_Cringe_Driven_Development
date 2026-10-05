@@ -1,20 +1,37 @@
+/** Параметры пути из адреса: имя → значение. */
 export type Params = Record<string, string>;
+/** Значения параметров для подстановки в шаблон пути. */
 export type ParamValues = Record<string, string | number>;
+/** Разобранные search-параметры адреса. */
 export type Search = Record<string, unknown>;
 
 const SPLAT_SEGMENT = '$';
 const SPLAT_PARAM = '_splat';
 
+/**
+ * Делит путь на непустые сегменты.
+ * @param {string} path путь
+ * @returns {string[]} сегменты
+ */
 export function splitPath(path: string): string[] {
     return path.split('/').filter(Boolean);
 }
 
-/** Склеивает части в абсолютный путь без дублирующихся и завершающих слэшей */
+/**
+ * Склеивает части в абсолютный путь без дублирующихся и завершающих слэшей.
+ * @param {string[]} paths части пути
+ * @returns {string} абсолютный путь
+ */
 export function joinPaths(...paths: string[]): string {
     return `/${paths.flatMap(splitPath).join('/')}`;
 }
 
-/** Разрешает `to` относительно `base`: поддерживает абсолютные пути, `.` и `..` */
+/**
+ * Разрешает `to` относительно `base`: поддерживает абсолютные пути, `.` и `..`
+ * @param {string} base путь, от которого считать
+ * @param {string} to абсолютный или относительный путь
+ * @returns {string} абсолютный путь
+ */
 export function resolvePath(base: string, to: string): string {
     if (to.startsWith('/')) return joinPaths(to);
 
@@ -28,7 +45,12 @@ export function resolvePath(base: string, to: string): string {
     return joinPaths(...segments);
 }
 
-/** Сопоставляет шаблон вида `/users/$userId` с адресом. Возвращает параметры или `undefined` */
+/**
+ * Сопоставляет шаблон вида `/users/$userId` с адресом.
+ * @param {string} pattern шаблон пути
+ * @param {string} pathname путь адреса
+ * @returns {Params | undefined} параметры пути или `undefined`, если адрес не подошёл
+ */
 export function matchPath(pattern: string, pathname: string): Params | undefined {
     const patternSegments = splitPath(pattern);
     const pathSegments = splitPath(pathname).map(decodeSegment);
@@ -50,7 +72,12 @@ export function matchPath(pattern: string, pathname: string): Params | undefined
     return patternSegments.length === pathSegments.length ? params : undefined;
 }
 
-/** Подставляет параметры в шаблон пути, сохраняя относительные сегменты */
+/**
+ * Подставляет параметры в шаблон пути, сохраняя относительные сегменты.
+ * @param {string} pattern шаблон пути
+ * @param {ParamValues} params значения параметров
+ * @returns {string} путь
+ */
 export function interpolatePath(pattern: string, params: ParamValues): string {
     return pattern
         .split('/')
@@ -71,14 +98,21 @@ export function interpolatePath(pattern: string, params: ParamValues): string {
         .join('/');
 }
 
-/** Приводит кодирование сегментов пути к тому виду, в котором его собирает `interpolatePath` */
+/**
+ * Приводит кодирование сегментов пути к тому виду, в котором его собирает `interpolatePath`.
+ * @param {string} pathname путь адреса
+ * @returns {string} путь в едином кодировании
+ */
 export function normalizePath(pathname: string): string {
     return joinPaths(encodeSegments(splitPath(pathname).map(decodeSegment).join('/')));
 }
 
 /**
  * Сравнивает шаблоны по специфичности: статичный сегмент важнее параметра,
- * параметр важнее сплата. Отрицательный результат — первым идёт `a`
+ * параметр важнее сплата.
+ * @param {string} a первый шаблон
+ * @param {string} b второй шаблон
+ * @returns {number} отрицательное число, если первым идёт `a`, положительное — если `b`
  */
 export function comparePatterns(a: string, b: string): number {
     const aSegments = splitPath(a);
@@ -92,6 +126,11 @@ export function comparePatterns(a: string, b: string): number {
     return aSegments.length - bSegments.length;
 }
 
+/**
+ * Разбирает строку search-параметров: значения читаются как JSON, повторяющийся ключ даёт массив.
+ * @param {string} searchStr строка запроса, с ведущим `?` или без
+ * @returns {Search} search-параметры
+ */
 export function parseSearch(searchStr: string): Search {
     // Собираем в Map: у объекта ключи вроде `toString` и `__proto__` попали бы в прототип
     const values = new Map<string, unknown>();
@@ -108,7 +147,12 @@ export function parseSearch(searchStr: string): Search {
     return Object.fromEntries(values);
 }
 
-/** Обратная к `parseSearch`: не-строки пишутся как JSON, так что типы значений переживают перезагрузку */
+/**
+ * Обратная к `parseSearch`: не-строки пишутся как JSON, так что типы значений переживают
+ * перезагрузку.
+ * @param {Search} search search-параметры
+ * @returns {string} строка с ведущим `?` или пустая, если параметров нет
+ */
 export function stringifySearch(search: Search): string {
     const query = new URLSearchParams();
 

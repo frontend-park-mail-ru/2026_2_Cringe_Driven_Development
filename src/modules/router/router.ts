@@ -20,6 +20,7 @@ import type {
     TrimRight,
 } from './route';
 
+/** Адрес, разобранный роутером. */
 export interface ParsedLocation {
     /** Полный адрес вместе с `basepath`, собранный из остальных полей */
     href: string;
@@ -35,8 +36,10 @@ export interface ParsedLocation {
     state: unknown;
 }
 
+/** Состояние загрузки совпадения маршрута. */
 export type MatchStatus = 'pending' | 'success' | 'error' | 'notFound';
 
+/** Совпадение маршрута с адресом: параметры, данные и состояние загрузки. */
 export interface RouteMatch<TParams = any, TSearch = any, TContext = any, TLoaderData = any> {
     id: string;
     routeId: string;
@@ -52,6 +55,7 @@ export interface RouteMatch<TParams = any, TSearch = any, TContext = any, TLoade
     globalNotFound: boolean;
 }
 
+/** Состояние роутера: адрес и совпадения маршрутов. */
 export interface RouterState {
     status: 'pending' | 'idle';
     /** Адрес, на который идёт навигация. Обновляется сразу, до загрузки маршрутов */
@@ -71,7 +75,9 @@ export interface RouterState {
  */
 export interface Register {}
 
+/** Роутер с любым деревом маршрутов. */
 export type AnyRouter = Router<AnyRoute>;
+/** Роутер, зарегистрированный через {@link Register}; без регистрации — любой. */
 export type RegisteredRouter = Register extends { router: infer TRouter } ? TRouter : AnyRouter;
 
 type RegisteredRouteTree =
@@ -91,8 +97,11 @@ type FlattenRoutes<TRoute> = TRoute extends AnyRoute
 
 type ToPath<TFullPath extends string> = TFullPath extends '/' ? '/' : TrimRight<TFullPath>;
 
+/** Все маршруты зарегистрированного роутера. */
 export type RegisteredRoutes = FlattenRoutes<RegisteredRouteTree>;
+/** `id` всех маршрутов зарегистрированного роутера. */
 export type RouteIds = RegisteredRoutes['types']['id'];
+/** Маршрут зарегистрированного роутера по его `id`. */
 export type RouteById<TId> = Extract<RegisteredRoutes, { types: { id: TId } }>;
 
 /** Все абсолютные пути зарегистрированного роутера. Без регистрации — любая строка */
@@ -101,7 +110,9 @@ export type RoutePaths =
         ? string
         : ToPath<RegisteredRoutes['types']['fullPath']>;
 
+/** Относительный путь: `.`, `..` и пути от них. */
 export type RelativePath = '.' | '..' | `./${string}` | `../${string}`;
+/** Куда можно перейти: путь зарегистрированного маршрута или относительный путь. */
 export type NavigateTo = RoutePaths | RelativePath;
 
 type ParamsOption<TTo extends string> = [PathParamNames<TTo>] extends [never]
@@ -112,6 +123,7 @@ type ParamsOption<TTo extends string> = [PathParamNames<TTo>] extends [never]
               | ((current: Params) => Record<PathParamNames<TTo>, string | number>);
       };
 
+/** Адрес перехода: путь, параметры, search, hash и состояние записи истории. */
 export type NavigateOptions<TTo extends string = string> = {
     /** Шаблон пути: абсолютный (`/users/$userId`) или относительный (`..`). По умолчанию — текущий адрес */
     to?: TTo;
@@ -125,34 +137,55 @@ export type NavigateOptions<TTo extends string = string> = {
 const REDIRECT = Symbol('redirect');
 const NOT_FOUND = Symbol('notFound');
 
+/** Перенаправление: его создаёт {@link redirect}. */
 export interface Redirect {
     [REDIRECT]: true;
     options: NavigateOptions;
 }
 
+/** Признак «не найдено»: его создаёт {@link notFound}. */
 export interface NotFoundError {
     [NOT_FOUND]: true;
     data: unknown;
 }
 
-/** Бросается из `beforeLoad` или `loader`, чтобы перенаправить на другой адрес */
+/**
+ * Бросается из `beforeLoad` или `loader`, чтобы перенаправить на другой адрес.
+ * @param {NavigateOptions<TTo>} options куда перенаправить
+ * @returns {Redirect} объект для `throw`
+ */
 export function redirect<TTo extends NavigateTo = '.'>(options: NavigateOptions<TTo>): Redirect {
     return { [REDIRECT]: true, options: options as NavigateOptions };
 }
 
-/** Бросается из `beforeLoad` или `loader`, чтобы отрисовать `notFoundComponent` маршрута */
+/**
+ * Бросается из `beforeLoad` или `loader`, чтобы отрисовать `notFoundComponent` маршрута.
+ * @param {{ data?: unknown }} [options] `data` — данные для страницы «не найдено»
+ * @returns {NotFoundError} объект для `throw`
+ */
 export function notFound(options: { data?: unknown } = {}): NotFoundError {
     return { [NOT_FOUND]: true, data: options.data };
 }
 
+/**
+ * Проверяет, что поймано перенаправление.
+ * @param {unknown} value пойманное значение
+ * @returns {boolean} true, если это {@link Redirect}
+ */
 export function isRedirect(value: unknown): value is Redirect {
     return typeof value === 'object' && value !== null && REDIRECT in value;
 }
 
+/**
+ * Проверяет, что поймано «не найдено».
+ * @param {unknown} value пойманное значение
+ * @returns {boolean} true, если это {@link NotFoundError}
+ */
 export function isNotFound(value: unknown): value is NotFoundError {
     return typeof value === 'object' && value !== null && NOT_FOUND in value;
 }
 
+/** Настройки роутера для {@link createRouter}. */
 export interface RouterOptions<TRouteTree extends AnyRoute> {
     routeTree: TRouteTree;
     /** По умолчанию — история браузера */
@@ -183,6 +216,10 @@ interface RedirectTarget {
     replace: boolean;
 }
 
+/**
+ * Роутер: сопоставляет адрес с деревом маршрутов, загружает их и хранит состояние.
+ * Создаётся через {@link createRouter}.
+ */
 export class Router<TRouteTree extends AnyRoute = AnyRoute> {
     readonly options: RouterOptions<TRouteTree>;
     readonly routeTree: TRouteTree;
@@ -226,7 +263,10 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
         return () => this.listeners.delete(listener);
     };
 
-    /** Начинает следить за историей и загружает маршруты текущего адреса */
+    /**
+     * Начинает следить за историей и загружает маршруты текущего адреса.
+     * @returns {() => void} функция, которая прекращает слежение за историей
+     */
     mount = (): (() => void) => {
         const unsubscribe = this.history.subscribe(() => void this.load());
         void this.load();
@@ -236,7 +276,11 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
     navigate = <TTo extends NavigateTo = '.'>(options: NavigateOptions<TTo>): Promise<void> =>
         this.commitLocation(options as NavigateOptions);
 
-    /** То же, что `navigate`, но без проверки пути по зарегистрированным маршрутам */
+    /**
+     * То же, что `navigate`, но без проверки пути по зарегистрированным маршрутам.
+     * @param {NavigateOptions} options адрес перехода
+     * @returns {Promise<void>} промис: выполнится, когда маршруты нового адреса загрузятся
+     */
     commitLocation(options: NavigateOptions): Promise<void> {
         const next = this.buildLocation(options);
         return this.commit(next, options.replace ?? next.href === this.state.location.href);
@@ -244,7 +288,8 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
 
     /**
      * Перезапускает `beforeLoad` и `loader` всех маршрутов текущего адреса. Уже загруженные
-     * маршруты остаются на экране с прежними данными, пока не придут новые
+     * маршруты остаются на экране с прежними данными, пока не придут новые.
+     * @returns {Promise<void>} промис: выполнится, когда маршруты загрузятся заново
      */
     invalidate = (): Promise<void> => this.load({ invalidate: true });
 
@@ -394,7 +439,11 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
 
     /**
      * Разбирает брошенное из `beforeLoad` или `loader`. Редирект, по которому нельзя перейти
-     * (цикл или не хватает параметра пути), становится ошибкой бросившего его маршрута
+     * (цикл или не хватает параметра пути), становится ошибкой бросившего его маршрута.
+     * @param {unknown} thrown брошенное значение
+     * @param {number} redirectCount сколько редиректов уже пройдено подряд
+     * @returns {{ target?: RedirectTarget; error?: unknown }} `target` — куда перейти, либо `error`
+     *     — ошибка маршрута
      */
     private resolveThrown(
         thrown: unknown,
@@ -468,7 +517,9 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
 
     /**
      * Ищет маршрут адреса и приводит путь к тому виду, в котором его собирает `buildLocation`:
-     * иначе адрес из браузера (`/Notebooks`, `@` вместо `%40`) не совпал бы с адресом ссылки
+     * иначе адрес из браузера (`/Notebooks`, `@` вместо `%40`) не совпал бы с адресом ссылки.
+     * @param {string} pathname путь адреса без `basepath`
+     * @returns {LeafMatch} маршрут, параметры пути и путь в едином виде
      */
     private matchLeaf(pathname: string): LeafMatch {
         for (const route of this.flatRoutes) {
@@ -481,7 +532,12 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
         return { route: undefined, params: {}, pathname: normalizePath(pathname) };
     }
 
-    /** Строит цепочку совпадений от корня до маршрута, подошедшего адресу */
+    /**
+     * Строит цепочку совпадений от корня до маршрута, подошедшего адресу.
+     * @param {ParsedLocation} location адрес
+     * @param {LeafMatch} leaf маршрут адреса и параметры пути
+     * @returns {RouteMatch[]} совпадения от корня к листу
+     */
     private matchRoutes(location: ParsedLocation, leaf: LeafMatch): RouteMatch[] {
         const { params } = leaf;
 
@@ -531,6 +587,11 @@ export class Router<TRouteTree extends AnyRoute = AnyRoute> {
     }
 }
 
+/**
+ * Создаёт роутер.
+ * @param {RouterOptions<TRouteTree>} options дерево маршрутов и настройки
+ * @returns {Router<TRouteTree>} роутер
+ */
 export function createRouter<TRouteTree extends AnyRoute>(
     options: RouterOptions<TRouteTree>,
 ): Router<TRouteTree> {

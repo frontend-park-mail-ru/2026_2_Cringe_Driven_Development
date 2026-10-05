@@ -18,8 +18,8 @@ export const PASSWORD_RULE = `Не меньше ${PASSWORD_MIN} символов
 
 /**
  * Проверяет логин.
- * @param login логин
- * @returns текст ошибки или undefined, если логин подходит
+ * @param {string} login логин
+ * @returns {string | undefined} текст ошибки или undefined, если логин подходит
  */
 export function validateLogin(login: string): string | undefined {
     if (login === '') return 'Введите логин';
@@ -31,8 +31,8 @@ export function validateLogin(login: string): string | undefined {
 
 /**
  * Проверяет пароль.
- * @param password пароль
- * @returns текст ошибки или undefined, если пароль подходит
+ * @param {string} password пароль
+ * @returns {string | undefined} текст ошибки или undefined, если пароль подходит
  */
 export function validatePassword(password: string): string | undefined {
     if (password === '') return 'Введите пароль';
@@ -43,9 +43,9 @@ export function validatePassword(password: string): string | undefined {
 
 /**
  * Проверяет повтор пароля при регистрации.
- * @param password пароль
- * @param confirm повтор пароля
- * @returns текст ошибки или undefined, если пароли совпадают
+ * @param {string} password пароль
+ * @param {string} confirm повтор пароля
+ * @returns {string | undefined} текст ошибки или undefined, если пароли совпадают
  */
 export function validateConfirm(password: string, confirm: string): string | undefined {
     if (confirm === '') return 'Повторите пароль';
@@ -55,9 +55,9 @@ export function validateConfirm(password: string, confirm: string): string | und
 
 /**
  * Текст ошибки входа или регистрации для пользователя.
- * @param error ошибка
- * @param mode вход или регистрация
- * @returns текст ошибки
+ * @param {AuthError} error ошибка
+ * @param {AuthMode} mode вход или регистрация
+ * @returns {string} текст ошибки
  */
 export function authErrorMessage(error: AuthError, mode: AuthMode): string {
     switch (error.code) {

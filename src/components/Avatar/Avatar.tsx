@@ -8,8 +8,8 @@ interface AvatarProps {
 
 /**
  * Аватар пользователя 40×40 (Components → Avatar).
- * @param props свойства аватара
- * @returns аватар
+ * @param {AvatarProps} props свойства аватара
+ * @returns {JSX.Element} аватар
  */
 export function Avatar({ login }: AvatarProps) {
     return (

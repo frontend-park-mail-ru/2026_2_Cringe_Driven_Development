@@ -40,7 +40,10 @@ async function releaseCheckOnce(sha: string): Promise<string> {
     return chunk;
 }
 
-/** Релиз отдаётся с CDN: его index.html и чанк из него. Выполняется до смены указателя */
+/**
+ * Релиз отдаётся с CDN: его index.html и чанк из него. Выполняется до смены указателя.
+ * @param {string} sha sha релиза
+ */
 export async function releaseCheck(sha: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
         try {
@@ -56,7 +59,10 @@ export async function releaseCheck(sha: string): Promise<void> {
     throw new ReleaseError(`Release check не прошёл: релиз ${sha} не отдаётся с CDN`);
 }
 
-/** Сайт отдаёт HTML релиза. Выполняется после смены указателя */
+/**
+ * Сайт отдаёт HTML релиза. Выполняется после смены указателя.
+ * @param {string} sha sha релиза
+ */
 export async function health(sha: string): Promise<void> {
     const url = `${siteUrl()}/`;
     const deadline = Date.now() + HEALTH_WAIT_MS;

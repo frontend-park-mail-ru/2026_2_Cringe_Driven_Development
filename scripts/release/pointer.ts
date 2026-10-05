@@ -32,7 +32,10 @@ function checkForward(stable: string, sha: string): void {
     );
 }
 
-/** Релиз есть в бакете; выполняется до Release check, чтобы ошибка была понятнее, чем 404 с CDN */
+/**
+ * Релиз есть в бакете; выполняется до Release check, чтобы ошибка была понятнее, чем 404 с CDN.
+ * @param {string} sha sha релиза
+ */
 export async function exists(sha: string): Promise<void> {
     if (!(await hasRelease(openBucket(), sha))) {
         throw new ReleaseError(
@@ -43,7 +46,10 @@ export async function exists(sha: string): Promise<void> {
     console.log(`OK: релиз ${sha} есть в бакете`);
 }
 
-/** Сделать релиз текущим */
+/**
+ * Сделать релиз текущим.
+ * @param {string} sha sha релиза
+ */
 export async function promote(sha: string): Promise<void> {
     const bucket = openBucket();
     const current = await readCurrent(bucket);
@@ -57,7 +63,10 @@ export async function promote(sha: string): Promise<void> {
     console.log(`stable: ${sha}, previous: ${previous}`);
 }
 
-/** Sha релиза previous — того, на который вернёт откат; попадает в выход шага sha */
+/**
+ * Sha релиза previous — того, на который вернёт откат; попадает в выход шага sha.
+ * @returns {Promise<string>} sha релиза previous
+ */
 export async function findPrevious(): Promise<string> {
     const current = await readCurrent(openBucket());
     if (!current) throw new ReleaseError('current.json нет — откатываться некуда');
@@ -68,7 +77,10 @@ export async function findPrevious(): Promise<string> {
     return current.previous;
 }
 
-/** Вернуть релиз previous: stable и previous меняются местами */
+/**
+ * Вернуть релиз previous: stable и previous меняются местами.
+ * @param {string} sha sha релиза previous
+ */
 export async function rollback(sha: string): Promise<void> {
     const bucket = openBucket();
     const current = await readCurrent(bucket);

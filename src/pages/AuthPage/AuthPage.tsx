@@ -22,7 +22,7 @@ const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
  * Режим берётся из адреса: /login или /register.
  * При смене режима луна сразу едет на другую сторону, а содержимое гаснет
  * и подменяется на середине пути, когда луна его накрывает.
- * @returns страница
+ * @returns {JSX.Element} страница
  */
 export function AuthPage() {
     const isRegister = useMatches().some((match) => match.routeId === REGISTER_ROUTE);
