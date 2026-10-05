@@ -35,7 +35,9 @@ export default defineConfig(({ mode }) => {
                 name: 'static-url',
                 enforce: 'pre',
                 transform: (code: string, id: string) =>
-                    /\.css($|\?)/.test(id) ? code.replaceAll('%STATIC_URL%', staticUrl) : undefined,
+                    /\.css($|\?)/.test(id)
+                        ? { code: code.replaceAll('%STATIC_URL%', staticUrl), map: null }
+                        : undefined,
                 transformIndexHtml: {
                     order: 'pre',
                     handler: (html) => html.replaceAll('%STATIC_URL%', staticUrl),
