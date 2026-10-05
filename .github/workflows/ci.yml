@@ -75,4 +75,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
           TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_TOPIC_ID }}
-        run: bun run release notify Выкатка failure "$GITHUB_SHA"
+        run: bun run release notify Заливка failure "$GITHUB_SHA"
