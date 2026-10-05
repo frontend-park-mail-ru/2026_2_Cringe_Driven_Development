@@ -1,23 +1,29 @@
 import { ReleaseError, need } from './env.ts';
 
-/** Сообщение в Telegram о результате выкатки или отката */
+/** Сообщение в Telegram о результате заливки, выкатки или отката */
 export async function notify(what: string, status: string, sha?: string): Promise<void> {
     const token = need('TELEGRAM_BOT_TOKEN');
     const chat = need('TELEGRAM_CHAT_ID');
     const topic = process.env.TELEGRAM_TOPIC_ID;
     const { GITHUB_ACTOR, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
 
+    // залитый релиз пользователи не видят: выкатывает его человек, кнопка ведёт на запуск CD
+    const uploaded = what === 'Заливка' && status === 'success';
     const lines = [
-        status === 'success'
-            ? `✅ ${what} фронта: успешно`
-            : status === 'cancelled'
-              ? `⚪ ${what} фронта: отменено`
-              : `❌ ${what} фронта: ошибка`,
+        uploaded
+            ? '📦 Релиз фронта залит, ждёт выкатки'
+            : status === 'success'
+              ? `✅ ${what} фронта: успешно`
+              : status === 'cancelled'
+                ? `⚪ ${what} фронта: отменено`
+                : `❌ ${what} фронта: ошибка`,
     ];
     if (sha) lines.push(`Релиз <code>${sha}</code>`);
     if (GITHUB_ACTOR) lines.push(`Запустил: ${GITHUB_ACTOR}`);
     const server = process.env.GITHUB_SERVER_URL || 'https://github.com';
-    const run = `${server}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
+    const repo = `${server}/${GITHUB_REPOSITORY}`;
+    const buttons = [{ text: 'Запуск', url: `${repo}/actions/runs/${GITHUB_RUN_ID}` }];
+    if (uploaded) buttons.push({ text: 'Выкатить', url: `${repo}/actions/workflows/cd.yml` });
 
     const api = process.env.TELEGRAM_API || 'https://api.telegram.org';
     const res = await fetch(`${api}/bot${token}/sendMessage`, {
@@ -27,7 +33,7 @@ export async function notify(what: string, status: string, sha?: string): Promis
             chat_id: chat,
             text: lines.join('\n'),
             parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: [[{ text: 'Запуск', url: run }]] },
+            reply_markup: { inline_keyboard: [buttons] },
             ...(topic ? { message_thread_id: Number(topic) } : {}),
         }),
         signal: AbortSignal.timeout(20_000),

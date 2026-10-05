@@ -5,24 +5,27 @@
 import { health, releaseCheck } from './checks.ts';
 import { ReleaseError, checkSha } from './env.ts';
 import { notify } from './notify.ts';
-import { findPrevious, promote, rollback } from './pointer.ts';
+import { exists, findPrevious, promote, rollback } from './pointer.ts';
 import { retention } from './retention.ts';
 import { upload } from './upload.ts';
 
 const USAGE = `Использование: bun run release <команда>
   upload <sha> [каталог]   dist → releases/{sha}/
+  exists <sha>             релиз есть в бакете
   check <sha>              Release check: релиз отдаётся с CDN
-  promote <sha>            сделать релиз текущим
+  promote <sha>            сделать релиз текущим, только вперёд по истории main
   previous                 sha релиза, на который вернёт откат
   rollback <sha>           вернуть релиз previous
   health <sha>             Health check: сайт отдаёт релиз
   retention                удалить старые релизы
-  notify <Выкатка|Откат> <success|failure|cancelled> [sha]`;
+  notify <Заливка|Выкатка|Откат> <success|failure|cancelled> [sha]`;
 
 async function main(command: string | undefined, args: string[]): Promise<void> {
     switch (command) {
         case 'upload':
             return upload(checkSha(args[0]), args[1]);
+        case 'exists':
+            return exists(checkSha(args[0]));
         case 'check':
             return releaseCheck(checkSha(args[0]));
         case 'promote':
