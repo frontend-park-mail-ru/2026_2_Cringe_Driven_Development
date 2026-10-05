@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from '@maninthecoat/react';
 import { IconButton } from '@components/IconButton/IconButton';
-import './Modal.css';
+import styles from './Modal.module.css';
 
 const DIALOG_ID = 'modal';
 const TITLE_ID = 'modal-title';
@@ -68,22 +68,22 @@ export function Modal({ title, initialFocusId, onClose, children }: ModalProps) 
     }, [onClose]);
 
     return (
-        <div className="modal-overlay">
+        <div className={styles.overlay}>
             <dialog
                 id={DIALOG_ID}
-                className="modal"
+                className={styles.modal}
                 open
                 aria-modal="true"
                 aria-labelledby={TITLE_ID}
             >
-                <h2 key="title" id={TITLE_ID} className="modal__title">
+                <h2 key="title" id={TITLE_ID} className={styles.title}>
                     {title}
                 </h2>
                 <IconButton
                     key="close"
                     icon="close"
                     label="Закрыть"
-                    className="modal__close"
+                    className={styles.close}
                     onClick={onClose}
                 />
                 <div key="body">{children}</div>

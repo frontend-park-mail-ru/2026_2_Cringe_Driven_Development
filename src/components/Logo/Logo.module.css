@@ -6,7 +6,7 @@
     color: var(--color-text-primary);
 }
 
-.logo__mark {
+.mark {
     display: block;
     flex: none;
 }

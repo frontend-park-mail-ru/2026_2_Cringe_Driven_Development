@@ -1,7 +1,7 @@
 import { clsx } from '@modules/clsx';
 import { domProps } from '@utils/dom-props';
 import { Icon } from '@components/Icon/Icon';
-import './Input.css';
+import styles from './Input.module.css';
 
 /** Свойства {@link Input}. */
 interface InputProps {
@@ -61,15 +61,15 @@ export function Input({
     const messageId = `${id}-message`;
 
     return (
-        <div className={clsx('input', { 'input--error': error, 'input--disabled': disabled })}>
-            <label key="label" className="input__label" htmlFor={id}>
+        <div className={clsx(styles.input, error && styles.error, disabled && styles.disabled)}>
+            <label key="label" className={styles.label} htmlFor={id}>
                 {label}
             </label>
-            <div key="control" className="input__control">
+            <div key="control" className={styles.control}>
                 <input
                     key="input"
                     id={id}
-                    className="input__field"
+                    className={styles.field}
                     type={isPassword && !revealed ? 'password' : 'text'}
                     name={name}
                     value={value}
@@ -88,7 +88,7 @@ export function Input({
                 {isPassword && (
                     <button
                         key="reveal"
-                        className="input__reveal"
+                        className={styles.reveal}
                         type="button"
                         disabled={disabled}
                         aria-controls={id}
@@ -100,14 +100,14 @@ export function Input({
                     </button>
                 )}
             </div>
-            <p key="message" id={messageId} className="input__message">
+            <p key="message" id={messageId} className={styles.message}>
                 {error && <Icon key="icon" name="alert" />}
                 {error ? (
-                    <span key="error" className="input__message-text" role="alert">
+                    <span key="error" className={styles.messageText} role="alert">
                         {error}
                     </span>
                 ) : (
-                    <span key="hint" className="input__message-text">
+                    <span key="hint" className={styles.messageText}>
                         {hint ?? ''}
                     </span>
                 )}

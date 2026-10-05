@@ -1,5 +1,5 @@
 import logoMarkUrl from '@assets/logo-mark.svg';
-import './Logo.css';
+import styles from './Logo.module.css';
 
 /**
  * Логотип (Components → Logo).
@@ -7,10 +7,10 @@ import './Logo.css';
  */
 export function Logo() {
     return (
-        <span className="logo">
+        <span className={styles.logo}>
             <img
                 key="mark"
-                className="logo__mark"
+                className={styles.mark}
                 src={logoMarkUrl}
                 alt=""
                 width={24}

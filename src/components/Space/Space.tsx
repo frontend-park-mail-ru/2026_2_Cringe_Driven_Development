@@ -1,4 +1,5 @@
-import './Space.css';
+import { clsx } from '@modules/clsx';
+import styles from './Space.module.css';
 
 const WIDTH = 1440;
 const STAR_COUNT = 70;
@@ -38,12 +39,12 @@ interface SpaceProps {
  */
 export function Space({ variant = 'auth' }: SpaceProps) {
     return (
-        <div className={`space space--${variant}`} aria-hidden="true">
-            <div key="glow" className="space__glow" />
+        <div className={clsx(styles.space, styles[variant])} aria-hidden="true">
+            <div key="glow" className={styles.glow} />
             {STARS.map(({ x, y, size, opacity }, index) => (
                 <span
                     key={`star-${index}`}
-                    className="space__star"
+                    className={styles.star}
                     style={{
                         left: `${(x / WIDTH) * 100}%`,
                         top: `${y}px`,
@@ -55,9 +56,9 @@ export function Space({ variant = 'auth' }: SpaceProps) {
                 />
             ))}
             {variant !== 'plain' && (
-                <div key="planet" className="space__planet">
-                    <div key="surface" className="space__surface">
-                        <div key="clouds" className="space__clouds" />
+                <div key="planet" className={styles.planet}>
+                    <div key="surface" className={styles.surface}>
+                        <div key="clouds" className={styles.clouds} />
                     </div>
                 </div>
             )}

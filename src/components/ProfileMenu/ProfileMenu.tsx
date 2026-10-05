@@ -1,8 +1,9 @@
 import { useEffect, useState } from '@maninthecoat/react';
 import { Avatar } from '@components/Avatar/Avatar';
 import { Icon } from '@components/Icon/Icon';
+import { clsx } from '@modules/clsx';
 import { LogoutDialog } from './LogoutDialog';
-import './ProfileMenu.css';
+import styles from './ProfileMenu.module.css';
 
 const ROOT_ID = 'profile-menu';
 const TRIGGER_ID = 'profile-menu-trigger';
@@ -50,33 +51,33 @@ export function ProfileMenu({ login }: ProfileMenuProps) {
     };
 
     return (
-        <div id={ROOT_ID} className="profile-menu">
+        <div id={ROOT_ID} className={styles.menu}>
             <button
                 key="trigger"
                 id={TRIGGER_ID}
-                className="profile-menu__trigger"
+                className={styles.trigger}
                 type="button"
                 aria-label="Меню профиля"
                 aria-expanded={open ? 'true' : 'false'}
                 aria-controls={open ? POPUP_ID : undefined}
                 onClick={() => setOpen((current) => !current)}
             >
-                <Avatar login={login} />
+                <Avatar login={login} className={styles.avatar} />
             </button>
             {open && (
-                <div key="popup" id={POPUP_ID} className="profile-menu__popup">
-                    <div key="account" className="profile-menu__account">
-                        <span key="caption" className="profile-menu__caption">
+                <div key="popup" id={POPUP_ID} className={styles.popup}>
+                    <div key="account" className={styles.account}>
+                        <span key="caption" className={styles.caption}>
                             Вы вошли как
                         </span>
-                        <span key="login" className="profile-menu__login">
+                        <span key="login" className={styles.login}>
                             {login}
                         </span>
                     </div>
-                    <hr key="divider" className="profile-menu__divider" />
+                    <hr key="divider" className={styles.divider} />
                     <button
                         key="logout"
-                        className="profile-menu__item profile-menu__item--danger"
+                        className={clsx(styles.item, styles.danger)}
                         type="button"
                         onClick={askLogout}
                     >

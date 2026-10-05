@@ -1,5 +1,5 @@
 import { Icon } from '@components/Icon/Icon';
-import './Toast.css';
+import styles from './Toast.module.css';
 
 /** Вид тоста (Components → Toast, Type). */
 export type ToastType = 'success' | 'info';
@@ -28,15 +28,15 @@ interface ToastProps {
 export function Toast({ toast }: ToastProps) {
     return (
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
-        <div className="toast-region" role="status" aria-live="polite">
+        <div className={styles.region} role="status" aria-live="polite">
             {toast && (
-                <div key={toast.id} className="toast">
+                <div key={toast.id} className={styles.toast}>
                     <Icon
                         key="icon"
                         name={toast.type === 'info' ? 'info' : 'check'}
-                        className={`toast__icon toast__icon--${toast.type}`}
+                        className={styles[toast.type]}
                     />
-                    <p key="text" className="toast__text">
+                    <p key="text" className={styles.text}>
                         {toast.text}
                     </p>
                 </div>

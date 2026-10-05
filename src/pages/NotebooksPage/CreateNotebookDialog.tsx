@@ -6,6 +6,7 @@ import { Input } from '@components/Input/Input';
 import { Modal } from '@components/Modal/Modal';
 import { useNavigate } from '@modules/router';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
+import styles from './NotebooksPage.module.css';
 
 const FIELD_ID = 'notebook-name';
 
@@ -118,7 +119,7 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
 
     return (
         <Modal title="Новый блокнот" initialFocusId={FIELD_ID} onClose={close}>
-            <form className="create-notebook" noValidate onSubmit={handleSubmit}>
+            <form className={styles.createForm} noValidate onSubmit={handleSubmit}>
                 <Input
                     key="name"
                     id={FIELD_ID}
@@ -135,7 +136,7 @@ export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
                         hideSnackbar(snackbarId);
                     }}
                 />
-                <div key="actions" className="create-notebook__actions">
+                <div key="actions" className={styles.createActions}>
                     <Button key="cancel" variant="secondary" onClick={close}>
                         Отмена
                     </Button>

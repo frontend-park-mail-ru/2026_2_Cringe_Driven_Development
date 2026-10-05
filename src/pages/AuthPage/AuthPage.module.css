@@ -11,7 +11,7 @@
     padding: 64px 120px 48px;
 }
 
-.auth__card {
+.card {
     position: relative;
     display: flex;
     width: 100%;
@@ -24,7 +24,7 @@
     container-type: inline-size;
 }
 
-.auth__card::after {
+.card::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -33,11 +33,11 @@
     pointer-events: none;
 }
 
-.auth--show-register .auth__card {
+.showRegister .card {
     flex-direction: row-reverse;
 }
 
-.auth__form {
+.formPane {
     display: flex;
     flex: 1 1 544px;
     flex-direction: column;
@@ -46,7 +46,7 @@
     padding: 48px;
 }
 
-.auth__side {
+.side {
     position: relative;
     display: flex;
     flex: 1 1 452px;
@@ -56,7 +56,7 @@
 }
 
 /* Вход: левый край луны на границе половин (544 из 996), регистрация: правый (452 из 996) */
-.auth__moon {
+.moon {
     position: absolute;
     top: 50%;
     left: 0;
@@ -65,22 +65,22 @@
     transition: transform var(--sweep) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.auth--register .auth__moon {
+.register .moon {
     transform: translateX(calc(100cqw * 452 / 996 - 600px));
 }
 
-.auth__form,
-.auth__face {
+.formPane,
+.face {
     transition: opacity calc(var(--sweep) / 4) ease;
 }
 
-.auth--fading .auth__form,
-.auth--fading .auth__face {
+.fading .formPane,
+.fading .face {
     opacity: 0;
     pointer-events: none;
 }
 
-.auth__face {
+.face {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -90,23 +90,23 @@
     text-align: center;
 }
 
-.auth__face-title {
+.faceTitle {
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
 }
 
-.auth__face-pitch {
+.facePitch {
     font: var(--font-caption);
     white-space: pre-line;
 }
 
-.auth-form {
+.form {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
-.auth-form__title {
+.formTitle {
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
 }
@@ -118,31 +118,31 @@
         padding: 32px 16px;
     }
 
-    .auth__card,
-    .auth--show-register .auth__card {
+    .card,
+    .showRegister .card {
         flex-direction: column;
         min-height: 0;
     }
 
-    .auth__form {
+    .formPane {
         flex: none;
         padding: 32px 24px;
     }
 
-    .auth__side {
+    .side {
         flex: none;
         height: 240px;
     }
 
-    .auth__moon,
-    .auth--register .auth__moon {
+    .moon,
+    .register .moon {
         top: calc(100% - 216px);
         left: 50%;
         margin: 0 0 0 -300px;
         transform: none;
     }
 
-    .auth__face {
+    .face {
         margin-top: 24px;
     }
 }
