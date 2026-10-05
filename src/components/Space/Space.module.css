@@ -74,7 +74,8 @@
     top: -2px;
     left: calc(50% - 960px);
     width: 7680px;
-    height: 360px;
+    height: 540px;
+    mask-image: linear-gradient(#000 50%, transparent);
     mix-blend-mode: screen;
     animation: drift 360s linear infinite;
 }
@@ -85,8 +86,8 @@
     position: absolute;
     inset: 0;
     background:
-        url('%STATIC_URL%/img/clouds.jpg') 0 0 / 1920px 360px no-repeat,
-        url('%STATIC_URL%/img/clouds.jpg') 3840px 0 / 1920px 360px no-repeat;
+        url('%STATIC_URL%/img/clouds.jpg') 0 0 / 1920px 100% no-repeat,
+        url('%STATIC_URL%/img/clouds.jpg') 3840px 0 / 1920px 100% no-repeat;
 }
 
 .clouds::after {
