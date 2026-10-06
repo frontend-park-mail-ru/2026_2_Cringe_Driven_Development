@@ -9,7 +9,7 @@
     box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
-.cell__content {
+.content {
     flex: 1;
     min-width: 0;
     margin: 0;
@@ -18,39 +18,37 @@
     overflow-wrap: anywhere;
 }
 
-.cell--code .cell__content {
+.code .content {
     font: var(--font-code);
     color: var(--code-text);
 }
 
-.cell .cell__content--empty {
+.cell .empty {
     color: var(--color-text-secondary);
 }
 
-/* Строка кода ниже строки текста: подсказку ставим по центру ячейки */
-.cell--code .cell__content--empty {
+.code .empty {
     padding: 2px 0;
 }
 
-/* Кнопка 36 px выше строки текста: отрицательные отступы не дают ей растянуть ячейку */
-.cell__delete {
+.delete {
     margin: -6px -6px -6px 0;
     background: none;
     box-shadow: none;
 }
 
-.cell__delete:hover {
+.delete:hover {
     color: var(--color-error);
 }
 
-.cell--skeleton {
+.skeleton {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
     gap: 8px;
 }
 
-.cell__bar {
+.bar {
     display: block;
     max-width: 100%;
     height: 12px;

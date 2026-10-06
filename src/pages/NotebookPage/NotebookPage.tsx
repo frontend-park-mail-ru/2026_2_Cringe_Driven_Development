@@ -14,7 +14,7 @@ import { Link, useNavigate, useParams } from '@modules/router';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
-import './NotebookPage.css';
+import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
 const SKELETON_COUNT = 4;
@@ -238,9 +238,9 @@ export function NotebookPage() {
     const hasToolbar = page.status === 'loading' || page.status === 'ready';
 
     return (
-        <div className="notebook">
+        <div className={styles.page}>
             <Space key="space" variant="plain" />
-            <div key="content" className="notebook__content">
+            <div key="content" className={styles.content}>
                 <Header key="header" toolbar={hasToolbar && <AddCellChips onAdd={handleAdd} />}>
                     <IconButton
                         key="back"
@@ -250,18 +250,18 @@ export function NotebookPage() {
                     />
                     <img
                         key="mark"
-                        className="notebook__mark"
+                        className={styles.mark}
                         src={logoMarkUrl}
                         alt=""
                         width={24}
                         height={24}
                     />
-                    <div key="heading" className="notebook__heading">
-                        <h1 key="title" className="notebook__title" title={title(page)}>
+                    <div key="heading" className={styles.heading}>
+                        <h1 key="title" className={styles.title} title={title(page)}>
                             {title(page)}
                         </h1>
                         {page.status === 'ready' && (
-                            <p key="meta" className="notebook__meta">
+                            <p key="meta" className={styles.meta}>
                                 {plural(cells.length, 'ячейка', 'ячейки', 'ячеек')}
                             </p>
                         )}
@@ -269,7 +269,7 @@ export function NotebookPage() {
                     <ProfileMenu key="profile" login={login} />
                 </Header>
                 {page.status === 'loading' && (
-                    <ul key="skeletons" className="notebook__cells" aria-hidden="true">
+                    <ul key="skeletons" className={styles.cells} aria-hidden="true">
                         {Array.from({ length: SKELETON_COUNT }, (_, index) => (
                             <li key={`skeleton-${index}`}>
                                 <CellSkeleton />
@@ -278,15 +278,15 @@ export function NotebookPage() {
                     </ul>
                 )}
                 {page.status === 'ready' && !isEmpty && (
-                    <div key="body" className="notebook__body">
-                        <ul key="cells" className="notebook__cells">
+                    <div key="body" className={styles.body}>
+                        <ul key="cells" className={styles.cells}>
                             {cells.map((cell) => (
                                 <li key={cell.id}>
                                     <Cell cell={cell} onDelete={() => void removeCell(cell.id)} />
                                 </li>
                             ))}
                         </ul>
-                        <div key="add" className="notebook__add">
+                        <div key="add" className={styles.add}>
                             <AddCellChips onAdd={handleAdd} />
                         </div>
                     </div>

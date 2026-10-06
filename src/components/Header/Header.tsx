@@ -1,5 +1,5 @@
 import type { ReactNode } from '@maninthecoat/react';
-import './Header.css';
+import styles from './Header.module.css';
 
 /** Свойства {@link Header}. */
 interface HeaderProps {
@@ -16,13 +16,13 @@ interface HeaderProps {
  */
 export function Header({ children, toolbar }: HeaderProps) {
     return (
-        <header className="header">
-            <div key="row" className="header__row">
+        <header className={styles.header}>
+            <div key="row" className={styles.row}>
                 {children}
             </div>
-            {toolbar && <hr key="divider" className="header__divider" />}
+            {toolbar && <hr key="divider" className={styles.divider} />}
             {toolbar && (
-                <div key="toolbar" className="header__toolbar">
+                <div key="toolbar" className={styles.toolbar}>
                     {toolbar}
                 </div>
             )}

@@ -1,7 +1,7 @@
 import type { Cell as CellData } from '@api/client';
 import { IconButton } from '@components/IconButton/IconButton';
 import { clsx } from '@modules/clsx';
-import './Cell.css';
+import styles from './Cell.module.css';
 
 /** Свойства {@link Cell}. */
 interface CellProps {
@@ -19,13 +19,13 @@ export function Cell({ cell, onDelete }: CellProps) {
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
 
     return (
-        <div id={cellDomId(cell.id)} className={clsx('cell', { 'cell--code': isCode })}>
+        <div id={cellDomId(cell.id)} className={clsx(styles.cell, isCode && styles.code)}>
             {cell.source === '' ? (
-                <p key="content" className="cell__content cell__content--empty">
+                <p key="content" className={clsx(styles.content, styles.empty)}>
                     {placeholder}
                 </p>
             ) : (
-                <pre key="content" className="cell__content">
+                <pre key="content" className={styles.content}>
                     {cell.source}
                 </pre>
             )}
@@ -33,7 +33,7 @@ export function Cell({ cell, onDelete }: CellProps) {
                 key="delete"
                 icon="trash"
                 label="Удалить ячейку"
-                className="cell__delete"
+                className={styles.delete}
                 onClick={onDelete}
             />
         </div>
@@ -55,9 +55,9 @@ export function cellDomId(id: string): string {
  */
 export function CellSkeleton() {
     return (
-        <div className="cell cell--skeleton" aria-hidden="true">
-            <span key="line-1" className="cell__bar" style={{ width: '420px' }} />
-            <span key="line-2" className="cell__bar" style={{ width: '280px' }} />
+        <div className={clsx(styles.cell, styles.skeleton)} aria-hidden="true">
+            <span key="line-1" className={styles.bar} style={{ width: '420px' }} />
+            <span key="line-2" className={styles.bar} style={{ width: '280px' }} />
         </div>
     );
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from '@maninthecoat/react';
 import { clsx } from '@modules/clsx';
 import { Icon } from '@components/Icon/Icon';
 import type { IconName } from '@components/Icon/icons';
-import './Button.css';
+import styles from './Button.module.css';
 
 /**
  * Варианты кнопки из макета (Components → Button, Type).
@@ -26,6 +26,7 @@ interface ButtonProps {
     block?: boolean;
     /** Иконка перед текстом (свойство Icon в макете) */
     icon?: IconName;
+    className?: string;
     /** Нажатие; во время загрузки не вызывается */
     onClick?: (event: MouseEvent) => void;
 }
@@ -37,7 +38,7 @@ interface ButtonProps {
  * @returns {string} строка классов
  */
 export function buttonClassName(variant: ButtonVariant, block = false): string {
-    return clsx('button', `button--${variant}`, { 'button--block': block });
+    return clsx(styles.button, styles[variant], block && styles.block);
 }
 
 /**
@@ -53,14 +54,13 @@ export function Button({
     loading = false,
     block = false,
     icon,
+    className,
     onClick,
 }: ButtonProps) {
-    const className = clsx(buttonClassName(variant, block), { 'button--loading': loading });
-
     return (
         <button
             id={id}
-            className={className}
+            className={clsx(buttonClassName(variant, block), loading && styles.loading, className)}
             type={type}
             aria-busy={loading ? 'true' : undefined}
             aria-disabled={loading ? 'true' : undefined}
@@ -73,7 +73,7 @@ export function Button({
                 onClick?.(event);
             }}
         >
-            {loading && <Icon key="spinner" name="spinner" className="button__spinner" />}
+            {loading && <Icon key="spinner" name="spinner" className={styles.spinner} />}
             {icon && !loading && <Icon key="icon" name={icon} size={14} />}
             <span key="label">{children}</span>
         </button>

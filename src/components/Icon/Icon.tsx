@@ -1,6 +1,6 @@
 import { clsx } from '@modules/clsx';
 import { ICON_MASKS, type IconName } from './icons';
-import './Icon.css';
+import styles from './Icon.module.css';
 
 /** Свойства {@link Icon}. */
 interface IconProps {
@@ -20,7 +20,7 @@ interface IconProps {
 export function Icon({ name, size = 16, className }: IconProps) {
     return (
         <span
-            className={clsx('icon', className)}
+            className={clsx(styles.icon, className)}
             style={{ '--icon': ICON_MASKS[name], width: size, height: size }}
             aria-hidden="true"
         />

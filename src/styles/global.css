@@ -1,7 +1,6 @@
 @font-face {
     font-family: 'Onest';
-    /* Вариативный шрифт, ось wght 400–600, латиница и кириллица. Лицензия — assets/fonts/OFL.txt */
-    src: url('../assets/fonts/onest-variable.woff') format('woff');
+    src: url('%STATIC_URL%/fonts/onest-variable.woff2') format('woff2');
     font-weight: 400 600;
     font-style: normal;
     font-display: swap;

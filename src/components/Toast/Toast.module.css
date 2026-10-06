@@ -1,4 +1,4 @@
-.toast-region {
+.region {
     position: fixed;
     z-index: 10;
     left: 50%;
@@ -19,23 +19,23 @@
     box-shadow:
         inset 0 0 0 1px var(--color-border),
         var(--shadow-popover);
-    animation: toast-in 0.2s ease-out;
+    animation: appear 0.2s ease-out;
 }
 
-.toast__icon--success {
+.success {
     color: var(--color-success);
 }
 
-.toast__icon--info {
+.info {
     color: var(--color-primary-text);
 }
 
-.toast__text {
+.text {
     font: var(--font-caption);
     color: var(--color-text-primary);
 }
 
-@keyframes toast-in {
+@keyframes appear {
     from {
         opacity: 0;
         transform: translateY(8px);

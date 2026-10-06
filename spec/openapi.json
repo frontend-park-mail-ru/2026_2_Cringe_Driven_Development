@@ -48,13 +48,6 @@
               }
             },
             "headers": {
-              "Authorization": {
-                "required": false,
-                "description": "",
-                "schema": {
-                  "type": "string"
-                }
-              },
               "Set-Cookie": {
                 "required": false,
                 "description": "",
@@ -132,13 +125,6 @@
               }
             },
             "headers": {
-              "Authorization": {
-                "required": false,
-                "description": "",
-                "schema": {
-                  "type": "string"
-                }
-              },
               "Set-Cookie": {
                 "required": false,
                 "description": "",
@@ -210,13 +196,6 @@
           "204": {
             "description": "Выданы новые токены, старый refresh-токен погашен",
             "headers": {
-              "Authorization": {
-                "required": false,
-                "description": "",
-                "schema": {
-                  "type": "string"
-                }
-              },
               "Set-Cookie": {
                 "required": false,
                 "description": "",

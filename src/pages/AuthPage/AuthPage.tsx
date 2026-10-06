@@ -8,7 +8,7 @@ import { clsx } from '@modules/clsx';
 import { Link, useMatches, type RouteIds } from '@modules/router';
 import type { AuthMode } from '@utils/credentials';
 import { AuthForm } from './AuthForm';
-import './AuthPage.css';
+import styles from './AuthPage.module.css';
 
 const REGISTER_ROUTE: RouteIds = '/_guest/register';
 
@@ -49,25 +49,28 @@ export function AuthPage() {
     }, [fading, mode, shownMode]);
 
     const showRegister = shownMode === 'register';
-    const className = clsx('auth', `auth--${mode}`, `auth--show-${shownMode}`, {
-        'auth--fading': fading,
-    });
+    const className = clsx(
+        styles.auth,
+        isRegister && styles.register,
+        showRegister && styles.showRegister,
+        fading && styles.fading,
+    );
 
     return (
         <div className={className} style={{ '--sweep': `${SWEEP_MS}ms` }}>
             <Space key="space" />
             <Logo key="logo" />
-            <div key="card" className="auth__card">
-                <Moon key="moon" className="auth__moon" />
-                <div key="form" className="auth__form">
+            <div key="card" className={styles.card}>
+                <Moon key="moon" className={styles.moon} />
+                <div key="form" className={styles.formPane}>
                     <AuthForm key={shownMode} mode={shownMode} />
                 </div>
-                <div key="side" className="auth__side">
-                    <div key="face" className="auth__face">
-                        <h2 key="title" className="auth__face-title">
+                <div key="side" className={styles.side}>
+                    <div key="face" className={styles.face}>
+                        <h2 key="title" className={styles.faceTitle}>
                             {showRegister ? 'Уже есть аккаунт?' : 'Ещё нет аккаунта?'}
                         </h2>
-                        <p key="pitch" className="auth__face-pitch">
+                        <p key="pitch" className={styles.facePitch}>
                             {showRegister
                                 ? 'Ваши блокноты ждут\nна орбите'
                                 : 'Python прямо в браузере —\nбез установки окружения'}

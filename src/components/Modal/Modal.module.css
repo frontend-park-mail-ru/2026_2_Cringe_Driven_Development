@@ -1,4 +1,4 @@
-.modal-overlay {
+.overlay {
     position: fixed;
     inset: 0;
     z-index: 2;
@@ -27,13 +27,13 @@
         var(--shadow-popover);
 }
 
-.modal__title {
+.title {
     padding-right: 44px;
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
 }
 
-.modal__close {
+.close {
     position: absolute;
     top: 24px;
     right: 24px;

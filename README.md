@@ -83,31 +83,25 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 > Ветку, созданную руками (`git switch -c web-12 origin/main`), с задачей свяжет
 > та же строка `Closes …` — поэтому она обязательна всегда
 
-## Документация кода
+## Контракт API
 
-Экспортируемый код документируется JSDoc: функции, компоненты, хуки, классы, константы, типы и
-интерфейсы. Это проверяет линт — экспорт без комментария `/** … */` не проходит `bun run check`
+Контракт ведётся в [Apidog](https://app.apidog.com/project/1382426), в репозитории лежит его копия
+`spec/openapi.json` и сгенерированные по ней типы `src/api/schema.ts`. Оба файла коммитятся
+и руками не правятся
 
-```ts
-/**
- * Форма слова для числа: 1 блокнот, 2 блокнота, 5 блокнотов.
- * @param {number} count число
- * @param {string} one форма для 1, 21, 31…
- * @returns {string} число и слово через пробел
- */
-```
-
-| Правило | Что требует |
+| Команда | Что делает |
 |---|---|
-| `cdd/require-jsdoc` | JSDoc у каждого экспортируемого объявления. Реэкспорт (`export { a } from './a'`) не считается; у перегрузок комментарий несёт первая сигнатура |
-| `jsdoc/require-param`, `jsdoc/require-param-type` | `@param {тип} имя` на каждый параметр. У компонента — один `@param {XProps} props`, свойства описаны в интерфейсе |
-| `jsdoc/require-returns`, `jsdoc/require-returns-type` | `@returns {тип}`, если функция что-то возвращает |
-| `cdd/check-param-names` | имена в `@param` совпадают с параметрами функции и идут в том же порядке |
+| `bun run sync` | всё сразу: выгрузка из Apidog и генерация типов |
+| `bun run apidog` | выгружает спеку в `spec/openapi.json` |
+| `bun run generate` | генерирует `src/api/schema.ts` из `spec/openapi.json` |
 
-Правила `jsdoc/*` действуют на любой JSDoc, не только у экспортов: если у внутренней функции есть
-комментарий `/** … */`, теги в нём тоже обязательны. Правила `cdd/*` — свой плагин
-`lint/jsdoc.js`: в `oxlint` правил `require-jsdoc` и `check-param-names` нет. Сгенерированный
-`src/api/schema.ts` линт не проверяет
+Для выгрузки нужен личный токен Apidog (`Account Settings` → `API Access Token`) в `.env`:
+
+```sh
+APIDOG_TOKEN=...
+# ID sprint-ветки (серое число в Manage Sprint Branches). Пусто — ветка main
+APIDOG_BRANCH_ID=
+```
 
 ## Выкатка
 

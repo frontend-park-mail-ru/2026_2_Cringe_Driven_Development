@@ -15,7 +15,7 @@
         inset 0 0 46px -8px rgb(146 128 196 / 0.3);
 }
 
-.moon__crater {
+.crater {
     /* Значения задаёт Moon.tsx через style; здесь — значения по умолчанию */
     --x: 0px;
     --y: 0px;

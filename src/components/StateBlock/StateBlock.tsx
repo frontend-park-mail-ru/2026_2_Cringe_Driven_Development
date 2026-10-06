@@ -1,6 +1,6 @@
 import type { ReactNode } from '@maninthecoat/react';
 import emptyPlanetUrl from '@assets/empty-planet.svg';
-import './StateBlock.css';
+import styles from './StateBlock.module.css';
 
 /** Свойства {@link StateBlock}. */
 interface StateBlockProps {
@@ -17,16 +17,16 @@ interface StateBlockProps {
  */
 export function StateBlock({ title, description, children }: StateBlockProps) {
     return (
-        <div className="state-block">
+        <div className={styles.block}>
             <img key="icon" src={emptyPlanetUrl} alt="" width={56} height={56} />
-            <h2 key="title" className="state-block__title">
+            <h2 key="title" className={styles.title}>
                 {title}
             </h2>
-            <p key="description" className="state-block__description">
+            <p key="description" className={styles.description}>
                 {description}
             </p>
             {children && (
-                <div key="actions" className="state-block__actions">
+                <div key="actions" className={styles.actions}>
                     {children}
                 </div>
             )}
