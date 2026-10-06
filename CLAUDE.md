@@ -17,8 +17,8 @@
 
 ## Источники
 
-- API: контракт в Apidog, локальная копия — `spec/openapi.json`. После обновления спеки —
-  `bun run generate`, файл `src/api/schema.ts` руками не править.
+- API: контракт в Apidog, локальная копия — `spec/openapi.json`. Обновить — `bun run sync`
+  (выгрузка `bun run apidog` + `bun run generate`), оба файла руками не править.
 - Бэкенд: https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development, локально на
   `http://127.0.0.1:8080` (адрес меняется переменной `BACKEND_URL` в `.env`).
 

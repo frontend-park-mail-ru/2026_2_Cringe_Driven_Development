@@ -5,5 +5,5 @@
         "lib": ["ESNext"],
         "types": ["bun"]
     },
-    "include": ["release"]
+    "include": ["release", "apidog.ts"]
 }
