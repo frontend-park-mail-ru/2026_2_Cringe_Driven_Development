@@ -65,5 +65,7 @@ vite берёт их оттуда.
 - Access- и refresh-токен живут в HttpOnly-cookie (refresh — с `Path=/api/v1/auth`), фронт их
   не читает. После 401 клиент сам делает `POST /auth/refresh` и повторяет запрос.
   В `localStorage` токены не писать.
+- POST, PUT, PATCH и DELETE несут `X-CSRF-Token` со значением cookie `__Host-csrf`: его ставит
+  middleware клиента, в вызовах `api.*` заголовок не передавать.
 - Статус сессии: `unknown` → `guest` | `authed`. Маршруты `_guest` (`/login`, `/register`)
   и `_auth` (остальные) проверяют его в `beforeLoad` и делают `redirect`.

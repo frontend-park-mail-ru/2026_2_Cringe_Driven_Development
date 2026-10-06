@@ -21,6 +21,34 @@ export type Cell = components['schemas']['Cell'];
 
 const REFRESH_PATH = '/auth/refresh';
 const AUTH_PREFIX = '/auth/';
+const CSRF_COOKIE = '__Host-csrf';
+const CSRF_HEADER = 'X-CSRF-Token';
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Ставит изменяющему запросу CSRF-токен из cookie. Cookie читается каждый раз: после login
+ * и refresh бэкенд выдаёт новую.
+ * @param {Request} request запрос
+ */
+function setCsrfHeader(request: Request): void {
+    if (!UNSAFE_METHODS.has(request.method)) return;
+
+    const prefix = `${CSRF_COOKIE}=`;
+    const pair = document.cookie.split('; ').find((item) => item.startsWith(prefix));
+    if (pair) request.headers.set(CSRF_HEADER, pair.slice(prefix.length));
+}
+
+/**
+ * Добавляет CSRF-токен в изменяющие запросы.
+ * @returns {Middleware} middleware клиента
+ */
+function csrfMiddleware(): Middleware {
+    return {
+        onRequest({ request }) {
+            setCsrfHeader(request);
+        },
+    };
+}
 
 /**
  * После 401 обновляет cookie через refresh и повторяет запрос.
@@ -43,19 +71,25 @@ function refreshMiddleware(): Middleware {
                 return response;
             }
 
-            refreshing ??= options
-                .fetch(
-                    new Request(options.baseUrl + REFRESH_PATH, {
-                        method: 'POST',
-                        credentials: 'include',
-                    }),
-                )
-                .then((refreshed) => refreshed.ok)
-                .finally(() => {
-                    refreshing = undefined;
+            if (!refreshing) {
+                const refresh = new Request(options.baseUrl + REFRESH_PATH, {
+                    method: 'POST',
+                    credentials: 'include',
                 });
+                setCsrfHeader(refresh);
+                refreshing = options
+                    .fetch(refresh)
+                    .then((refreshed) => refreshed.ok)
+                    .finally(() => {
+                        refreshing = undefined;
+                    });
+            }
 
-            return (await refreshing) ? options.fetch(retry) : response;
+            if (!(await refreshing)) return response;
+
+            // После refresh CSRF-cookie новая, в копии запроса остался прежний токен
+            setCsrfHeader(retry);
+            return options.fetch(retry);
         },
     };
 }
@@ -63,8 +97,8 @@ function refreshMiddleware(): Middleware {
 /**
  * Клиент бэкенда.
  * Токены живут в HttpOnly-cookie, браузер отправляет их сам; после 401 клиент обновляет их
- * по refresh-cookie.
+ * по refresh-cookie. Изменяющие запросы несут CSRF-токен из cookie.
  */
 export const api = createClient<paths>({ baseUrl: '/api/v1', credentials: 'include' });
 
-api.use(refreshMiddleware());
+api.use(csrfMiddleware(), refreshMiddleware());
