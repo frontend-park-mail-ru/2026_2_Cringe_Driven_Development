@@ -1,4 +1,5 @@
-import createClient, { authMiddleware } from '@iredtea/openapi';
+import createClient from '@iredtea/openapi';
+import { authMiddleware } from './auth';
 import type { components, paths } from './schema';
 
 /** Пользователь (схема User в Apidog). */
@@ -21,7 +22,8 @@ export type Cell = components['schemas']['Cell'];
 
 /**
  * Клиент бэкенда.
- * authMiddleware хранит access-токен в памяти и после 401 обновляет его по refresh-cookie.
+ * Токены живут в HttpOnly-cookie, браузер отправляет их сам; после 401 клиент обновляет их
+ * по refresh-cookie.
  */
 export const api = createClient<paths>({ baseUrl: '/api/v1', credentials: 'include' });
 

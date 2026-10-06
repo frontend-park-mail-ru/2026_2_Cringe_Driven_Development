@@ -17,8 +17,8 @@
 
 ## Источники
 
-- API: контракт в Apidog, локальная копия — `spec/openapi.json`. После обновления спеки —
-  `bun run generate`, файл `src/api/schema.ts` руками не править.
+- API: контракт в Apidog, локальная копия — `spec/openapi.json`. Обновить — `bun run sync`
+  (выгрузка `bun run apidog` + `bun run generate`), оба файла руками не править.
 - Бэкенд: https://github.com/go-park-mail-ru/2026_2_Cringe_Driven_Development, локально на
   `http://127.0.0.1:8080` (адрес меняется переменной `BACKEND_URL` в `.env`).
 
@@ -62,7 +62,8 @@ vite берёт их оттуда.
 
 ## Сессия и авторизация
 
-- Access-токен живёт только в памяти (`authMiddleware`), refresh — в HttpOnly-cookie
-  с `Path=/api/v1/auth`. В `localStorage` токены не писать.
+- Access- и refresh-токен живут в HttpOnly-cookie (refresh — с `Path=/api/v1/auth`), фронт их
+  не читает. После 401 клиент сам делает `POST /auth/refresh` и повторяет запрос.
+  В `localStorage` токены не писать.
 - Статус сессии: `unknown` → `guest` | `authed`. Маршруты `_guest` (`/login`, `/register`)
   и `_auth` (остальные) проверяют его в `beforeLoad` и делают `redirect`.
