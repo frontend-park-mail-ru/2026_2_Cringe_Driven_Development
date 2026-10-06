@@ -5,7 +5,7 @@
     "": {
       "name": "2026_2_cringe_driven_development",
       "dependencies": {
-        "@iredtea/openapi": "^0.1.0",
+        "@iredtea/openapi": "^0.2.0",
         "@maninthecoat/react": "^1.2.0",
         "@maninthecoat/zustand": "^1.0.0",
       },
@@ -20,7 +20,6 @@
     },
   },
   "packages": {
-    "@iredtea/openapi": ["@iredtea/openapi@0.1.0", "", { "bin": { "openapi-cdd": "dist/bin.js" } }, "sha512-mm+uUUoXmfcx5bZPsSYL8VQ3n6jCi8jZpd9GyD5kL7vXy+3HJYhy34stNxlptlfoGn7lR7CEA3YNMj1DUBQZUQ=="],
     "@aws-sdk/checksums": ["@aws-sdk/checksums@3.1001.1", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-x12Q17KYlJAd3nKf8LV5LV0vt8sh8/6YfQLGPtrGnQf/tW4jqxPGq5GPpuVitpQYM3eUR4XB7CbxZf751NMbLw=="],
 
     "@aws-sdk/client-s3": ["@aws-sdk/client-s3@3.1146.0", "", { "dependencies": { "@aws-sdk/checksums": "^3.1001.1", "@aws-sdk/core": "^3.978.1", "@aws-sdk/credential-provider-node": "^3.972.84", "@aws-sdk/middleware-sdk-s3": "^3.972.77", "@aws-sdk/signature-v4-multi-region": "^3.996.47", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-WY0YCBzxc4muFfY6UbGpA+oib0nGT/Px2aEPGYX7pp1la2OmDLChnK81mu8H7LdYvwGU1pLAsLIa/qgad0Wd7g=="],
@@ -56,6 +55,8 @@
     "@aws-sdk/xml-builder": ["@aws-sdk/xml-builder@3.972.41", "", { "dependencies": { "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-ctjVSyCMegrWfXlx6VqzSBFI6UqmQ5ZlnfMhdLIiWmhoH8UAQxSCP5N3OpG7X3k4LnS7ou74C4mt20+bfTW2aQ=="],
 
     "@aws/lambda-invoke-store": ["@aws/lambda-invoke-store@0.3.0", "", {}, "sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ=="],
+
+    "@iredtea/openapi": ["@iredtea/openapi@0.2.0", "", { "bin": { "openapi-cdd": "dist/bin.js" } }, "sha512-6Qkvei7O9JIbjQVUIBy9zNWcDrP3+RyfpWLc5aFyrI5cvibaqWGdmGk/JmdrJ2EhbdxyfX5dXy11OFAfwXGlVA=="],
 
     "@maninthecoat/react": ["@maninthecoat/react@1.2.0", "", {}, "sha512-xdbIX05A/Qc4Z041nSJjH2N4edlEq1HLbJIaawLSW90AafeSehe7LZkei6zQgz6fXmerNVbgK74ruNqzDfsR0g=="],
 
