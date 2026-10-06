@@ -61,7 +61,7 @@ export interface components {
             password: string;
         };
         Error: {
-            code: "validation_error" | "invalid_credentials" | "login_taken" | "unauthorized" | "not_found" | "not_implemented" | "internal";
+            code: "validation_error" | "invalid_credentials" | "login_taken" | "unauthorized" | "csrf_invalid" | "not_found" | "not_implemented" | "internal";
             message: string;
         };
         /** Блок блокнота */
@@ -88,29 +88,45 @@ export interface components {
 export interface operations {
     /** Регистрация */
     registerUser: {
-        parameters: {};
+        parameters: {
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
+        };
         requestBody: { content: { "application/json": components["schemas"]["Credentials"] } };
         responses: {
             201: { content: { "application/json": components["schemas"]["User"] } };
             400: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             409: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
     };
     /** Вход */
     loginUser: {
-        parameters: {};
+        parameters: {
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
+        };
         requestBody: { content: { "application/json": components["schemas"]["Credentials"] } };
         responses: {
             200: { content: { "application/json": components["schemas"]["User"] } };
             400: { content: { "application/json": components["schemas"]["Error"] } };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
     };
     /** Обновление токенов */
     refreshToken: {
         parameters: {
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
             cookie?: {
                 /** Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth) */
                 refresh_token?: string;
@@ -119,12 +135,17 @@ export interface operations {
         responses: {
             204: { content?: never };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
     };
     /** Выход */
     logoutUser: {
         parameters: {
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
             cookie?: {
                 /** Refresh-токен (HttpOnly-cookie, Path=/api/v1/auth) */
                 refresh_token?: string;
@@ -133,6 +154,7 @@ export interface operations {
         responses: {
             204: { content?: never };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
     };
@@ -152,12 +174,17 @@ export interface operations {
                 /** ID блокнота */
                 id: number;
             };
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
         };
         requestBody: { content: { "application/json": components["schemas"]["CreateCellRequest"] } };
         responses: {
             201: { content: { "application/json": components["schemas"]["Cell"] } };
             400: { content: { "application/json": components["schemas"]["Error"] } };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             404: { content: { "application/json": components["schemas"]["Error"] } };
             409: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
@@ -189,12 +216,18 @@ export interface operations {
     };
     /** Создание блокнота */
     createNotebook: {
-        parameters: {};
+        parameters: {
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
+        };
         requestBody: { content: { "application/json": components["schemas"]["CreateNotebookRequest"] } };
         responses: {
             201: { content: { "application/json": components["schemas"]["Notebook"] } };
             400: { content: { "application/json": components["schemas"]["Error"] } };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
     };
@@ -207,11 +240,16 @@ export interface operations {
                 /** Порядковый номер блока в блокноте, с нуля */
                 index: number;
             };
+            header?: {
+                /** Значение cookie __Host-csrf */
+                "X-CSRF-Token"?: string;
+            };
         };
         responses: {
             204: { content?: never };
             400: { content: { "application/json": components["schemas"]["Error"] } };
             401: { content: { "application/json": components["schemas"]["Error"] } };
+            403: { content: { "application/json": components["schemas"]["Error"] } };
             404: { content: { "application/json": components["schemas"]["Error"] } };
             500: { content: { "application/json": components["schemas"]["Error"] } };
         };
