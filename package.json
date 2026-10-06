@@ -12,7 +12,9 @@
         "fmt": "oxfmt",
         "fmt:check": "oxfmt --check",
         "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
+        "apidog": "bun scripts/apidog.ts",
         "generate": "openapi-cdd spec/openapi.json -o src/api/schema.ts",
+        "sync": "bun run apidog && bun run generate",
         "check": "bun run fmt:check && bun run lint && bun run typecheck"
     },
     "dependencies": {

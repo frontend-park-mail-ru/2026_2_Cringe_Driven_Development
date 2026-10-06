@@ -83,6 +83,26 @@ Frontend-репозиторий проекта «Colab» команды «Cringe
 > Ветку, созданную руками (`git switch -c web-12 origin/main`), с задачей свяжет
 > та же строка `Closes …` — поэтому она обязательна всегда
 
+## Контракт API
+
+Контракт ведётся в [Apidog](https://app.apidog.com/project/1382426), в репозитории лежит его копия
+`spec/openapi.json` и сгенерированные по ней типы `src/api/schema.ts`. Оба файла коммитятся
+и руками не правятся
+
+| Команда | Что делает |
+|---|---|
+| `bun run sync` | всё сразу: выгрузка из Apidog и генерация типов |
+| `bun run apidog` | выгружает спеку в `spec/openapi.json` |
+| `bun run generate` | генерирует `src/api/schema.ts` из `spec/openapi.json` |
+
+Для выгрузки нужен личный токен Apidog (`Account Settings` → `API Access Token`) в `.env`:
+
+```sh
+APIDOG_TOKEN=...
+# ID sprint-ветки (серое число в Manage Sprint Branches). Пусто — ветка main
+APIDOG_BRANCH_ID=
+```
+
 ## Выкатка
 
 Клиент собирается в CI и заливается в S3 неизменяемыми релизами. Заливка автоматическая, выкатка
