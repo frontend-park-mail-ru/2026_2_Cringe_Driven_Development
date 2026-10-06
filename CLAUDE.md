@@ -62,7 +62,8 @@ vite берёт их оттуда.
 
 ## Сессия и авторизация
 
-- Access-токен живёт только в памяти (`authMiddleware`), refresh — в HttpOnly-cookie
-  с `Path=/api/v1/auth`. В `localStorage` токены не писать.
+- Access- и refresh-токен живут в HttpOnly-cookie (refresh — с `Path=/api/v1/auth`), фронт их
+  не читает. После 401 клиент сам делает `POST /auth/refresh` и повторяет запрос.
+  В `localStorage` токены не писать.
 - Статус сессии: `unknown` → `guest` | `authed`. Маршруты `_guest` (`/login`, `/register`)
   и `_auth` (остальные) проверяют его в `beforeLoad` и делают `redirect`.
