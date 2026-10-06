@@ -64,7 +64,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     const validationErrors: FieldTexts = {
         login: validateLogin(values.login),
-        password: validatePassword(values.password),
+        password: validatePassword(values.password, mode),
         confirm: isRegister ? validateConfirm(values.password, values.confirm) : undefined,
     };
 
