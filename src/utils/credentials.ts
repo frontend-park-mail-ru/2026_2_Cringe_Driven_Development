@@ -34,12 +34,11 @@ export function validateLogin(login: string): string | undefined {
 /**
  * Проверяет пароль.
  * @param password пароль
- * @param mode вход или регистрация
  * @returns текст ошибки или undefined, если пароль подходит
  */
-export function validatePassword(password: string, mode: AuthMode): string | undefined {
+export function validatePassword(password: string): string | undefined {
     if (password === '') return 'Введите пароль';
-    if (mode === 'register' && !PASSWORD_PATTERN.test(password)) {
+    if (!PASSWORD_PATTERN.test(password)) {
         return 'Только латиница, цифры и спецсимволы';
     }
     if (password.length < PASSWORD_MIN) return `Нужно не меньше ${PASSWORD_MIN} символов`;
