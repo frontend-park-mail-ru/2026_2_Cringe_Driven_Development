@@ -1,5 +1,6 @@
 import createClient from '@iredtea/openapi';
 import { authMiddleware } from './auth';
+import { csrfMiddleware } from './csrf';
 import type { components, paths } from './schema';
 
 /** Пользователь (схема User в Apidog). */
@@ -23,8 +24,8 @@ export type Cell = components['schemas']['Cell'];
 /**
  * Клиент бэкенда.
  * Токены живут в HttpOnly-cookie, браузер отправляет их сам; после 401 клиент обновляет их
- * по refresh-cookie.
+ * по refresh-cookie. Изменяющие запросы несут CSRF-токен из cookie.
  */
 export const api = createClient<paths>({ baseUrl: '/api/v1', credentials: 'include' });
 
-api.use(authMiddleware());
+api.use(csrfMiddleware(), authMiddleware());

@@ -1,4 +1,5 @@
 import type { Middleware } from '@iredtea/openapi';
+import { setCsrfHeader } from './csrf';
 
 const REFRESH_PATH = '/auth/refresh';
 const AUTH_PREFIX = '/auth/';
@@ -24,19 +25,25 @@ export function authMiddleware(): Middleware {
                 return response;
             }
 
-            refreshing ??= options
-                .fetch(
-                    new Request(options.baseUrl + REFRESH_PATH, {
-                        method: 'POST',
-                        credentials: 'include',
-                    }),
-                )
-                .then((refreshed) => refreshed.ok)
-                .finally(() => {
-                    refreshing = undefined;
+            if (!refreshing) {
+                const refresh = new Request(options.baseUrl + REFRESH_PATH, {
+                    method: 'POST',
+                    credentials: 'include',
                 });
+                setCsrfHeader(refresh);
+                refreshing = options
+                    .fetch(refresh)
+                    .then((refreshed) => refreshed.ok)
+                    .finally(() => {
+                        refreshing = undefined;
+                    });
+            }
 
-            return (await refreshing) ? options.fetch(retry) : response;
+            if (!(await refreshing)) return response;
+
+            // После refresh CSRF-cookie новая, в копии запроса остался прежний токен
+            setCsrfHeader(retry);
+            return options.fetch(retry);
         },
     };
 }
