@@ -6,6 +6,8 @@ const LOGIN_MIN = 3;
 const LOGIN_MAX = 32;
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 72;
+/** Печатные символы ASCII U+0021–U+007E. */
+const PASSWORD_PATTERN = /^[\x21-\x7E]+$/;
 
 /** Вход или регистрация. */
 export type AuthMode = 'login' | 'register';
@@ -36,6 +38,9 @@ export function validateLogin(login: string): string | undefined {
  */
 export function validatePassword(password: string): string | undefined {
     if (password === '') return 'Введите пароль';
+    if (!PASSWORD_PATTERN.test(password)) {
+        return 'Только латиница, цифры и спецсимволы';
+    }
     if (password.length < PASSWORD_MIN) return `Нужно не меньше ${PASSWORD_MIN} символов`;
     if (password.length > PASSWORD_MAX) return `Не больше ${PASSWORD_MAX} символов`;
     return undefined;
