@@ -47,7 +47,7 @@ async function doRestore(): Promise<void> {
 
 /**
  * Восстанавливает сессию при старте. Проверка запускается один раз, повторные вызовы ждут её же.
- * @returns промис, который выполнится, когда статус перестанет быть unknown
+ * @returns {Promise<void>} промис, который выполнится, когда статус перестанет быть unknown
  */
 export function restoreSession(): Promise<void> {
     if (!restoring) {
@@ -59,8 +59,8 @@ export function restoreSession(): Promise<void> {
 /**
  * Ошибка из тела ответа. Ответ без JSON с кодом приходит не от бэкенда, а от прокси,
  * когда бэкенд недоступен.
- * @param body тело ответа с ошибкой
- * @returns ошибка
+ * @param {unknown} body тело ответа с ошибкой
+ * @returns {AuthError} ошибка
  */
 function toAuthError(body: unknown): AuthError {
     if (typeof body === 'object' && body !== null && 'code' in body) {
@@ -71,8 +71,8 @@ function toAuthError(body: unknown): AuthError {
 
 /**
  * Вход по логину и паролю.
- * @param credentials логин и пароль
- * @returns итог входа
+ * @param {Credentials} credentials логин и пароль
+ * @returns {Promise<AuthResult>} итог входа
  */
 export async function login(credentials: Credentials): Promise<AuthResult> {
     try {
@@ -88,7 +88,7 @@ export async function login(credentials: Credentials): Promise<AuthResult> {
 /**
  * Выход.
  * 401 значит, что refresh уже недействителен, — пользователь и так вышел.
- * @returns true, если вышли
+ * @returns {Promise<boolean>} true, если вышли
  */
 export async function logout(): Promise<boolean> {
     try {
@@ -103,8 +103,8 @@ export async function logout(): Promise<boolean> {
 
 /**
  * Регистрация. Бэкенд сразу выдаёт токены, поэтому после неё пользователь уже вошёл.
- * @param credentials логин и пароль
- * @returns итог регистрации
+ * @param {Credentials} credentials логин и пароль
+ * @returns {Promise<AuthResult>} итог регистрации
  */
 export async function register(credentials: Credentials): Promise<AuthResult> {
     try {

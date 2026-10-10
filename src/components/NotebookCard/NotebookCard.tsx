@@ -25,7 +25,7 @@ const PREVIEW_PARTS = PREVIEW_CODE.split(/\b(def|return|for|in|\d+(?:\.\d+)?)\b/
 
 /**
  * Свечение под курсором: координаты уходят в CSS-переменные карточки.
- * @param event движение указателя над карточкой
+ * @param {PointerEvent} event движение указателя над карточкой
  */
 function trackPointer(event: PointerEvent) {
     const card = event.currentTarget as HTMLElement;
@@ -36,8 +36,8 @@ function trackPointer(event: PointerEvent) {
 
 /**
  * Карточка блокнота (Components → NotebookCard). Ведёт на страницу блокнота.
- * @param props свойства карточки
- * @returns карточка
+ * @param {NotebookCardProps} props свойства карточки
+ * @returns {JSX.Element} карточка
  */
 export function NotebookCard({ notebook }: NotebookCardProps) {
     const cells = plural(notebook.cells_count, 'ячейка', 'ячейки', 'ячеек');
@@ -80,7 +80,7 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
 
 /**
  * Карточка-скелетон, пока список загружается.
- * @returns скелетон карточки
+ * @returns {JSX.Element} скелетон карточки
  */
 export function NotebookCardSkeleton() {
     return (

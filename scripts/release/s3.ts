@@ -11,7 +11,9 @@ import {
 } from '@aws-sdk/client-s3';
 import { ReleaseError, isSha, need } from './env.ts';
 
+/** Cache-Control файлов релиза: в именах хэш, содержимое не меняется. */
 export const IMMUTABLE = 'public, max-age=31536000, immutable';
+/** Cache-Control для index.html и current.json: перед отдачей из кэша ответ сверяется с бакетом. */
 export const NO_CACHE = 'no-cache';
 const HTML = 'text/html; charset=utf-8';
 
@@ -21,11 +23,16 @@ export interface Current {
     previous: string | null;
 }
 
+/** Бакет релизов: клиент S3 и имя бакета. */
 export interface Bucket {
     client: S3Client;
     name: string;
 }
 
+/**
+ * Клиент S3 и бакет из переменных S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY и S3_SECRET_KEY.
+ * @returns {Bucket} бакет релизов
+ */
 export function openBucket(): Bucket {
     const endpoint = need('S3_ENDPOINT');
     // регион подписи у Selectel — пул из адреса: https://s3.<пул>.storage.selcloud.ru
@@ -48,6 +55,14 @@ export function openBucket(): Bucket {
     return { client, name: need('S3_BUCKET') };
 }
 
+/**
+ * Записывает объект в бакет.
+ * @param {Bucket} bucket бакет
+ * @param {string} key ключ объекта
+ * @param {Uint8Array | string} body содержимое
+ * @param {string} contentType значение Content-Type
+ * @param {string} cacheControl значение Cache-Control
+ */
 export async function putObject(
     bucket: Bucket,
     key: string,
@@ -66,7 +81,12 @@ export async function putObject(
     );
 }
 
-/** Релиз залит целиком: upload пишет index.html последним */
+/**
+ * Релиз залит целиком: upload пишет index.html последним.
+ * @param {Bucket} bucket бакет
+ * @param {string} sha sha релиза
+ * @returns {Promise<boolean>} true, если в бакете есть index.html релиза
+ */
 export async function hasRelease(bucket: Bucket, sha: string): Promise<boolean> {
     try {
         await bucket.client.send(
@@ -79,7 +99,11 @@ export async function hasRelease(bucket: Bucket, sha: string): Promise<boolean> 
     }
 }
 
-/** null — файла ещё нет (первый релиз) */
+/**
+ * Читает current.json.
+ * @param {Bucket} bucket бакет
+ * @returns {Promise<Current | null>} указатель релиза; null — файла ещё нет (первый релиз)
+ */
 export async function readCurrent(bucket: Bucket): Promise<Current | null> {
     let text: string | undefined;
     try {
@@ -105,11 +129,20 @@ export async function readCurrent(bucket: Bucket): Promise<Current | null> {
     return { stable, previous };
 }
 
+/**
+ * Записывает current.json.
+ * @param {Bucket} bucket бакет
+ * @param {Current} current указатель релиза
+ */
 export async function writeCurrent(bucket: Bucket, current: Current): Promise<void> {
     await putObject(bucket, 'current.json', JSON.stringify(current), 'application/json', NO_CACHE);
 }
 
-/** releases/{sha}/index.html → корневой index.html, его отдаёт Caddy */
+/**
+ * releases/{sha}/index.html → корневой index.html, его отдаёт Caddy.
+ * @param {Bucket} bucket бакет
+ * @param {string} sha sha релиза
+ */
 export async function publishIndex(bucket: Bucket, sha: string): Promise<void> {
     await bucket.client.send(
         new CopyObjectCommand({
@@ -123,11 +156,18 @@ export async function publishIndex(bucket: Bucket, sha: string): Promise<void> {
     );
 }
 
+/** Объект бакета: ключ и время последней записи, мс. */
 export interface StoredObject {
     key: string;
     modified: number;
 }
 
+/**
+ * Все объекты бакета с префиксом, со всех страниц выдачи.
+ * @param {Bucket} bucket бакет
+ * @param {string} prefix префикс ключей
+ * @returns {Promise<StoredObject[]>} объекты
+ */
 export async function listObjects(bucket: Bucket, prefix: string): Promise<StoredObject[]> {
     const objects: StoredObject[] = [];
     let token: string | undefined;
@@ -148,6 +188,11 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
     return objects;
 }
 
+/**
+ * Удаляет объект из бакета.
+ * @param {Bucket} bucket бакет
+ * @param {string} key ключ объекта
+ */
 export async function deleteObject(bucket: Bucket, key: string): Promise<void> {
     await bucket.client.send(new DeleteObjectCommand({ Bucket: bucket.name, Key: key }));
 }

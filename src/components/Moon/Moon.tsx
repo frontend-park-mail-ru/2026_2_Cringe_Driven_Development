@@ -49,8 +49,8 @@ interface MoonProps {
 
 /**
  * Луна 600×600 (Components → Moon). Декоративная, скринридер её не читает.
- * @param props свойства луны
- * @returns луна
+ * @param {MoonProps} props свойства луны
+ * @returns {JSX.Element} луна
  */
 export function Moon({ className }: MoonProps) {
     return (

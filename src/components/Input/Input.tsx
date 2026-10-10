@@ -38,8 +38,8 @@ interface InputProps {
 /**
  * Поле ввода из макета (Components → Input).
  * Под полем всегда есть строка под подсказку или ошибку, поэтому форма не прыгает при валидации.
- * @param props свойства поля
- * @returns разметка поля
+ * @param {InputProps} props свойства поля
+ * @returns {JSX.Element} разметка поля
  */
 export function Input({
     id,

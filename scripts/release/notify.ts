@@ -1,6 +1,11 @@
 import { ReleaseError, need } from './env.ts';
 
-/** Сообщение в Telegram о результате заливки, выкатки или отката */
+/**
+ * Сообщение в Telegram о результате заливки, выкатки или отката.
+ * @param {string} what что произошло: Заливка, Выкатка или Откат
+ * @param {string} status итог job: success, failure или cancelled
+ * @param {string} [sha] sha релиза
+ */
 export async function notify(what: string, status: string, sha?: string): Promise<void> {
     const token = need('TELEGRAM_BOT_TOKEN');
     const chat = need('TELEGRAM_CHAT_ID');

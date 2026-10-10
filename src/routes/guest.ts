@@ -17,11 +17,13 @@ export const guestRoute = createRoute({
     component: AuthPage,
 });
 
+/** Вход: `/login`. */
 export const loginRoute = createRoute({
     getParentRoute: () => guestRoute,
     path: 'login',
 });
 
+/** Регистрация: `/register`. */
 export const registerRoute = createRoute({
     getParentRoute: () => guestRoute,
     path: 'register',

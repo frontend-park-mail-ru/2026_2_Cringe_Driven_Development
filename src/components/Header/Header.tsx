@@ -11,8 +11,8 @@ interface HeaderProps {
 
 /**
  * Шапка (Components → Header).
- * @param props свойства шапки
- * @returns шапка
+ * @param {HeaderProps} props свойства шапки
+ * @returns {JSX.Element} шапка
  */
 export function Header({ children, toolbar }: HeaderProps) {
     return (

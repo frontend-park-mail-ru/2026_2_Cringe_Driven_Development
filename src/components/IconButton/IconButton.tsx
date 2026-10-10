@@ -14,8 +14,8 @@ interface IconButtonProps {
 
 /**
  * Кнопка-иконка 36×36 (Components → IconButton).
- * @param props свойства кнопки
- * @returns элемент button
+ * @param {IconButtonProps} props свойства кнопки
+ * @returns {JSX.Element} элемент button
  */
 export function IconButton({ icon, label, className, onClick }: IconButtonProps) {
     return (

@@ -17,8 +17,8 @@ export type ClassArray = ClassValue[];
 
 /**
  * Превращает одно значение в строку классов.
- * @param value строка, число, массив или объект
- * @returns строка классов (может быть пустой)
+ * @param {ClassValue} value строка, число, массив или объект
+ * @returns {string} строка классов (может быть пустой)
  */
 function toClassName(value: ClassValue): string {
     if (!value || value === true) {
@@ -36,8 +36,8 @@ function toClassName(value: ClassValue): string {
 /**
  * Собирает строку классов, пропуская ложные значения.
  * @example clsx('button', { 'button--block': false }) // 'button'
- * @param values строки, числа, массивы и объекты вида `{ класс: условие }`
- * @returns классы через пробел
+ * @param {ClassValue[]} values строки, числа, массивы и объекты вида `{ класс: условие }`
+ * @returns {string} классы через пробел
  */
 export function clsx(...values: ClassValue[]): string {
     let result = '';

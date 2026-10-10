@@ -11,8 +11,8 @@ interface ChipProps {
 
 /**
  * Чип «+ Код» / «+ Текст» (Components → Chip).
- * @param props свойства чипа
- * @returns элемент button
+ * @param {ChipProps} props свойства чипа
+ * @returns {JSX.Element} элемент button
  */
 export function Chip({ children, onClick }: ChipProps) {
     return (

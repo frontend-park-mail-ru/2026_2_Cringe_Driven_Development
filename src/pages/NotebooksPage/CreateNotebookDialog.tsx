@@ -17,8 +17,8 @@ type CreateResult = { ok: true; id: number } | { ok: false; invalid: boolean };
 
 /**
  * Проверяет название блокнота.
- * @param name название
- * @returns текст ошибки или undefined, если название подходит
+ * @param {string} name название
+ * @returns {string | undefined} текст ошибки или undefined, если название подходит
  */
 function validateName(name: string): string | undefined {
     const trimmed = name.trim();
@@ -29,8 +29,8 @@ function validateName(name: string): string | undefined {
 
 /**
  * Создаёт блокнот.
- * @param name название без пробелов по краям
- * @returns id нового блокнота или признак, что бэкенд не принял название
+ * @param {string} name название без пробелов по краям
+ * @returns {Promise<CreateResult>} id нового блокнота или признак, что бэкенд не принял название
  */
 async function createNotebook(name: string): Promise<CreateResult> {
     try {
@@ -49,8 +49,8 @@ interface CreateNotebookDialogProps {
 
 /**
  * Модалка «Новый блокнот». Созданный блокнот сразу открывается.
- * @param props свойства модалки
- * @returns модалка
+ * @param {CreateNotebookDialogProps} props свойства модалки
+ * @returns {JSX.Element} модалка
  */
 export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
     const navigate = useNavigate();

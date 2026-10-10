@@ -17,8 +17,8 @@ interface ModalProps {
 
 /**
  * Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно.
- * @param event нажатие клавиши
- * @param dialog элемент модалки
+ * @param {KeyboardEvent} event нажатие клавиши
+ * @param {HTMLElement} dialog элемент модалки
  */
 function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     if (event.key !== 'Tab') return;
@@ -42,8 +42,8 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 /**
  * Модалка по центру поверх затемнения (Components → Modal).
  * При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
- * @param props свойства модалки
- * @returns модалка
+ * @param {ModalProps} props свойства модалки
+ * @returns {JSX.Element} модалка
  */
 export function Modal({ title, initialFocusId, onClose, children }: ModalProps) {
     useEffect(() => {

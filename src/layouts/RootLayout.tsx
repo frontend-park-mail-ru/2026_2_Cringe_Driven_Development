@@ -4,6 +4,10 @@ import { Outlet } from '@modules/router';
 import { useSnackbarStore } from '@stores/snackbar';
 import { useToastStore } from '@stores/toast';
 
+/**
+ * Корневой макет: `<main>` с дочерним маршрутом, тост и снекбар.
+ * @returns {JSX.Element} макет
+ */
 export const RootLayout = () => {
     const toast = useToastStore((state) => state.toast);
     const snackbar = useSnackbarStore((state) => state.snackbar);

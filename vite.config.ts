@@ -2,8 +2,8 @@ import { defineConfig, loadEnv } from 'vite';
 
 /**
  * Адрес без слеша в конце; без протокола считается https.
- * @param url адрес из переменной окружения
- * @returns нормализованный адрес
+ * @param {string} url адрес из переменной окружения
+ * @returns {string} нормализованный адрес
  */
 const toUrl = (url: string) =>
     (/^https?:\/\//.test(url) ? url : `https://${url}`).replace(/\/+$/, '');
