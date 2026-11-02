@@ -71,7 +71,7 @@ export function PasswordForm() {
             if (code === 'invalid_current_password') {
                 setWrongCurrent(true);
                 document.getElementById(fieldId('current'))?.focus();
-            } else if (code === 'validation_error' && isRpcError(error)) {
+            } else if (code === 'validation_error') {
                 setRejectedNext('Новый пароль не подходит');
                 document.getElementById(fieldId('next'))?.focus();
             } else {

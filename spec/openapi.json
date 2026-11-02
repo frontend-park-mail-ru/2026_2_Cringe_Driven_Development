@@ -559,6 +559,86 @@
         ]
       }
     },
+    "/auth/logout-all": {
+      "post": {
+        "summary": "Выход со всех устройств",
+        "deprecated": false,
+        "description": "Завершает все сессии авторизованного пользователя на всех устройствах, включая текущую сессию. Полный путь: POST /api/v1/auth/logout-all.\n\nТребует действующий access-токен в Authorization: Bearer и обязательный X-BFF-Key. Пользователь определяется только по access-токену; тело запроса, refresh-токен и идентификатор пользователя не передаются.\n\nПри успехе отзывает все ранее выданные access- и refresh-токены пользователя, в том числе токены текущей сессии, и возвращает 204 без тела. После успешного ответа ранее выданные access-токены больше не дают доступа к защищённым ручкам, а refresh-токены не позволяют обновлять токены. Повторный запрос с отозванным access-токеном возвращает 401. Для продолжения работы требуется заново войти. Сессии других пользователей не затрагиваются. Cookie не читает и не устанавливает.\n\nX-BFF-Key проверяется до Bearer и валидации запроса. При недоступности хранилища сессий или ошибке отзыва возвращается 500; успешный выход не подтверждается.\n\nКонтракт задачи: https://github.com/Cringe-Driven-Development-Team/backend/issues/68",
+        "operationId": "logoutAllUserSessions",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Все ранее выданные сессии пользователя отозваны, включая текущую. Ответ без тела.",
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, некорректен, истёк или его сессия отозвана. В том числе повторный запрос после успешного выхода со всех устройств.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или передан несколько раз. Проверяется до Bearer. Код s2s_forbidden; BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, в том числе недоступность хранилища сессий или ошибка отзыва. Успешный выход не подтверждён.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "summary": "Регистрация",

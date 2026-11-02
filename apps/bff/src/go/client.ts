@@ -584,6 +584,68 @@ formData.append(`avatar`, uploadCurrentUserAvatarBody.avatar);
 
 
 
+export type logoutAllUserSessionsResponse204 = {
+  data: void
+  status: 204
+}
+
+export type logoutAllUserSessionsResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type logoutAllUserSessionsResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type logoutAllUserSessionsResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type logoutAllUserSessionsResponseSuccess = (logoutAllUserSessionsResponse204) & {
+  headers: Headers;
+};
+export type logoutAllUserSessionsResponseError = (logoutAllUserSessionsResponse401 | logoutAllUserSessionsResponse403 | logoutAllUserSessionsResponse500) & {
+  headers: Headers;
+};
+
+export type logoutAllUserSessionsResponse = (logoutAllUserSessionsResponseSuccess | logoutAllUserSessionsResponseError)
+
+export const getLogoutAllUserSessionsUrl = () => {
+
+
+
+
+  return `/auth/logout-all`
+}
+
+/**
+ * Завершает все сессии авторизованного пользователя на всех устройствах, включая текущую сессию. Полный путь: POST /api/v1/auth/logout-all.
+ *
+ * Требует действующий access-токен в Authorization: Bearer и обязательный X-BFF-Key. Пользователь определяется только по access-токену; тело запроса, refresh-токен и идентификатор пользователя не передаются.
+ *
+ * При успехе отзывает все ранее выданные access- и refresh-токены пользователя, в том числе токены текущей сессии, и возвращает 204 без тела. После успешного ответа ранее выданные access-токены больше не дают доступа к защищённым ручкам, а refresh-токены не позволяют обновлять токены. Повторный запрос с отозванным access-токеном возвращает 401. Для продолжения работы требуется заново войти. Сессии других пользователей не затрагиваются. Cookie не читает и не устанавливает.
+ *
+ * X-BFF-Key проверяется до Bearer и валидации запроса. При недоступности хранилища сессий или ошибке отзыва возвращается 500; успешный выход не подтверждается.
+ *
+ * Контракт задачи: https://github.com/Cringe-Driven-Development-Team/backend/issues/68
+ * @summary Выход со всех устройств
+ */
+export const logoutAllUserSessions = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<logoutAllUserSessionsResponse> => {
+
+  return bearerFetch<logoutAllUserSessionsResponse>(getLogoutAllUserSessionsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
 export type registerUserResponse201 = {
   data: AuthResponse
   status: 201
