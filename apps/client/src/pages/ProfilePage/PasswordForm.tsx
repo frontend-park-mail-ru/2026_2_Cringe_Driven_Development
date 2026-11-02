@@ -1,12 +1,12 @@
 import { useEffect, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc } from '@api/trpc';
+import { isRpcError } from '@api/trpc';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { Input } from '@components/Input/Input';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
-import { loseSession } from '@stores/session';
+import { changePassword } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import {
@@ -37,7 +37,13 @@ export function PasswordForm() {
     const [rejectedNext, setRejectedNext] = useState<string | undefined>(undefined);
     const navigate = useNavigate();
     const [pending, setPending] = useState(false);
+    const [focusRequest, setFocusRequest] = useState<{ field: Field } | null>(null);
     const [life] = useState({ alive: true });
+
+    // после снятия pending: отключённое поле фокус не принимает
+    useEffect(() => {
+        if (focusRequest) document.getElementById(fieldId(focusRequest.field))?.focus();
+    }, [focusRequest]);
 
     useEffect(
         () => () => {
@@ -57,29 +63,28 @@ export function PasswordForm() {
         setPending(true);
         hideSnackbar();
         try {
-            await trpc.users.changePassword.mutate({
+            await changePassword({
                 current_password: values.current,
                 new_password: values.next,
             });
-            loseSession();
             showToast('Пароль изменён. Войдите с новым паролем');
             navigate({ to: '/login', replace: true });
             return;
         } catch (error) {
             if (!life.alive) return;
+            setPending(false);
             const code = isRpcError(error) ? error.data?.appCode : undefined;
             if (code === 'invalid_current_password') {
                 setWrongCurrent(true);
-                document.getElementById(fieldId('current'))?.focus();
+                setFocusRequest({ field: 'current' });
             } else if (code === 'validation_error') {
                 setRejectedNext('Новый пароль не подходит');
-                document.getElementById(fieldId('next'))?.focus();
+                setFocusRequest({ field: 'next' });
             } else {
                 // Результат неизвестен: контракт запрещает повторять запрос автоматически
                 showSnackbar('Не удалось изменить пароль. Проверьте, какой пароль действует');
             }
         }
-        if (life.alive) setPending(false);
     };
 
     const filled = Boolean(values.current && values.next && values.confirm);
