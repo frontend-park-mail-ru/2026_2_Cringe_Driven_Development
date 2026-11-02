@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:60effbb21b034ec3b8dbc82945f900ead77a784c4ecde9e3704996a070c90ffc",
+  "claims": [
+    {
+      "id": "claim_41abbcbbdfa546a5a345cbcb91020590",
+      "statement": "Готовый выпуск хранится в release-artifacts с digest и releases/<sha>/; неоднозначный digest одного SHA отвергается, production записывает выбранный SHA и результат попытки.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/deployments.ts#L167-L199",
+          "version": "repo-lines-v1:sha256:307ee45789efc8e5a29bc5a9a63c58d0c9b1b43f8d02e1f9d66e43d68254a592:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1OTM3Njc5MWU2OTQ3NmY3YTA3MTg5NmRjMjViOTEzN2VmODQyM2UzZTk2MzQwY2NmYWMzMzIzZDQyY2E1MWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM1ZjdjNTg5MDJhMzZlYmU0YzE3NDBlMWM4MDFmMWYyOGVjMzIxOGY4ZjVjMmRkZTg2Y2RmOGZiOGFkNDRkNjMifQ"
+        },
+        {
+          "resource": "repo://scripts/release/deployments.ts#L234-L279",
+          "version": "repo-lines-v1:sha256:b51f3828283efebda14cd33664a6487243f0f77f3ff528595d68467c27bbaf7a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1OTM3Njc5MWU2OTQ3NmY3YTA3MTg5NmRjMjViOTEzN2VmODQyM2UzZTk2MzQwY2NmYWMzMzIzZDQyY2E1MWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://scripts/release/deployments.ts#L34-L62",
+          "version": "repo-lines-v1:sha256:5701aefdce2e6fe7a7a14ebacbcbfc2026e938f179405284ebf2324e3fffcc0c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlYTYxNDQyMTNmZGUzNDlhZjI3NDA5M2JjY2JjY2M5ODg2YTUxOGFhYmFiNjNkNDAwYmY3MTFiMDBlZGEzNzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0Njc2ODc1NTBiYzA5MjhjYWFlYjI1NDk5YzYzZjgzYTYwNzQyYzZjMTYwMGRmZTBiYmI4YmIxMjc0MjU1OTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJjMjEyNzBjNDllOTgwNTBlYzkxZDEwOTU0Mjk5MGZmMTA2ZDBiYWE2Nzk4ZDRiMWViNjYyZGNlMWY3N2M1MDYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6d2fa334690e4c2d925a157eb2aac94c",
+      "statement": "CI публикует выпуск только после Check на push main командного репозитория при PRODUCTION_ENABLED; проверяет CDN и анонимный образ до регистрации, повтор одного SHA сериализован.",
+      "evidence": [
+        {
+          "resource": "repo://.github/workflows/ci.yml#L36-L123",
+          "version": "repo-lines-v1:sha256:465a52b0528bfe3ba9a7f63ca6101f3e22b9c78d65876cabd21728d90d2819ca:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNzY3OGRmNWE3ZWQxNjhmNzM0ZjYwMWIxNGQzMjIxM2NjMTA5YzNkM2U4MWM4NTRlN2Q2MTE1NmIzNzZlMTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4ZjJmNTE1MDUxZjFkMjU0MTU2ODIzYjRlZWMzYjBlNWY1MWViMGFlMGJhNjAzZjJjODJlYjQ3OGNlYmU2YjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZGRiMGEzNjY5Y2MxZGJiMTYzYjEwNGVlZGNiMTQ0ODdkNWI5YjMwNjUzNmI0MjIzYTBkNGZkYmU1ZDQwOGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM1OWE3NzIxYThlZTUxMWQ5YTY3OGQ1Y2I1MWU2MGRmN2Q1YzI5Yzg4ZTg0ODM4NDA5ZDg5YmRjNTFlZjgyMTQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5851986d158c46d0b32da436b8d5a43d",
+      "statement": "Загрузка завершённого каталога выпуска сравнивает файлы побайтно и не перезаписывает отличный выпуск; index.html нового выпуска загружается последним.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/upload.ts#L31-L78",
+          "version": "repo-lines-v1:sha256:4b3930d8be51f6728ccf51956a023c08ec4511af24a720f4a95a5ad381eeecab:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY3NTc4YTYzYjc5NDZkNzY5ODVmM2JlZjRhZGEyMGMxYWU2NzRhYmFlOWE1M2Q4OWQ2NTZmOTA3YjFlMjMzM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d6c126f9e1ee4a2f99c568c47d69d3d5",
+      "statement": "Проверка образа требует анонимной доступности digest и метки revision, равной SHA выпуска.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/image.ts#L85-L99",
+          "version": "repo-lines-v1:sha256:974d21d9f6ae639a3d6bf83762dfc53ce517894cc003d26e8bc16ff2092044f5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg3YjYxODNkZmIxMTc0Mjg3ODJmMmFlYmU5N2Q2NWQzYTAxMGNjNDkzYTFkZTQ0M2Y2ZDkwMzA2NzU5OGI1ZTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d78afdd7e61e4e0e895de56f03654002",
+      "statement": "CD проверяет готовность образа и ассетов, создаёт production перед вызовом infra deploy-bff.yml, затем проверяет HTTP; success/failure/error вычисляются по результатам переключения и Health check.",
+      "evidence": [
+        {
+          "resource": "repo://.github/workflows/cd.yml#L40-L134",
+          "version": "repo-lines-v1:sha256:6d7d0e6c3b50f16fa028367192be64c8d316be39c81e846c9801db309562a652:eyJzZWxlY3RlZExpbmVDb3VudCI6OTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4OTk5MTEwM2Y2YmE4ODhlM2RlNzY1MWM1YTMwNWM3N2U1NTQ3Njc3M2FiYTgzOTU5MWVjYzViZDBmMmFiMWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwYjMxODc5NWRiZDI3MTQ2YTNiZTIyNjQwMzUxOGU2M2ZiN2FiNmE0ZmE3YjczYWY5Y2JiOGJkYWMwMDhiNDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwZGM1OWQ0NzA1MmVlYjcwNGFhZTk2YWJmM2RiNDFhZDY5NmVhYzBiMGY0NGIyZmU3OGE0NTcwZjQxNmMwYzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_33ffed2e4f9e48f4a2906bc274a27586",
+      "statement": "Release check проверяет release SHA и CDN JS/CSS с CORS; Health check дополнительно проверяет гостевой bootstrap, no-store, UNAUTHORIZED без сессии и не-HTML 404 неизвестного API.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/checks.ts#L23-L149",
+          "version": "repo-lines-v1:sha256:3e1fe4496e58e6ce0ae3e59a137a32869cc809c7020ba00bf3e1eb42fe897657:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlYWYyMmNmMDczMjU5MmMyNDcxNDFjYmU2MWVmYTExMDEyNjEyZjVhMzEyMmI5YWY5YmJhZjUyZjU3MjRkMTk0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1ZDJiZDEwYmM2YTZhNDEyNGM2ODhlMTI5YjJhZDljMGUxYTNmZGZiNjY4NzZhNTY3ZDMyYjIzOTlkMTYxNTcxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwOGRkOWFmY2RmMjY3NzhkODAwMzI0NGNjMGUyNTE2ZTgwNmY3N2ZjOWMzY2Y4ZDU2MDRhNjNhNjRkZDljZDY0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MSwiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_be65e4e295e048a1b08b15f40098032f",
+      "statement": "Откат после успеха выбирает предыдущий успешный digest, после failure/error — последний успешный; незавершённость и неоднозначность блокируют выбор, цель сверяется с release-artifacts.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/deployments.ts#L212-L232",
+          "version": "repo-lines-v1:sha256:8b9036ea6172e22418f51fb4804df5f16a37663e1ed703aa4c51eb9047cc72f7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZjYzNDA2ZjJhMGE5YjczZWUyODA3NGMzY2VhODY0NjA0YTM4MzllZjk0OGEwZWYxMDhkYzYyMDM4YzlhOTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQxOWI3ZDk2MmYyMzlkYmE1YzNkNzQ1ODUzZTlkYmJkZTRkOWRjODFmOTZiNWNiYmUwZWVkZDRlZDcyM2NhZmIifQ"
+        },
+        {
+          "resource": "repo://scripts/release/deployments.ts#L74-L114",
+          "version": "repo-lines-v1:sha256:b67cdc2fd7bde569db89989a667fc830ad07c89a67ad5e405114bb273048a372:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1NGUwN2JlNWEwNzE5NmFjODE3ZjZkNGE1Njk4ODg0ZmY0N2FkZjYyMjBkMGI4M2EzNjA4ZTBmZGU3YmU4OTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyNDY1MzU3OGE2YzhmNGFjZmEwNmRlMWYwOTM2NmY4YjkzMDJhYTdiOTQxNGE0MjQ1ZDk3YmU5NTM2NDJlYzQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_176041a1defd45f9937873d75fa9fe96",
+      "statement": "CD и Rollback сериализованы группой production; retention сохраняет пять последних каталогов и два защищённых историей digest, а при неподтверждённой последней попытке откладывается.",
+      "evidence": [
+        {
+          "resource": "repo://.github/workflows/cd.yml#L27-L34",
+          "version": "repo-lines-v1:sha256:ee40b6ec22799b13ede64d406bf0f99598f575582acb40e7a24b83628a882935:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGZmMjU1YjU4ZWFiMTdlYWFhZmRhMDJlZGI5NzExOTVlYjAzYjY5ZDNkOGY5NDQ5MTk3NTExZGFhOTJjN2YwMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlhYjc4MmJhNTZhMzRjMjVjZTEyNWI3OGJjOGM3ZjQyZDE0YjBkMTViYzEyMzcxZjVhMWFlMWU0N2ZiMzBiNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDhiNDQwMWVlMzY0ZmQ5YjhlMzg1NTQ0MmRjN2I3MmJlZWI3ODY0NTlhZDdkODFjOWFkNGYyOWMzY2U3NzcwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2UzOTYxNjk2ODc0OGJjNGQxY2I5OGQ2OGQ5MGRhYjI5MGMyMDRmNjhhMWNlNmM2OTg5ZDhjNDIxOTRjMDk1OCJ9"
+        },
+        {
+          "resource": "repo://.github/workflows/rollback.yml#L23-L28",
+          "version": "repo-lines-v1:sha256:f053810f02ac1744fe1cc5a44e7dffe02024561ec37e1f616e6a685a47d13ca5:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjI3NDYzMzRmZGJkNjUxMzIzOWYxMzI2ZGI4YjYxMjc1N2I1YjMyYzA4MDhiNTA4MWE5OTM3ZjY1MzNiOGRiOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlhYjc4MmJhNTZhMzRjMjVjZTEyNWI3OGJjOGM3ZjQyZDE0YjBkMTViYzEyMzcxZjVhMWFlMWU0N2ZiMzBiNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDhiNDQwMWVlMzY0ZmQ5YjhlMzg1NTQ0MmRjN2I3MmJlZWI3ODY0NTlhZDdkODFjOWFkNGYyOWMzY2U3NzcwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTUwMjIzYTcwM2QwYTAzNjc2MmIyNWM2ODgyODc3YzE5MDBhYzJiM2QxZTBiZDI5OTJmMGJkMDYyZjFmOGY3MiJ9"
+        },
+        {
+          "resource": "repo://scripts/release/deployments.ts#L116-L133",
+          "version": "repo-lines-v1:sha256:9b07a51c0bbe21b82b569b7ac318139dc18aa6f35f5ae0a14c22d3f5d9b1ae36:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFmNjlkOGNiMzZmNDQxNWM2ZDUzNTY1ZmQ0ODMxMWUwYWVlOWNkNjA2YTcwYjM5MWNjMjIzNWI3NGIzYzhkMTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRmYjE1ZDQ3ZDJjZGY1OGMzZDVmMzExYTViMzhjNmY2NmEzOWRlZjg3YmM2NTNiMWZlYTE1MGE2Mzc5OTdiMGYifQ"
+        },
+        {
+          "resource": "repo://scripts/release/retention.ts#L6-L51",
+          "version": "repo-lines-v1:sha256:dc2ad5ad982bd7e94fbffd326fee1f514f579f895b44fcaed301e07d3e584cb7:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxNWQ5ZGI5ZTlkYzliNTExY2NlMzFiMGYzYWYxYzdhY2M2YmI3ZTQ5YWI2ZTQ4M2FiMDE5YzMxZjA1ZWE3OTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQwYzZiYjQ5MjVlZDdiYTg1MDQ2YzQ3NTRkZjM0YTY2NWJiMDJiMjM5OGEyZmFiNjI0ZTA4NDEzYzU1YTMzNjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c3d62053078c472abbf89b79343f1f13",
+      "statement": "Отчёт операции пишет Summary и outputs; ошибка обогащения даёт неполный отчёт без report URL и не отменяет основную операцию, Deployment включает проверенные notification-метаданные.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/deployments.ts#L19-L32",
+          "version": "repo-lines-v1:sha256:c52031d1fa19e48b4effda41a451dc29bdabddfdb58bd89581b419cdd37907ba:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZmMzM5NTM1MzBlZTFjNzgwMGMwNDU5ZDc2OTEwMmRiNjI0MGJiYjA4ZWYzNTY1YjY5M2Y4ZjMxZjZkN2NlNTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwNjQ1ZDg3YjM1MDUzOTJjYTU3ZmVlYTdjNjUwZjUxZjU4MzA4NmU3OTlkY2NiM2ZiZmVjYTI0ODQxNzQyNTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI5ZGQ2NDFlNTMyMWQ5ZDIxZTUyZDU4NjQxOGFlOTU2MzNiNjZmMGRjNjhlYzdiZTI4YjAxNzFmNzMxMDk2MDkifQ"
+        },
+        {
+          "resource": "repo://scripts/release/report.ts#L103-L187",
+          "version": "repo-lines-v1:sha256:2f519f0fe77115f46260016faf708c3991762f8eb10da62ee6a2f3a4be1e8428:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkMDMwOGY4Zjc3NzZlMDcwOGVjNjk0NWFmM2M4M2UwMjZhNzVjMGNhN2ZjNTc5ZDdmMWI3MzYwYTdmNWEzY2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdkMjY5NjljNmE2MzJkZGNjODY5NDU4ZWEzYzMzYTIxMGZhZDc0NTU2OGMwODViMzg0MTE3ZTA2NTAwZGNkZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_67907bd341be4244b4ac0e94b7e57699",
+      "statement": "Release status выполняет независимый Board по workflow_run или вручную с Project PAT; источник проверяет main, репозиторий и workflow, не общий conclusion запуска.",
+      "evidence": [
+        {
+          "resource": "repo://.github/workflows/release-status.yml#L1-L42",
+          "version": "repo-lines-v1:sha256:f7681ff1513e6d4312c7a0f48a66a3f6a8ab3ef761c44b6280f7655bc819267a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3YTk0NGMyODk1NDhkZWM1Y2U3MmJlMDRkNTNlYTRkYmMyZGU3YmI2OGU3MGZjNzE2MmQxMzlhZTQzYjJhMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY3MTY1NGNkZmRiMTQyYzA2NDA5MDJkOWZlZjBlOWUyNmFiZDVjZmFjMDUxNGMzNTM1MjcyOTM2ZmZhN2ZmNjgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://scripts/release/catalog.ts#L57-L92",
+          "version": "repo-lines-v1:sha256:81af62ae23e70551fdf6b58a6ab95bceee13d596a7cfac3543da81cc05d4cb10:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIyZDk4YjVlNzUwMjgyYTE4ODBlMTYyOTlkNTMzYzZmMTFhNDMzMWRhOTQ4MTZiYzIwYzVhYjEyMDI2MTAxMTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxMzY5YmM4Y2IzNTA3MjZkMzYzNDMxNDMzMTQ0YWJmMzg1ZGRjYzkwMTkxZmM3MmQxNWQzMGRhZGQyMWUyMzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlYTVmYzY0YjI4OTM0NWVmMjE0MzViNjdlZDgxMGEyZDc1OGU1MzQ5Y2ZjM2Q2ZDgyYTU1MDA4MmNkZjJjZjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI2MDA0OTgxOTg5YzhiMDg5MGIxODVmY2I0NTFjZDdmNTIwNmU5YTU2MzYzZWI4NmE1ZmNkNjgxYTk2NDlkZTMifQ"
+        },
+        {
+          "resource": "repo://scripts/release/source.ts#L8-L39",
+          "version": "repo-lines-v1:sha256:90cfa3c60bfa13af7ef2f5261307cd4d64cdb3a304055c147718ba2bc8e24891:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlMjdlNTE1ZDkwMGZmODZkZjIzY2Y5NjJkMjcwMDJiY2I2NzU1ZTFjMWJhZTAzMDZjMDI3MjYyMmUyMzNjNzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkNzQ4Y2UxZDFiNDJkNjYyMWNhNjg2OGUwZDVhNWM1ZTdiNTFiMTliZGE4MmE4MGZkZjRkYTA3ZTQwNGFmM2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d361b03cdd6f457ca23712293c2d2ad0",
+      "statement": "Board использует Git-граф и всю успешную историю выкаток: публикация ведёт задачу в Ready for release, выкатка — в Done; откат не возвращает выкаченные изменения назад.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/board.ts#L289-L340",
+          "version": "repo-lines-v1:sha256:b31d5e570e4ed3dd662975ef22c4b5db9945ca07751b0225612c15e1b73fc9a4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlYmRjZjE3NzQ0NjYwZmU4OTgwZjg4NGYxMTVkOGEwMTM0YzQzNzkxOTM3NzBmMTI5ODAyMzBhZWZiOGIzODIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM5NjNlZDI2NGIyMWYwOTIxMWVkNWY1NmI4MDNmMDQ1NTVmMGY2NGMzMjY4NTZhN2I3YjY3NTZiMmI0NTZlYTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYzYTI4Mzg5YjM3NWFjNWI0MDMwNTVlMGE2MTAwNDA2NTFjZDJmYjVhMGJmZmY5NDE1ODEwMWZkYzhkNjhkN2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlZGY0MGI2OTUwZGYzNjExYTcyYWNkOTFmMzZmZmMwNjU1MmNiOTEwMjA1NmQ4OTBkMDk3ZjhlMTc0N2QyZjAifQ"
+        },
+        {
+          "resource": "repo://scripts/release/catalog.ts#L221-L324",
+          "version": "repo-lines-v1:sha256:ed97191ccb5edbcd2ccd65869afd74200f18a82d6709e2e1125f6e5b317dc4de:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMmViYmEzMGRjMmViNTI5NjEyYTRjNWE2M2Y3NWViMThkMGRmM2IxN2VkNGM5ZTVlNmIyZDk0ZTFhMTU5YTZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1OGE0NjNmYWI2MDlmZjk1YzQ3ZjZkYmI1ZGEwMmE4MWNiNDY4OWJiNjU3Mjg3OGZkOTM0YTE3NDY5YWY2NDdkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiOTExODFmOGJiY2QwMGQ3NzljYTY1YTZhM2NmNmQ1ZGQ2YzdhZDI0Yzg2MzNkZTBmZGI1OGNkMDVmOGE1MjgzIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_f9f86e92160449b5a384d986c95201cb",
+      "statement": "Board сохраняет ручные статусы, ручное закрытие и переоткрытые задачи, ждёт подтверждения до пяти минут, сверяет состояние перед mutation и выдаёт ошибку при отсутствии карточки.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/release/board.ts#L242-L340",
+          "version": "repo-lines-v1:sha256:da576aa03d25648b5ae7d78e3012b95d1a6f8b7cb79feb51cb669f5964d3be19:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExMTM1MzlkNGRiNzBjOTJlZTYyZDY1OWMzMTQ2ZjgyODllOWVkZTM1MjFjNDc4MDdjODRjYmE2NjFhY2QxZDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM5NjNlZDI2NGIyMWYwOTIxMWVkNWY1NmI4MDNmMDQ1NTVmMGY2NGMzMjY4NTZhN2I3YjY3NTZiMmI0NTZlYTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyZjI2Y2RiNGZiMzMyZjRmNDg2YjU0YWViOGNjOGM0OTM1NDM0ZDc1NWQ3YmJmNjU0MTFmNDFiZTk2ZmJlMmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlZGY0MGI2OTUwZGYzNjExYTcyYWNkOTFmMzZmZmMwNjU1MmNiOTEwMjA1NmQ4OTBkMDk3ZjhlMTc0N2QyZjAifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-11-02T21:50:56.050Z"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:d50e05920b9cbf08f8e15b828de8a14d33902cbae25b43f702c196221910f565",
+  "claims": [
+    {
+      "id": "claim_dd7b872e6a514dabbfce9f10a57ea777",
+      "statement": "SW кеширует только offline.html и offline.css; навигация использует NetworkOnly с offline fallback, HTML пользователя, RPC и файлы SPA не входят в precache.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/vite/plugins.ts#L43-L63",
+          "version": "repo-lines-v1:sha256:5104947ac8d82f138f6c9fd07dfb4097001a5894e0c8b625170129bb2144fcae:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcyYTViZGY2NTRjN2Y4NjhhOGQxNjJhNjYxNjcyOTUwMjY3ODZjMDM5ZDQ5NjY5NWI0MjcxMzhjZjk4ZTc5ZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwOGRkYmYyNzBhNDE5ZjI1YTYxMWI4NTRlMjc0NDMxODllMjg3MzFiNjU4YTE2YzdiNmMzOGJmMmUxMDI0NjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI5ZjhiMjM0OGEyOTQ2OTg1OTIzZDNkODM3NTE5NTRjYWI5MDdjMTg2YjZhOGQ5OGEzYmU4ZDQzYmM4MDljMDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9ab1b68b62f54fa0b5a0f88a7c2177d3",
+      "statement": "BFF выдаёт SW, манифест, иконки и offline-файлы через PUBLIC_FILES до HTML; отсутствие обязательного файла ломает загрузку публичных файлов.",
+      "evidence": [
+        {
+          "resource": "repo://apps/bff/src/app.ts#L47-L55",
+          "version": "repo-lines-v1:sha256:0e511d6259b366ca0f99a4cb40f3f00ceabc19841b1de68fe55eee1768301cda:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjkxMTAyMDc2MzIzYjJmYmZmMjIzMTZlMmFjZGVjZGY0N2ZiZDMwYmMyNjlkYWQyMDE2ZmZkYTlhOTQ2ZmFmMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjZjMjhkYjg5NjQ5NDAwMTdjMDQ3NGM0MTRlNzFhNzg2YTliMzdhM2Y5MjZmNWM4MDQ4YTEwYWJjM2ZhYTZiNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDg3ZjEzNjNjZWYxYmU5MDU0ZjczYWY2MDZmNDFjNzY5NzAzYTczOTI2NDAwYTY1MGMwOTQzYmQ1ZjA0OWI0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGRiZWY0ZGYzNzkwOGE4ZWQzZmIwMzc1NTA5YzRlY2QzMDI3ODYwN2NiZmMwOGVkN2JmMDgwOGZhY2MxZTgzYSJ9"
+        },
+        {
+          "resource": "repo://apps/bff/src/public.ts#L3-L45",
+          "version": "repo-lines-v1:sha256:82bb4e7a55d427abd19cae98529b377db19b41b36dbb4bcde1367ebfb4eaf232:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkzNDdkNTNhZjQyOGMwMWMyNzAwN2ViM2I2YzM5YjA5YTVjMDI4OGYyMTE3MDM5MzNmZGM0NzBiNThkMTdlYzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_09aa7b20cb33434ab0dec67a505abd2b",
+      "statement": "Регистратор SW не перезагружает вкладку при обновлении и логирует ошибку регистрации; конфигурация разрешает немедленную активацию и захват клиентов.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/serviceWorker.ts#L1-L15",
+          "version": "repo-lines-v1:sha256:30af1aed3d39fdc63373a94fe9bb77fda43b8ff8b8f5dd801ea0a09ded10152f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjODJlMGI0NDE3ZDE2YTg2NzcyMzgyZjhiNjMxMzhhOGRkY2EwMjg0NDU2MDA4NzllN2MxOWFiZDhkZGIyZDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://apps/client/vite/plugins.ts#L58-L62",
+          "version": "repo-lines-v1:sha256:d88607aa2ceccde8f7db9ee7b03f7d52d6c8213b2e333dacb3062064d1c21342:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOGU4M2VhODg0NWI2ZWI1ZmU3M2Y2Yzc0ZmQ2M2U0NzQ1MDRhNDVmMzllZTEzN2MzMjcyMTA4ZGE1YWRmODFkZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMmE5NzgxN2U5MWFjZTkyNjQ3NGFjNjQyOWU1YjA1NDgzZTNiYTlmNWU4MzJkYmYxMGMxMWMyNDQxNThlMzMxNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmZkNDUzYjJkZjkxZmQ0NDM2OWYxYTkwYmMxMzVjZjMwODM5ZjMwYmQ3NGQ2YzIzNjdmODNmMmRhYzEwMWIwMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTk4M2Q0OTA1MGM3OGE1YTA0YzYyMDJkMjhiYzllYTUyYzc1NDU2NzI1YmIxMWFkZGI1NGY0MmJjOWEzNmNjMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_fb0b67a211d844af8f315fa83673cd30",
+      "statement": "fetchTracked подтверждает доступность только после полного тела HTTP-ответа, включая ошибки; отказ fetch и обрыв тела устанавливают lost и пробрасываются.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/api/trpc.ts#L113-L123",
+          "version": "repo-lines-v1:sha256:1f16e1d268a9453f65728ed312dd5306adc6ddb73811bd181fe081762d562dc8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxZTUwOTNmODk5YzY1ODk4YmYwNWEwZmIyNTNmNTBmZTNjNTRmNGE0NmM0ODRjYjk2YzlmNDk3OWE5OWZlYzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZjViNDBiMTU4NDU3ZDE3ODY0ZjIxNzkwNzg2ZGQ1YTJlY2RiNjRiNjZhNjUxZjc4OGQ0ZTI1Y2QzMzAzZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1YWJhMjNjYTcxOWM1ODE2Y2I5OTIzYmU3NmU4NWY1M2Q0ZDcxYTYwYzgzMmE3ODhiZDRiNzhiNjNiNDhkOTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwMzRkYmQ3OTEzOWQ1ZThiN2I3MjRhNDE0NTFjNjE3Y2JhNmY2ODg3YjhlODI0YzIyZWMyZjczMGNiNzQxYmIifQ"
+        },
+        {
+          "resource": "repo://apps/client/src/stores/connection.ts#L22-L43",
+          "version": "repo-lines-v1:sha256:1affddcb1667935910c915d9e7faf4bb9baedbdf17d1b4d05822aeab930b9aef:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNWVmMjhkMDk1MmNhNjFlN2RlNTQ3ZGJmNmVjYzg4ZDA0ZDgwNWU4YTk0NjRiMGQxYzI5ZjAzNjFiYTVmN2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwOWNjYmNhYTAxNDY2YTI4ZjE0MmY3ZmY0MDUxZWE2NTcxZTUxZmU2YzhjMGQxM2NjOTFhY2NkYjU5YzlhMDgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_aaaa935735c64e6b97d60768bd708431",
+      "statement": "offline поднимает предупреждение, online только проверяет BFF через robots.txt; первый полный ответ после потери снимает предупреждение с одним тостом, баннер сохраняет смонтированный экран.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/components/OfflineBanner/OfflineBanner.tsx#L4-L16",
+          "version": "repo-lines-v1:sha256:bc1a5eca63b97b3e965b0a2b79310b6f77894e7dcb44947ac3471352ef683776:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhMWQxYTYzMzkwMjI5Yzc5ODM0N2U4M2EwNDA1NDQxYzk0MDAwMzUyODRhZDE2OGMxYmY2Y2RmMWQ3MGEzNzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBkNDIyYzkyMTM4MmZiODQ1YWY5ZDkwODk5MjU0NWQyMGYzOGE2MDYzN2QxNTdjOThjMzc0YWE0YTQyZmE4NDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://apps/client/src/layouts/RootLayout.tsx#L13-L26",
+          "version": "repo-lines-v1:sha256:9c85cc24b900fb946e0731d1def2d0f2e45db2bf564b4dfaff0a607322491d2f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmYjE1NTM3NDRkOTJiYzY3YWVjNjk3YzYzNzM4MzlmYzU2Njc2ZjQwM2VmZjM5MTFlYjJlNDQ4YTY0ODQ3MzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhMWQxYTYzMzkwMjI5Yzc5ODM0N2U4M2EwNDA1NDQxYzk0MDAwMzUyODRhZDE2OGMxYmY2Y2RmMWQ3MGEzNzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5MDcwMmMyZWI2YzVlMmE4NTIzMmJmNDNjOGU5N2Y4MTdiNjc1OWJjNTBmNmZmZjE2NTAzZWI4OGFiMWMwOTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://apps/client/src/stores/connection.ts#L9-L51",
+          "version": "repo-lines-v1:sha256:11163441de0dffd9c0d2c39af35e09f24d830687328d3199a2bc45502ee44cd1:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyYTA1YWQ5MWYxMTA3ZmIxNWU5MGFlOTRhOWI4ZjExN2RmMGJlMzM0NmY4MjQwMzA2ODExNmRmYWM1YzRmZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMDNiNzE2MDMyNTJhZmZhZWI4MmMxOGNiYTM5OTdmMWQ5NmM2ZWM3OGJmYWVhMGFlNmI3ZWI5YTY2MWViNTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5de92e235365407786c93054fdf4f2bb",
+      "statement": "dev:pwa собирает production-клиент без CDN base и запускает BFF с локальными assets и публичными файлами без HMR.",
+      "evidence": [
+        {
+          "resource": "repo://scripts/dev/pwa.ts#L1-L30",
+          "version": "repo-lines-v1:sha256:181daa69027a3817faa45df746e68097fce7cb3f2ed828938b97ce984c81d2e3:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ1N2ZjZWIwMmMwMTJlMjY0MDI4NDgyZDg2YmQ4Yzg2Y2M5NGQ3OWI2N2M0NTNlMmQ2YzY1YjEyOWZhYzQxZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhODkzY2U5ZjUwZDQ5NGRkNTE3ZTk0NWQ1OTY4MGVmMjZkYjg5ODA2ZmY0ZDM3NjA0ZDA4NzUwZmI2NzkwZmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-11-02T21:50:56.050Z"
+  }
+}
