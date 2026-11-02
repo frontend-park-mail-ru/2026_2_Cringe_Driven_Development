@@ -3,10 +3,7 @@ import { readTrustedRun, type TrustedRun } from './catalog.ts';
 
 const REPOSITORY = 'Cringe-Driven-Development-Team/frontend';
 /** Проверенный источник запуска автоматики, без побочных эффектов. */
-export type AutomationSource =
-    | { kind: 'queue'; number: number; updatedAt: string }
-    | { kind: 'workflow'; run: TrustedRun }
-    | { kind: 'manual' };
+export type AutomationSource = { kind: 'workflow'; run: TrustedRun } | { kind: 'manual' };
 
 /** Допускает только main и проверенные события текущего репозитория. */
 export async function readAutomationSource(): Promise<AutomationSource | undefined> {
@@ -17,9 +14,7 @@ export async function readAutomationSource(): Promise<AutomationSource | undefin
         return;
     const event = (await Bun.file(need('GITHUB_EVENT_PATH')).json()) as {
         repository?: { full_name: string };
-        action?: string;
         workflow_run?: { id: number; event: string; head_branch: string };
-        pull_request?: { number: number; base: { ref: string }; updated_at: string };
     };
     if (event?.repository?.full_name !== REPOSITORY) return;
     switch (process.env.GITHUB_EVENT_NAME) {
@@ -39,17 +34,6 @@ export async function readAutomationSource(): Promise<AutomationSource | undefin
             if ((source.event === 'push') !== (run.kind === 'publish'))
                 throw new ReleaseError('Событие workflow_run не совпало с Actions API');
             return { kind: 'workflow', run };
-        }
-        case 'pull_request_target': {
-            const pr = event.pull_request;
-            if (event.action !== 'enqueued' || pr?.base?.ref !== 'main') return;
-            if (
-                !Number.isSafeInteger(pr.number) ||
-                pr.number <= 0 ||
-                !Number.isFinite(Date.parse(pr.updated_at))
-            )
-                throw new ReleaseError('Некорректное событие enqueue');
-            return { kind: 'queue', number: pr.number, updatedAt: pr.updated_at };
         }
     }
 }

@@ -219,6 +219,8 @@ export function fixture() {
                 commits: commits.slice((page - 1) * size, page * size),
             });
         }
+        const associated = /^\/commits\/([0-9a-f]{40})\/pulls$/.exec(path);
+        if (associated) return slice(pulls.filter((pr) => pr.merge_commit_sha === associated[1]));
         if (path === '/pulls') return slice(pulls);
         if (path.startsWith('/actions/runs/'))
             return Response.json(runs.get(Number(path.split('/').at(-1))) ?? {}, {

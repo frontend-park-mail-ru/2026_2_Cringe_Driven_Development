@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-test('тесты уведомлений не пишут в унаследованный Summary CI', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'notify-summary-'));
+test('тесты отчёта не пишут в унаследованный Summary CI', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'report-summary-'));
     try {
         const summary = join(dir, 'ci-summary.md');
         writeFileSync(summary, 'Existing CI summary\n');
@@ -13,9 +13,9 @@ test('тесты уведомлений не пишут в унаследова�
             [
                 process.execPath,
                 'test',
-                fileURLToPath(new URL('./notify.test.ts', import.meta.url)),
+                fileURLToPath(new URL('./report.test.ts', import.meta.url)),
                 '--test-name-pattern',
-                '^(карточка выкатки показывает полные SHA и digest|CLI rollback сохраняет русский текст уведомления)$',
+                '^(rollback_uses_target_to_before|unknown_base_does_not_invent_sha)$',
             ],
             {
                 env: {

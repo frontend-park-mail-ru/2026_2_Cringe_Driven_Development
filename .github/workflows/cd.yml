@@ -58,11 +58,6 @@ jobs:
       - name: Release check
         id: check
         run: bun run release check "$SHA"
-      - name: Production record
-        id: start
-        env:
-          IMAGE_REF: ${{ steps.artifacts.outputs.image_ref }}
-        run: bun run release start "$SHA" "$IMAGE_REF" deploy
       - name: Checkout deployment infrastructure
         uses: actions/checkout@v5
         with:
@@ -94,16 +89,18 @@ jobs:
           printf '%s\n' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/deploy/vault-pass"
           ssh-keygen -F cellestial.ru -f "$RUNNER_TEMP/deploy/known_hosts" > /dev/null
           echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/deploy/vault-pass" >> "$GITHUB_ENV"
-      - name: Deployment started
-        continue-on-error: true
+      - name: Release report
+        id: report
         env:
           RELEASE_BEFORE_SHA: ${{ steps.confirmed.outputs.before_sha }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID }}
-          TELEGRAM_USER_MAP: ${{ vars.TELEGRAM_USER_MAP }}
-        run: bun run release notify start success "$SHA"
-      # публичный образ — без GHCR credentials; Ansible сам сверяет метку, запущенный образ и healthy
+        run: bun run release report deploy "$SHA"
+      - name: Production record
+        id: start
+        env:
+          RELEASE_REPORT_BASE_SHA: ${{ steps.report.outputs.report_base_sha }}
+          RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
+          IMAGE_REF: ${{ steps.artifacts.outputs.image_ref }}
+        run: bun run release start "$SHA" "$IMAGE_REF" deploy
       - name: Switch BFF
         id: switch
         working-directory: infra/ansible
@@ -135,22 +132,3 @@ jobs:
           S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
         run: bun run release retention
-      - name: Send to tg
-        if: always()
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID }}
-          TELEGRAM_USER_MAP: ${{ vars.TELEGRAM_USER_MAP }}
-          STATUS: ${{ job.status }}
-          RELEASE_BEFORE_SHA: ${{ steps.confirmed.outputs.before_sha }}
-          RELEASE_IMAGE_REF: ${{ steps.artifacts.outputs.image_ref }}
-          RELEASE_ARTIFACTS_STATUS: ${{ steps.artifacts.outcome }}
-          RELEASE_IMAGE_STATUS: ${{ steps.image.outcome }}
-          RELEASE_CHECK_STATUS: ${{ steps.check.outcome }}
-          RELEASE_START_STATUS: ${{ steps.start.outcome }}
-          RELEASE_SWITCH_STATUS: ${{ steps.switch.outcome }}
-          RELEASE_HEALTH_STATUS: ${{ steps.health.outcome }}
-          RELEASE_RETENTION_STATUS: ${{ steps.retention.outcome }}
-        run: bun run release notify deploy "$STATUS" "$SHA"

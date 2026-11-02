@@ -63,40 +63,6 @@ async function git(repoDir: string, ...args: string[]): Promise<string> {
     return out.trim();
 }
 
-/** Первый коммит main, добавивший workflow; авторская дата feature-ветки не используется. */
-export async function activationTime(repoDir: string): Promise<string> {
-    const value = (
-        await git(
-            repoDir,
-            'log',
-            '--first-parent',
-            '--reverse',
-            '--diff-filter=A',
-            '--format=%cI',
-            'origin/main',
-            '--',
-            '.github/workflows/release-status.yml',
-        )
-    ).split('\n')[0];
-    if (!value || !Number.isFinite(Date.parse(value)))
-        throw new ReleaseError('Не найдена граница включения release-status в main');
-    return value;
-}
-
-/** Проверяет сам SHA, в том числе выпуск без новых PR. */
-export async function isDeployed(
-    sha: string,
-    productionShas: readonly string[],
-    repoDir: string,
-): Promise<boolean> {
-    checkSha(sha);
-    for (const target of productionShas) {
-        if (new Set((await git(repoDir, 'rev-list', checkSha(target))).split('\n')).has(sha))
-            return true;
-    }
-    return false;
-}
-
 /** Проверка repository, события и workflow ID/path; conclusion не определяет готовность выпуска. */
 export async function readTrustedRun(id: number): Promise<TrustedRun> {
     if (!Number.isSafeInteger(id) || id <= 0) throw new ReleaseError('Некорректный run ID');
@@ -155,7 +121,8 @@ function runId(value: unknown): number {
     return Number(url.pathname.slice(prefix.length));
 }
 
-async function linkedIssues(number: number): Promise<LinkedIssue[]> {
+/** Закрывающие связи конкретного PR, со всеми страницами. */
+export async function linkedIssues(number: number): Promise<LinkedIssue[]> {
     const [owner, name] = need('GITHUB_REPOSITORY').split('/');
     const result: LinkedIssue[] = [];
     let cursor: string | null = null;
@@ -259,44 +226,6 @@ async function issuesForPRs(numbers: number[]): Promise<LinkedIssue[]> {
             else issues.set(issue.id, issue);
         }
     return [...issues.values()];
-}
-
-/** PR и закрывающие задачи фактической разницы двух версий. */
-export interface PRChanges {
-    prs: (MergedPR & { title: string })[];
-    issues: LinkedIssue[];
-    compareUrl: string;
-}
-
-/** Читает все страницы сравнения; сообщения коммитов и имя base ветки не определяют состав. */
-export async function readPRChanges(baseSha: string, headSha: string): Promise<PRChanges> {
-    const base = checkSha(baseSha);
-    const head = checkSha(headSha);
-    const commits = new Set<string>();
-    for (let page = 1; ; page++) {
-        const batch = await api<{ total_commits: number; commits: { sha: string }[] }>(
-            `/compare/${base}...${head}?per_page=100&page=${page}`,
-        );
-        if (
-            !Number.isSafeInteger(batch.total_commits) ||
-            batch.total_commits < 0 ||
-            !Array.isArray(batch.commits)
-        )
-            throw new ReleaseError('Некорректное сравнение версий');
-        const previous = commits.size;
-        for (const commit of batch.commits) commits.add(checkSha(commit.sha));
-        if (commits.size === batch.total_commits) break;
-        if (commits.size <= previous || commits.size > batch.total_commits)
-            throw new ReleaseError('Неполное сравнение версий');
-    }
-    const prs = (await mergedPRs())
-        .filter((pr) => commits.has(pr.mergeSha))
-        .toSorted((a, b) => a.number - b.number);
-    return {
-        prs,
-        issues: await issuesForPRs(prs.map((pr) => pr.number)),
-        compareUrl: `${process.env.GITHUB_SERVER_URL || 'https://github.com'}/${need('GITHUB_REPOSITORY')}/compare/${base}...${head}`,
-    };
 }
 
 /** Каталог публикаций и выкаток без закрывающих связей задач. */

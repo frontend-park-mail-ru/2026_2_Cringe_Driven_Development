@@ -2,8 +2,6 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sync from './sync.ts';
-import { prepareNotifications } from './notification-sync.ts';
-import { sendPending } from './journal.ts';
 import { fixture, REPO } from './test/fixture.ts';
 
 let f: ReturnType<typeof fixture>;
@@ -40,49 +38,23 @@ test('board entrypoint игнорирует enqueue без чтения данн
     expect(f.records['release-automation']).toHaveLength(0);
 });
 
-test('заблокированный Project API не задерживает уведомление, доска возвращает свою ошибку', async () => {
+test('sync_uses_project_without_telegram_or_release_journal', async () => {
     f.publish();
-    process.env.GITHUB_EVENT_NAME = 'workflow_run';
-    writeFileSync(
-        process.env.GITHUB_EVENT_PATH!,
-        JSON.stringify({
-            repository: { full_name: REPO },
-            workflow_run: { id: 1, event: 'push', head_branch: 'main' },
-        }),
-    );
-    let entered!: () => void;
-    let release!: () => void;
-    const began = new Promise<void>((resolve) => (entered = resolve));
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    let posts = 0;
-    f.extra = (url, body) => {
-        if (String(body?.query).includes('ReleaseProject')) {
-            entered();
-            return gate.then(() => Response.json({ errors: [{ message: 'denied' }] }));
-        }
-        if (url.pathname.endsWith('/sendMessage')) {
-            posts++;
-            return Response.json({ ok: true, result: { message_id: 7 } });
-        }
-    };
-    const board = sync.reconcileBoard(f.dir);
-    try {
-        await began;
-        expect(f.records['release-automation']).toHaveLength(0);
-        const result = await prepareNotifications(f.dir, 'current');
-        expect(result.errors).toEqual([]);
-        await sendPending(f.dir, 'ready', result.firstKey);
-        expect(posts).toBe(1);
-    } finally {
-        release();
-    }
-    expect((await board).errors).toHaveLength(1);
-    expect(f.requests.filter((r) => String(r.body?.query).includes('ReleaseProject'))).toHaveLength(
-        1,
-    );
-    expect(f.requests.some((r) => String(r.body?.query).includes('UpdateReleaseStatus'))).toBe(
-        false,
-    );
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.TELEGRAM_CHAT_ID;
+    f.extra = (_url, body) =>
+        String(body?.query).includes('ReleaseProject')
+            ? Response.json({ errors: [{ message: 'denied' }] })
+            : undefined;
+    const result = await sync.reconcileBoard(f.dir);
+    expect(result.errors).toHaveLength(1);
+    expect(f.requests.some((r) => r.url.hostname === 'api.telegram.org')).toBe(false);
+    expect(
+        f.requests.some(
+            (r) => r.init?.method === 'POST' && r.url.pathname.endsWith('/deployments'),
+        ),
+    ).toBe(false);
+    expect(f.records['release-automation']).toHaveLength(0);
 });
 
 test('недоверенный source не запускает board и не создаёт baseline', async () => {

@@ -5,68 +5,15 @@ on:
     workflows: [CI, CD, Rollback]
     types: [completed]
     branches: [main]
-  pull_request_target:
-    types: [enqueued]
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  notifications:
-    name: Notifications
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    concurrency:
-      group: release-automation
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: read
-      deployments: write
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-      TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID }}
-      TELEGRAM_USER_MAP: ${{ vars.TELEGRAM_USER_MAP }}
-    steps:
-      # Никогда не checkout head PR или артефакты исходного workflow_run.
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
-      - name: Prepare current notification
-        id: current
-        run: bun run release prepare-notifications current
-      # Summary предыдущего шага опубликован до отправки ссылки на него.
-      - name: Send current notification
-        if: always() && steps.current.outputs.allowed == 'true' && steps.current.outputs.first_key != ''
-        env:
-          KIND: ${{ steps.current.outputs.kind }}
-          NOTICE_KEY: ${{ steps.current.outputs.first_key }}
-        run: bun run release notify-pending "$KIND" "$NOTICE_KEY"
-      - name: Recover missed notifications
-        id: recovery
-        if: always() && steps.current.outputs.allowed == 'true'
-        run: bun run release prepare-notifications recover
-      - name: Send recovered notifications
-        if: always() && steps.recovery.outputs.allowed == 'true'
-        env:
-          KIND: ${{ steps.recovery.outputs.kind }}
-        run: bun run release notify-pending "$KIND"
-
   board:
     name: Board
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true' && github.event_name != 'pull_request_target'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:

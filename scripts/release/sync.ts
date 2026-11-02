@@ -13,7 +13,7 @@ export async function reconcileBoard(
     };
     try {
         const source = await readAutomationSource();
-        if (!source || source.kind === 'queue') return result;
+        if (!source) return result;
         result.allowed = true;
         result.board = await syncBoard(await readReleaseSnapshot(repoDir), repoDir);
         result.errors.push(...result.board.errors);

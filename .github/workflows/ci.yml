@@ -44,6 +44,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: read
+      issues: read
       deployments: write
     # ключ S3 лежит в environment и действует на весь проект Selectel. Публикация — не выкатка:
     # автоматический Deployment production не создаётся
@@ -60,6 +62,8 @@ jobs:
       CDN_URL: ${{ vars.CDN_URL }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -106,22 +110,17 @@ jobs:
         env:
           IMAGE_REF: ${{ steps.image.outputs.image_ref }}
         run: bun run release image "$IMAGE_REF" "$SHA"
+      - name: Release report
+        id: report
+        if: steps.published.outputs.published != 'true'
+        run: bun run release report publish "$SHA"
       - name: Register release
         if: steps.published.outputs.published != 'true'
         env:
+          RELEASE_REPORT_BASE_SHA: ${{ steps.report.outputs.report_base_sha }}
+          RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
           IMAGE_REF: ${{ steps.image.outputs.image_ref }}
         run: bun run release register "$SHA" "$IMAGE_REF"
-      - name: Send to tg
-        if: failure() || cancelled()
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
-          TELEGRAM_TOPIC_ID: ${{ vars.TELEGRAM_RELEASES_TOPIC_ID }}
-          TELEGRAM_USER_MAP: ${{ vars.TELEGRAM_USER_MAP }}
-          RELEASE_IMAGE_REF: ${{ steps.image.outputs.image_ref || steps.published.outputs.image_ref }}
-          STATUS: ${{ job.status }}
-        run: bun run release notify publish "$STATUS" "$SHA"
 
   course-sync:
     needs: [check]

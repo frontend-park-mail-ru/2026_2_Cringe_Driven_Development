@@ -7,12 +7,29 @@ import {
     type ArtifactsPayload,
     type Deployment,
     type ProductionPayload,
+    type NotificationMetadata,
     createDeployment,
     listDeployments,
     runUrl,
     setDeploymentState,
 } from './github.ts';
 import { checkImageRef } from './image.ts';
+import { checkSha } from './env.ts';
+
+function notificationMetadata(): NotificationMetadata {
+    const base = process.env.RELEASE_REPORT_BASE_SHA;
+    const report = process.env.RELEASE_REPORT_URL;
+    const attempt = Number(process.env.GITHUB_RUN_ATTEMPT);
+    if (!Number.isSafeInteger(attempt) || attempt <= 0)
+        throw new ReleaseError('Некорректный номер попытки Actions run');
+    if (report && report !== `${runUrl()}#summary`)
+        throw new ReleaseError('URL отчёта вне текущего Actions run');
+    return {
+        base_sha: base ? checkSha(base) : null,
+        report_url: report || null,
+        run_attempt: attempt,
+    };
+}
 
 /** Каталог ассетов релиза в S3 и на CDN. */
 export const assetsOf = (sha: string): string => `releases/${sha}/`;
@@ -169,6 +186,7 @@ export async function register(sha: string, imageRef: string): Promise<void> {
         image_ref: imageRef,
         assets: assetsOf(sha),
         ci_run: runUrl(),
+        notification: notificationMetadata(),
     };
     const id = await createDeployment({
         environment: ARTIFACTS_ENV,
@@ -229,6 +247,7 @@ export async function startProduction(
         assets: assetsOf(sha),
         action,
         run: runUrl(),
+        notification: notificationMetadata(),
     };
     const id = await createDeployment({ environment: PRODUCTION_ENV, sha, task: action, payload });
     await setDeploymentState(

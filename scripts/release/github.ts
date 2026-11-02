@@ -20,6 +20,14 @@ export interface ArtifactsPayload {
     image_ref: string;
     assets: string;
     ci_run: string;
+    notification?: NotificationMetadata;
+}
+
+/** Данные нового notification-потребителя; прежние записи остаются историей. */
+export interface NotificationMetadata {
+    base_sha: string | null;
+    report_url: string | null;
+    run_attempt: number;
 }
 
 /** Payload записи `production`: что выкатывалось и каким запуском. */
@@ -28,6 +36,7 @@ export interface ProductionPayload {
     assets: string;
     action: 'deploy' | 'rollback';
     run: string;
+    notification?: NotificationMetadata;
 }
 
 /** Deployment GitHub с последним статусом. */

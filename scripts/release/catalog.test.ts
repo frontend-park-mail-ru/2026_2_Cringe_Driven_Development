@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { activationTime, isDeployed, readReleaseSnapshot, readTrustedRun } from './catalog.ts';
+import { readReleaseSnapshot, readTrustedRun } from './catalog.ts';
 import * as catalog from './catalog.ts';
 import { graphql, listDeploymentStatuses } from './github.ts';
-import { fixture, git, IMAGE } from './test/fixture.ts';
+import { fixture, IMAGE } from './test/fixture.ts';
 
 let f: ReturnType<typeof fixture>;
 beforeEach(() => {
@@ -82,8 +82,6 @@ test('вся production история сохраняет ранее выкач�
     old.payload.action = 'rollback';
     f.runs.set(21, { ...f.runs.get(21), workflow_id: 102, path: '.github/workflows/rollback.yml' });
     expect([...(await readReleaseSnapshot(f.dir)).deployed]).toEqual([1, 2]);
-    expect(await isDeployed(f.b, [f.a], f.dir)).toBe(false);
-    expect(await isDeployed(f.a, [f.b], f.dir)).toBe(true);
 });
 
 test('GraphQL errors при HTTP 200 не становятся пустым результатом', async () => {
@@ -142,132 +140,6 @@ test('все страницы statuses и PR/closing issues читаются ц�
     expect(snapshot.published[0]?.prNumbers).toHaveLength(230);
     expect(snapshot.issues).toHaveLength(460);
 });
-
-test('граница включения сохраняет добавление workflow по first-parent main', async () => {
-    const first = await activationTime(f.dir);
-    expect(Date.parse(first)).toBe(Date.parse('2026-11-01T00:00:00Z'));
-    git(f.dir, 'commit', '--allow-empty', '-m', 'later');
-    git(f.dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
-    expect(await activationTime(f.dir)).toBe(first);
-});
-
-test('разница версий содержит только вошедшие PR и настоящие закрывающие связи', async () => {
-    const result = await catalog.readPRChanges(f.a, f.b);
-    expect(result.prs.map((pr) => pr.number)).toEqual([2]);
-    expect(result.prs[0]?.title).toBe('PR 2');
-    expect(result.issues[0]?.prNumbers).toEqual([2]);
-    expect(result.compareUrl).toBe(
-        `https://github.com/${process.env.GITHUB_REPOSITORY}/compare/${f.a}...${f.b}`,
-    );
-    expect((await catalog.readPRChanges(f.root, f.b)).prs.map((pr) => pr.number)).toEqual([1, 2]);
-    expect((await catalog.readPRChanges(f.a, f.a)).prs).toEqual([]);
-    f.pulls[0]!.merged_at = '';
-    expect((await catalog.readPRChanges(f.root, f.b)).prs.map((pr) => pr.number)).toEqual([2]);
-});
-
-test('разница не теряет PR и commit со второй страницы', async () => {
-    const rows = Array.from({ length: 101 }, (_, i) => ({
-        ...f.pulls[0]!,
-        number: i + 1,
-        merge_commit_sha: (i + 1).toString(16).padStart(40, '0'),
-    }));
-    f.pulls.splice(0, f.pulls.length, ...rows);
-    f.extra = (url) => {
-        if (!url.pathname.includes('/compare/')) return;
-        const page = Number(url.searchParams.get('page'));
-        return Response.json({
-            total_commits: 101,
-            commits: rows
-                .slice((page - 1) * 100, page * 100)
-                .map((pr) => ({ sha: pr.merge_commit_sha })),
-        });
-    };
-    const result = await catalog.readPRChanges(f.a, f.b);
-    expect(result.prs).toHaveLength(101);
-    expect(result.prs.at(-1)?.number).toBe(101);
-    expect(result.issues).toHaveLength(101);
-});
-
-test('общие задачи объединяются, несколько страниц связей и PR без задачи сохраняются', async () => {
-    f.extra = (url, body) => {
-        if (url.pathname !== '/graphql') return;
-        const vars = body?.variables as { number: number; cursor?: string };
-        const nodes =
-            vars.number === 2
-                ? []
-                : [
-                      {
-                          id: vars.cursor ? 'shared' : 'first',
-                          number: vars.cursor ? 10 : 11,
-                          title: 'Frontend. issue',
-                          repository: { nameWithOwner: process.env.GITHUB_REPOSITORY },
-                      },
-                  ];
-        return Response.json({
-            data: {
-                repository: {
-                    pullRequest: {
-                        closingIssuesReferences: {
-                            nodes,
-                            pageInfo: {
-                                hasNextPage: vars.number === 1 && !vars.cursor,
-                                endCursor: 'next',
-                            },
-                        },
-                    },
-                },
-            },
-        });
-    };
-    const first = await catalog.readPRChanges(f.root, f.b);
-    expect(first.issues.map((issue) => issue.id)).toEqual(['first', 'shared']);
-    expect(first.prs[1]?.title).toBe('PR 2');
-    f.extra = (url) =>
-        url.pathname === '/graphql'
-            ? Response.json({
-                  data: {
-                      repository: {
-                          pullRequest: {
-                              closingIssuesReferences: {
-                                  nodes: [
-                                      {
-                                          id: 'shared',
-                                          number: 10,
-                                          title: 'Frontend. shared',
-                                          repository: {
-                                              nameWithOwner: process.env.GITHUB_REPOSITORY,
-                                          },
-                                      },
-                                  ],
-                                  pageInfo: { hasNextPage: false, endCursor: null },
-                              },
-                          },
-                      },
-                  },
-              })
-            : undefined;
-    expect((await catalog.readPRChanges(f.root, f.b)).issues[0]?.prNumbers).toEqual([1, 2]);
-});
-
-test('неверный SHA отклоняется до HTTP запроса', async () => {
-    await expect(catalog.readPRChanges('bad', f.b)).rejects.toThrow();
-    expect(f.requests).toHaveLength(0);
-});
-
-test.each(['http', 'graphql', 'partial'])(
-    'ошибка %s не выдаётся за пустую разницу',
-    async (kind) => {
-        f.extra = (url) => {
-            if (kind === 'http' && url.pathname.includes('/compare/'))
-                return Response.json({}, { status: 503 });
-            if (kind === 'graphql' && url.pathname === '/graphql')
-                return Response.json({ errors: [{ message: 'denied' }] });
-            if (kind === 'partial' && url.pathname.includes('/compare/'))
-                return Response.json({ total_commits: 1, commits: [] });
-        };
-        await expect(catalog.readPRChanges(f.a, f.b)).rejects.toThrow();
-    },
-);
 
 test('каталог без задач сохраняет состав и отбрасывает пустые production до чтения статусов', async () => {
     f.publish();

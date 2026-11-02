@@ -83,6 +83,10 @@ Go для локального запуска — Cloud Mock Apidog: ответ�
 без `/api/v1` — мок отдаёт пути ручек от корня. BFF получает его переменной `GO_API_URL`; адрес
 мока main — значение по умолчанию у `bun run dev` (`apps/bff/src/dev.ts`).
 
+Перед задачей проверь актуальный контракт и сценарии мока по
+[порядку Spec First и работы с Cloud Mock](api-contract.md#spec-first-и-cloud-mock).
+Там же описан отдельный MR в Apidog, если мок расходится с контрактом или не покрывает сценарий.
+
 ```sh
 bun run build
 SESSION_KEY=$(openssl rand -base64 32) APP_ORIGIN=http://localhost:3000 \
