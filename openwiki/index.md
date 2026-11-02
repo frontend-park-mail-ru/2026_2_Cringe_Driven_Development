@@ -12,3 +12,4 @@ okf_version: "0.2"
 - [concepts](concepts/)
 - [integrations](integrations/)
 - [operations](operations/)
+- [workflows](workflows/)

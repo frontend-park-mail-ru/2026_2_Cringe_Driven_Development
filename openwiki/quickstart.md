@@ -12,27 +12,33 @@ sources:
     resource: repo://apps/bff/test/bff.test.ts
   - id: openwiki-source-bf47c30b7933f3e39a4ad225
     resource: repo://apps/client/src/main.tsx
+  - id: openwiki-source-457208b472a11630225995e7
+    resource: repo://apps/client/src/pages/ProfilePage/ProfilePage.tsx
   - id: openwiki-source-6ad8af232827e763157fb593
     resource: repo://apps/client/test/session.test.ts
+  - id: openwiki-source-1a24bbcbef761adbf3654cda
+    resource: repo://apps/client/vite/plugins.ts
   - id: openwiki-source-3dfcfd64a44b04f5b62b200f
     resource: repo://orval.config.ts
   - id: openwiki-source-5b54a58d1b51cd490b0e7162
     resource: repo://package.json
   - id: openwiki-source-7d571db73f7bc6eb1ea8e5c6
     resource: repo://scripts/openwiki-check.ts
-generated: { by: "codex", at: "2026-10-31T14:41:46.617Z" }
+  - id: openwiki-source-8ba09500c31886a13def389b
+    resource: repo://scripts/release/index.ts
+generated: { by: "codex", at: "2026-11-02T21:50:56.050Z" }
 verified:
   - by: openwiki/0.7.2
-    at: 2026-10-31T14:41:46.617Z
+    at: 2026-11-02T21:50:56.050Z
 ---
 
 # Карта frontend и точка входа
 
-Wiki описывает код командного репозитория `frontend` на `1dad3c77a90c4ebdb151649a788f890c640dfafb`. Это не свидетельство выкладки или работоспособности прода. Для будущих функций служат модули docs; для состояния стенда нужна отдельная проверка.
+Wiki описывает код командного репозитория `frontend` на `d6bdf92f45c039c28dd82c69b1402485b995c222`. Это не свидетельство выкладки или работоспособности прода. Для будущих функций служат модули docs; для состояния стенда нужна отдельная проверка.
 
 ## Как устроен репозиторий
 
-Bun workspaces объединяет `apps/client`, `apps/bff`, `packages/schemas`. Клиент рендерится через `@cdd-team/react` после чтения bootstrap и общается с BFF по tRPC. BFF под Bun собирает HTML handler и RPC, обращается к Go через серверный слой сессии. Общие zod-схемы генерируются Orval из копии HTTP-контракта Go. [Workspaces и команды](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/package.json#L1-L28), [первый рендер](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/apps/client/src/main.tsx#L13-L36), [сборка BFF](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/apps/bff/src/bff.ts#L17-L37), [генерация](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/orval.config.ts#L3-L27).
+Bun workspaces объединяет `apps/client`, `apps/bff`, `packages/schemas`. Клиент рендерится через `@cdd-team/react` после чтения bootstrap и общается с BFF по tRPC. BFF под Bun собирает HTML handler и RPC, обращается к Go через серверный слой сессии. Общие zod-схемы генерируются Orval из копии HTTP-контракта Go. [Workspaces и команды](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/package.json#L1-L29), [первый рендер](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/main.tsx#L15-L41), [сборка BFF](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/bff.ts#L17-L37), [генерация](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/orval.config.ts#L3-L27).
 
 ## От вопроса к коду
 
@@ -43,13 +49,16 @@ Bun workspaces объединяет `apps/client`, `apps/bff`, `packages/schemas
 | Cookie, CSRF, refresh, одновременный logout | [Сессия](concepts/session.md) | `apps/bff/src/context.ts`, `session/`, `apps/client/src/api/trpc.ts` |
 | Новая процедура, zod, ошибки Go, типы клиента | [Контракты](integrations/contracts.md) | `apps/bff/src/router/`, `go/api.ts`, `go/errors.ts`, `orval.config.ts` |
 | Изменение Vite-плагина или React-пакета | [Владельцы пакетов](integrations/contracts.md#где-менять-командные-пакеты) | Использование — frontend; реализация — frontend-packages |
+| Профиль, смена логина и пароля | [Профиль](workflows/profile.md) | `apps/client/src/pages/ProfilePage/`, `apps/bff/src/router/users.ts` |
+| Установка PWA, offline HTML, предупреждение соединения | [PWA](concepts/offline.md) | `apps/client/vite/plugins.ts`, `serviceWorker.ts`, `stores/connection.ts`, `apps/bff/src/public.ts` |
+| Публикация, выкатка, откат, release Summary и доска | [Автоматизация выпусков](operations/releases.md) | `.github/workflows/`, `scripts/release/` |
 | Dev, сборка, CI, выбор проверки | [Разработка](operations/development.md) | `package.json`, `apps/client/vite.config.*.ts`, `apps/bff/test/`, `apps/client/test/`, `scripts/` |
 
 ## Команды и тестовые границы
 
-Начало работы: `bun install`, затем `bun run dev` из корня. Основные проверки — `bun run check`, `bun run test`, `bun run build`. Для отдельного пакета используйте `bun run --filter @cdd/client test` или `bun run --filter @cdd/bff test`; служебные скрипты проверяет `bun run test:scripts`. [Команды](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/package.json#L9-L28).
+Начало работы: `bun install`, затем `bun run dev` из корня. Для SW и офлайн-страницы есть `bun run dev:pwa`: production-сборка и локальный BFF без HMR. Основные проверки — `bun run check`, `bun run test`, `bun run build`. Для отдельного пакета используйте `bun run --filter @cdd/client test` или `bun run --filter @cdd/bff test`; служебные скрипты проверяет `bun run test:scripts`. [Команды](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/package.json#L9-L29).
 
-BFF-тесты с fake Go проверяют обработчик и ошибки, клиентские тесты с управляемым fetch — порядок смены сессии. Они помогают проверять локальные изменения, но не заменяют интеграцию с реальным Go или проверку стенда. [BFF-тесты](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/apps/bff/test/bff.test.ts#L1-L23), [клиентские тесты](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/apps/client/test/session.test.ts#L1-L46).
+BFF-тесты с fake Go проверяют обработчик и ошибки, клиентские тесты с управляемым fetch — порядок смены сессии, включая смену пароля. `connection.test.ts` покрывает потерю соединения, `credentials.test.ts` — требования нового пароля. Они помогают проверять локальные изменения, но не заменяют интеграцию с реальным Go или проверку стенда. [BFF-тесты](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/test/bff.test.ts#L1-L23), [клиентские тесты](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/session.test.ts#L1-L46).
 
 ## Свежесть и доказательства
 
@@ -61,10 +70,14 @@ BFF-тесты с fake Go проверяют обработчик и ошибк�
 bun scripts/openwiki-check.ts --against <полный-SHA-frontend-main>
 ```
 
-Checker требует quickstart, завершённый checkpoint с полным SHA и происхождение checkpoint от целевого коммита; свежесть определяет по изменениям разрешённого корпуса. При `stale` wiki помогает искать файлы, факты проверяют заново. SHA frontend не подтверждает свежесть соседних wiki. [Checker](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/scripts/openwiki-check.ts#L41-L102), [правила использования](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/AGENTS.md#L19-L44).
+Checker требует quickstart, завершённый checkpoint с полным SHA и происхождение checkpoint от целевого коммита; свежесть определяет по изменениям разрешённого корпуса. При `stale` wiki помогает искать файлы, факты проверяют заново. SHA frontend не подтверждает свежесть соседних wiki. [Checker](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/scripts/openwiki-check.ts#L41-L102), [правила использования](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/AGENTS.md#L19-L44).
 
 ## Границы соседних репозиториев
 
-Карта владения и контекст находятся в [docs](https://github.com/Cringe-Driven-Development-Team/docs); реализация Go — в [backend](https://github.com/Cringe-Driven-Development-Team/backend); инфраструктура — в [infra](https://github.com/Cringe-Driven-Development-Team/infra); внутренности `@cdd-team/*` — в [frontend-packages](https://github.com/Cringe-Driven-Development-Team/frontend-packages). Frontend wiki описывает только точки их использования в frontend. [Локальная карта владельцев](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/AGENTS.md#L28-L44).
+Карта владения и контекст находятся в [docs](https://github.com/Cringe-Driven-Development-Team/docs); реализация Go — в [backend](https://github.com/Cringe-Driven-Development-Team/backend); инфраструктура — в [infra](https://github.com/Cringe-Driven-Development-Team/infra); внутренности `@cdd-team/*` — в [frontend-packages](https://github.com/Cringe-Driven-Development-Team/frontend-packages). Frontend wiki описывает только точки их использования в frontend. [Локальная карта владельцев](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/AGENTS.md#L28-L44).
 
-Для межрепозиторного вопроса используйте настроенный OpenWiki workspace четырёх клонов: `openwiki_search`, затем `openwiki_read` с ID wiki результата. Если пространств несколько, сначала проверьте `openwiki workspace current` и выберите нужное. Без MCP читайте Markdown quickstart нужного клона или GitHub, проверяя origin и его собственную свежесть. Не загружайте все wiki при старте задачи. Планы функций ищут в `/modules/` docs, а не выводят из наличия кода в main. [Маршрут агента](https://github.com/Cringe-Driven-Development-Team/frontend/blob/1dad3c77a90c4ebdb151649a788f890c640dfafb/AGENTS.md#L19-L44).
+Для межрепозиторного вопроса используйте настроенный OpenWiki workspace четырёх клонов: `openwiki_search`, затем `openwiki_read` с ID wiki результата. Если пространств несколько, сначала проверьте `openwiki workspace current` и выберите нужное. Без MCP читайте Markdown quickstart нужного клона или GitHub, проверяя origin и его собственную свежесть. Не загружайте все wiki при старте задачи. Планы функций ищут в `/modules/` docs, а не выводят из наличия кода в main. [Маршрут агента](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/AGENTS.md#L19-L44).
+
+## Дополнительные границы текущей реализации
+
+Профиль загружает `users.me`, хранит сохранённого пользователя в сторе сессии и меняет логин и пароль через BFF. PWA кеширует только отдельные offline HTML/CSS, без данных блокнотов и пользовательского HTML. Публикация артефактов, выкатка и независимая сверка доски имеют разные шаги и записи; наличие кода этих шагов не подтверждает их выполнение. [Профиль](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/pages/ProfilePage/ProfilePage.tsx#L22-L87), [кеш](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite/plugins.ts#L36-L63), [команды автоматизации](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/scripts/release/index.ts#L19-L33).

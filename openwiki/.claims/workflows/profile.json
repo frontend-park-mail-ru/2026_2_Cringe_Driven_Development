@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:5759c567afc211c3d72e1da89bc7baddf4091791d6c124a647ea16737360d491",
+  "claims": [
+    {
+      "id": "claim_47cf8fb04b414d69969c94de3e6286d0",
+      "statement": "Профиль находится в _auth; ProfilePage дополнительно запрашивает users.me, показывает loading/error/ready с повтором и записывает пользователя в общий стор сессии.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/pages/ProfilePage/ProfilePage.tsx#L22-L87",
+          "version": "repo-lines-v1:sha256:2145e06d8c06d3672ccbeb83be8805fb4ac062d6c71cd7df38ff20fdd28d95be:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgzNTJlODZhYWI5YjJkZjJkOGNkOWRiOTQzNjk3N2I2ZmU0NTNkMTg2NDdmYWY5MWZlZGI5YjkxNmIzMWI3OWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhiZjAwNzU4YTg3MTUxYTBjOTZkMDhjNWM4NDEwYWZmYmViZGRlYmZiNjgxMTY0OGNlNmY3ZTM5NWJiYzUyNjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://apps/client/src/routes/profile.ts#L1-L11",
+          "version": "repo-lines-v1:sha256:89ead2b6eea0a606ab7e8dbe89104cca264bcbf593329b0f07559468c64f7bab:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5Nzg1MTllNjgzN2RkYmU1ZTYzMDY1ZTRjOTM5YjY3YjViYWIxZTRlNmM0ZGFmOWI3MTQ1NWM1YzY3N2NlZjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZjViNDBiMTU4NDU3ZDE3ODY0ZjIxNzkwNzg2ZGQ1YTJlY2RiNjRiNjZhNjUxZjc4OGQ0ZTI1Y2QzMzAzZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_188e028700ca421ca3442419eff40ac1",
+      "statement": "LoginForm не отправляет неизменённый логин, валидирует черновик, записывает ответ в стор; login_taken сохраняет ввод и помечает поле, другие ошибки допускают явный повтор.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/pages/ProfilePage/LoginForm.tsx#L29-L81",
+          "version": "repo-lines-v1:sha256:7914219687ffd37497a4a140a850d205c794390b8a027febafbc65ff5b70a266:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2NjIzZjg2OTFjYTAzYjFjYjI1Nzc3YjY1NTA3MDQwYzdjMWZjMjIwMTdjZDY4YTIxYzYwMGZjZDc0NDMwYTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkOWUxMjU0NjQyNTU3NmQzZGVhZThjOWI5ZGJmMTI4ZDVkNmRkYWY1ZDdmZTg1NzkzNDkyN2RlZmZhM2I5ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU2ZTlkMmQ4NGVkMjhkOWU1MTY5MWRkOTA4MjAzMjFmZjQ5NmVmY2VlY2E1MTNmNjkyM2Y4MGQ4OTNiNzVmMTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1M2Q4ZjMyYzUxYjliMzJkNTgwZTQyNDQxYjA2MzNkNzM4ZGRmYjJlYjliY2U5M2FjMDhmNTBiNmYxMzg5MTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bea9e0362df04bf586a7bbf8b4ee8af8",
+      "statement": "Клиент ограничивает логин 3–32 латинскими буквами, цифрами и подчёркиванием; пароль — 8–72 печатными ASCII без пробелов, новый должен отличаться от текущего и совпадать с повтором.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/pages/ProfilePage/PasswordForm.tsx#L55-L59",
+          "version": "repo-lines-v1:sha256:1f60dcfceaf96f3e2e83008d56c43d48b75aa4338b9a9d446dc7908e43621337:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjllYWJjMzBhODZmNGQ4YmE1YjNlYmFiMzE5ODU4MDUwMGIyZjBmMTczNDUyMGRjZGNiOTU2NjQ3NDI3NWUzYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYWQ5ZTEyNTQ2NDI1NTc2ZDNkZWFlOGM5YjlkYmYxMjhkNWQ2ZGRhZjVkN2ZlODU3OTM0OTI3ZGVmZmEzYjlkZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTgzYjllNDYxZGM3NzIwY2IzZDNkZjdhNTY1ZTk0Njk0NDc5NmFhZDg5NjkyMTQ4M2MxODM4N2JkMTkyZWI1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTZiZDM0ZDRlMjhiZTgxOTRlYTBlMWY1YTRkMjQxYmZmMzZmMmJkZTVmMmJhZDQwNmIyMzVkZDIyZTM5MDFlYiJ9"
+        },
+        {
+          "resource": "repo://apps/client/src/utils/credentials.ts#L3-L68",
+          "version": "repo-lines-v1:sha256:3bce876030bbb3bf8224fd067a3c6be15bacdb94874467d54b8b55ba7b86f330:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEwYzM0NTk1Y2RkNzI4OWI1YmZiNDllNjIxZGUyNDljNDNhNDZiM2YwYzQ4NjMxMzg1ZGQzNTU3NTJjOGYyYzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzMGM3Y2NlZWY5OTM4NmM5ZTgzZDAzYjA0MDJlOTk2OTIwZWU3Njg4N2FiMmJlM2E5MWYxMmM4ZWMzMmE3YjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQzOWJmNDBlYjA5MTkwYTExZDg2YmMxYWMyM2M5YmQ2MzZlMjFkOGU1MWIwN2MzNGE0OTcyYTlmNDQyMmZhZWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3OTI5ZTkxZTBmOTljM2U4MjVkZTY5YjQzNWZiNjQ4NGQxYjBhMWRmMmY0NjU2MWFiZjFhMjlmMDQxODhiODgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_edc72db2ae284f488edce08f0b64bc17",
+      "statement": "BFF валидирует обновления профиля схемами; адаптер логина ждёт 200 и валидирует ответ, адаптер пароля ждёт 204, после чего процедура завершает cookie-сессию.",
+      "evidence": [
+        {
+          "resource": "repo://apps/bff/src/go/api.ts#L57-L69",
+          "version": "repo-lines-v1:sha256:a3e57dd28c2523d4f541303bad7531fd75cf75e1f9d39004a26b360e55a43409:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3MmNiY2I2OGE5ODE2NjNlNTM1YjIzMjU5NGVjYTQ0MDEyYTM3NWM1NmJmNDAyZDIzOWM4ZjI2NTllMTFhNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1Y2ZiMTczOGVlM2I5MjQ5ZjBjOWUyNzNhZDI5YTAxOTU5ZTRkNTk5NDZkYjg4M2NkMmNjNzllZmY3MTY5ZmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhY2VkOTdhMzEwNzljNzU3NDU1NDU4YmVhN2RhOWRkMzU0OTQ5MmRmYjZlZDA1MTlhODEyYmMwZmViOTcyNDMifQ"
+        },
+        {
+          "resource": "repo://apps/bff/src/router/users.ts#L1-L19",
+          "version": "repo-lines-v1:sha256:4c244f218d461572b1e7f6fd55bf54190a128a1f79d15202d2647d30206eeb9d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NjlkNGNlYzk0ODE4MTRlN2QxMTc5NjZlOWYwOWM0MzMzZWYxZTFiYzQwZjQyZTlmMWJlNzllOGEzZjM0ZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZjViNDBiMTU4NDU3ZDE3ODY0ZjIxNzkwNzg2ZGQ1YTJlY2RiNjRiNjZhNjUxZjc4OGQ0ZTI1Y2QzMzAzZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c81f65e982a94f119b25d44028c3cb12",
+      "statement": "Смена пароля идёт через switchSession, после успеха стор становится гостевым, форма показывает тост и ведёт на login; неверный текущий пароль и validation_error фокусируют соответствующее поле, прочие ошибки не повторяются автоматически.",
+      "evidence": [
+        {
+          "resource": "repo://apps/client/src/pages/ProfilePage/PasswordForm.tsx#L62-L88",
+          "version": "repo-lines-v1:sha256:f0730aef246c99dde0b01e5649d226a040a5bcd8f927831a8d280f9d5035b208:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNjcwN2Y0OTA0MmQ5Y2FkMDRhZDY1ZmU5N2JiMzIyNzJhOTU0ZmJiZDZkMjNkYWIzNjllMjhlZGMxNjhjZWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkOWUxMjU0NjQyNTU3NmQzZGVhZThjOWI5ZGJmMTI4ZDVkNmRkYWY1ZDdmZTg1NzkzNDkyN2RlZmZhM2I5ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjczNDc1MGYzYzZiYTc5ZmRmYzhlMjFjOWMyMWE5ZWIwMWIzMmZiNDgwNWViZDJkZjBhYTg1ZDQwN2UxMmU5NjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllMTRlYmE4NWZkMDEzMjlkMTQ4NDNlMjE5ZmU0NzgwMjFmNjViZWUxNzA2NWY5OTc3ZjllMDEwMDM5MWVlZGUifQ"
+        },
+        {
+          "resource": "repo://apps/client/src/stores/session.ts#L98-L108",
+          "version": "repo-lines-v1:sha256:5c115a6061a4552881de6aed7d338da6cf04ad3b2b2b05706137954170b69608:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZjIyY2YwNzMyNTkyYzI0NzE0MWNiZTYxZWZhMTEwMTI2MTJmNWEzMTIyYjlhZjliYmFmNTJmNTcyNGQxOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE5ZTc2MzU1Y2YxMTk5NDgwYzNmOTk4MzZiMTQ4NmM4NDFkODkxZmFhZDkwNGM2MDhlMDkzMDIyZDM3NTdhZWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRlYjBjMWI3MDNmZjNjOTBkODA0NzZmNDZmZTRmMDg0OGQ2MDhhMjMyNmEyOTgwNWMxOTQ5NDYyNDY1NjIxMTIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bf01123146fc4d1eba125cf4cc7312a1",
+      "statement": "Профиль проверяется BFF-тестами с управляемым Go и клиентскими тестами очереди смены пароля, включая блокирование новых запросов и 401.",
+      "evidence": [
+        {
+          "resource": "repo://apps/bff/test/bff.test.ts#L524-L582",
+          "version": "repo-lines-v1:sha256:993bffdb654d918c144248ac0a89b7039d99f069215e6e1268f26f0b683bff70:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4OGRiZGY3NmMyYTdjYjY1NzRlNDQ4YWM1NGZhZTE3MjYzNTcyNTEwZDY1YWJiMGJmMTFlMDg0YWJmYjI0MWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZjViNDBiMTU4NDU3ZDE3ODY0ZjIxNzkwNzg2ZGQ1YTJlY2RiNjRiNjZhNjUxZjc4OGQ0ZTI1Y2QzMzAzZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ1MDEwMDdjNzFjMzk1NTMwMjI1MGNiMTI5MTdmYWQ3NThkNDMzZTIyMGVjYWQxMDQ1M2YxNjg5ZTBiM2ZiODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://apps/client/test/session.test.ts#L155-L210",
+          "version": "repo-lines-v1:sha256:c0ae93f059c6b32766e5147fb0e6b9547f748c926f00b04546f9c2778a738fad:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhOTI3YjI2NDRmMmU3YjgxZjQyYzhhYzBlMDIyM2MzZjFhNTU3ZWIxMDE3MDJhNDc1Mjg4ZWMwZTEyZGIzNzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZjViNDBiMTU4NDU3ZDE3ODY0ZjIxNzkwNzg2ZGQ1YTJlY2RiNjRiNjZhNjUxZjc4OGQ0ZTI1Y2QzMzAzZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzYWY3ZDFjZTA3YzlmYjc5YzJjNzhkYjA3MTJkOWJkZjlhMThjOTU0Y2Q1OWU5ZTZiZmUwMThjMGVlODBmYmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.2",
+    "at": "2026-11-02T21:50:56.050Z"
+  }
+}
