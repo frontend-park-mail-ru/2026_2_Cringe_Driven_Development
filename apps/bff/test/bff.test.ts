@@ -465,6 +465,14 @@ describe('HTML', () => {
 });
 
 describe('публичные файлы', () => {
+    test('стили офлайн-страницы отдаются с типом text/css', async () => {
+        const css = new Blob(['body {}'], { type: 'text/css' }) as Bun.BunFile;
+        const app = createBff(template, new Map([['offline.css', css]]));
+        const res = await app(new Request(`${ORIGIN}/offline.css`));
+        expect(res.status).toBe(200);
+        expect(res.headers.get('Content-Type')).toStartWith('text/css');
+    });
+
     test('офлайн-страница отдаётся до HTML-обработчика: без сессии и Go', async () => {
         const offline = new Blob(['<h1>offline</h1>'], { type: 'text/html' }) as Bun.BunFile;
         const app = createBff(template, new Map([['offline.html', offline]]));

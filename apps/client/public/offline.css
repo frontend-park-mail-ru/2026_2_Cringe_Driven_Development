@@ -1,0 +1,27 @@
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 100vh;
+    margin: 0;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #05030f;
+    color: #ece9ff;
+    font-family: system-ui, sans-serif;
+    text-align: center;
+}
+h1,
+p {
+    margin: 0;
+}
+a {
+    padding: 12px 24px;
+    border-radius: 12px;
+    background: #8b6cff;
+    color: #05030f;
+    font-weight: 600;
+    text-decoration: none;
+}

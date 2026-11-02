@@ -9,3 +9,4 @@
 !apps/client/dist/apple-touch-icon.png
 !apps/client/dist/sw.js
 !apps/client/dist/offline.html
+!apps/client/dist/offline.css

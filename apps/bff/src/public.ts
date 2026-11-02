@@ -7,6 +7,7 @@ import { join } from 'node:path';
 export const PUBLIC_FILES: readonly string[] = [
     'sw.js',
     'offline.html',
+    'offline.css',
     'manifest.webmanifest',
     'pwa-192.png',
     'pwa-512.png',

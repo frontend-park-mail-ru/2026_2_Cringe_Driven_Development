@@ -44,9 +44,9 @@ export const vitepwaPlugin = (): Plugin[] =>
             // sw.js — один файл: его, как и манифест, отдаёт BFF
             inlineWorkboxRuntime: true,
             sourcemap: false,
-            // кеш — только самостоятельная офлайн-страница; JS и CSS SPA всегда с CDN, а HTML
+            // кеш — только самостоятельная офлайн-страница и её стили (CSP запрещает встроенные); JS и CSS SPA всегда с CDN, а HTML
             // и RPC с данными пользователя не кешируются (docs: трек «Офлайн-режим»)
-            globPatterns: ['offline.html'],
+            globPatterns: ['offline.html', 'offline.css'],
             navigateFallback: null,
             runtimeCaching: [
                 {
