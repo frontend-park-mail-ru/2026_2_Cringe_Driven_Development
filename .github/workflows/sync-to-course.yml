@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   resolve:
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.COURSE_SYNC_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.run.outputs.sha }}

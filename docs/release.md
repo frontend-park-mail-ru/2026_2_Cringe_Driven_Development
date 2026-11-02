@@ -6,13 +6,10 @@
 [Учебный репозиторий](https://github.com/frontend-park-mail-ru/2026_2_Cringe_Driven_Development)
 получает те же коммиты `main`; его Actions выключены, PR и ревью туда не копируются.
 
-Синхронизация включается переменной `COURSE_SYNC_ENABLED=true` после Check,
-независимо от Publish release. Повторить её без выкатки: Actions → Sync to course,
-ветка main, `ci_run_id` успешного push/main CI. Произвольный SHA не принимается.
-Publish release, CD и Rollback доступны только в командном репозитории из main
-при `PRODUCTION_ENABLED=true`. Отсутствующий flag означает выключенную операцию.
-Порядок первого включения и отката — в
-[runbook организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/docs/migrations/team-repositories-runbook.md).
+Синхронизация запускается на push в `main` после Check, независимо от Publish release.
+Повторить её без выкатки: Actions → Sync to course, ветка main, `ci_run_id` успешного
+push/main CI. Произвольный SHA не принимается. Publish release, CD и Rollback доступны
+только в командном репозитории из main.
 
 Если локальный клон всё ещё указывает на учебную копию, переключите remote:
 
@@ -30,14 +27,17 @@ git remote -v
 работающий BFF, S3-указателя и копии корневого `index.html` больше нет. Готовые выпуски и история
 прода хранятся в GitHub Deployments. Шаги — команды `scripts/release/` (`bun run release <команда>`).
 
-| Workflow   | Когда                                                 | Что делает                                                                                                                                                                                                                                                                                                                                                 |
-| ---------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CI`       | pull request, Merge Queue и push в `main`             | `bun run check`, `bun run test`, `bun run build` — без production-секретов. На push в `main` ещё job `Publish release`: сборка с `RELEASE_SHA` и CDN base → заливка `releases/<sha>/` (неизменяемо) → Release check → образ BFF `sha-<sha>` в GHCR → анонимная проверка digest → запись `release-artifacts`; готовое сообщение отправляет `Release status` |
-| `CD`       | вручную из `main`, вход `sha` (пусто — голова `main`) | готовый выпуск SHA → анонимная проверка образа → Release check → запись `production` → Telegram о начале → `deploy-bff.yml` из infra → Health check → итог записи → retention → Telegram                                                                                                                                                                   |
-| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow`      | цель по истории `production` → те же проверки и тот же `deploy-bff.yml` → итог записи → Telegram                                                                                                                                                                                                                                                           |
+| Workflow   | Когда                                                 | Что делает                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CI`       | pull request, Merge Queue и push в `main`             | `bun run check`, `bun run test`, `bun run build`, локальная сборка образа BFF — без production-секретов. На push в `main` ещё job `Publish release`: сборка с `RELEASE_SHA` и CDN base → заливка `releases/<sha>/` (неизменяемо) → Release check → образ BFF `sha-<sha>` в GHCR → анонимная проверка digest → запись `release-artifacts`; готовое сообщение отправляет `Release status` |
+| `CD`       | вручную из `main`, вход `sha` (пусто — голова `main`) | готовый выпуск SHA → анонимная проверка образа → Release check → запись `production` → Telegram о начале → `deploy-bff.yml` из infra → Health check → итог записи → retention → Telegram                                                                                                                                                                                                |
+| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow`      | цель по истории `production` → те же проверки и тот же `deploy-bff.yml` → итог записи → Telegram                                                                                                                                                                                                                                                                                        |
 
 `Release status` независимо обновляет доску и уведомления после CI/CD/Rollback,
 при постановке PR в очередь и по ручному запуску; он не собирает и не выкатывает приложение.
+
+Образ BFF собирается в `Check` на каждом событии CI и никуда не отправляется. Повторить локально
+вместе со сборкой клиента и BFF: `bun run image`.
 
 ### Готовые выпуски: `release-artifacts`
 
@@ -73,20 +73,22 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 
 1. единственная успешная запись `release-artifacts` выбранного SHA → `image_ref` и каталог ассетов;
 2. анонимная доступность точного digest и метка `org.opencontainers.image.revision` = SHA;
-3. Release check: `index.html` и все JS и CSS из него отдаются с CDN, JS — с CORS; без любого ассета прод не меняется.
+3. Release check: `index.html` и все JS и CSS из него отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется.
 
 Затем создаётся запись `production` (`ref` — SHA **выбранного образа**, в том числе при откате;
 `payload` — `image_ref`, `assets`, `action` = `deploy`/`rollback`, `run` — ссылка на этот запуск) со
 статусом `in_progress`, и запускается `ansible/deploy-bff.yml` из
-[infra](https://github.com/Cringe-Driven-Development-Team/infra) на зафиксированной ревизии
-(`INFRA_REF` в workflow) с `bff_image_ref` и `bff_release_sha` — без GHCR credentials. Ansible скачивает
+[infra](https://github.com/Cringe-Driven-Development-Team/infra) из актуального `main` с `bff_image_ref` и `bff_release_sha` — без GHCR credentials. Ansible скачивает
 образ анонимно, сверяет метку, переключает BFF и Caddy, проверяет, что запущен именно этот образ и он
 `healthy` (внутренний `/health`), и пробу снаружи. После него Health check workflow:
 
 - `https://cellestial.ru/login` — ровно один `<script id="bootstrap">` с `{"user":null}`,
   `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
-- JS и CSS из HTML — с CDN `releases/<sha>/` и отдаются (чанк — с CORS);
-- `users.me` без сессии — tRPC `UNAUTHORIZED` (401), `/api/unknown` — 404 не HTML.
+- JS и CSS из HTML — с CDN `releases/<sha>/` и отдаются с типом JS или CSS (чанк — с CORS);
+- `users.me` без сессии — tRPC `UNAUTHORIZED` (401), `/api/unknown` — 404 не HTML;
+- `auth.login` со случайными логином и паролем — 401, tRPC `UNAUTHORIZED` и
+  `appCode=invalid_credentials`: отказ Go подтверждает BFF, S2S и обработчик входа. Пользователь и
+  сессия не создаются.
 
 Итог записи: `success` — только после всех проверок фактически запущенного выпуска; переключение было,
 а проверка не прошла — `failure`; сбой до проверки результата или отмена — `error`. Workflow при

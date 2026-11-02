@@ -32,6 +32,9 @@ jobs:
       - run: bun run check
       - run: bun run test
       - run: bun run build
+      # настоящая сборка: COPY проверяет файлы контекста; образ остаётся на runner
+      - name: Build BFF image
+        run: docker build -f apps/bff/Dockerfile -t cdd-bff:ci .
 
   # Готовый выпуск коммита main: ассеты клиента в S3/CDN releases/<sha>/ и публичный образ BFF в GHCR
   # с HTML того же коммита. Запись release-artifacts (GitHub Deployment) появляется только после
@@ -39,7 +42,7 @@ jobs:
   publish:
     name: Publish release
     needs: check
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,7 +127,7 @@ jobs:
 
   course-sync:
     needs: [check]
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.COURSE_SYNC_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       actions: read

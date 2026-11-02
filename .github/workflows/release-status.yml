@@ -13,7 +13,7 @@ permissions:
 jobs:
   board:
     name: Board
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
