@@ -12,6 +12,11 @@ export interface User {
      */
   id: number;
   login: string;
+  /**
+     * Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.
+     * @nullable
+     */
+  avatar_url: string | null;
 }
 
 /**
@@ -167,6 +172,125 @@ export interface RefreshTokenRequest {
   refresh_token: string;
 }
 
+/**
+ * Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".
+ * @minLength 1
+ */
+export type NotebookHash = string;
+
+export interface NotebookContent {
+  hash: NotebookHash;
+  /** @maxItems 1000 */
+  cells: Cell[];
+}
+
+export interface NotebookCellChange {
+  hash: NotebookHash;
+  cell: Cell;
+}
+
+export interface NotebookContentChange {
+  hash: NotebookHash;
+}
+
+export type AddNotebookCellRequestKind = typeof AddNotebookCellRequestKind[keyof typeof AddNotebookCellRequestKind];
+
+
+export const AddNotebookCellRequestKind = {
+  code: 'code',
+  markdown: 'markdown',
+} as const;
+
+export interface AddNotebookCellRequest {
+  kind: AddNotebookCellRequestKind;
+  source: string;
+  /**
+     * Индекс вставки от 0 до текущего числа блоков включительно. Без поля — в конец.
+     * @minimum 0
+     * @maximum 1000
+     */
+  index?: number;
+}
+
+export interface EditNotebookCellRequest {
+  /** Новое полное содержимое блока; пустая строка допустима. Тип и ID блока сохраняются. */
+  source: string;
+}
+
+export interface MoveNotebookCellRequest {
+  /**
+     * Итоговая позиция блока, от 0 до числа блоков минус один. Остальные блоки сохраняют относительный порядок.
+     * @minimum 0
+     * @maximum 999
+     */
+  index: number;
+}
+
+export type NotebookEditingErrorCode = typeof NotebookEditingErrorCode[keyof typeof NotebookEditingErrorCode];
+
+
+export const NotebookEditingErrorCode = {
+  validation_error: 'validation_error',
+  unauthorized: 'unauthorized',
+  s2s_forbidden: 's2s_forbidden',
+  csrf_invalid: 'csrf_invalid',
+  not_found: 'not_found',
+  notebook_conflict: 'notebook_conflict',
+  too_many_cells: 'too_many_cells',
+  internal: 'internal',
+} as const;
+
+export interface NotebookEditingError {
+  code: NotebookEditingErrorCode;
+  message: string;
+}
+
+/**
+ * Новое значение логина для входа. Отдельного отображаемого имени нет.
+ */
+export interface UpdateCurrentUserRequest {
+  /**
+     * @minLength 3
+     * @maxLength 32
+     * @pattern ^[a-zA-Z0-9_]+$
+     */
+  login: string;
+}
+
+export interface ChangeCurrentUserPasswordRequest {
+  /**
+     * От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.
+     * @minLength 8
+     * @maxLength 72
+     */
+  current_password: string;
+  /**
+     * От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.
+     * @minLength 8
+     * @maxLength 72
+     */
+  new_password: string;
+}
+
+export type UserProfileErrorCode = typeof UserProfileErrorCode[keyof typeof UserProfileErrorCode];
+
+
+export const UserProfileErrorCode = {
+  validation_error: 'validation_error',
+  invalid_current_password: 'invalid_current_password',
+  login_taken: 'login_taken',
+  unauthorized: 'unauthorized',
+  s2s_forbidden: 's2s_forbidden',
+  payload_too_large: 'payload_too_large',
+  unsupported_media_type: 'unsupported_media_type',
+  internal: 'internal',
+} as const;
+
+export interface UserProfileError {
+  code: UserProfileErrorCode;
+  message: string;
+}
+
 export type BadRequestResponse = Error;
 
 export type UnauthorizedResponse = Error;
@@ -178,6 +302,349 @@ export type InternalErrorResponse = Error;
 export type NotFoundResponse = Error;
 
 export type ForbiddenResponse = Error;
+
+export type UploadCurrentUserAvatarBody = {
+  /** Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 200–4096 пикселей включительно. MIME части обязателен и соответствует содержимому. */
+  avatar: Blob | File;
+};
+
+export type updateCurrentUserResponse200 = {
+  data: User
+  status: 200
+}
+
+export type updateCurrentUserResponse400 = {
+  data: UserProfileError
+  status: 400
+}
+
+export type updateCurrentUserResponse401 = {
+  data: UserProfileError
+  status: 401
+}
+
+export type updateCurrentUserResponse403 = {
+  data: UserProfileError
+  status: 403
+}
+
+export type updateCurrentUserResponse409 = {
+  data: UserProfileError
+  status: 409
+}
+
+export type updateCurrentUserResponse500 = {
+  data: UserProfileError
+  status: 500
+}
+
+export type updateCurrentUserResponseSuccess = (updateCurrentUserResponse200) & {
+  headers: Headers;
+};
+export type updateCurrentUserResponseError = (updateCurrentUserResponse400 | updateCurrentUserResponse401 | updateCurrentUserResponse403 | updateCurrentUserResponse409 | updateCurrentUserResponse500) & {
+  headers: Headers;
+};
+
+export type updateCurrentUserResponse = (updateCurrentUserResponseSuccess | updateCurrentUserResponseError)
+
+export const getUpdateCurrentUserUrl = () => {
+
+
+
+
+  return `/users/me`
+}
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Меняет логин для последующего входа: 3–32 символа ASCII, только a–z, A–Z, 0–9 и _. Занятый другим пользователем логин — 409 login_taken. Собственное текущее значение допускается и возвращает 200. Изменение логина не отзывает сессии. Обязательное JSON-тело содержит только login.
+ * @summary Сменить логин
+ */
+export const updateCurrentUser = async (updateCurrentUserRequest: UpdateCurrentUserRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<updateCurrentUserResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<updateCurrentUserResponse>(getUpdateCurrentUserUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateCurrentUserRequest)
+  }
+);}
+
+
+
+export type getCurrentUserResponse200 = {
+  data: User
+  status: 200
+}
+
+export type getCurrentUserResponse401 = {
+  data: UserProfileError
+  status: 401
+}
+
+export type getCurrentUserResponse403 = {
+  data: UserProfileError
+  status: 403
+}
+
+export type getCurrentUserResponse500 = {
+  data: UserProfileError
+  status: 500
+}
+
+export type getCurrentUserResponseSuccess = (getCurrentUserResponse200) & {
+  headers: Headers;
+};
+export type getCurrentUserResponseError = (getCurrentUserResponse401 | getCurrentUserResponse403 | getCurrentUserResponse500) & {
+  headers: Headers;
+};
+
+export type getCurrentUserResponse = (getCurrentUserResponseSuccess | getCurrentUserResponseError)
+
+export const getGetCurrentUserUrl = () => {
+
+
+
+
+  return `/users/me`
+}
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Возвращает только собственный профиль. Просмотр других профилей не предусмотрен. avatar_url — URL публичного CDN либо null; согласование публичной выдачи и поля с frontend ещё предстоит.
+ * @summary Текущий пользователь
+ */
+export const getCurrentUser = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<getCurrentUserResponse> => {
+
+  return bearerFetch<getCurrentUserResponse>(getGetCurrentUserUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type changeCurrentUserPasswordResponse204 = {
+  data: void
+  status: 204
+}
+
+export type changeCurrentUserPasswordResponse400 = {
+  data: UserProfileError
+  status: 400
+}
+
+export type changeCurrentUserPasswordResponse401 = {
+  data: UserProfileError
+  status: 401
+}
+
+export type changeCurrentUserPasswordResponse403 = {
+  data: UserProfileError
+  status: 403
+}
+
+export type changeCurrentUserPasswordResponse500 = {
+  data: UserProfileError
+  status: 500
+}
+
+export type changeCurrentUserPasswordResponseSuccess = (changeCurrentUserPasswordResponse204) & {
+  headers: Headers;
+};
+export type changeCurrentUserPasswordResponseError = (changeCurrentUserPasswordResponse400 | changeCurrentUserPasswordResponse401 | changeCurrentUserPasswordResponse403 | changeCurrentUserPasswordResponse500) & {
+  headers: Headers;
+};
+
+export type changeCurrentUserPasswordResponse = (changeCurrentUserPasswordResponseSuccess | changeCurrentUserPasswordResponseError)
+
+export const getChangeCurrentUserPasswordUrl = () => {
+
+
+
+
+  return `/users/me/password`
+}
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
+ * @summary Сменить пароль
+ */
+export const changeCurrentUserPassword = async (changeCurrentUserPasswordRequest: ChangeCurrentUserPasswordRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<changeCurrentUserPasswordResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<changeCurrentUserPasswordResponse>(getChangeCurrentUserPasswordUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changeCurrentUserPasswordRequest)
+  }
+);}
+
+
+
+export type uploadCurrentUserAvatarResponse200 = {
+  data: User
+  status: 200
+}
+
+export type uploadCurrentUserAvatarResponse400 = {
+  data: UserProfileError
+  status: 400
+}
+
+export type uploadCurrentUserAvatarResponse401 = {
+  data: UserProfileError
+  status: 401
+}
+
+export type uploadCurrentUserAvatarResponse403 = {
+  data: UserProfileError
+  status: 403
+}
+
+export type uploadCurrentUserAvatarResponse413 = {
+  data: UserProfileError
+  status: 413
+}
+
+export type uploadCurrentUserAvatarResponse415 = {
+  data: UserProfileError
+  status: 415
+}
+
+export type uploadCurrentUserAvatarResponse500 = {
+  data: UserProfileError
+  status: 500
+}
+
+export type uploadCurrentUserAvatarResponseSuccess = (uploadCurrentUserAvatarResponse200) & {
+  headers: Headers;
+};
+export type uploadCurrentUserAvatarResponseError = (uploadCurrentUserAvatarResponse400 | uploadCurrentUserAvatarResponse401 | uploadCurrentUserAvatarResponse403 | uploadCurrentUserAvatarResponse413 | uploadCurrentUserAvatarResponse415 | uploadCurrentUserAvatarResponse500) & {
+  headers: Headers;
+};
+
+export type uploadCurrentUserAvatarResponse = (uploadCurrentUserAvatarResponseSuccess | uploadCurrentUserAvatarResponseError)
+
+export const getUploadCurrentUserAvatarUrl = () => {
+
+
+
+
+  return `/users/me/avatar`
+}
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 200 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или любая сторона менее 200 либо более 4096 пикселей — 400 validation_error. Проверка лимитов выполняется до выделения памяти под декодирование. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; ресурсы декодирования ограничены, очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
+ * @summary Загрузить или заменить аватар
+ */
+export const uploadCurrentUserAvatar = async (uploadCurrentUserAvatarBody: UploadCurrentUserAvatarBody, options?: Parameters<typeof bearerFetch>[1]): Promise<uploadCurrentUserAvatarResponse> => {
+    const formData = new FormData();
+formData.append(`avatar`, uploadCurrentUserAvatarBody.avatar);
+
+  return bearerFetch<uploadCurrentUserAvatarResponse>(getUploadCurrentUserAvatarUrl(),
+  {
+    ...options,
+    method: 'PUT'
+    ,
+    body: formData
+  }
+);}
+
+
+
+export type logoutAllUserSessionsResponse204 = {
+  data: void
+  status: 204
+}
+
+export type logoutAllUserSessionsResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type logoutAllUserSessionsResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type logoutAllUserSessionsResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type logoutAllUserSessionsResponseSuccess = (logoutAllUserSessionsResponse204) & {
+  headers: Headers;
+};
+export type logoutAllUserSessionsResponseError = (logoutAllUserSessionsResponse401 | logoutAllUserSessionsResponse403 | logoutAllUserSessionsResponse500) & {
+  headers: Headers;
+};
+
+export type logoutAllUserSessionsResponse = (logoutAllUserSessionsResponseSuccess | logoutAllUserSessionsResponseError)
+
+export const getLogoutAllUserSessionsUrl = () => {
+
+
+
+
+  return `/auth/logout-all`
+}
+
+/**
+ * Завершает все сессии авторизованного пользователя на всех устройствах, включая текущую сессию. Полный путь: POST /api/v1/auth/logout-all.
+ *
+ * Требует действующий access-токен в Authorization: Bearer и обязательный X-BFF-Key. Пользователь определяется только по access-токену; тело запроса, refresh-токен и идентификатор пользователя не передаются.
+ *
+ * При успехе отзывает все ранее выданные access- и refresh-токены пользователя, в том числе токены текущей сессии, и возвращает 204 без тела. После успешного ответа ранее выданные access-токены больше не дают доступа к защищённым ручкам, а refresh-токены не позволяют обновлять токены. Повторный запрос с отозванным access-токеном возвращает 401. Для продолжения работы требуется заново войти. Сессии других пользователей не затрагиваются. Cookie не читает и не устанавливает.
+ *
+ * X-BFF-Key проверяется до Bearer и валидации запроса. При недоступности хранилища сессий или ошибке отзыва возвращается 500; успешный выход не подтверждается.
+ *
+ * Контракт задачи: https://github.com/Cringe-Driven-Development-Team/backend/issues/68
+ * @summary Выход со всех устройств
+ */
+export const logoutAllUserSessions = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<logoutAllUserSessionsResponse> => {
+
+  return bearerFetch<logoutAllUserSessionsResponse>(getLogoutAllUserSessionsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
 
 export type registerUserResponse201 = {
   data: AuthResponse
@@ -242,79 +709,6 @@ export const registerUser = async (credentials: Credentials, options?: Parameter
     return headers;
   };
 return bearerFetch<registerUserResponse>(getRegisterUserUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(credentials)
-  }
-);}
-
-
-
-export type loginUserResponse200 = {
-  data: AuthResponse
-  status: 200
-}
-
-export type loginUserResponse400 = {
-  data: Error
-  status: 400
-}
-
-export type loginUserResponse401 = {
-  data: Error
-  status: 401
-}
-
-export type loginUserResponse403 = {
-  data: Error
-  status: 403
-}
-
-export type loginUserResponse500 = {
-  data: Error
-  status: 500
-}
-
-export type loginUserResponseSuccess = (loginUserResponse200) & {
-  headers: Headers;
-};
-export type loginUserResponseError = (loginUserResponse400 | loginUserResponse401 | loginUserResponse403 | loginUserResponse500) & {
-  headers: Headers;
-};
-
-export type loginUserResponse = (loginUserResponseSuccess | loginUserResponseError)
-
-export const getLoginUserUrl = () => {
-
-
-
-
-  return `/auth/login`
-}
-
-/**
- * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
- * @summary Вход
- */
-export const loginUser = async (credentials: Credentials, options?: Parameters<typeof bearerFetch>[1]): Promise<loginUserResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return bearerFetch<loginUserResponse>(getLoginUserUrl(),
   {
     ...options,
     method: 'POST',
@@ -471,54 +865,74 @@ return bearerFetch<logoutUserResponse>(getLogoutUserUrl(),
 
 
 
-export type getCurrentUserResponse200 = {
-  data: User
+export type loginUserResponse200 = {
+  data: AuthResponse
   status: 200
 }
 
-export type getCurrentUserResponse401 = {
+export type loginUserResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type loginUserResponse401 = {
   data: Error
   status: 401
 }
 
-export type getCurrentUserResponse403 = {
+export type loginUserResponse403 = {
   data: Error
   status: 403
 }
 
-export type getCurrentUserResponse500 = {
+export type loginUserResponse500 = {
   data: Error
   status: 500
 }
 
-export type getCurrentUserResponseSuccess = (getCurrentUserResponse200) & {
+export type loginUserResponseSuccess = (loginUserResponse200) & {
   headers: Headers;
 };
-export type getCurrentUserResponseError = (getCurrentUserResponse401 | getCurrentUserResponse403 | getCurrentUserResponse500) & {
+export type loginUserResponseError = (loginUserResponse400 | loginUserResponse401 | loginUserResponse403 | loginUserResponse500) & {
   headers: Headers;
 };
 
-export type getCurrentUserResponse = (getCurrentUserResponseSuccess | getCurrentUserResponseError)
+export type loginUserResponse = (loginUserResponseSuccess | loginUserResponseError)
 
-export const getGetCurrentUserUrl = () => {
-
-
+export const getLoginUserUrl = () => {
 
 
-  return `/users/me`
+
+
+  return `/auth/login`
 }
 
 /**
- * @summary Текущий пользователь
+ * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
+ * @summary Вход
  */
-export const getCurrentUser = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<getCurrentUserResponse> => {
+export const loginUser = async (credentials: Credentials, options?: Parameters<typeof bearerFetch>[1]): Promise<loginUserResponse> => {
 
-  return bearerFetch<getCurrentUserResponse>(getGetCurrentUserUrl(),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<loginUserResponse>(getLoginUserUrl(),
   {
     ...options,
-    method: 'GET'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(credentials)
   }
 );}
 
@@ -607,6 +1021,311 @@ return bearerFetch<createCellResponse>(getCreateCellUrl(id),
 
 
 
+export type getNotebookContentResponse200 = {
+  data: NotebookContent
+  status: 200
+}
+
+export type getNotebookContentResponse400 = {
+  data: NotebookEditingError
+  status: 400
+}
+
+export type getNotebookContentResponse401 = {
+  data: NotebookEditingError
+  status: 401
+}
+
+export type getNotebookContentResponse403 = {
+  data: NotebookEditingError
+  status: 403
+}
+
+export type getNotebookContentResponse404 = {
+  data: NotebookEditingError
+  status: 404
+}
+
+export type getNotebookContentResponse500 = {
+  data: NotebookEditingError
+  status: 500
+}
+
+export type getNotebookContentResponseSuccess = (getNotebookContentResponse200) & {
+  headers: Headers;
+};
+export type getNotebookContentResponseError = (getNotebookContentResponse400 | getNotebookContentResponse401 | getNotebookContentResponse403 | getNotebookContentResponse404 | getNotebookContentResponse500) & {
+  headers: Headers;
+};
+
+export type getNotebookContentResponse = (getNotebookContentResponseSuccess | getNotebookContentResponseError)
+
+export const getGetNotebookContentUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}/content`
+}
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: "h123" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.
+ * @summary Содержимое блокнота с хешем
+ */
+export const getNotebookContent = async (id: number, options?: Parameters<typeof bearerFetch>[1]): Promise<getNotebookContentResponse> => {
+
+  return bearerFetch<getNotebookContentResponse>(getGetNotebookContentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type addNotebookCellResponse201 = {
+  data: NotebookCellChange
+  status: 201
+}
+
+export type addNotebookCellResponse400 = {
+  data: NotebookEditingError
+  status: 400
+}
+
+export type addNotebookCellResponse401 = {
+  data: NotebookEditingError
+  status: 401
+}
+
+export type addNotebookCellResponse403 = {
+  data: NotebookEditingError
+  status: 403
+}
+
+export type addNotebookCellResponse404 = {
+  data: NotebookEditingError
+  status: 404
+}
+
+export type addNotebookCellResponse409 = {
+  data: NotebookEditingError
+  status: 409
+}
+
+export type addNotebookCellResponse500 = {
+  data: NotebookEditingError
+  status: 500
+}
+
+export type addNotebookCellResponseSuccess = (addNotebookCellResponse201) & {
+  headers: Headers;
+};
+export type addNotebookCellResponseError = (addNotebookCellResponse400 | addNotebookCellResponse401 | addNotebookCellResponse403 | addNotebookCellResponse404 | addNotebookCellResponse409 | addNotebookCellResponse500) & {
+  headers: Headers;
+};
+
+export type addNotebookCellResponse = (addNotebookCellResponseSuccess | addNotebookCellResponseError)
+
+export const getAddNotebookCellUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}/content/cells`
+}
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Добавление блока с проверкой хеша
+ */
+export const addNotebookCell = async (id: number,
+    addNotebookCellRequest: AddNotebookCellRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<addNotebookCellResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<addNotebookCellResponse>(getAddNotebookCellUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(addNotebookCellRequest)
+  }
+);}
+
+
+
+export type editNotebookCellResponse200 = {
+  data: NotebookCellChange
+  status: 200
+}
+
+export type editNotebookCellResponse400 = {
+  data: NotebookEditingError
+  status: 400
+}
+
+export type editNotebookCellResponse401 = {
+  data: NotebookEditingError
+  status: 401
+}
+
+export type editNotebookCellResponse403 = {
+  data: NotebookEditingError
+  status: 403
+}
+
+export type editNotebookCellResponse404 = {
+  data: NotebookEditingError
+  status: 404
+}
+
+export type editNotebookCellResponse409 = {
+  data: NotebookEditingError
+  status: 409
+}
+
+export type editNotebookCellResponse500 = {
+  data: NotebookEditingError
+  status: 500
+}
+
+export type editNotebookCellResponseSuccess = (editNotebookCellResponse200) & {
+  headers: Headers;
+};
+export type editNotebookCellResponseError = (editNotebookCellResponse400 | editNotebookCellResponse401 | editNotebookCellResponse403 | editNotebookCellResponse404 | editNotebookCellResponse409 | editNotebookCellResponse500) & {
+  headers: Headers;
+};
+
+export type editNotebookCellResponse = (editNotebookCellResponseSuccess | editNotebookCellResponseError)
+
+export const getEditNotebookCellUrl = (id: number,
+    cellId: string,) => {
+
+
+
+
+  return `/notebooks/${id}/content/cells/${cellId}`
+}
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Редактирование блока с проверкой хеша
+ */
+export const editNotebookCell = async (id: number,
+    cellId: string,
+    editNotebookCellRequest: EditNotebookCellRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<editNotebookCellResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<editNotebookCellResponse>(getEditNotebookCellUrl(id,cellId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(editNotebookCellRequest)
+  }
+);}
+
+
+
+export type removeNotebookCellResponse200 = {
+  data: NotebookContentChange
+  status: 200
+}
+
+export type removeNotebookCellResponse400 = {
+  data: NotebookEditingError
+  status: 400
+}
+
+export type removeNotebookCellResponse401 = {
+  data: NotebookEditingError
+  status: 401
+}
+
+export type removeNotebookCellResponse403 = {
+  data: NotebookEditingError
+  status: 403
+}
+
+export type removeNotebookCellResponse404 = {
+  data: NotebookEditingError
+  status: 404
+}
+
+export type removeNotebookCellResponse409 = {
+  data: NotebookEditingError
+  status: 409
+}
+
+export type removeNotebookCellResponse500 = {
+  data: NotebookEditingError
+  status: 500
+}
+
+export type removeNotebookCellResponseSuccess = (removeNotebookCellResponse200) & {
+  headers: Headers;
+};
+export type removeNotebookCellResponseError = (removeNotebookCellResponse400 | removeNotebookCellResponse401 | removeNotebookCellResponse403 | removeNotebookCellResponse404 | removeNotebookCellResponse409 | removeNotebookCellResponse500) & {
+  headers: Headers;
+};
+
+export type removeNotebookCellResponse = (removeNotebookCellResponseSuccess | removeNotebookCellResponseError)
+
+export const getRemoveNotebookCellUrl = (id: number,
+    cellId: string,) => {
+
+
+
+
+  return `/notebooks/${id}/content/cells/${cellId}`
+}
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Удаление блока с проверкой хеша
+ */
+export const removeNotebookCell = async (id: number,
+    cellId: string, options?: Parameters<typeof bearerFetch>[1]): Promise<removeNotebookCellResponse> => {
+
+  return bearerFetch<removeNotebookCellResponse>(getRemoveNotebookCellUrl(id,cellId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
 export type deleteCellResponse204 = {
   data: void
   status: 204
@@ -667,6 +1386,92 @@ export const deleteCell = async (id: number,
     method: 'DELETE'
 
 
+  }
+);}
+
+
+
+export type moveNotebookCellResponse200 = {
+  data: NotebookContentChange
+  status: 200
+}
+
+export type moveNotebookCellResponse400 = {
+  data: NotebookEditingError
+  status: 400
+}
+
+export type moveNotebookCellResponse401 = {
+  data: NotebookEditingError
+  status: 401
+}
+
+export type moveNotebookCellResponse403 = {
+  data: NotebookEditingError
+  status: 403
+}
+
+export type moveNotebookCellResponse404 = {
+  data: NotebookEditingError
+  status: 404
+}
+
+export type moveNotebookCellResponse409 = {
+  data: NotebookEditingError
+  status: 409
+}
+
+export type moveNotebookCellResponse500 = {
+  data: NotebookEditingError
+  status: 500
+}
+
+export type moveNotebookCellResponseSuccess = (moveNotebookCellResponse200) & {
+  headers: Headers;
+};
+export type moveNotebookCellResponseError = (moveNotebookCellResponse400 | moveNotebookCellResponse401 | moveNotebookCellResponse403 | moveNotebookCellResponse404 | moveNotebookCellResponse409 | moveNotebookCellResponse500) & {
+  headers: Headers;
+};
+
+export type moveNotebookCellResponse = (moveNotebookCellResponseSuccess | moveNotebookCellResponseError)
+
+export const getMoveNotebookCellUrl = (id: number,
+    cellId: string,) => {
+
+
+
+
+  return `/notebooks/${id}/content/cells/${cellId}/move`
+}
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Перемещение блока с проверкой хеша
+ */
+export const moveNotebookCell = async (id: number,
+    cellId: string,
+    moveNotebookCellRequest: MoveNotebookCellRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<moveNotebookCellResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<moveNotebookCellResponse>(getMoveNotebookCellUrl(id,cellId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(moveNotebookCellRequest)
   }
 );}
 

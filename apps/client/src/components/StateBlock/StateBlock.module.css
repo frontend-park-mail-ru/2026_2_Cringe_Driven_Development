@@ -28,3 +28,7 @@
     gap: 12px;
     padding-top: 8px;
 }
+
+.errorIcon {
+    color: var(--color-error);
+}

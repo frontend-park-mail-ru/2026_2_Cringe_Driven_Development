@@ -6,10 +6,12 @@ import {
     ListNotebooksResponse,
     LoginUserResponse,
     RegisterUserResponse,
+    UpdateCurrentUserResponse,
 } from '@cdd/schemas';
 
 import type { Session } from '../session/session.ts';
 import {
+    changeCurrentUserPassword,
     createCell,
     createNotebook,
     deleteCell,
@@ -19,13 +21,16 @@ import {
     loginUser,
     logoutUser,
     registerUser,
+    updateCurrentUser,
     type Cell,
+    type ChangeCurrentUserPasswordRequest,
     type CreateCellRequest,
     type CreateNotebookRequest,
     type Credentials,
     type Notebook,
     type NotebookSummary,
     type TokenPair,
+    type UpdateCurrentUserRequest,
     type User,
 } from './client.ts';
 import { unwrap } from './errors.ts';
@@ -33,6 +38,8 @@ import { unwrap } from './errors.ts';
 /** Вызовы Go от имени сессии. */
 export type Go = {
     getCurrentUser(): Promise<User>;
+    updateCurrentUser(body: UpdateCurrentUserRequest): Promise<User>;
+    changeCurrentUserPassword(body: ChangeCurrentUserPasswordRequest): Promise<void>;
     listNotebooks(): Promise<NotebookSummary[]>;
     getNotebook(id: number): Promise<Notebook>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
@@ -51,6 +58,15 @@ export function createGo(session: Session): Go {
     return {
         getCurrentUser: async () =>
             unwrap(await session.call(getCurrentUser), [200], GetCurrentUserResponse),
+        updateCurrentUser: async (body) =>
+            unwrap(
+                await session.call((init) => updateCurrentUser(body, init)),
+                [200],
+                UpdateCurrentUserResponse,
+            ),
+        changeCurrentUserPassword: async (body) => {
+            unwrap(await session.call((init) => changeCurrentUserPassword(body, init)), [204]);
+        },
         listNotebooks: async () =>
             unwrap(await session.call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>

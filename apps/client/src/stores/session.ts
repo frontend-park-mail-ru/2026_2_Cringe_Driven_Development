@@ -96,6 +96,18 @@ export async function register(credentials: Credentials): Promise<AuthResult> {
 }
 
 /**
+ * Смена пароля. Сначала отвечают уже отправленные запросы сессии, новые не стартуют
+ * (`switchSession`). После успеха Go отзывает все сессии: пользователь — гость.
+ * @param input текущий и новый пароль
+ */
+export async function changePassword(
+    input: RouterInputs['users']['changePassword'],
+): Promise<void> {
+    await switchSession(() => trpc.users.changePassword.mutate(input));
+    useSessionStore.setState(GUEST);
+}
+
+/**
  * Выход. Сначала отвечают уже отправленные запросы сессии, новые не стартуют (`switchSession`).
  * BFF отвечает успехом и без сессии; сбой сети — не выход, если только сессия не закончилась, пока
  * ждали отправленные запросы (тогда `switchSession` уже перевёл в гостя).

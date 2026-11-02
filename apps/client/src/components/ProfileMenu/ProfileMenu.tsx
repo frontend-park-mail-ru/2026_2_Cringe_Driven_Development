@@ -1,6 +1,7 @@
 import { useEffect, useState } from '@cdd-team/react';
 import { Avatar } from '@components/Avatar/Avatar';
 import { Icon } from '@components/Icon/Icon';
+import { Link } from '@cdd-team/router';
 import { clsx } from '@cdd-team/clsx';
 import { LogoutDialog } from './LogoutDialog';
 import styles from './ProfileMenu.module.css';
@@ -16,7 +17,7 @@ interface ProfileMenuProps {
 }
 
 /**
- * Аватар с меню профиля (Components → Menu / Profile): кто вошёл и выход.
+ * Аватар с меню профиля (Components → Menu / Profile): кто вошёл, профиль и выход.
  * @param props свойства меню
  * @returns аватар с меню
  */
@@ -75,6 +76,16 @@ export function ProfileMenu({ login }: ProfileMenuProps) {
                         </span>
                     </div>
                     <hr key="divider" className={styles.divider} />
+                    <Link
+                        key="profile"
+                        to="/profile"
+                        className={styles.item}
+                        onClick={() => setOpen(false)}
+                    >
+                        <Icon key="icon" name="user" />
+                        <span key="label">Профиль</span>
+                    </Link>
+                    <hr key="divider-logout" className={styles.divider} />
                     <button
                         key="logout"
                         className={clsx(styles.item, styles.danger)}

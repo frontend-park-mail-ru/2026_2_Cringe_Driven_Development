@@ -1,6 +1,7 @@
 import { clsx } from '@cdd-team/clsx';
 import { domProps } from '@utils/dom-props';
 import { Icon } from '@components/Icon/Icon';
+import type { IconName } from '@components/Icon/icons';
 import styles from './Input.module.css';
 
 /** Свойства {@link Input}. */
@@ -31,6 +32,8 @@ interface InputProps {
     revealed?: boolean;
     /** Только для Password: нажатие на «глаз» */
     onToggleReveal?: () => void;
+    /** Иконка справа в поле, например карандаш у редактируемого значения */
+    icon?: IconName;
     /** Новое значение при каждом вводе */
     onValueChange: (value: string) => void;
     /** Поле потеряло фокус */
@@ -57,6 +60,7 @@ export function Input({
     autocomplete,
     revealed = false,
     onToggleReveal,
+    icon,
     onValueChange,
     onBlur,
 }: InputProps) {
@@ -89,6 +93,7 @@ export function Input({
                     onInput={(event) => onValueChange((event.target as HTMLInputElement).value)}
                     onBlur={() => onBlur?.()}
                 />
+                {icon && <Icon key="icon" name={icon} className={styles.icon} />}
                 {isPassword && (
                     <button
                         key="reveal"

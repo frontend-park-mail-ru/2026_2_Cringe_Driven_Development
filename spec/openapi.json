@@ -7,16 +7,638 @@
   },
   "tags": [
     {
-      "name": "auth"
+      "name": "users"
     },
     {
-      "name": "users"
+      "name": "auth"
     },
     {
       "name": "notebooks"
     }
   ],
   "paths": {
+    "/users/me": {
+      "patch": {
+        "summary": "Сменить логин",
+        "deprecated": false,
+        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Меняет логин для последующего входа: 3–32 символа ASCII, только a–z, A–Z, 0–9 и _. Занятый другим пользователем логин — 409 login_taken. Собственное текущее значение допускается и возвращает 200. Изменение логина не отзывает сессии. Обязательное JSON-тело содержит только login.",
+        "operationId": "updateCurrentUser",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCurrentUserRequest"
+              },
+              "example": {
+                "login": "new_login"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Профиль с сохранённым логином.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "examples": {
+                  "updated": {
+                    "summary": "updated",
+                    "value": {
+                      "id": 1,
+                      "login": "new_login",
+                      "avatar_url": null
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Некорректное тело запроса или параметры.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "Некорректное тело запроса или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или повторяется. Проверка обязательна и выполняется до Bearer и валидации. BFF сохраняет сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Этот логин уже занят другим пользователем.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "login_taken",
+                  "message": "login already taken"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, включая сбой PostgreSQL, Redis или S3. Не подтверждает успешное изменение.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "summary": "Текущий пользователь",
+        "deprecated": false,
+        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Возвращает только собственный профиль. Просмотр других профилей не предусмотрен. avatar_url — URL публичного CDN либо null; согласование публичной выдачи и поля с frontend ещё предстоит.",
+        "operationId": "getCurrentUser",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Профиль текущего пользователя.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "examples": {
+                  "withoutAvatar": {
+                    "summary": "withoutAvatar",
+                    "value": {
+                      "id": 1,
+                      "login": "example",
+                      "avatar_url": null
+                    }
+                  },
+                  "withAvatar": {
+                    "summary": "withAvatar",
+                    "value": {
+                      "id": 1,
+                      "login": "example",
+                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или повторяется. Проверка обязательна и выполняется до Bearer и валидации. BFF сохраняет сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, включая сбой PostgreSQL, Redis или S3. Не подтверждает успешное изменение.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/me/password": {
+      "put": {
+        "summary": "Сменить пароль",
+        "deprecated": false,
+        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.",
+        "operationId": "changeCurrentUserPassword",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeCurrentUserPasswordRequest"
+              },
+              "example": {
+                "current_password": "old-password-example",
+                "new_password": "new-password-example"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Пароль изменён, все прежние сессии отозваны. Без тела. Требуется повторный вход.",
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидное тело, длина пароля вне ограничений или совпадение паролей — validation_error; неверный текущий пароль — invalid_current_password. Текущая сессия при этих отказах сохраняется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "examples": {
+                  "invalidCurrentPassword": {
+                    "summary": "invalidCurrentPassword",
+                    "value": {
+                      "code": "invalid_current_password",
+                      "message": "current password is incorrect"
+                    }
+                  },
+                  "samePassword": {
+                    "summary": "samePassword",
+                    "value": {
+                      "code": "validation_error",
+                      "message": "new password must differ from current password"
+                    }
+                  },
+                  "invalidBody": {
+                    "summary": "invalidBody",
+                    "value": {
+                      "code": "validation_error",
+                      "message": "invalid request body"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или повторяется. Проверка обязательна и выполняется до Bearer и валидации. BFF сохраняет сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, включая сбой PostgreSQL, Redis или S3. Не подтверждает успешное изменение.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/me/avatar": {
+      "put": {
+        "summary": "Загрузить или заменить аватар",
+        "deprecated": false,
+        "description": "Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 200 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или любая сторона менее 200 либо более 4096 пикселей — 400 validation_error. Проверка лимитов выполняется до выделения памяти под декодирование. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; ресурсы декодирования ограничены, очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.",
+        "operationId": "uploadCurrentUserAvatar",
+        "tags": [
+          "users"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "avatar": {
+                  "contentType": "image/jpeg, image/png"
+                }
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 200–4096 пикселей включительно. MIME части обязателен и соответствует содержимому.",
+                    "example": ""
+                  }
+                },
+                "required": [
+                  "avatar"
+                ]
+              },
+              "example": {
+                "avatar": ""
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Аватар сохранён; профиль с новым URL CDN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "examples": {
+                  "uploaded": {
+                    "summary": "uploaded",
+                    "value": {
+                      "id": 1,
+                      "login": "example",
+                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Некорректный multipart, лишние поля, несколько файлов, пустое/повреждённое изображение или любая сторона менее 200 или более 4096 пикселей.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "Некорректное тело запроса или параметры."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или повторяется. Проверка обязательна и выполняется до Bearer и валидации. BFF сохраняет сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "413": {
+            "description": "Размер файла более 5 МиБ (5242880 байт) или multipart-запроса более 6 МиБ (6291456 байт).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "payload_too_large",
+                  "message": "avatar upload exceeds size limit"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "415": {
+            "description": "Неподдерживаемый Content-Type запроса/файла, отсутствующий MIME файла или несоответствие MIME фактическому JPEG/PNG.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "unsupported_media_type",
+                  "message": "only matching JPEG and PNG content types are supported"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, включая сбой PostgreSQL, Redis или S3. Не подтверждает успешное изменение.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileError"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "summary": "Выход со всех устройств",
+        "deprecated": false,
+        "description": "Завершает все сессии авторизованного пользователя на всех устройствах, включая текущую сессию. Полный путь: POST /api/v1/auth/logout-all.\n\nТребует действующий access-токен в Authorization: Bearer и обязательный X-BFF-Key. Пользователь определяется только по access-токену; тело запроса, refresh-токен и идентификатор пользователя не передаются.\n\nПри успехе отзывает все ранее выданные access- и refresh-токены пользователя, в том числе токены текущей сессии, и возвращает 204 без тела. После успешного ответа ранее выданные access-токены больше не дают доступа к защищённым ручкам, а refresh-токены не позволяют обновлять токены. Повторный запрос с отозванным access-токеном возвращает 401. Для продолжения работы требуется заново войти. Сессии других пользователей не затрагиваются. Cookie не читает и не устанавливает.\n\nX-BFF-Key проверяется до Bearer и валидации запроса. При недоступности хранилища сессий или ошибке отзыва возвращается 500; успешный выход не подтверждается.\n\nКонтракт задачи: https://github.com/Cringe-Driven-Development-Team/backend/issues/68",
+        "operationId": "logoutAllUserSessions",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Все ранее выданные сессии пользователя отозваны, включая текущую. Ответ без тела.",
+            "headers": {}
+          },
+          "401": {
+            "description": "Access-токен отсутствует, некорректен, истёк или его сессия отозвана. В том числе повторный запрос после успешного выхода со всех устройств.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или передан несколько раз. Проверяется до Bearer. Код s2s_forbidden; BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка, в том числе недоступность хранилища сессий или ошибка отзыва. Успешный выход не подтверждён.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal server error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "summary": "Регистрация",
@@ -30,8 +652,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -60,7 +682,8 @@
                 "example": {
                   "user": {
                     "id": 1,
-                    "login": "example"
+                    "login": "example",
+                    "avatar_url": null
                   },
                   "tokens": {
                     "access_token": "<access-token>",
@@ -125,114 +748,6 @@
         "security": []
       }
     },
-    "/auth/login": {
-      "post": {
-        "summary": "Вход",
-        "deprecated": false,
-        "description": "Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.",
-        "operationId": "loginUser",
-        "tags": [
-          "auth"
-        ],
-        "parameters": [
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Credentials"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Пользователь и новая пара токенов",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                },
-                "example": {
-                  "user": {
-                    "id": 1,
-                    "login": "example"
-                  },
-                  "tokens": {
-                    "access_token": "<access-token>",
-                    "access_expires_in": 900,
-                    "refresh_token": "<refresh-token>",
-                    "refresh_expires_in": 2592000
-                  }
-                }
-              }
-            },
-            "headers": {}
-          },
-          "400": {
-            "description": "Невалидный запрос",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "401": {
-            "description": "Нет авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "403": {
-            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "s2s_forbidden",
-                  "message": "service access forbidden"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "500": {
-            "description": "Внутренняя ошибка",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": []
-      }
-    },
     "/auth/refresh": {
       "post": {
         "summary": "Обновление токенов",
@@ -246,8 +761,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -359,8 +874,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -450,21 +965,21 @@
         ]
       }
     },
-    "/users/me": {
-      "get": {
-        "summary": "Текущий пользователь",
+    "/auth/login": {
+      "post": {
+        "summary": "Вход",
         "deprecated": false,
-        "description": "",
-        "operationId": "getCurrentUser",
+        "description": "Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.",
+        "operationId": "loginUser",
         "tags": [
-          "users"
+          "auth"
         ],
         "parameters": [
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -472,13 +987,47 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "Текущий пользователь",
+            "description": "Пользователь и новая пара токенов",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/User"
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "example": {
+                  "user": {
+                    "id": 1,
+                    "login": "example",
+                    "avatar_url": null
+                  },
+                  "tokens": {
+                    "access_token": "<access-token>",
+                    "access_expires_in": 900,
+                    "refresh_token": "<refresh-token>",
+                    "refresh_expires_in": 2592000
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             },
@@ -522,11 +1071,7 @@
             "headers": {}
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": []
       }
     },
     "/notebooks/{id}/cells": {
@@ -553,8 +1098,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -662,6 +1207,668 @@
         ]
       }
     },
+    "/notebooks/{id}/content": {
+      "get": {
+        "summary": "Содержимое блокнота с хешем",
+        "deprecated": false,
+        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: \"h123\" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.",
+        "operationId": "getNotebookContent",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookContent"
+                },
+                "example": {
+                  "hash": "h123",
+                  "cells": [
+                    {
+                      "id": "cell-a",
+                      "kind": "code",
+                      "source": "print(1)"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "example": "\"h123\"",
+                "required": false,
+                "description": "Сильный ETag: hash из тела ответа в двойных кавычках.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос, индекс вне диапазона, отсутствующий или некорректный If-Match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S отсутствует или неверен X-BFF-Key; проверяется до Bearer и валидации. BFF не выполняет refresh и не удаляет сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Ошибка хранения. Успешное сохранение не подтверждено; перед повтором получить актуальное содержимое.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}/content/cells": {
+      "post": {
+        "summary": "Добавление блока с проверкой хеша",
+        "deprecated": false,
+        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.",
+        "operationId": "addNotebookCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[^\"\\r\\n]+\"$"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddNotebookCellRequest"
+              },
+              "examples": {
+                "code": {
+                  "value": {
+                    "kind": "code",
+                    "source": "print(1)",
+                    "index": 0
+                  },
+                  "summary": "code"
+                },
+                "markdown": {
+                  "value": {
+                    "kind": "markdown",
+                    "source": "# Заголовок"
+                  },
+                  "summary": "markdown"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookCellChange"
+                },
+                "example": {
+                  "hash": "h456",
+                  "cell": {
+                    "id": "cell-a",
+                    "kind": "code",
+                    "source": "print(1)"
+                  }
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "example": "\"h456\"",
+                "required": false,
+                "description": "Сильный ETag: hash из тела ответа в двойных кавычках.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос, индекс вне диапазона, отсутствующий или некорректный If-Match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S отсутствует или неверен X-BFF-Key; проверяется до Bearer и валидации. BFF не выполняет refresh и не удаляет сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Хеш устарел: notebook_conflict, операция не применена. Получить актуальный блокнот через GET content и сверить локальные изменения. Для добавления также too_many_cells при лимите 1000.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                },
+                "example": {
+                  "code": "notebook_conflict",
+                  "message": "notebook content has changed"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Ошибка хранения. Успешное сохранение не подтверждено; перед повтором получить актуальное содержимое.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}/content/cells/{cell_id}": {
+      "patch": {
+        "summary": "Редактирование блока с проверкой хеша",
+        "deprecated": false,
+        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.",
+        "operationId": "editNotebookCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "cell_id",
+            "in": "path",
+            "description": "Стабильный ID блока внутри блокнота.",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "description": "ID блока внутри блокнота"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[^\"\\r\\n]+\"$"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditNotebookCellRequest"
+              },
+              "examples": {
+                "code": {
+                  "value": {
+                    "source": "print(2)"
+                  },
+                  "summary": "code"
+                },
+                "markdown": {
+                  "value": {
+                    "source": "# Новый заголовок"
+                  },
+                  "summary": "markdown"
+                },
+                "clear": {
+                  "value": {
+                    "source": ""
+                  },
+                  "summary": "clear"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookCellChange"
+                },
+                "example": {
+                  "hash": "h456",
+                  "cell": {
+                    "id": "cell-a",
+                    "kind": "code",
+                    "source": "print(1)"
+                  }
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "example": "\"h456\"",
+                "required": false,
+                "description": "Сильный ETag: hash из тела ответа в двойных кавычках.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос, индекс вне диапазона, отсутствующий или некорректный If-Match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S отсутствует или неверен X-BFF-Key; проверяется до Bearer и валидации. BFF не выполняет refresh и не удаляет сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Хеш устарел: notebook_conflict, операция не применена. Получить актуальный блокнот через GET content и сверить локальные изменения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                },
+                "example": {
+                  "code": "notebook_conflict",
+                  "message": "notebook content has changed"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Ошибка хранения. Успешное сохранение не подтверждено; перед повтором получить актуальное содержимое.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Удаление блока с проверкой хеша",
+        "deprecated": false,
+        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.",
+        "operationId": "removeNotebookCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "cell_id",
+            "in": "path",
+            "description": "Стабильный ID блока внутри блокнота.",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "description": "ID блока внутри блокнота"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[^\"\\r\\n]+\"$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookContentChange"
+                },
+                "example": {
+                  "hash": "h456"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "example": "\"h456\"",
+                "required": false,
+                "description": "Сильный ETag: hash из тела ответа в двойных кавычках.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос, индекс вне диапазона, отсутствующий или некорректный If-Match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S отсутствует или неверен X-BFF-Key; проверяется до Bearer и валидации. BFF не выполняет refresh и не удаляет сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Хеш устарел: notebook_conflict, операция не применена. Получить актуальный блокнот через GET content и сверить локальные изменения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                },
+                "example": {
+                  "code": "notebook_conflict",
+                  "message": "notebook content has changed"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Ошибка хранения. Успешное сохранение не подтверждено; перед повтором получить актуальное содержимое.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/notebooks/{id}/cells/{index}": {
       "delete": {
         "summary": "Удаление блока",
@@ -696,8 +1903,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -777,6 +1984,180 @@
         ]
       }
     },
+    "/notebooks/{id}/content/cells/{cell_id}/move": {
+      "post": {
+        "summary": "Перемещение блока с проверкой хеша",
+        "deprecated": false,
+        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.",
+        "operationId": "moveNotebookCell",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "cell_id",
+            "in": "path",
+            "description": "Стабильный ID блока внутри блокнота.",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "description": "ID блока внутри блокнота"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[^\"\\r\\n]+\"$"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveNotebookCellRequest"
+              },
+              "example": {
+                "index": 0
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookContentChange"
+                },
+                "example": {
+                  "hash": "h456"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "example": "\"h456\"",
+                "required": false,
+                "description": "Сильный ETag: hash из тела ответа в двойных кавычках.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидный запрос, индекс вне диапазона, отсутствующий или некорректный If-Match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S отсутствует или неверен X-BFF-Key; проверяется до Bearer и валидации. BFF не выполняет refresh и не удаляет сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Блокнот отсутствует, принадлежит другому пользователю или блок не найден.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Хеш устарел: notebook_conflict, операция не применена. Получить актуальный блокнот через GET content и сверить локальные изменения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                },
+                "example": {
+                  "code": "notebook_conflict",
+                  "message": "notebook content has changed"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Ошибка хранения. Успешное сохранение не подтверждено; перед повтором получить актуальное содержимое.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/notebooks/{id}": {
       "get": {
         "summary": "Блокнот",
@@ -801,8 +2182,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -902,8 +2283,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -982,8 +2363,8 @@
           {
             "name": "X-BFF-Key",
             "in": "header",
-            "description": "Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.",
-            "required": false,
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
             "example": "<bff-key>",
             "schema": {
               "type": "string",
@@ -1085,11 +2466,30 @@
           },
           "login": {
             "type": "string"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.",
+            "examples": [
+              null
+            ]
           }
         },
         "required": [
           "id",
-          "login"
+          "login",
+          "avatar_url"
+        ],
+        "examples": [
+          {
+            "id": 1,
+            "login": "example",
+            "avatar_url": null
+          }
         ]
       },
       "Notebook": {
@@ -1334,6 +2734,202 @@
         "required": [
           "refresh_token"
         ]
+      },
+      "NotebookHash": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например \"h123\".",
+        "examples": [
+          "h123"
+        ]
+      },
+      "NotebookContent": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cell"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "hash",
+          "cells"
+        ]
+      },
+      "NotebookCellChange": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/Cell"
+          }
+        },
+        "required": [
+          "hash",
+          "cell"
+        ]
+      },
+      "NotebookContentChange": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          }
+        },
+        "required": [
+          "hash"
+        ]
+      },
+      "AddNotebookCellRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "markdown"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Индекс вставки от 0 до текущего числа блоков включительно. Без поля — в конец."
+          }
+        },
+        "required": [
+          "kind",
+          "source"
+        ]
+      },
+      "EditNotebookCellRequest": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Новое полное содержимое блока; пустая строка допустима. Тип и ID блока сохраняются."
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "MoveNotebookCellRequest": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Итоговая позиция блока, от 0 до числа блоков минус один. Остальные блоки сохраняют относительный порядок."
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "NotebookEditingError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "unauthorized",
+              "s2s_forbidden",
+              "csrf_invalid",
+              "not_found",
+              "notebook_conflict",
+              "too_many_cells",
+              "internal"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "UpdateCurrentUserRequest": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9_]+$"
+          }
+        },
+        "required": [
+          "login"
+        ],
+        "additionalProperties": false,
+        "description": "Новое значение логина для входа. Отдельного отображаемого имени нет."
+      },
+      "ChangeCurrentUserPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "format": "password",
+            "writeOnly": true,
+            "description": "От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется."
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "format": "password",
+            "writeOnly": true,
+            "description": "От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется."
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "additionalProperties": false
+      },
+      "UserProfileError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "invalid_current_password",
+              "login_taken",
+              "unauthorized",
+              "s2s_forbidden",
+              "payload_too_large",
+              "unsupported_media_type",
+              "internal"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
       }
     },
     "responses": {
@@ -1413,11 +3009,6 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "Access-токен пользователя, передаваемый BFF."
-      },
-      "cookieAuth": {
-        "type": "apiKey",
-        "in": "cookie",
-        "name": "access_token"
       }
     }
   },

@@ -1,7 +1,7 @@
 {
-    // zod-схемы контракта Go: только типы ESNext, без окружения
+    // zod-схемы контракта Go: без окружения, DOM — только ради Blob в загрузке аватара
     "compilerOptions": {
-        "lib": ["ESNext"],
+        "lib": ["ESNext", "DOM"],
         "target": "ESNext",
         "module": "ESNext",
         "moduleDetection": "force",

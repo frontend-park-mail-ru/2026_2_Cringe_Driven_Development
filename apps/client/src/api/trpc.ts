@@ -19,8 +19,12 @@ export type Cell = Notebook['cells'][number];
 /** Ошибка процедуры BFF: `data.code`, `data.appCode`, `data.zodError`. */
 export type RpcError = TRPCClientError<AppRouter>;
 
-// Защищённые процедуры — все, кроме auth.*: им нужна сессия, их результаты — данные пользователя
-const isProtected = (path: string): boolean => !path.startsWith('auth.');
+// Смена пароля завершает сессию и идёт через switchSession, как auth.*
+const CHANGE_PASSWORD = 'users.changePassword';
+
+// Защищённые процедуры — все, кроме смен сессии: им нужна сессия, их результаты — данные пользователя
+const isProtected = (path: string): boolean =>
+    !path.startsWith('auth.') && path !== CHANGE_PASSWORD;
 
 // Идёт смена сессии: новые защищённые запросы не стартуют
 let closing = false;
@@ -50,6 +54,17 @@ const sessionLink: TRPCLink<AppRouter> =
     () =>
     ({ next, op }) =>
         observable((observer) => {
+            if (op.path === CHANGE_PASSWORD) {
+                // самой смене пароля нужна сессия: её 401 — потеря сессии, а не отказ, как у входа
+                return next(op).subscribe({
+                    next: (value) => observer.next(value),
+                    error(error) {
+                        if (isUnauthorized(error)) lostWhileClosing = true;
+                        observer.error(error);
+                    },
+                    complete: () => observer.complete(),
+                });
+            }
             if (!isProtected(op.path)) return next(op).subscribe(observer);
             if (closing) {
                 observer.error(sessionChanged());
@@ -125,14 +140,14 @@ export function onSessionLost(handler: () => void): void {
 }
 
 /**
- * Смена сессии — вход, регистрация или выход. Новые защищённые запросы не стартуют, `call`
+ * Смена сессии — вход, регистрация, выход или смена пароля. Новые защищённые запросы не стартуют, `call`
  * отправляется после того, как ответили уже отправленные: их `Set-Cookie` браузер применяет раньше,
  * чем `call` поставит или удалит cookie, и прежняя сессия её не перезапишет. После успеха ответы
  * прежней сессии в интерфейс не попадают. Ошибка `call` — сессия остаётся прежней; но если пока
  * ждали отправленные, один из них получил `UNAUTHORIZED`, сессии уже нет — срабатывает
  * {@link onSessionLost}, ошибка `call` всё равно пробрасывается. Смены сессии идут по очереди:
  * вызов, пришедший во время другой смены, начнётся после её завершения.
- * @param call вызов `auth.login`, `auth.register` или `auth.logout`
+ * @param call вызов `auth.login`, `auth.register`, `auth.logout` или `users.changePassword`
  * @returns ответ `call`
  */
 export function switchSession<T>(call: () => Promise<T>): Promise<T> {

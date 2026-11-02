@@ -22,6 +22,8 @@ interface ButtonProps {
     type?: 'button' | 'submit';
     /** Состояние Loading: спиннер перед текстом, повторные нажатия игнорируются */
     loading?: boolean;
+    /** Состояние Disabled: нажать нельзя */
+    disabled?: boolean;
     /** Растянуть на ширину родителя */
     block?: boolean;
     /** Иконка перед текстом (свойство Icon в макете) */
@@ -52,6 +54,7 @@ export function Button({
     variant = 'primary',
     type = 'button',
     loading = false,
+    disabled = false,
     block = false,
     icon,
     className,
@@ -62,6 +65,7 @@ export function Button({
             id={id}
             className={clsx(buttonClassName(variant, block), loading && styles.loading, className)}
             type={type}
+            disabled={disabled}
             aria-busy={loading ? 'true' : undefined}
             aria-disabled={loading ? 'true' : undefined}
             onClick={(event) => {

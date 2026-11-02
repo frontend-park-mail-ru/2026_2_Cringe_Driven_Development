@@ -61,6 +61,11 @@
     color: transparent;
 }
 
+.icon {
+    flex: none;
+    color: var(--color-text-secondary);
+}
+
 .reveal {
     position: relative;
     display: inline-flex;

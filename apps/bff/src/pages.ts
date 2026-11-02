@@ -10,6 +10,7 @@ export const PAGES = {
     login: 'login',
     register: 'register',
     notebook: 'notebooks/$notebookId',
+    profile: 'profile',
     notFound: '404',
 } as const;
 

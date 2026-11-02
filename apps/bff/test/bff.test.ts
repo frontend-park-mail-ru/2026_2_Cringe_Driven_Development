@@ -16,7 +16,7 @@ const RPC = {
     'Sec-Fetch-Site': 'same-origin',
     'Content-Type': 'application/json',
 };
-const USER = { id: 1, login: 'denis' };
+const USER = { id: 1, login: 'denis', avatar_url: null };
 const template = await loadTemplate(process.env.HTML_TEMPLATE ?? '');
 const bff = createBff(template, new Map());
 
@@ -448,7 +448,11 @@ describe('HTML', () => {
     });
 
     test('строки пользователя не создают элементов и восстанавливаются байт в байт', async () => {
-        const user = { id: 7, login: '</script><script>alert(1)</script><!-- "\'&Привет ' };
+        const user = {
+            id: 7,
+            login: '</script><script>alert(1)</script><!-- "\'&Привет ',
+            avatar_url: null,
+        };
         const html = await renderBootstrap(template, { user }, new Headers()).text();
         let scripts = 0;
         await new HTMLRewriter()
@@ -514,5 +518,65 @@ describe('robots.txt', () => {
         } finally {
             await server.stop(true);
         }
+    });
+});
+
+describe('смена логина и пароля', () => {
+    test('updateLogin шлёт PATCH /users/me и возвращает пользователя', async () => {
+        const tokens = goTokens();
+        const renamed = { id: 1, login: 'orbit', avatar_url: null };
+        useGo({ 'PATCH /users/me': () => Response.json(renamed) });
+        const res = await rpc('users.updateLogin', {
+            body: { login: 'orbit' },
+            cookie: await cookie(tokens.issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(((await res.json()) as { result: { data: unknown } }).result.data).toEqual(renamed);
+        expect(go?.calls[0]?.body).toEqual({ login: 'orbit' });
+        expect(go?.calls[0]?.headers.get('Authorization')).toStartWith('Bearer ');
+    });
+
+    test('занятый логин — CONFLICT с appCode login_taken', async () => {
+        useGo({ 'PATCH /users/me': () => goError(409, 'login_taken') });
+        const res = await rpc('users.updateLogin', {
+            body: { login: 'orbit' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({ code: 'CONFLICT', appCode: 'login_taken' });
+    });
+
+    test('неверный логин не доходит до Go', async () => {
+        useGo({});
+        const res = await rpc('users.updateLogin', {
+            body: { login: 'a' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(400);
+        expect(go?.calls).toHaveLength(0);
+    });
+
+    test('changePassword шлёт PUT /users/me/password и завершает сессию', async () => {
+        useGo({ 'PUT /users/me/password': () => new Response(null, { status: 204 }) });
+        const body = { current_password: 'old-password', new_password: 'new-password' };
+        const res = await rpc('users.changePassword', {
+            body,
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(go?.calls[0]?.body).toEqual(body);
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('неверный текущий пароль не завершает сессию', async () => {
+        useGo({ 'PUT /users/me/password': () => goError(400, 'invalid_current_password') });
+        const res = await rpc('users.changePassword', {
+            body: { current_password: 'wrong-password', new_password: 'new-password' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({
+            code: 'BAD_REQUEST',
+            appCode: 'invalid_current_password',
+        });
+        expect(cleared(res)).toBe(false);
     });
 });

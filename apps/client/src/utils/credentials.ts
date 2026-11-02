@@ -59,6 +59,34 @@ export function validateConfirm(password: string, confirm: string): string | und
 }
 
 /**
+ * Проверяет новый пароль при смене.
+ * @param current текущий пароль
+ * @param next новый пароль
+ * @returns текст ошибки или undefined, если пароль подходит
+ */
+export function validateNewPassword(current: string, next: string): string | undefined {
+    return validatePassword(next) ?? (next === current ? 'Совпадает с текущим паролем' : undefined);
+}
+
+/**
+ * Требования к новому паролю из макета и их выполнение: пустые поля требование не выполняют.
+ * @param current текущий пароль
+ * @param next новый пароль
+ * @param confirm повтор нового пароля
+ * @returns текст требования и выполнено ли оно
+ */
+export function passwordRules(current: string, next: string, confirm: string) {
+    return [
+        { text: PASSWORD_RULE, met: next.length >= PASSWORD_MIN },
+        {
+            text: 'Отличается от текущего пароля',
+            met: current !== '' && next !== '' && next !== current,
+        },
+        { text: 'Новый пароль и повтор совпадают', met: next !== '' && next === confirm },
+    ];
+}
+
+/**
  * Текст ошибки входа или регистрации для пользователя.
  * @param error ошибка
  * @param mode вход или регистрация

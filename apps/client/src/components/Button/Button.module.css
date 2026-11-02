@@ -80,3 +80,11 @@
         transform: rotate(360deg);
     }
 }
+
+.button:disabled,
+.button:disabled:hover {
+    background: var(--color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-text-disabled);
+    cursor: default;
+}

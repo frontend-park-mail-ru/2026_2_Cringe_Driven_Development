@@ -7,6 +7,133 @@
 import * as zod from 'zod';
 
 /**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Меняет логин для последующего входа: 3–32 символа ASCII, только a–z, A–Z, 0–9 и _. Занятый другим пользователем логин — 409 login_taken. Собственное текущее значение допускается и возвращает 200. Изменение логина не отзывает сессии. Обязательное JSON-тело содержит только login.
+ * @summary Сменить логин
+ */
+
+
+
+export const UpdateCurrentUserHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const updateCurrentUserBodyLoginMin = 3;
+export const updateCurrentUserBodyLoginMax = 32;
+
+
+export const updateCurrentUserBodyLoginRegExp = new RegExp('^[a-zA-Z0-9_]+$');
+
+
+export const UpdateCurrentUserBody = zod.object({
+  "login": zod.string().min(updateCurrentUserBodyLoginMin).max(updateCurrentUserBodyLoginMax).regex(updateCurrentUserBodyLoginRegExp)
+}).describe('Новое значение логина для входа. Отдельного отображаемого имени нет.')
+
+
+
+
+export const UpdateCurrentUserResponse = zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+})
+
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Возвращает только собственный профиль. Просмотр других профилей не предусмотрен. avatar_url — URL публичного CDN либо null; согласование публичной выдачи и поля с frontend ещё предстоит.
+ * @summary Текущий пользователь
+ */
+
+
+
+export const GetCurrentUserHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+
+
+export const GetCurrentUserResponse = zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+})
+
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
+ * @summary Сменить пароль
+ */
+
+
+
+export const ChangeCurrentUserPasswordHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const changeCurrentUserPasswordBodyCurrentPasswordMin = 8;
+export const changeCurrentUserPasswordBodyCurrentPasswordMax = 72;
+
+export const changeCurrentUserPasswordBodyNewPasswordMin = 8;
+export const changeCurrentUserPasswordBodyNewPasswordMax = 72;
+
+
+
+export const ChangeCurrentUserPasswordBody = zod.object({
+  "current_password": zod.string().min(changeCurrentUserPasswordBodyCurrentPasswordMin).max(changeCurrentUserPasswordBodyCurrentPasswordMax).describe('От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.'),
+  "new_password": zod.string().min(changeCurrentUserPasswordBodyNewPasswordMin).max(changeCurrentUserPasswordBodyNewPasswordMax).describe('От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.')
+})
+
+export const ChangeCurrentUserPasswordResponse = zod.void()
+
+
+/**
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 200 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или любая сторона менее 200 либо более 4096 пикселей — 400 validation_error. Проверка лимитов выполняется до выделения памяти под декодирование. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; ресурсы декодирования ограничены, очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
+ * @summary Загрузить или заменить аватар
+ */
+
+
+
+export const UploadCurrentUserAvatarHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const UploadCurrentUserAvatarBody = zod.object({
+  "avatar": zod.instanceof(Blob)
+})
+
+
+
+
+export const UploadCurrentUserAvatarResponse = zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+})
+
+
+/**
+ * Завершает все сессии авторизованного пользователя на всех устройствах, включая текущую сессию. Полный путь: POST /api/v1/auth/logout-all.
+ *
+ * Требует действующий access-токен в Authorization: Bearer и обязательный X-BFF-Key. Пользователь определяется только по access-токену; тело запроса, refresh-токен и идентификатор пользователя не передаются.
+ *
+ * При успехе отзывает все ранее выданные access- и refresh-токены пользователя, в том числе токены текущей сессии, и возвращает 204 без тела. После успешного ответа ранее выданные access-токены больше не дают доступа к защищённым ручкам, а refresh-токены не позволяют обновлять токены. Повторный запрос с отозванным access-токеном возвращает 401. Для продолжения работы требуется заново войти. Сессии других пользователей не затрагиваются. Cookie не читает и не устанавливает.
+ *
+ * X-BFF-Key проверяется до Bearer и валидации запроса. При недоступности хранилища сессий или ошибке отзыва возвращается 500; успешный выход не подтверждается.
+ *
+ * Контракт задачи: https://github.com/Cringe-Driven-Development-Team/backend/issues/68
+ * @summary Выход со всех устройств
+ */
+
+
+
+export const LogoutAllUserSessionsHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const LogoutAllUserSessionsResponse = zod.void()
+
+
+/**
  * Создаёт пользователя и новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
  * @summary Регистрация
  */
@@ -14,7 +141,7 @@ import * as zod from 'zod';
 
 
 export const RegisterUserHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 export const registerUserBodyLoginMin = 3;
@@ -42,54 +169,8 @@ export const RegisterUserBody = zod.object({
 export const RegisterUserResponse = zod.object({
   "user": zod.object({
   "id": zod.int().min(1).describe('ID'),
-  "login": zod.string()
-}),
-  "tokens": zod.object({
-  "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
-  "access_expires_in": zod.int().min(1).describe('Срок действия выданного access-токена в секундах'),
-  "refresh_token": zod.string().min(1).describe('Refresh-токен; при обновлении заменяется новым'),
-  "refresh_expires_in": zod.int().min(1).describe('Срок действия выданного refresh-токена в секундах')
-})
-})
-
-
-/**
- * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
- * @summary Вход
- */
-
-
-
-export const LoginUserHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
-})
-
-export const loginUserBodyLoginMin = 3;
-export const loginUserBodyLoginMax = 32;
-
-
-export const loginUserBodyLoginRegExp = new RegExp('^[a-zA-Z0-9_]+$');
-export const loginUserBodyPasswordMin = 8;
-export const loginUserBodyPasswordMax = 72;
-
-
-
-export const LoginUserBody = zod.object({
-  "login": zod.string().min(loginUserBodyLoginMin).max(loginUserBodyLoginMax).regex(loginUserBodyLoginRegExp),
-  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax)
-})
-
-
-
-
-
-
-
-
-export const LoginUserResponse = zod.object({
-  "user": zod.object({
-  "id": zod.int().min(1).describe('ID'),
-  "login": zod.string()
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
 }),
   "tokens": zod.object({
   "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
@@ -108,7 +189,7 @@ export const LoginUserResponse = zod.object({
 
 
 export const RefreshTokenHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 
@@ -140,7 +221,7 @@ export const RefreshTokenResponse = zod.object({
 
 
 export const LogoutUserHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 
@@ -154,21 +235,50 @@ export const LogoutUserResponse = zod.void()
 
 
 /**
- * @summary Текущий пользователь
+ * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
+ * @summary Вход
  */
 
 
 
-export const GetCurrentUserHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+export const LoginUserHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const loginUserBodyLoginMin = 3;
+export const loginUserBodyLoginMax = 32;
+
+
+export const loginUserBodyLoginRegExp = new RegExp('^[a-zA-Z0-9_]+$');
+export const loginUserBodyPasswordMin = 8;
+export const loginUserBodyPasswordMax = 72;
+
+
+
+export const LoginUserBody = zod.object({
+  "login": zod.string().min(loginUserBodyLoginMin).max(loginUserBodyLoginMax).regex(loginUserBodyLoginRegExp),
+  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax)
 })
 
 
 
 
-export const GetCurrentUserResponse = zod.object({
+
+
+
+
+export const LoginUserResponse = zod.object({
+  "user": zod.object({
   "id": zod.int().min(1).describe('ID'),
-  "login": zod.string()
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+}),
+  "tokens": zod.object({
+  "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
+  "access_expires_in": zod.int().min(1).describe('Срок действия выданного access-токена в секундах'),
+  "refresh_token": zod.string().min(1).describe('Refresh-токен; при обновлении заменяется новым'),
+  "refresh_expires_in": zod.int().min(1).describe('Срок действия выданного refresh-токена в секундах')
+})
 })
 
 
@@ -186,7 +296,7 @@ export const CreateCellParams = zod.object({
 
 
 export const CreateCellHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 export const createCellBodyIndexMin = 0;
@@ -212,6 +322,170 @@ export const CreateCellResponse = zod.object({
 
 
 /**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: "h123" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.
+ * @summary Содержимое блокнота с хешем
+ */
+
+
+
+export const GetNotebookContentParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота')
+})
+
+
+
+
+export const GetNotebookContentHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+export const getNotebookContentResponseCellsItemIdMax = 64;
+
+
+export const getNotebookContentResponseCellsItemIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const getNotebookContentResponseCellsMax = 1000;
+
+
+
+export const GetNotebookContentResponse = zod.object({
+  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "cells": zod.array(zod.object({
+  "id": zod.string().min(1).max(getNotebookContentResponseCellsItemIdMax).regex(getNotebookContentResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "source": zod.string().describe('Содержимое блока')
+}).describe('Блок блокнота')).max(getNotebookContentResponseCellsMax)
+})
+
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Добавление блока с проверкой хеша
+ */
+
+
+
+export const AddNotebookCellParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота')
+})
+
+
+export const addNotebookCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
+
+
+export const AddNotebookCellHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(addNotebookCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
+})
+
+export const addNotebookCellBodyIndexMin = 0;
+export const addNotebookCellBodyIndexMax = 1000;
+
+
+
+export const AddNotebookCellBody = zod.object({
+  "kind": zod.enum(['code', 'markdown']),
+  "source": zod.string(),
+  "index": zod.int().min(addNotebookCellBodyIndexMin).max(addNotebookCellBodyIndexMax).optional().describe('Индекс вставки от 0 до текущего числа блоков включительно. Без поля — в конец.')
+})
+
+
+export const addNotebookCellResponseCellIdMax = 64;
+
+
+export const addNotebookCellResponseCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const AddNotebookCellResponse = zod.object({
+  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "cell": zod.object({
+  "id": zod.string().min(1).max(addNotebookCellResponseCellIdMax).regex(addNotebookCellResponseCellIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "source": zod.string().describe('Содержимое блока')
+}).describe('Блок блокнота')
+})
+
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Редактирование блока с проверкой хеша
+ */
+
+export const editNotebookCellPathCellIdMax = 64;
+
+
+export const editNotebookCellPathCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const EditNotebookCellParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота'),
+  "cell_id": zod.string().min(1).max(editNotebookCellPathCellIdMax).regex(editNotebookCellPathCellIdRegExp).describe('Стабильный ID блока внутри блокнота.')
+})
+
+
+export const editNotebookCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
+
+
+export const EditNotebookCellHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(editNotebookCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
+})
+
+export const EditNotebookCellBody = zod.object({
+  "source": zod.string().describe('Новое полное содержимое блока; пустая строка допустима. Тип и ID блока сохраняются.')
+})
+
+
+export const editNotebookCellResponseCellIdMax = 64;
+
+
+export const editNotebookCellResponseCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const EditNotebookCellResponse = zod.object({
+  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "cell": zod.object({
+  "id": zod.string().min(1).max(editNotebookCellResponseCellIdMax).regex(editNotebookCellResponseCellIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "source": zod.string().describe('Содержимое блока')
+}).describe('Блок блокнота')
+})
+
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Удаление блока с проверкой хеша
+ */
+
+export const removeNotebookCellPathCellIdMax = 64;
+
+
+export const removeNotebookCellPathCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const RemoveNotebookCellParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота'),
+  "cell_id": zod.string().min(1).max(removeNotebookCellPathCellIdMax).regex(removeNotebookCellPathCellIdRegExp).describe('Стабильный ID блока внутри блокнота.')
+})
+
+
+export const removeNotebookCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
+
+
+export const RemoveNotebookCellHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(removeNotebookCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
+})
+
+
+
+
+export const RemoveNotebookCellResponse = zod.object({
+  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".')
+})
+
+
+/**
  * @summary Удаление блока
  */
 
@@ -228,10 +502,52 @@ export const DeleteCellParams = zod.object({
 
 
 export const DeleteCellHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 export const DeleteCellResponse = zod.void()
+
+
+/**
+ * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. После проверки владельца сервер атомарно сравнивает хеш перед поиском блока и применением операции. Устаревший хеш всегда даёт 409. Неизменяющая операция может сохранить прежний хеш. При сетевой ошибке перечитать содержимое перед повтором.
+ * @summary Перемещение блока с проверкой хеша
+ */
+
+export const moveNotebookCellPathCellIdMax = 64;
+
+
+export const moveNotebookCellPathCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const MoveNotebookCellParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота'),
+  "cell_id": zod.string().min(1).max(moveNotebookCellPathCellIdMax).regex(moveNotebookCellPathCellIdRegExp).describe('Стабильный ID блока внутри блокнота.')
+})
+
+
+export const moveNotebookCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
+
+
+export const MoveNotebookCellHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(moveNotebookCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
+})
+
+export const moveNotebookCellBodyIndexMin = 0;
+export const moveNotebookCellBodyIndexMax = 999;
+
+
+
+export const MoveNotebookCellBody = zod.object({
+  "index": zod.int().min(moveNotebookCellBodyIndexMin).max(moveNotebookCellBodyIndexMax).describe('Итоговая позиция блока, от 0 до числа блоков минус один. Остальные блоки сохраняют относительный порядок.')
+})
+
+
+
+
+export const MoveNotebookCellResponse = zod.object({
+  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".')
+})
 
 
 /**
@@ -248,7 +564,7 @@ export const GetNotebookParams = zod.object({
 
 
 export const GetNotebookHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 
@@ -278,7 +594,7 @@ export const GetNotebookResponse = zod.object({
 
 
 export const ListNotebooksHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 
@@ -300,7 +616,7 @@ export const ListNotebooksResponse = zod.array(ListNotebooksResponseItem)
 
 
 export const CreateNotebookHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).optional().describe('Общий секрет BFF и Go API. Обязателен при включённой проверке S2S; в переходном режиме одной VPS может отсутствовать. Проверяется до Bearer и валидации запроса. Отсутствующий или неверный ключ при включённой проверке: 403 s2s_forbidden. При ротации допускаются текущий и предыдущий ключи; значения не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
 export const createNotebookBodyNameMax = 128;

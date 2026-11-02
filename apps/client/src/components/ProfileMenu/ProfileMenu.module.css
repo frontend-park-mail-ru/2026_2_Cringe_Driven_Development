@@ -67,7 +67,9 @@
     border-radius: 8px;
     background: none;
     font: var(--font-body);
+    color: inherit;
     text-align: left;
+    text-decoration: none;
     cursor: pointer;
     transition: background-color 0.15s;
 }
@@ -76,7 +78,7 @@
     background: var(--color-surface-hover);
 }
 
-.danger {
+.item.danger {
     color: var(--color-error);
 }
 

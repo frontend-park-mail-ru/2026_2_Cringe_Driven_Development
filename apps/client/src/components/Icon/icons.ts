@@ -39,6 +39,12 @@ const SOURCES = {
     ),
     logout: svg(16, `<path d="M6.5 2.5h-3v11h3M10 5l3 3-3 3M13 8H6.5"${stroke(1.4)}/>`),
     check: svg(16, `<path d="M3.5 8.4l2.9 2.9 6.1-6.3"${stroke(1.6)}/>`),
+    dot: svg(16, '<circle cx="8" cy="8" r="2" fill="#000"/>'),
+    user: svg(
+        16,
+        `<circle cx="8" cy="5.2" r="2.9"${stroke(1.3)}/><path d="M2.8 13.6c.6-2.5 2.6-3.9 5.2-3.9s4.6 1.4 5.2 3.9"${stroke(1.3)}/>`,
+    ),
+    pencil: svg(16, `<path d="M3 13l.7-2.9 7-7a1.5 1.5 0 0 1 2.2 2.2l-7 7L3 13Z"${stroke(1.3)}/>`),
     spinner: svg(16, `<path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2"${stroke(1.8)}/>`),
 } as const;
 
