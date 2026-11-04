@@ -1,6 +1,11 @@
 import { need, ReleaseError } from './env.ts';
-import { graphql, listDeployments } from './github.ts';
-import { readReleaseSnapshot, type ReleaseSnapshot, type LinkedIssue } from './catalog.ts';
+import { graphql } from './github.ts';
+import {
+    readProductionDeployments,
+    readReleaseSnapshot,
+    type ReleaseSnapshot,
+    type LinkedIssue,
+} from './catalog.ts';
 
 /** Итог синхронизации без потери ошибок отдельных карточек. */
 export interface BoardResult {
@@ -241,15 +246,6 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
     const context = await project();
     const result: BoardResult = { changed: 0, skipped: 0, errors: [] };
     let current = snapshot;
-    let version = '';
-    const refresh = async () => {
-        const next = JSON.stringify(await listDeployments('production'));
-        if (next === version) return false;
-        current = await readReleaseSnapshot(repoDir);
-        version = next;
-        return true;
-    };
-    await refresh();
     const processIssue = async (linked: LinkedIssue) => {
         if (linked.repo !== 'Cringe-Driven-Development-Team/frontend') {
             result.skipped++;
@@ -288,7 +284,6 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                 result.skipped++;
                 return;
             }
-            await refresh();
             const target = current.deployed.has(state.closer.number) ? 'Done' : 'Ready for release';
             const reset =
                 status === target &&
@@ -372,7 +367,6 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
         }
     };
     for (let pass = 0; pass < 3; pass++) {
-        const startedVersion = version;
         for (const linked of current.issues) {
             try {
                 await processIssue(linked);
@@ -382,8 +376,9 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                 result.errors.push(message);
             }
         }
-        await refresh();
-        if (version === startedVersion) return result;
+        const nextProduction = await readProductionDeployments();
+        if (JSON.stringify(nextProduction) === JSON.stringify(current.production)) return result;
+        if (pass < 2) current = await readReleaseSnapshot(repoDir, nextProduction);
     }
     result.errors.push('История production менялась три прохода подряд; повторите синхронизацию');
     return result;

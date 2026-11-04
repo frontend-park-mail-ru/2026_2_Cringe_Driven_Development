@@ -38,6 +38,7 @@ export interface PublishedRelease {
 }
 /** Снимок публикаций и всех когда-либо успешных выкаток. */
 export interface ReleaseSnapshot {
+    production: Deployment<ProductionPayload>[];
     published: PublishedRelease[];
     deployed: Set<number>;
     deployedShas: string[];
@@ -231,13 +232,9 @@ async function issuesForPRs(numbers: number[]): Promise<LinkedIssue[]> {
 /** Каталог публикаций и выкаток без закрывающих связей задач. */
 export type ReleaseCatalog = Omit<ReleaseSnapshot, 'issues'>;
 
-/** Проверенные публикации, PR и выкатки без обращения к issues/Project API. */
-export async function readReleaseCatalog(repoDir: string): Promise<ReleaseCatalog> {
-    const main = new Set((await git(repoDir, 'rev-list', 'origin/main')).split('\n'));
-    const [artifacts, rawProduction] = await Promise.all([
-        listDeployments<ArtifactsPayload>('release-artifacts'),
-        listDeploymentRecords<ProductionPayload>('production'),
-    ]);
+/** История выкаток BFF с последними статусами, без пустых environment-записей. */
+export async function readProductionDeployments(): Promise<Deployment<ProductionPayload>[]> {
+    const rawProduction = await listDeploymentRecords<ProductionPayload>('production');
     const production: Deployment<ProductionPayload>[] = [];
     for (const record of rawProduction) {
         const payload = record.payload;
@@ -247,6 +244,19 @@ export async function readReleaseCatalog(repoDir: string): Promise<ReleaseCatalo
         );
         production.push({ ...record, state: statuses[0]?.state });
     }
+    return production;
+}
+
+/** Проверенные публикации, PR и выкатки; переданная production история повторно не читается. */
+export async function readReleaseCatalog(
+    repoDir: string,
+    knownProduction?: Deployment<ProductionPayload>[],
+): Promise<ReleaseCatalog> {
+    const main = new Set((await git(repoDir, 'rev-list', 'origin/main')).split('\n'));
+    const [artifacts, production] = await Promise.all([
+        listDeployments<ArtifactsPayload>('release-artifacts'),
+        knownProduction ?? readProductionDeployments(),
+    ]);
     const prs = new Map<number, MergedPR>(
         (await mergedPRs()).filter((pr) => main.has(pr.mergeSha)).map((pr) => [pr.number, pr]),
     );
@@ -314,6 +324,7 @@ export async function readReleaseCatalog(repoDir: string): Promise<ReleaseCatalo
         if (!deployedShas.includes(record.sha)) deployedShas.push(record.sha);
     }
     return {
+        production,
         published: published.toSorted(
             (a, b) => Date.parse(a.readyAt) - Date.parse(b.readyAt) || a.id - b.id,
         ),
@@ -324,8 +335,11 @@ export async function readReleaseCatalog(repoDir: string): Promise<ReleaseCatalo
 }
 
 /** Полный состав с закрывающими связями задач для синхронизации доски. */
-export async function readReleaseSnapshot(repoDir: string): Promise<ReleaseSnapshot> {
-    const catalog = await readReleaseCatalog(repoDir);
+export async function readReleaseSnapshot(
+    repoDir: string,
+    production?: Deployment<ProductionPayload>[],
+): Promise<ReleaseSnapshot> {
+    const catalog = await readReleaseCatalog(repoDir, production);
     const included = new Set(catalog.published.flatMap((release) => release.prNumbers));
     return { ...catalog, issues: await issuesForPRs([...included]) };
 }

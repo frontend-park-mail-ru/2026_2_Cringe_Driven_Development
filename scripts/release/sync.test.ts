@@ -23,6 +23,57 @@ beforeEach(() => {
 });
 afterEach(() => f.restore());
 
+test.each([false, true])(
+    'entrypoint строит один снимок и сохраняет ошибку финальной проверки: %s',
+    async (failFinal) => {
+        let productionReads = 0;
+        f.extra = (url, body) => {
+            if (
+                url.pathname.endsWith('/deployments') &&
+                url.searchParams.get('environment') === 'production'
+            ) {
+                productionReads++;
+                if (failFinal && productionReads === 2) return Response.json({}, { status: 503 });
+            }
+            if (String(body?.query).includes('ReleaseProject'))
+                return Response.json({
+                    data: {
+                        organization: {
+                            projectV2: {
+                                id: 'P',
+                                viewerCanUpdate: true,
+                                fields: {
+                                    nodes: [
+                                        {
+                                            id: 'F',
+                                            name: 'Status',
+                                            options: [
+                                                { id: 'ready', name: 'Ready for release' },
+                                                { id: 'done', name: 'Done' },
+                                            ],
+                                        },
+                                    ],
+                                    pageInfo: { hasNextPage: false, endCursor: null },
+                                },
+                            },
+                        },
+                    },
+                });
+        };
+        const result = await sync.reconcileBoard(f.dir);
+        expect(result.allowed).toBe(true);
+        if (failFinal) {
+            expect(result.errors).toHaveLength(1);
+            expect(result.errors[0]).toContain('503');
+        } else {
+            expect(result.errors).toEqual([]);
+            expect(result.board).toEqual({ changed: 0, skipped: 0, errors: [] });
+        }
+        expect(productionReads).toBe(2);
+        expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(1);
+    },
+);
+
 test('board entrypoint игнорирует enqueue без чтения данных и записи журнала', async () => {
     process.env.GITHUB_EVENT_NAME = 'pull_request_target';
     writeFileSync(
