@@ -58,26 +58,29 @@ export function LogoutAllSection() {
         if (!pending) setConfirming(false);
     };
 
+    // модалка — вне секции: её backdrop-filter стал бы содержащим блоком для fixed-затемнения
     return (
-        <section className={clsx(styles.section, styles.danger)}>
-            <h2 key="title" className={styles.dangerTitle}>
-                Выход со всех устройств
-            </h2>
-            <p key="warning" className={styles.warning}>
-                <Icon key="icon" name="alert" className={styles.warningIcon} />
-                <span key="text">
-                    Вы выйдете из аккаунта на всех устройствах, включая это. Для продолжения
-                    потребуется войти снова.
-                </span>
-            </p>
-            <Button
-                key="open"
-                variant="danger"
-                loading={pending && !confirming}
-                onClick={() => setConfirming(true)}
-            >
-                Выйти на всех устройствах
-            </Button>
+        <>
+            <section key="section" className={clsx(styles.section, styles.danger)}>
+                <h2 key="title" className={styles.dangerTitle}>
+                    Выход со всех устройств
+                </h2>
+                <p key="warning" className={styles.warning}>
+                    <Icon key="icon" name="alert" className={styles.warningIcon} />
+                    <span key="text">
+                        Вы выйдете из аккаунта на всех устройствах, включая это. Для продолжения
+                        потребуется войти снова.
+                    </span>
+                </p>
+                <Button
+                    key="open"
+                    variant="danger"
+                    loading={pending && !confirming}
+                    onClick={() => setConfirming(true)}
+                >
+                    Выйти на всех устройствах
+                </Button>
+            </section>
             {confirming && (
                 <Modal
                     key="confirm"
@@ -107,6 +110,6 @@ export function LogoutAllSection() {
                     </div>
                 </Modal>
             )}
-        </section>
+        </>
     );
 }
