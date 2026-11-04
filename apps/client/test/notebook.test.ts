@@ -13,7 +13,7 @@ import {
     openNotebook,
     useNotebookStore,
 } from '@stores/notebook';
-import { fakeRpc, held, ok } from './fakeRpc';
+import { fakeRpc, held, ok, settle } from './fakeRpc';
 
 const code = (id: string, source = ''): Cell => ({
     id,
@@ -31,7 +31,6 @@ let rpc: ReturnType<typeof fakeRpc>;
 const state = () => useNotebookStore.getState();
 const inputs = (path: string) => rpc.calls.filter((c) => c.path === path).map((c) => c.input);
 const wait = (ms: number) => Bun.sleep(ms);
-const settle = () => wait(5);
 const updated = (hash: string, id: string, source: string) => () =>
     ok({ hash, cell: { id, kind: 'code', source } });
 

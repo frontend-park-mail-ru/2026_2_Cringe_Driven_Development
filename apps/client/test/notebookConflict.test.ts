@@ -20,7 +20,7 @@ import {
     structureLocked,
     useNotebookStore,
 } from '@stores/notebook';
-import { fakeRpc, held, ok, rpcError } from './fakeRpc';
+import { fakeRpc, held, ok, rpcError, settle } from './fakeRpc';
 
 const md = (id: string, source = ''): Cell => ({ id, kind: 'markdown', source });
 const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
@@ -30,7 +30,6 @@ const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
 let rpc: ReturnType<typeof fakeRpc>;
 const state = () => useNotebookStore.getState();
 const inputs = (path: string) => rpc.calls.filter((c) => c.path === path).map((c) => c.input);
-const settle = () => Bun.sleep(10);
 const conflict = () => rpcError('CONFLICT', 409, 'notebook_conflict');
 const saved = (hash: string) => (input: unknown) =>
     ok({

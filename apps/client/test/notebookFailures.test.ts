@@ -10,7 +10,7 @@ import {
     retry,
     useNotebookStore,
 } from '@stores/notebook';
-import { fakeRpc, ok, rpcError } from './fakeRpc';
+import { fakeRpc, ok, rpcError, settle } from './fakeRpc';
 
 const code = (id: string, source = ''): Cell => ({
     id,
@@ -27,7 +27,6 @@ const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
 let rpc: ReturnType<typeof fakeRpc>;
 const state = () => useNotebookStore.getState();
 const inputs = (path: string) => rpc.calls.filter((c) => c.path === path).map((c) => c.input);
-const settle = () => Bun.sleep(10);
 const network = () => 'network' as const;
 const save = (cellId: string, text: string) => {
     editSource(cellId, text, false);

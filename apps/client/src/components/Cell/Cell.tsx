@@ -5,6 +5,14 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { clsx } from '@cdd-team/clsx';
 import styles from './Cell.module.css';
 
+// Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
+function fitHeight(element: HTMLElement): void {
+    element.style.height = 'auto';
+    // полоса горизонтальной прокрутки кода не должна закрывать последнюю строку
+    const scrollbar = element.offsetHeight - element.clientHeight;
+    element.style.height = `${element.scrollHeight + scrollbar}px`;
+}
+
 /** Свойства {@link Cell}. */
 interface CellProps {
     cell: CellData;
@@ -58,22 +66,20 @@ export function Cell({
     const isCode = cell.kind === 'code';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
 
-    // высота по содержимому: своей вертикальной прокрутки у редактора нет
+    // наблюдатель ширины — один на ячейку, не на каждый ввод
     useLayoutEffect(() => {
         const element = document.getElementById(cellEditorId(cell.id));
         if (!element) return;
         // проверка орфографии подчёркивала бы код; атрибута в типах JSX нет
         element.spellcheck = false;
-        const fit = () => {
-            element.style.height = 'auto';
-            // полоса горизонтальной прокрутки кода не должна закрывать последнюю строку
-            const scrollbar = element.offsetHeight - element.clientHeight;
-            element.style.height = `${element.scrollHeight + scrollbar}px`;
-        };
-        fit();
-        const observer = new ResizeObserver(fit);
+        const observer = new ResizeObserver(() => fitHeight(element));
         observer.observe(element);
         return () => observer.disconnect();
+    }, [cell.id]);
+
+    useLayoutEffect(() => {
+        const element = document.getElementById(cellEditorId(cell.id));
+        if (element) fitHeight(element);
     }, [text, cell.id]);
 
     return (

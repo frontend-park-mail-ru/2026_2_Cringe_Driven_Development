@@ -3,7 +3,10 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import type { Cell, NotebookPageData } from '@api/trpc';
 import {
     AUTOSAVE_DELAY_MS,
+    addCell,
     closeNotebook,
+    leaveNotebook,
+    structureLocked,
     commitSource,
     deleteCell,
     editSource,
@@ -11,7 +14,7 @@ import {
     retry,
     useNotebookStore,
 } from '@stores/notebook';
-import { fakeRpc, held, ok } from './fakeRpc';
+import { fakeRpc, held, ok, rpcError, settle } from './fakeRpc';
 
 const md = (id: string, source = ''): Cell => ({ id, kind: 'markdown', source });
 const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
@@ -21,7 +24,6 @@ const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
 let rpc: ReturnType<typeof fakeRpc>;
 const state = () => useNotebookStore.getState();
 const paths = () => rpc.calls.map((c) => c.path);
-const settle = () => Bun.sleep(10);
 const reply = (hash: string) => (input: unknown) =>
     ok({ hash, cell: { id: (input as { cellId: string }).cellId, kind: 'markdown', source: '' } });
 
@@ -83,4 +85,78 @@ test('«Повторить» во время автоматической све
     expect(paths().filter((p) => p === 'notebooks.get')).toHaveLength(1);
     expect(state().conflict).toEqual({ phase: 'none' });
     expect(state().confirmed?.hash).toBe('h1');
+});
+
+test('после too_many_cells следующая правка в полёте учитывается — откат не теряется', async () => {
+    openNotebook(page([md('a', 'X')]));
+    const update = held(ok({ hash: 'h1', cell: { id: 'a', kind: 'markdown', source: 'Xa' } }));
+    rpc.on('cells.create', () => rpcError('CONFLICT', 409, 'too_many_cells'));
+    rpc.on('cells.update', update.handler, reply('h2'));
+    const created = addCell('markdown');
+    editSource('a', 'Xa', false);
+    commitSource('a');
+    expect(await created).toBeUndefined();
+    await settle();
+    editSource('a', 'X', false);
+    commitSource('a');
+    update.release();
+    await settle();
+    expect(state().confirmed?.cells[0]?.source).toBe('X');
+});
+
+test('повторная ошибка чтения после «Повторить» снова сообщает об ошибке', async () => {
+    openNotebook(page([md('a')]));
+    rpc.on('cells.update', () => 'network');
+    rpc.on('notebooks.get', () => 'network');
+    editSource('a', 'x', false);
+    commitSource('a');
+    await settle();
+    const first = state().failure;
+    await retry();
+    expect(state().error).toBe('save');
+    expect(state().failure).toBeGreaterThan(first);
+});
+
+test('уход со страницы сразу отправляет несохранённые правки', async () => {
+    openNotebook(page([md('a')]));
+    rpc.on('cells.update', reply('h1'));
+    editSource('a', 'не успел', false);
+    leaveNotebook();
+    await settle();
+    expect(rpc.calls.filter((c) => c.path === 'cells.update')).toHaveLength(1);
+});
+
+test('удаление не прошло — черновик ячейки снова уходит на сохранение', async () => {
+    openNotebook(page([md('a')]));
+    rpc.on('cells.delete', () => rpcError('FORBIDDEN', 403, 'forbidden'));
+    rpc.on('notebooks.get', () => ok(page([md('a')], 'h1')));
+    rpc.on('cells.update', reply('h2'));
+    editSource('a', 'черновик', false);
+    expect(await deleteCell('a')).toBe(false);
+    await retry();
+    await settle();
+    expect(rpc.calls.filter((c) => c.path === 'cells.update').map((c) => c.input)).toEqual([
+        { notebookId: 1, hash: 'h1', cellId: 'a', source: 'черновик' },
+    ]);
+});
+
+test('при ошибке сохранения структурные действия заблокированы', async () => {
+    openNotebook(page([md('a')]));
+    rpc.on('cells.update', () => 'network');
+    rpc.on('notebooks.get', () => 'network');
+    editSource('a', 'x', false);
+    commitSource('a');
+    await settle();
+    expect(structureLocked(state())).toBe(true);
+});
+
+test('промис операции в полёте завершается при закрытии блокнота', async () => {
+    openNotebook(page([md('a')]));
+    const removal = held(ok({ hash: 'h1' }));
+    rpc.on('cells.delete', removal.handler);
+    const deleted = deleteCell('a');
+    await settle();
+    closeNotebook();
+    expect(await deleted).toBe(false);
+    removal.release();
 });

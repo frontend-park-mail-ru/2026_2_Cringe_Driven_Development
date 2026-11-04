@@ -80,3 +80,11 @@ export function fakeRpc() {
         },
     };
 }
+
+/**
+ * Даёт отработать цепочке «fetch → tRPC → стор»: ей нужно несколько оборотов цикла событий, одной
+ * паузы под нагрузкой не хватает.
+ */
+export async function settle(): Promise<void> {
+    for (let turn = 0; turn < 10; turn++) await Bun.sleep(2);
+}

@@ -53,6 +53,8 @@ interface NotebookState {
     /** Идёт или ждёт структурная операция: добавление, перемещение, удаление */
     structureBusy: boolean;
     error: NotebookError | null;
+    /** Растёт при каждой ошибке сохранения или чтения: страница снова показывает «Повторить» */
+    failure: number;
     conflict: Conflict;
     orphans: Orphan[];
 }
@@ -66,6 +68,7 @@ const empty = (): NotebookState => ({
     status: 'idle',
     structureBusy: false,
     error: null,
+    failure: 0,
     conflict: { phase: 'none' },
     orphans: [],
 });
@@ -110,6 +113,7 @@ const clearTimers = (): void => {
 
 const reset = (): void => {
     generation++;
+    inflight?.done(undefined);
     inflight = null;
     reconciling = false;
     clearTimers();
@@ -162,10 +166,16 @@ export function onSaved(listener: (snapshot: Snapshot) => void): () => void {
 /**
  * Заблокированы ли добавление, перемещение и удаление ячеек.
  * @param state состояние стора
- * @returns true во время структурной операции и пока конфликт не разрешён
+ * @returns true во время структурной операции, пока конфликт не разрешён и пока сохранение стоит
+ *   из-за ошибки
  */
 export function structureLocked(state: NotebookState): boolean {
-    return state.structureBusy || state.conflict.phase !== 'none';
+    return (
+        state.structureBusy ||
+        state.conflict.phase !== 'none' ||
+        state.error === 'save' ||
+        state.error === 'notebook_gone'
+    );
 }
 
 /**
@@ -181,6 +191,14 @@ export function openNotebook(page: NotebookPageData): void {
         meta: { name, created_at, updated_at },
         confirmed: { hash, cells },
     });
+}
+
+/**
+ * Уход со страницы блокнота: несохранённые правки отправляются сразу, очередь дорабатывает в фоне.
+ * Ответы не попадут в другой блокнот — его открытие начинает новое поколение.
+ */
+export function leaveNotebook(): void {
+    for (const cellId of Object.keys(get().drafts)) commitSource(cellId);
 }
 
 /** Закрывает блокнот: ожидающие и поздние ответы больше ничего не меняют. */
@@ -304,6 +322,8 @@ export async function deleteCell(cellId: string): Promise<boolean> {
     deleting.add(cellId);
     const deleted = (await structural({ type: 'delete', cellId })) === true;
     deleting.delete(cellId);
+    // ячейка осталась: её черновик снова ждёт сохранения
+    if (!deleted) commitSource(cellId);
     return deleted;
 }
 
@@ -405,7 +425,8 @@ async function run(): Promise<void> {
             active = null;
             return failed(job, error);
         } finally {
-            if (live()) inflight = null;
+            // failed() мог уже запустить очередь заново: её операцию не трогаем
+            if (inflight === job) inflight = null;
         }
         if (live() && job.op.type !== 'update') set({ structureBusy: structureQueued() });
     }
@@ -440,7 +461,7 @@ function failed(job: Job, error: unknown): void {
     pending = code === undefined || UNKNOWN_RESULT.has(code) ? job : null;
     if (!pending) job.done(undefined);
     finishResolving(false);
-    set({ error: 'save' });
+    set({ error: 'save', failure: get().failure + 1 });
     refreshStatus();
     void reconcile();
 }
@@ -462,7 +483,10 @@ async function load(live: () => boolean): Promise<Loaded | null> {
 }
 
 const loadFailed = (result: { error: 'gone' | 'failed' }): void => {
-    set({ error: result.error === 'gone' ? 'notebook_gone' : 'save' });
+    set({
+        error: result.error === 'gone' ? 'notebook_gone' : 'save',
+        failure: get().failure + 1,
+    });
     refreshStatus();
 };
 

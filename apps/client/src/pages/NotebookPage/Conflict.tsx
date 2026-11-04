@@ -57,12 +57,18 @@ export function ConflictBanner({ className }: ConflictBannerProps) {
                 </p>
             </div>
             {conflict.phase === 'failed' ? (
-                <Button key="retry" variant="secondary" onClick={() => void retryConflictLoad()}>
+                <Button
+                    key="retry"
+                    variant="secondary"
+                    className={styles.action}
+                    onClick={() => void retryConflictLoad()}
+                >
                     Повторить
                 </Button>
             ) : (
                 <Button
                     key="resolve"
+                    className={styles.action}
                     disabled={conflict.phase === 'loading'}
                     onClick={openConflictDialog}
                 >

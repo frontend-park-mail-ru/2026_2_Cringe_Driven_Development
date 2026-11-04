@@ -14,7 +14,7 @@ import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
 import {
     addCell,
-    closeNotebook,
+    leaveNotebook,
     commitSource,
     deleteCell,
     editSource,
@@ -59,8 +59,13 @@ const STATUS: Partial<Record<SaveState, { tone: SaveStatusTone; text: string }>>
     conflict: { tone: 'error', text: 'Конфликт сохранения: файл изменён в другой вкладке' },
 };
 
+// «+ Код» в шапке: есть всегда, в том числе в пустом блокноте
+const ADD_CODE_ID = 'add-code';
+
 /** Свойства {@link AddCellChips}. */
 interface AddCellChipsProps {
+    /** id чипа «+ Код»: у чипов в шапке */
+    codeId?: string;
     disabled: boolean;
     onAdd: (kind: CellKind) => void;
 }
@@ -70,10 +75,10 @@ interface AddCellChipsProps {
  * @param props свойства чипов
  * @returns чипы
  */
-function AddCellChips({ disabled, onAdd }: AddCellChipsProps) {
+function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
     return (
         <>
-            <Chip key="code" disabled={disabled} onClick={() => onAdd('code')}>
+            <Chip key="code" id={codeId} disabled={disabled} onClick={() => onAdd('code')}>
                 Код
             </Chip>
             <Chip key="markdown" disabled={disabled} onClick={() => onAdd('markdown')}>
@@ -91,7 +96,7 @@ const focusCell = (id: string | undefined): void => {
         target.closest('li')?.scrollIntoView({ block: 'nearest' });
         return;
     }
-    document.querySelector<HTMLButtonElement>(`.${styles.add} button`)?.focus();
+    document.getElementById(ADD_CODE_ID)?.focus();
 };
 
 /**
@@ -148,7 +153,8 @@ export function NotebookPage() {
         };
     }, [id, attempt, navigate]);
 
-    useEffect(() => () => closeNotebook(), [id]);
+    // уход со страницы: несохранённое отправляется сразу, очередь дорабатывает в фоне
+    useEffect(() => () => leaveNotebook(), [id]);
 
     // Несохранённый текст: браузер предупредит перед уходом и перезагрузкой
     const unsaved = notebook.status !== 'idle' && notebook.status !== 'saved';
@@ -228,7 +234,13 @@ export function NotebookPage() {
                 <Header
                     key="header"
                     toolbar={
-                        hasToolbar && <AddCellChips disabled={!ready || locked} onAdd={handleAdd} />
+                        hasToolbar && (
+                            <AddCellChips
+                                codeId={ADD_CODE_ID}
+                                disabled={!ready || locked}
+                                onAdd={handleAdd}
+                            />
+                        )
                     }
                 >
                     <IconButton
