@@ -5,6 +5,7 @@ import {
     applyDelete,
     applyMove,
     applyUpdate,
+    sameStructure,
     utf8Bytes,
     type Snapshot,
 } from './snapshot';
@@ -22,6 +23,14 @@ export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conf
 /** Ошибка, о которой нужно сообщить на странице. */
 export type NotebookError = 'save' | 'load' | 'notebook_gone' | 'too_many_cells';
 
+/** Конфликт сохранения: пока он не разрешён, фронтовая очередь сохранения стоит. */
+export type Conflict =
+    | { phase: 'none' }
+    | { phase: 'loading' }
+    | { phase: 'failed' }
+    | { phase: 'ready'; snapshot: Snapshot; dialogOpen: boolean }
+    | { phase: 'resolving'; snapshot: Snapshot; choice: 'server' | 'mine' };
+
 interface NotebookState {
     /** Открытый блокнот; null — страница блокнота не открыта */
     notebookId: number | null;
@@ -36,6 +45,7 @@ interface NotebookState {
     /** Идёт или ждёт структурная операция: добавление, перемещение, удаление */
     structureBusy: boolean;
     error: NotebookError | null;
+    conflict: Conflict;
 }
 
 const empty = (): NotebookState => ({
@@ -47,6 +57,7 @@ const empty = (): NotebookState => ({
     status: 'idle',
     structureBusy: false,
     error: null,
+    conflict: { phase: 'none' },
 });
 
 /** Стор открытого блокнота: снимок, черновики, очередь сохранения и её статус. */
@@ -68,6 +79,8 @@ let generation = 0;
 let queue: Job[] = [];
 // Поколение, чья очередь сейчас выполняется; null — очередь стоит
 let active: number | null = null;
+// Операция, результат которой неизвестен после сбоя сети или 5xx: ждёт сверки со снимком
+let pending: Job | null = null;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -80,8 +93,20 @@ const clearTimers = (): void => {
 const reset = (): void => {
     generation++;
     clearTimers();
-    for (const job of queue) job.done(undefined);
+    dropQueue();
+};
+
+// Сброс очереди: структурные операции не воспроизводятся, правки снова берутся из черновиков
+function dropQueue(): void {
+    for (const job of [...queue, ...(pending ? [pending] : [])]) job.done(undefined);
     queue = [];
+    pending = null;
+}
+
+// Очередь стоит при конфликте и при ошибке, требующей перечитывания
+const paused = (): boolean => {
+    const { conflict, error } = get();
+    return conflict.phase !== 'none' || error === 'save' || error === 'notebook_gone';
 };
 
 /**
@@ -110,8 +135,9 @@ const sourceOf = (cellId: string): string | undefined =>
 
 // Статус шапки по текущему состоянию; saved — только когда сохранять больше нечего
 const refreshStatus = (justSaved = false): void => {
-    const { error, drafts } = get();
-    if (error === 'save') return set({ status: 'error' });
+    const { error, drafts, conflict } = get();
+    if (conflict.phase !== 'none') return set({ status: 'conflict' });
+    if (error === 'save' || error === 'notebook_gone') return set({ status: 'error' });
     if (active === generation || queue.length > 0) return set({ status: 'saving' });
     if (Object.keys(drafts).length > 0) return set({ status: 'dirty' });
     if (justSaved) {
@@ -178,7 +204,8 @@ const structural = (op: Op): Promise<string | boolean | undefined> => {
  * @returns id новой ячейки или `undefined`, если добавить нельзя или не удалось
  */
 export async function addCell(kind: Cell['kind']): Promise<string | undefined> {
-    if (!get().confirmed || get().structureBusy) return undefined;
+    if (!get().confirmed || get().structureBusy || paused()) return undefined;
+    if (get().error === 'too_many_cells') set({ error: null });
     const result = await structural({ type: 'create', kind });
     return typeof result === 'string' ? result : undefined;
 }
@@ -192,7 +219,13 @@ export async function addCell(kind: Cell['kind']): Promise<string | undefined> {
 export async function moveCell(cellId: string, direction: -1 | 1): Promise<boolean> {
     const cells = get().confirmed?.cells ?? [];
     const index = cells.findIndex((c) => c.id === cellId) + direction;
-    if (get().structureBusy || index < 0 || index >= cells.length || index - direction < 0) {
+    if (
+        get().structureBusy ||
+        paused() ||
+        index < 0 ||
+        index >= cells.length ||
+        index - direction < 0
+    ) {
         return false;
     }
     return (await structural({ type: 'move', cellId, index })) === true;
@@ -204,11 +237,48 @@ export async function moveCell(cellId: string, direction: -1 | 1): Promise<boole
  * @returns подтвердил ли сервер удаление
  */
 export async function deleteCell(cellId: string): Promise<boolean> {
-    if (get().structureBusy || sourceOf(cellId) === undefined) return false;
+    if (get().structureBusy || paused() || sourceOf(cellId) === undefined) return false;
     clearTimeout(timers.get(cellId));
     timers.delete(cellId);
     queue = queue.filter((job) => !(job.op.type === 'update' && job.op.cellId === cellId));
     return (await structural({ type: 'delete', cellId })) === true;
+}
+
+// Подтверждённая операция: новый снимок, черновик снимается, только если он равен отправленному
+function commit(job: Job, confirmed: Snapshot, createdId?: string): void {
+    const { op } = job;
+    const drafts = { ...get().drafts };
+    const tooLarge = { ...get().tooLarge };
+    if (op.type === 'update' && drafts[op.cellId] === op.source) delete drafts[op.cellId];
+    if (op.type === 'delete') {
+        delete drafts[op.cellId];
+        delete tooLarge[op.cellId];
+    }
+    set({ confirmed, drafts, tooLarge });
+    job.done(op.type === 'create' ? createdId : true);
+}
+
+// Снимок после операции, если она применилась; для create — и id созданной ячейки
+function expectedAfter(
+    confirmed: Snapshot,
+    op: Op,
+    server: Snapshot,
+): { snapshot: Snapshot; createdId?: string } | null {
+    switch (op.type) {
+        case 'update':
+            return { snapshot: applyUpdate(confirmed, server.hash, op.cellId, op.source) };
+        case 'move':
+            return { snapshot: applyMove(confirmed, server.hash, op.cellId, op.index) };
+        case 'delete':
+            return { snapshot: applyDelete(confirmed, server.hash, op.cellId) };
+        case 'create': {
+            const known = new Set(confirmed.cells.map((c) => c.id));
+            const added = server.cells.filter((c) => !known.has(c.id));
+            if (added.length !== 1) return null;
+            const cell = { id: added[0]!.id, kind: op.kind, source: '' };
+            return { snapshot: applyCreate(confirmed, server.hash, cell), createdId: cell.id };
+        }
+    }
 }
 
 // Одна операция с текущим hash; ответ применяется, только если блокнот не сменился
@@ -218,49 +288,41 @@ async function execute(job: Job, notebookId: number, hash: string, live: () => b
         case 'update': {
             const { cellId, source } = op;
             const res = await trpc.cells.update.mutate({ notebookId, hash, cellId, source });
-            if (!live()) return;
-            const drafts = { ...get().drafts };
-            if (drafts[cellId] === source) delete drafts[cellId];
-            set({ confirmed: applyUpdate(get().confirmed!, res.hash, cellId, source), drafts });
+            if (live()) commit(job, applyUpdate(get().confirmed!, res.hash, cellId, source));
             return;
         }
         case 'create': {
             const { kind } = op;
             const res = await trpc.cells.create.mutate({ notebookId, hash, kind, source: '' });
-            if (!live()) return;
             const cell = { id: res.cell.id, kind, source: '' };
-            set({ confirmed: applyCreate(get().confirmed!, res.hash, cell) });
-            return job.done(res.cell.id);
+            if (live()) commit(job, applyCreate(get().confirmed!, res.hash, cell), cell.id);
+            return;
         }
         case 'move': {
             const { cellId, index } = op;
             const res = await trpc.cells.move.mutate({ notebookId, hash, cellId, index });
-            if (!live()) return;
-            set({ confirmed: applyMove(get().confirmed!, res.hash, cellId, index) });
-            return job.done(true);
+            if (live()) commit(job, applyMove(get().confirmed!, res.hash, cellId, index));
+            return;
         }
         case 'delete': {
             const { cellId } = op;
             const res = await trpc.cells.delete.mutate({ notebookId, hash, cellId });
-            if (!live()) return;
-            const drafts = { ...get().drafts };
-            const tooLarge = { ...get().tooLarge };
-            delete drafts[cellId];
-            delete tooLarge[cellId];
-            set({ confirmed: applyDelete(get().confirmed!, res.hash, cellId), drafts, tooLarge });
-            return job.done(true);
+            if (live()) commit(job, applyDelete(get().confirmed!, res.hash, cellId));
+            return;
         }
     }
 }
 
+const structureQueued = (): boolean => queue.some((j) => j.op.type !== 'update');
+
 // Очередь одного блокнота: строго по одной операции, каждая с hash предыдущего ответа
 async function run(): Promise<void> {
-    if (active === generation) return;
+    if (active === generation || paused()) return;
     const started = generation;
     const live = () => started === generation;
     active = started;
     refreshStatus();
-    while (live() && queue.length > 0) {
+    while (live() && !paused() && queue.length > 0) {
         const job = queue.shift()!;
         const { notebookId, confirmed } = get();
         if (notebookId === null || !confirmed) break;
@@ -268,25 +330,119 @@ async function run(): Promise<void> {
             await execute(job, notebookId, confirmed.hash, live);
         } catch (error) {
             if (!live()) break;
-            job.done(undefined);
             active = null;
-            return fail(error);
+            return failed(job, error);
         }
-        if (live() && job.op.type !== 'update') {
-            set({ structureBusy: queue.some((j) => j.op.type !== 'update') });
-        }
+        if (live() && job.op.type !== 'update') set({ structureBusy: structureQueued() });
     }
     if (active !== started) return;
     active = null;
-    if (live()) refreshStatus(true);
+    if (live()) refreshStatus(!paused());
 }
 
-// Сбой сохранения: очередь останавливается, черновики остаются (сверка — отдельным шагом)
-function fail(error: unknown): void {
-    for (const job of queue) job.done(undefined);
-    queue = [];
+// Категории ошибок, после которых запись могла состояться
+const UNKNOWN_RESULT = new Set([
+    'BAD_GATEWAY',
+    'INTERNAL_SERVER_ERROR',
+    'TIMEOUT',
+    'SERVICE_UNAVAILABLE',
+]);
+
+// Сбой операции. Сеть и 5xx: запись могла состояться — перечитать и сверить, вслепую не повторять
+function failed(job: Job, error: unknown): void {
+    const code = isRpcError(error) ? error.data?.code : undefined;
     const appCode = isRpcError(error) ? error.data?.appCode : undefined;
-    if (appCode === 'too_many_cells') set({ error: 'too_many_cells', structureBusy: false });
-    else set({ error: 'save', structureBusy: false });
+    if (appCode === 'too_many_cells') {
+        job.done(undefined);
+        set({ error: 'too_many_cells', structureBusy: structureQueued() });
+        return void run();
+    }
+    if (appCode === 'notebook_conflict' || code === 'NOT_FOUND') {
+        job.done(undefined);
+        return void startConflict();
+    }
+    pending = code === undefined || UNKNOWN_RESULT.has(code) ? job : null;
+    if (!pending) job.done(undefined);
+    set({ error: 'save' });
     refreshStatus();
+    void reconcile();
+}
+
+type Loaded = { snapshot: Snapshot } | { error: 'gone' | 'failed' };
+
+// Свежий снимок блокнота; ошибка чтения не стирает экран
+async function load(live: () => boolean): Promise<Loaded | null> {
+    const id = get().notebookId;
+    if (id === null) return null;
+    try {
+        const { notebook } = await trpc.notebooks.get.query({ id });
+        return live() ? { snapshot: { hash: notebook.hash, cells: notebook.cells } } : null;
+    } catch (error) {
+        if (!live()) return null;
+        const gone = isRpcError(error) && error.data?.code === 'NOT_FOUND';
+        return { error: gone ? 'gone' : 'failed' };
+    }
+}
+
+const loadFailed = (result: { error: 'gone' | 'failed' }): void => {
+    set({ error: result.error === 'gone' ? 'notebook_gone' : 'save' });
+    refreshStatus();
+};
+
+// Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений
+async function reconcile(): Promise<void> {
+    const started = generation;
+    const result = await load(() => started === generation);
+    if (!result) return;
+    if ('error' in result) return loadFailed(result);
+    const server = result.snapshot;
+    const confirmed = get().confirmed!;
+    const job = pending;
+    pending = null;
+    const expected = job ? expectedAfter(confirmed, job.op, server) : null;
+    if (job && expected && sameStructure(server, expected.snapshot)) {
+        set({ error: null });
+        commit(job, server, expected.createdId);
+    } else if (sameStructure(server, confirmed)) {
+        set({ error: null, confirmed: server });
+        if (job) queue.unshift(job);
+    } else {
+        job?.done(undefined);
+        set({ error: null });
+        return enterConflict(server);
+    }
+    set({ structureBusy: structureQueued() });
+    if (queue.length > 0) return void run();
+    refreshStatus(true);
+}
+
+/** Повтор после ошибки сохранения или чтения: снова перечитать и сверить, без слепой записи. */
+export async function retry(): Promise<void> {
+    if (get().error === 'save') await reconcile();
+}
+
+// Конфликт с уже полученным снимком: диалог выбора версии открывается сразу
+function enterConflict(snapshot: Snapshot): void {
+    dropQueue();
+    set({ conflict: { phase: 'ready', snapshot, dialogOpen: true }, structureBusy: false });
+    refreshStatus();
+}
+
+// 409 notebook_conflict: очередь стоит, черновики остаются, загружается свежий снимок
+async function startConflict(): Promise<void> {
+    dropQueue();
+    set({ conflict: { phase: 'loading' }, structureBusy: false });
+    refreshStatus();
+    const started = generation;
+    const result = await load(() => started === generation);
+    if (!result) return;
+    if ('error' in result && result.error === 'gone') {
+        set({ conflict: { phase: 'none' } });
+        return loadFailed(result);
+    }
+    if ('error' in result) {
+        set({ conflict: { phase: 'failed' } });
+        return refreshStatus();
+    }
+    enterConflict(result.snapshot);
 }
