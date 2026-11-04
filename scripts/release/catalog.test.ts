@@ -1,104 +1,13 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { readReleaseSnapshot, readTrustedRun } from './catalog.ts';
-import * as catalog from './catalog.ts';
-import { graphql, listDeploymentStatuses } from './github.ts';
-import { fixture, IMAGE } from './test/fixture.ts';
+import { linkedIssues, readTrustedRun } from './catalog.ts';
+import { graphql } from './github.ts';
+import { fixture, REPO } from './test/fixture.ts';
 
 let f: ReturnType<typeof fixture>;
 beforeEach(() => {
     f = fixture();
 });
 afterEach(() => f.restore());
-
-test('снимок использует переданную production историю без повторных HTTP-запросов', async () => {
-    f.publish();
-    f.deploy();
-    const production = await catalog.readProductionDeployments();
-    f.requests.length = 0;
-    const snapshot = await readReleaseSnapshot(f.dir, production);
-    expect(snapshot.production).toEqual(production);
-    expect([...snapshot.deployed]).toEqual([1]);
-    expect(
-        f.requests.some(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
-        ),
-    ).toBe(false);
-    expect(f.requests.some((r) => r.url.pathname.endsWith('/deployments/20/statuses'))).toBe(false);
-});
-
-test('переданная пустая production история не заменяется повторным чтением', async () => {
-    f.publish();
-    f.deploy();
-    const snapshot = await readReleaseSnapshot(f.dir, []);
-    expect(snapshot.production).toEqual([]);
-    expect([...snapshot.deployed]).toEqual([]);
-    expect(
-        f.requests.some(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
-        ),
-    ).toBe(false);
-    expect(f.requests.some((r) => r.url.pathname.endsWith('/deployments/20/statuses'))).toBe(false);
-});
-
-test('обычный снимок читает production и его статус один раз', async () => {
-    f.publish();
-    f.deploy();
-    const snapshot = await readReleaseSnapshot(f.dir);
-    expect(snapshot.production).toMatchObject([{ id: 20, sha: f.a, state: 'success' }]);
-    expect([...snapshot.deployed]).toEqual([1]);
-    expect(
-        f.requests.filter(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
-        ),
-    ).toHaveLength(1);
-    expect(
-        f.requests.filter((r) => r.url.pathname.endsWith('/deployments/20/statuses')),
-    ).toHaveLength(1);
-});
-
-test('выпуск включает merged PR по графу, включая base другой ветки', async () => {
-    f.publish();
-    f.deploy();
-    const result = await readReleaseSnapshot(f.dir);
-    expect(result.published.find((release) => release.sha === f.b)?.prNumbers).toEqual([1, 2]);
-    expect([...result.deployed]).toEqual([1]);
-    expect(result.issues.map((issue) => issue.number)).toEqual([1, 2]);
-});
-
-test('незавершённая публикация не создаёт готовый выпуск', async () => {
-    f.publish();
-    f.statuses.set(1, [{ state: 'in_progress', created_at: '2026-11-01T02:00:00Z' }]);
-    expect((await readReleaseSnapshot(f.dir)).published).toEqual([]);
-});
-
-test('автоматическая environment запись без контракта BFF не является выкаткой', async () => {
-    f.publish();
-    f.deploy();
-    f.records.production!.push({
-        id: 99,
-        sha: f.b,
-        payload: {},
-        created_at: '2026-11-01T04:00:00Z',
-    });
-    f.statuses.set(99, [{ state: 'success', created_at: '2026-11-01T04:00:00Z' }]);
-    expect([...(await readReleaseSnapshot(f.dir)).deployed]).toEqual([1]);
-});
-
-test('один SHA с разными digest и выпуск вне main отклоняются', async () => {
-    f.publish();
-    const row = f.publish(f.b, 2);
-    row.payload.image_ref = IMAGE.replace(/a{64}$/, 'b'.repeat(64));
-    await expect(readReleaseSnapshot(f.dir)).rejects.toThrow('разными образами');
-    f.records['release-artifacts'] = [];
-    f.publish(f.outside);
-    await expect(readReleaseSnapshot(f.dir)).rejects.toThrow('main');
-});
 
 test('доверенный CI/CD определяется источником, а не общим conclusion', async () => {
     f.publish();
@@ -120,22 +29,6 @@ test('доверенный CI/CD определяется источником, 
     }
 });
 
-test('URL чужого run не используется для внешнего запроса', async () => {
-    const row = f.publish();
-    row.payload.ci_run = 'https://evil.invalid/actions/runs/1';
-    await expect(readReleaseSnapshot(f.dir)).rejects.toThrow();
-    expect(f.requests.some((request) => request.url.hostname === 'evil.invalid')).toBe(false);
-});
-
-test('вся production история сохраняет ранее выкаченные изменения при откате', async () => {
-    f.publish();
-    f.deploy(f.b);
-    const old = f.deploy(f.a, 21);
-    old.payload.action = 'rollback';
-    f.runs.set(21, { ...f.runs.get(21), workflow_id: 102, path: '.github/workflows/rollback.yml' });
-    expect([...(await readReleaseSnapshot(f.dir)).deployed]).toEqual([1, 2]);
-});
-
 test('GraphQL errors при HTTP 200 не становятся пустым результатом', async () => {
     f.extra = (url) =>
         url.pathname === '/graphql'
@@ -146,28 +39,11 @@ test('GraphQL errors при HTTP 200 не становятся пустым ре
     );
 });
 
-test('все страницы statuses и PR/closing issues читаются целиком', async () => {
-    f.publish();
-    f.statuses.set(
-        1,
-        Array.from({ length: 101 }, (_, i) => ({
-            state: i === 100 ? 'success' : 'pending',
-            created_at: '2026-11-01T02:00:00Z',
-            description: '',
-        })),
-    );
-    expect(await listDeploymentStatuses(1)).toHaveLength(101);
-    f.statuses.set(1, [{ state: 'success', created_at: '2026-11-01T02:00:00Z', description: '' }]);
-    const original = f.pulls[0]!;
-    f.pulls.splice(
-        0,
-        f.pulls.length,
-        ...Array.from({ length: 230 }, (_, i) => ({ ...original, number: i + 1 })),
-    );
+test('closing links retain every page and PR association', async () => {
     f.extra = (url, body) => {
         if (url.pathname !== '/graphql') return;
-        const variables = body?.variables as { number: number; cursor?: string };
-        const second = Boolean(variables.cursor);
+        const vars = body?.variables as { number: number; cursor?: string };
+        const second = Boolean(vars.cursor);
         return Response.json({
             data: {
                 repository: {
@@ -175,64 +51,38 @@ test('все страницы statuses и PR/closing issues читаются ц�
                         closingIssuesReferences: {
                             nodes: [
                                 {
-                                    id: `I${variables.number}-${second}`,
-                                    number: variables.number * 2 + Number(second),
-                                    title: 'BFF. Test',
-                                    repository: { nameWithOwner: process.env.GITHUB_REPOSITORY },
+                                    id: second ? 'I2' : 'I1',
+                                    number: second ? 2 : 1,
+                                    title: 'Issue',
+                                    repository: { nameWithOwner: REPO },
                                 },
                             ],
-                            pageInfo: { hasNextPage: !second, endCursor: 'next' },
+                            pageInfo: { hasNextPage: !second, endCursor: second ? null : 'next' },
                         },
                     },
                 },
             },
         });
     };
-    const snapshot = await readReleaseSnapshot(f.dir);
-    expect(snapshot.published[0]?.prNumbers).toHaveLength(230);
-    expect(snapshot.issues).toHaveLength(460);
+    expect(await linkedIssues(7)).toEqual([
+        { id: 'I1', number: 1, title: 'Issue', repo: REPO, prNumbers: [7] },
+        { id: 'I2', number: 2, title: 'Issue', repo: REPO, prNumbers: [7] },
+    ]);
 });
 
-test('каталог без задач сохраняет состав и отбрасывает пустые production до чтения статусов', async () => {
-    f.publish();
-    f.deploy();
-    f.records.production!.push({
-        id: 99,
-        sha: f.b,
-        payload: {},
-        created_at: '2026-11-01T04:00:00Z',
-    });
-    const result = await catalog.readReleaseCatalog(f.dir);
-    expect(result.published.find((r) => r.sha === f.b)?.prNumbers).toEqual([1, 2]);
-    expect([...result.deployed]).toEqual([1]);
-    expect(f.requests.some((r) => String(r.body?.query).includes('LinkedIssues'))).toBe(false);
-    expect(f.requests.some((r) => r.url.pathname.endsWith('/deployments/99/statuses'))).toBe(false);
-    expect((await readReleaseSnapshot(f.dir)).issues).toHaveLength(2);
-});
-
-test.each(['partial', 'status'])('каталог не маскирует ошибку production %s', async (kind) => {
-    f.publish();
-    const row = f.deploy();
-    if (kind === 'partial') row.payload = { action: 'deploy' } as typeof row.payload;
-    else
-        f.extra = (url) =>
-            url.pathname.endsWith(`/deployments/${row.id}/statuses`)
-                ? Response.json({}, { status: 503 })
-                : undefined;
-    await expect(catalog.readReleaseCatalog(f.dir)).rejects.toThrow();
-});
-
-test('каталог без задач сохраняет проверку digest, источника и успешной истории до rollback', async () => {
-    f.publish();
-    f.deploy(f.b);
-    const rollback = f.deploy(f.a, 21);
-    rollback.payload.action = 'rollback';
-    f.runs.set(21, { ...f.runs.get(21), workflow_id: 102, path: '.github/workflows/rollback.yml' });
-    expect([...(await catalog.readReleaseCatalog(f.dir)).deployed]).toEqual([1, 2]);
-    const other = f.publish(f.b, 90);
-    other.payload.image_ref = IMAGE.replace(/a{64}$/, 'b'.repeat(64));
-    await expect(catalog.readReleaseCatalog(f.dir)).rejects.toThrow('разными образами');
-    f.records['release-artifacts']!.pop();
-    f.runs.set(1, { ...f.runs.get(1), head_repository: { full_name: 'evil/fork' } });
-    await expect(catalog.readReleaseCatalog(f.dir)).rejects.toThrow('Недоверенный');
+test('missing closing-links cursor is an error instead of a partial report', async () => {
+    f.extra = () =>
+        Response.json({
+            data: {
+                repository: {
+                    pullRequest: {
+                        closingIssuesReferences: {
+                            nodes: [],
+                            pageInfo: { hasNextPage: true, endCursor: null },
+                        },
+                    },
+                },
+            },
+        });
+    await expect(linkedIssues(1)).rejects.toThrow('курсора');
 });

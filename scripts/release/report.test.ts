@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
@@ -11,8 +11,19 @@ import { register, startProduction } from './deployments.ts';
 import { fixture, IMAGE, REPO } from './test/fixture.ts';
 const sha = (n: number) => n.toString(16).padStart(40, '0');
 let f: ReturnType<typeof fixture>;
+let warnings: string[];
+let restoreWarn: () => void;
+const incompleteWarning =
+    '::warning::Состав выпуска недоступен; результат операции сохраняется без полного отчёта';
 beforeEach(() => {
     f = fixture();
+    warnings = [];
+    const warn = spyOn(console, 'warn').mockImplementation((message) => {
+        warnings.push(String(message));
+    });
+    restoreWarn = () => {
+        warn.mockRestore();
+    };
     delete process.env.GITHUB_STEP_SUMMARY;
     delete process.env.GITHUB_OUTPUT;
     delete process.env.RELEASE_BEFORE_SHA;
@@ -25,7 +36,11 @@ beforeEach(() => {
         return undefined;
     };
 });
-afterEach(() => f.restore());
+afterEach(() => {
+    restoreWarn();
+    f.restore();
+    expect(warnings).toEqual([]);
+});
 test('range_collects_all_pages_and_only_merged_prs', async () => {
     const extra = f.extra;
     const commits = [...Array.from({ length: 100 }, (_, i) => ({ sha: sha(i + 1) })), { sha: f.b }];
@@ -127,6 +142,7 @@ test.each(['403', 'partial', 'enrichment', 'null-base'])(
         };
         const kind = failure === 'null-base' ? 'publish' : 'deploy';
         await reportRelease(kind, f.b, f.dir);
+        expect(warnings.splice(0)).toEqual(failure === 'null-base' ? [] : [incompleteWarning]);
         expect(JSON.parse(readFileSync(process.env.RELEASE_REPORT_FILE!, 'utf8'))).toMatchObject({
             kind,
             sha: f.b,
@@ -245,6 +261,7 @@ test('foreign_publication_url_does_not_become_report_base', async () => {
     f.publish(f.a).payload.ci_run = 'https://evil.invalid/actions/runs/1';
     process.env.GITHUB_OUTPUT = join(f.dir, 'outputs');
     await reportRelease('publish', f.b, f.dir);
+    expect(warnings.splice(0)).toEqual([incompleteWarning]);
     expect(readFileSync(process.env.GITHUB_OUTPUT, 'utf8')).toContain('report_base_sha=\n');
 });
 test('failed_enrichment_writes_incomplete_summary_without_advertising_it', async () => {
@@ -253,6 +270,7 @@ test('failed_enrichment_writes_incomplete_summary_without_advertising_it', async
     process.env.GITHUB_OUTPUT = join(f.dir, 'outputs');
     f.extra = () => Response.json({ error: 'denied' }, { status: 403 });
     await reportRelease('deploy', f.b, f.dir);
+    expect(warnings.splice(0)).toEqual([incompleteWarning]);
     expect(readFileSync(process.env.GITHUB_STEP_SUMMARY, 'utf8')).toContain('Отчёт неполный');
     expect(readFileSync(process.env.GITHUB_OUTPUT, 'utf8')).toContain('report_url=\n');
 });

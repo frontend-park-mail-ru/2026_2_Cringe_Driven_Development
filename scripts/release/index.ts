@@ -1,9 +1,11 @@
 // Выпуск и выкатка, по команде на шаг workflow. Ассеты клиента — неизменяемые releases/{sha}/ в S3 и
 // на CDN; образ BFF — публичный GHCR по digest; готовые выпуски и история прода — GitHub Deployments
 // (release-artifacts и production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
+import { appendFileSync } from 'node:fs';
 import { health, releaseCheck } from './checks.ts';
 import {
     artifacts,
+    assertReleaseDirection,
     finishProduction,
     lastConfirmed,
     published,
@@ -11,12 +13,12 @@ import {
     rollbackTarget,
     startProduction,
 } from './deployments.ts';
-import { ReleaseError, checkSha, output } from './env.ts';
-import { reconcileBoard } from './sync.ts';
+import { ReleaseError, checkSha } from './env.ts';
+import { updateReleaseBoard, type BoardResult } from './board.ts';
 import { checkImage, checkImageRef } from './image.ts';
 import { retention } from './retention.ts';
 import { upload } from './upload.ts';
-import { reportRelease } from './report.ts';
+import { readOperationReport, reportRelease, type ReleaseKind } from './report.ts';
 
 const USAGE = `Использование: bun run release <команда>
   upload <sha> [каталог]          apps/client/dist → releases/{sha}/, неизменяемо
@@ -31,7 +33,8 @@ const USAGE = `Использование: bun run release <команда>
   finish <deployment_id> <success|failure|error>   итог записи production
   health <sha>                    Health check: прод отдаёт выпуск через BFF
   retention                       удалить старые ассеты
-  sync                            сверить только доску
+  direction <deploy|rollback> <sha>       проверить направление от RELEASE_BEFORE_SHA
+  board <publish|deploy|rollback> <sha>    обновить карточки успешной операции по отчёту
   report <publish|deploy|rollback> <sha>    полный отчёт без Telegram
 `;
 
@@ -40,10 +43,37 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
         case 'report':
             if (args.length !== 2) throw new ReleaseError(USAGE);
             return reportRelease(args[0]!, checkSha(args[1]), process.cwd());
-        case 'sync': {
-            const result = await reconcileBoard(process.cwd());
-            output('allowed', String(result.allowed));
-            if (result.errors.length) throw new ReleaseError(result.errors.join('\n'));
+        case 'direction':
+            if (args.length !== 2 || (args[0] !== 'deploy' && args[0] !== 'rollback'))
+                throw new ReleaseError(USAGE);
+            return assertReleaseDirection(
+                args[0],
+                process.env.RELEASE_BEFORE_SHA ?? '',
+                checkSha(args[1]),
+                process.cwd(),
+            );
+        case 'board': {
+            if (args.length !== 2 || !['publish', 'deploy', 'rollback'].includes(args[0]!))
+                throw new ReleaseError(USAGE);
+            const kind = args[0] as ReleaseKind;
+            const sha = checkSha(args[1]);
+            let result: BoardResult;
+            try {
+                result = await updateReleaseBoard(kind, await readOperationReport(kind, sha));
+            } catch (error) {
+                result = {
+                    changed: 0,
+                    skipped: 0,
+                    errors: [error instanceof Error ? error.message : String(error)],
+                };
+            }
+            const message = result.errors.length
+                ? 'Операция успешна, обновление карточек не завершено; проверьте их вручную по Summary'
+                : 'Операция успешна, карточки обработаны';
+            const detail = `${message}\n\nИзменено: ${result.changed}; пропущено: ${result.skipped}\n${result.errors.join('\n')}\n`;
+            if (process.env.GITHUB_STEP_SUMMARY)
+                appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Карточки выпуска\n\n${detail}`);
+            if (result.errors.length) throw new ReleaseError(detail);
             return;
         }
         case 'upload':

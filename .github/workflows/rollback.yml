@@ -22,14 +22,17 @@ jobs:
       name: production
       deployment: false
     concurrency:
-      group: production
+      group: release-board
       cancel-in-progress: false
+      queue: max
     env:
       GITHUB_TOKEN: ${{ github.token }}
       CDN_URL: ${{ vars.CDN_URL }}
       ANSIBLE_HOST_KEY_CHECKING: 'True'
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -38,6 +41,12 @@ jobs:
       - name: Rollback target
         id: target
         run: bun run release target
+      - name: Check release direction
+        id: direction
+        env:
+          RELEASE_BEFORE_SHA: ${{ steps.target.outputs.before_sha }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: bun run release direction rollback "$SHA"
       - name: Anonymous image check
         id: image
         env:
@@ -84,6 +93,7 @@ jobs:
       - name: Release report
         id: report
         env:
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
           RELEASE_BEFORE_SHA: ${{ steps.target.outputs.before_sha }}
           SHA: ${{ steps.target.outputs.sha }}
         run: bun run release report rollback "$SHA"
@@ -115,8 +125,17 @@ jobs:
           SHA: ${{ steps.target.outputs.sha }}
         run: bun run release health "$SHA"
       - name: Production result
+        id: finish
         if: always() && steps.start.outputs.deployment_id
         env:
           ID: ${{ steps.start.outputs.deployment_id }}
           RESULT: ${{ steps.health.outcome == 'success' && 'success' || (steps.switch.outcome == 'success' && 'failure' || 'error') }}
         run: bun run release finish "$ID" "$RESULT"
+      - name: Update release issues
+        id: board
+        if: "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'"
+        env:
+          ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
+          SHA: ${{ steps.target.outputs.sha }}
+        run: bun run release board rollback "$SHA"
