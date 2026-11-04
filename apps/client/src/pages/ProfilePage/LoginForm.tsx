@@ -43,8 +43,11 @@ export function LoginForm({ login }: LoginFormProps) {
         setPending(true);
         hideSnackbar();
         try {
-            const user = await trpc.users.updateLogin.mutate({ login: value });
-            useSessionStore.setState({ user });
+            const { login: saved } = await trpc.users.updateLogin.mutate({ login: value });
+            // только своё поле: параллельная загрузка аватара не откатывается
+            useSessionStore.setState((state) => ({
+                user: state.user && { ...state.user, login: saved },
+            }));
             if (!life.alive) return;
             setSubmitted(false);
             showToast('Изменения сохранены');

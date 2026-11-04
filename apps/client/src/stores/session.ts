@@ -157,8 +157,11 @@ export async function uploadAvatar(file: File): Promise<AvatarError | null> {
     const form = new FormData();
     form.append('avatar', file);
     try {
-        const user = await trpc.users.uploadAvatar.mutate(form);
-        useSessionStore.setState({ user });
+        const { avatar_url } = await trpc.users.uploadAvatar.mutate(form);
+        // только своё поле: параллельная смена логина не откатывается
+        useSessionStore.setState((state) => ({
+            user: state.user && { ...state.user, avatar_url },
+        }));
         return null;
     } catch (error) {
         const code = isRpcError(error) ? error.data?.appCode : undefined;

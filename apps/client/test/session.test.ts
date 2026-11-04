@@ -254,6 +254,8 @@ const single = (answer: Answer): Answer => ({
 
 test('аватар уходит multipart без батча; после 200 пользователь в сторе с новым URL', async () => {
     const user = { id: 1, login: 'denis', avatar_url: 'https://cdn.example/a.png' };
+    // логин успели сменить, пока шла загрузка: ответ аватара его не откатывает
+    useSessionStore.setState({ user: { id: 1, login: 'denis2', avatar_url: null } });
     let body: unknown;
     globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
         body = init?.body;
@@ -264,7 +266,7 @@ test('аватар уходит multipart без батча; после 200 по
     expect(await uploadAvatar(file)).toBeNull();
     expect(body).toBeInstanceOf(FormData);
     expect((body as FormData).get('avatar')).toBeInstanceOf(File);
-    expect(useSessionStore.getState().user).toEqual(user);
+    expect(useSessionStore.getState().user).toEqual({ ...user, login: 'denis2' });
 });
 
 test('ошибки аватара: файл отвергнут или сбой загрузки; прежний аватар остаётся', async () => {
