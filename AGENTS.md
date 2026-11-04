@@ -88,6 +88,9 @@ Wiki описывает реализацию; состояние прода пр
 Если мок расходится с контрактом или не покрывает нужный сценарий, сначала доработай
 его отдельным MR в Apidog; после слияния повтори проверку. Собственный dev-сервер,
 имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
+Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
+контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
+([локальный мок на Prism](docs/api-contract.md#локальный-мок-на-prism)).
 Управляемые ответы в автоматических тестах допустимы.
 
 ## Источники
@@ -98,7 +101,7 @@ Wiki описывает реализацию; состояние прода пр
   так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
   и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `vite-plugin-pwa` — манифест PWA по задаче frontend#48, с ним `workbox-window` — регистратор service worker `virtual:pwa-register` по задаче frontend#49.
+  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `vite-plugin-pwa` — манифест PWA по задаче frontend#48, с ним `workbox-window` — регистратор service worker `virtual:pwa-register` по задаче frontend#49, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по `GO_API_URL` (локально по умолчанию — Cloud Mock Apidog,
   [локальные правила](docs/local-development.md#клиент-через-bff)).
@@ -108,6 +111,7 @@ Wiki описывает реализацию; состояние прода пр
 ```bash
 bun run dev        # клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF
 bun run dev:pwa    # production-сборка и BFF на http://localhost:4173: проверка PWA и service worker, без HMR
+bun run dev:prism  # как dev, но Go — локальный Prism по spec/openapi.json; mock(процедура, статус) в консоли
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/

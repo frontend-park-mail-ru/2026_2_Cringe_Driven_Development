@@ -3,6 +3,7 @@ import { TRPCClientError, createTRPCClient, httpBatchLink, type TRPCLink } from 
 // observable — та же утилита, что внутри самого @trpc/client: так пишутся свои link
 import { observable } from '@trpc/server/observable';
 import { fetchTracked } from '@stores/connection';
+import { takeMockPrefer } from './mockPrefer';
 
 /** Пользователь, как его отдаёт `users.me`. */
 export type User = RouterOutputs['users']['me'];
@@ -122,7 +123,13 @@ export const trpc = createTRPCClient<AppRouter>({
             url: '/api/trpc',
             // длинный батч GET делится, чтобы не упереться в лимит URL прокси
             maxURLLength: 2000,
-            headers: { 'X-CSRF': '1' },
+            headers: ({ opList }) => {
+                const prefer =
+                    import.meta.env.VITE_MOCK_PREFER === '1'
+                        ? takeMockPrefer(opList.map((op) => op.path))
+                        : undefined;
+                return prefer ? { 'X-CSRF': '1', 'X-Mock-Prefer': prefer } : { 'X-CSRF': '1' };
+            },
             fetch: (url, init) => fetchTracked(url, { ...init, credentials: 'same-origin' }),
         }),
     ],

@@ -1,5 +1,6 @@
 import { createRoot } from '@cdd-team/react';
 
+import { installMockCommand } from './api/mockPrefer';
 import { onSessionLost } from './api/trpc';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
@@ -37,5 +38,7 @@ onSessionLost(() => {
 
 registerServiceWorker();
 watchConnection();
+// bun run dev:prism: mock(процедура, статус) в консоли — следующий вызов получит этот ответ мока
+if (import.meta.env.VITE_MOCK_PREFER === '1') installMockCommand();
 
 if (started) createRoot(container).render(<RouterProvider router={router} />);

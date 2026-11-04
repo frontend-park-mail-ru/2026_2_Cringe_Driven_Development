@@ -83,69 +83,70 @@ export type Go = {
  * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`. Заголовки
  * браузера в Go не уходят: `init` собирает сессия.
  * @param session сессия запроса
+ * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
  * @returns вызовы Go
  */
-export function createGo(session: Session): Go {
+export function createGo(session: Session, prefer?: string): Go {
+    const call: Session['call'] =
+        prefer === undefined
+            ? (fn) => session.call(fn)
+            : (fn) =>
+                  session.call((init) => {
+                      const headers = new Headers(init.headers);
+                      headers.set('Prefer', prefer);
+                      return fn({ ...init, headers });
+                  });
     return {
         getCurrentUser: async () =>
-            unwrap(await session.call(getCurrentUser), [200], GetCurrentUserResponse),
+            unwrap(await call(getCurrentUser), [200], GetCurrentUserResponse),
         updateCurrentUser: async (body) =>
             unwrap(
-                await session.call((init) => updateCurrentUser(body, init)),
+                await call((init) => updateCurrentUser(body, init)),
                 [200],
                 UpdateCurrentUserResponse,
             ),
         changeCurrentUserPassword: async (body) => {
-            unwrap(await session.call((init) => changeCurrentUserPassword(body, init)), [204]);
+            unwrap(await call((init) => changeCurrentUserPassword(body, init)), [204]);
         },
-        listNotebooks: async () =>
-            unwrap(await session.call(listNotebooks), [200], ListNotebooksResponse),
+        listNotebooks: async () => unwrap(await call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
-            unwrap(await session.call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
+            unwrap(await call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
         getNotebookContent: async (id) =>
             unwrap(
-                await session.call((init) => getNotebookContent(id, init)),
+                await call((init) => getNotebookContent(id, init)),
                 [200],
                 GetNotebookContentResponse,
             ),
         createNotebook: async (body) =>
-            unwrap(
-                await session.call((init) => createNotebook(body, init)),
-                [201],
-                CreateNotebookResponse,
-            ),
+            unwrap(await call((init) => createNotebook(body, init)), [201], CreateNotebookResponse),
         addCell: async (id, hash, body) =>
             unwrap(
-                await session.call((init) => addNotebookCell(id, body, ifMatch(init, hash))),
+                await call((init) => addNotebookCell(id, body, ifMatch(init, hash))),
                 [201],
                 AddNotebookCellResponse,
             ),
         editCell: async (id, cellId, hash, body) =>
             unwrap(
-                await session.call((init) =>
-                    editNotebookCell(id, cellId, body, ifMatch(init, hash)),
-                ),
+                await call((init) => editNotebookCell(id, cellId, body, ifMatch(init, hash))),
                 [200],
                 EditNotebookCellResponse,
             ),
         moveCell: async (id, cellId, hash, body) =>
             unwrap(
-                await session.call((init) =>
-                    moveNotebookCell(id, cellId, body, ifMatch(init, hash)),
-                ),
+                await call((init) => moveNotebookCell(id, cellId, body, ifMatch(init, hash))),
                 [200],
                 MoveNotebookCellResponse,
             ),
         removeCell: async (id, cellId, hash) =>
             unwrap(
-                await session.call((init) => removeNotebookCell(id, cellId, ifMatch(init, hash))),
+                await call((init) => removeNotebookCell(id, cellId, ifMatch(init, hash))),
                 [200],
                 RemoveNotebookCellResponse,
             ),
         // refresh-токен читается в момент вызова: call мог его только что обновить
         logout: async () => {
             unwrap(
-                await session.call((init) =>
+                await call((init) =>
                     logoutUser({ refresh_token: session.refreshToken ?? '' }, init),
                 ),
                 [204],

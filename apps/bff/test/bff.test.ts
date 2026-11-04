@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import { createBff } from '../src/bff.ts';
+import { env } from '../src/env.ts';
 import { renderBootstrap } from '../src/html.ts';
 import { SESSION_COOKIE } from '../src/session/cookies.ts';
 import { sealSession } from '../src/session/crypto.ts';
@@ -728,5 +729,83 @@ describe('ячейки по cell_id с hash', () => {
         useGo(Object.fromEntries(cases.map((c) => [c.route, c.reply])));
         for (const c of cases) await mutate(c.proc, c.input);
         expect(go?.calls.every((call) => call.path.includes('/content/cells'))).toBe(true);
+    });
+});
+
+describe('X-Mock-Prefer для локального мока', () => {
+    const update = { notebookId: 1, hash: 'h1', cellId: 'c1', source: 'x' };
+    const routes = {
+        'PATCH /notebooks/:id/content/cells/:cell': () =>
+            Response.json({ hash: 'h2', cell: { id: 'c1', kind: 'code', source: 'x' } }),
+        'GET /notebooks': () => Response.json([]),
+    };
+    const preferOf = (path: string) =>
+        go?.calls.find((c) => c.path === path)?.headers.get('Prefer') ?? null;
+    afterEach(() => {
+        env.MOCK_PREFER = undefined;
+    });
+
+    test('с MOCK_PREFER=1 — Prefer только у названной процедуры батча', async () => {
+        env.MOCK_PREFER = '1';
+        useGo(routes);
+        const c = await cookie(goTokens().issue());
+        await rpc('cells.update', {
+            body: update,
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        await rpc('notebooks.list', {
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        expect(preferOf('/notebooks/1/content/cells/c1')).toBe('code=409');
+        expect(preferOf('/notebooks')).toBeNull();
+    });
+
+    test('с MOCK_PREFER=1 cells.create просит случайные данные — у новых ячеек разные id', async () => {
+        env.MOCK_PREFER = '1';
+        useGo({
+            'POST /notebooks/:id/content/cells': () =>
+                Response.json(
+                    { hash: 'h2', cell: { id: 'c9', kind: 'code', source: '' } },
+                    { status: 201 },
+                ),
+        });
+        const c = await cookie(goTokens().issue());
+        const create = { notebookId: 1, hash: 'h1', kind: 'code', source: '' };
+        await rpc('cells.create', { body: create, cookie: c });
+        await rpc('cells.create', {
+            body: create,
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.create=409' },
+        });
+        expect(go?.calls.map((call) => call.headers.get('Prefer'))).toEqual([
+            'dynamic=true',
+            'code=409',
+        ]);
+    });
+
+    test('без MOCK_PREFER заголовок игнорируется', async () => {
+        useGo(routes);
+        await rpc('cells.update', {
+            body: update,
+            cookie: await cookie(goTokens().issue()),
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        expect(preferOf('/notebooks/1/content/cells/c1')).toBeNull();
+    });
+
+    test('неверный код игнорируется', async () => {
+        env.MOCK_PREFER = '1';
+        for (const value of ['cells.update=abc', 'cells.update=99', 'cells.update=600']) {
+            useGo(routes);
+            await rpc('cells.update', {
+                body: update,
+                cookie: await cookie(goTokens().issue()),
+                headers: { 'X-Mock-Prefer': value },
+            });
+            expect(preferOf('/notebooks/1/content/cells/c1'), value).toBeNull();
+            go?.restore();
+        }
     });
 });

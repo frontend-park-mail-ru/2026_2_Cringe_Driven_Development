@@ -3,10 +3,18 @@ import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 
 import { env } from './env.ts';
 import { AppCodeError } from './errors.ts';
+import { parseMockPrefer } from './mockPrefer.ts';
 import { createSession, type Session } from './session/session.ts';
 
-/** Контекст процедур: сессия запроса и заголовки ответа для её `Set-Cookie`. */
-export type Context = { session: Session; resHeaders: Headers };
+/**
+ * Контекст процедур: сессия запроса, заголовки ответа для её `Set-Cookie` и одноразовые статусы
+ * локального мока по процедурам (пусто вне `dev:prism`).
+ */
+export type Context = {
+    session: Session;
+    resHeaders: Headers;
+    mockPrefer: ReadonlyMap<string, number>;
+};
 
 const csrfInvalid = (): TRPCError =>
     new TRPCError({ code: 'FORBIDDEN', message: 'CSRF', cause: new AppCodeError('csrf_invalid') });
@@ -28,5 +36,7 @@ export async function createContext({
         const site = req.headers.get('Sec-Fetch-Site');
         if (site !== null && site !== 'same-origin') throw csrfInvalid();
     }
-    return { session: await createSession(req), resHeaders };
+    const mockPrefer =
+        env.MOCK_PREFER === '1' ? parseMockPrefer(req.headers.get('X-Mock-Prefer')) : new Map();
+    return { session: await createSession(req), resHeaders, mockPrefer };
 }
