@@ -640,3 +640,93 @@ describe('смена логина и пароля', () => {
         expect(cleared(res)).toBe(false);
     });
 });
+
+const mutate = async (proc: string, body: unknown) =>
+    rpc(proc, { body, cookie: await cookie(goTokens().issue()) });
+const dataOf = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
+
+describe('ячейки по cell_id с hash', () => {
+    const CELL = { id: 'c1', kind: 'code', source: 'print(1)' };
+
+    const cases = [
+        {
+            proc: 'cells.create',
+            input: { notebookId: 1, hash: 'h1', kind: 'code', source: '' },
+            route: 'POST /notebooks/:id/content/cells',
+            path: '/notebooks/1/content/cells',
+            goBody: { kind: 'code', source: '' },
+            reply: () => Response.json({ hash: 'h2', cell: CELL }, { status: 201 }),
+            data: { hash: 'h2', cell: CELL },
+        },
+        {
+            proc: 'cells.update',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1', source: 'x = 1' },
+            route: 'PATCH /notebooks/:id/content/cells/:cell',
+            path: '/notebooks/1/content/cells/c1',
+            goBody: { source: 'x = 1' },
+            reply: () => Response.json({ hash: 'h2', cell: CELL }),
+            data: { hash: 'h2', cell: CELL },
+        },
+        {
+            proc: 'cells.move',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1', index: 0 },
+            route: 'POST /notebooks/:id/content/cells/:cell/move',
+            path: '/notebooks/1/content/cells/c1/move',
+            goBody: { index: 0 },
+            reply: () => Response.json({ hash: 'h2' }),
+            data: { hash: 'h2' },
+        },
+        {
+            proc: 'cells.delete',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1' },
+            route: 'DELETE /notebooks/:id/content/cells/:cell',
+            path: '/notebooks/1/content/cells/c1',
+            goBody: undefined,
+            reply: () => Response.json({ hash: 'h2' }),
+            data: { hash: 'h2' },
+        },
+    ];
+
+    for (const c of cases) {
+        test(`${c.proc} — путь, тело и один сильный If-Match`, async () => {
+            useGo({ [c.route]: c.reply });
+            const res = await mutate(c.proc, c.input);
+            expect(res.status).toBe(200);
+            expect(await dataOf(res)).toEqual(c.data);
+            expect(go?.calls).toHaveLength(1);
+            const call = go!.calls[0]!;
+            expect(`${call.method} ${call.path}`).toBe(`${c.route.split(' ')[0]} ${c.path}`);
+            expect(call.body).toEqual(c.goBody);
+            expect(call.headers.get('If-Match')).toBe('"h1"');
+        });
+
+        test(`${c.proc} — hash с кавычкой отклоняется без вызова Go`, async () => {
+            useGo({ [c.route]: c.reply });
+            const res = await mutate(c.proc, { ...c.input, hash: 'h"1' });
+            expect((await errorOf(res)).code).toBe('BAD_REQUEST');
+            expect(go?.calls).toHaveLength(0);
+        });
+
+        test(`${c.proc} — 409 notebook_conflict и 500`, async () => {
+            useGo({ [c.route]: () => goError(409, 'notebook_conflict') });
+            const conflict = await errorOf(await mutate(c.proc, c.input));
+            expect(conflict).toMatchObject({ code: 'CONFLICT', appCode: 'notebook_conflict' });
+            go?.restore();
+            useGo({ [c.route]: () => goError(500, 'internal') });
+            expect((await mutate(c.proc, c.input)).status).toBe(502);
+        });
+    }
+
+    test('cells.create — 409 too_many_cells отличается от конфликта', async () => {
+        useGo({ 'POST /notebooks/:id/content/cells': () => goError(409, 'too_many_cells') });
+        const error = await errorOf(await mutate('cells.create', cases[0]!.input));
+        expect(error).toMatchObject({ code: 'CONFLICT', appCode: 'too_many_cells' });
+    });
+
+    test('старые /cells и /cells/{index} не вызываются', async () => {
+        useGo(Object.fromEntries(cases.map((c) => [c.route, c.reply])));
+        for (const c of cases) await mutate(c.proc, c.input);
+        expect(go?.calls.every((call) => call.path.includes('/content/cells'))).toBe(true);
+    });
+});

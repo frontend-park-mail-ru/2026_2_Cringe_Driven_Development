@@ -43,17 +43,35 @@ async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefine
 }
 
 /**
- * Добавляет ячейку в конец блокнота.
- * @param id id блокнота
+ * Добавляет пустую ячейку в конец блокнота.
+ * @param notebook блокнот: id и последний подтверждённый hash
  * @param kind вид ячейки
- * @returns новая ячейка или undefined, если добавить не удалось
+ * @returns новый hash и ячейка или undefined, если добавить не удалось
  */
-async function createCell(id: number, kind: CellKind): Promise<CellData | undefined> {
+async function createCell(
+    notebook: Notebook,
+    kind: CellKind,
+): Promise<{ hash: string; cell: CellData } | undefined> {
     try {
-        const cell = await trpc.cells.create.mutate({ notebookId: id, kind });
-        return cell.kind === 'code'
-            ? { ...cell, kind: 'code', outputs: [], execution_count: null, output_truncated: false }
-            : { ...cell, kind: 'markdown' };
+        const { hash, cell } = await trpc.cells.create.mutate({
+            notebookId: notebook.id,
+            hash: notebook.hash,
+            kind,
+            source: '',
+        });
+        return {
+            hash,
+            cell:
+                cell.kind === 'code'
+                    ? {
+                          ...cell,
+                          kind: 'code',
+                          outputs: [],
+                          execution_count: null,
+                          output_truncated: false,
+                      }
+                    : { ...cell, kind: 'markdown' },
+        };
     } catch {
         return undefined;
     }
@@ -61,16 +79,17 @@ async function createCell(id: number, kind: CellKind): Promise<CellData | undefi
 
 /**
  * Удаляет ячейку.
- * @param id id блокнота
- * @param index порядковый номер ячейки, с нуля
- * @returns удалось ли удалить
+ * @param notebook блокнот: id и последний подтверждённый hash
+ * @param cellId id ячейки
+ * @returns новый hash или undefined, если удалить не удалось
  */
-async function deleteCell(id: number, index: number): Promise<boolean> {
+async function deleteCell(notebook: Notebook, cellId: string): Promise<string | undefined> {
     try {
-        await trpc.cells.delete.mutate({ notebookId: id, index });
-        return true;
+        return (
+            await trpc.cells.delete.mutate({ notebookId: notebook.id, hash: notebook.hash, cellId })
+        ).hash;
     } catch {
-        return false;
+        return undefined;
     }
 }
 
@@ -129,7 +148,7 @@ export function NotebookPage() {
     );
     const [attempt, setAttempt] = useState(0);
     const [addedId, setAddedId] = useState<string | undefined>(undefined);
-    // Ячейки удаляются по номеру, поэтому добавление и удаление идут строго по одному
+    // Изменения идут с последним hash, поэтому добавление и удаление — строго по одному
     const [busy, setBusy] = useState(false);
     const [life] = useState({ alive: true });
 
@@ -184,10 +203,10 @@ export function NotebookPage() {
         setBusy(true);
         hideSnackbar();
 
-        const cell = await createCell(id, kind);
+        const created = await createCell(page.notebook, kind);
         if (!life.alive) return;
         setBusy(false);
-        if (!cell) {
+        if (!created) {
             showSnackbar('Не удалось добавить ячейку', {
                 label: 'Повторить',
                 onClick: () => void addCell(kind),
@@ -198,25 +217,27 @@ export function NotebookPage() {
             current.status === 'ready' && current.notebook.id === id
                 ? {
                       status: 'ready',
-                      notebook: { ...current.notebook, cells: [...current.notebook.cells, cell] },
+                      notebook: {
+                          ...current.notebook,
+                          hash: created.hash,
+                          cells: [...current.notebook.cells, created.cell],
+                      },
                   }
                 : current,
         );
-        setAddedId(cell.id);
+        setAddedId(created.cell.id);
     };
     const handleAdd = (kind: CellKind) => void addCell(kind);
 
     const removeCell = async (cellId: string) => {
         if (page.status !== 'ready' || busy) return;
-        const index = page.notebook.cells.findIndex((cell) => cell.id === cellId);
-        if (index === -1) return;
         setBusy(true);
         hideSnackbar();
 
-        const deleted = await deleteCell(id, index);
+        const hash = await deleteCell(page.notebook, cellId);
         if (!life.alive) return;
         setBusy(false);
-        if (!deleted) {
+        if (hash === undefined) {
             showSnackbar('Не удалось удалить ячейку', {
                 label: 'Повторить',
                 onClick: () => void removeCell(cellId),
@@ -229,6 +250,7 @@ export function NotebookPage() {
                       status: 'ready',
                       notebook: {
                           ...current.notebook,
+                          hash,
                           cells: current.notebook.cells.filter((cell) => cell.id !== cellId),
                       },
                   }

@@ -1,5 +1,8 @@
 import {
-    CreateCellResponse,
+    AddNotebookCellResponse,
+    EditNotebookCellResponse,
+    MoveNotebookCellResponse,
+    RemoveNotebookCellResponse,
     CreateNotebookResponse,
     GetCurrentUserResponse,
     GetNotebookContentResponse,
@@ -12,31 +15,43 @@ import {
 
 import type { Session } from '../session/session.ts';
 import {
+    addNotebookCell,
     changeCurrentUserPassword,
-    createCell,
     createNotebook,
-    deleteCell,
+    editNotebookCell,
     getCurrentUser,
     getNotebook,
     getNotebookContent,
     listNotebooks,
     loginUser,
+    moveNotebookCell,
+    removeNotebookCell,
     logoutUser,
     registerUser,
     updateCurrentUser,
-    type Cell,
+    type AddNotebookCellRequest,
     type ChangeCurrentUserPasswordRequest,
-    type CreateCellRequest,
     type CreateNotebookRequest,
+    type EditNotebookCellRequest,
+    type MoveNotebookCellRequest,
     type Credentials,
     type Notebook,
+    type NotebookCellChange,
     type NotebookContent,
+    type NotebookContentChange,
     type NotebookSummary,
     type TokenPair,
     type UpdateCurrentUserRequest,
     type User,
 } from './client.ts';
 import { unwrap } from './errors.ts';
+
+// hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
+const ifMatch = (init: RequestInit, hash: string): RequestInit => {
+    const headers = new Headers(init.headers);
+    headers.set('If-Match', `"${hash}"`);
+    return { ...init, headers };
+};
 
 /** Вызовы Go от имени сессии. */
 export type Go = {
@@ -47,8 +62,20 @@ export type Go = {
     getNotebook(id: number): Promise<Notebook>;
     getNotebookContent(id: number): Promise<NotebookContent>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
-    createCell(id: number, body: CreateCellRequest): Promise<Cell>;
-    deleteCell(id: number, index: number): Promise<void>;
+    addCell(id: number, hash: string, body: AddNotebookCellRequest): Promise<NotebookCellChange>;
+    editCell(
+        id: number,
+        cellId: string,
+        hash: string,
+        body: EditNotebookCellRequest,
+    ): Promise<NotebookCellChange>;
+    moveCell(
+        id: number,
+        cellId: string,
+        hash: string,
+        body: MoveNotebookCellRequest,
+    ): Promise<NotebookContentChange>;
+    removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
     logout(): Promise<void>;
 };
 
@@ -87,15 +114,34 @@ export function createGo(session: Session): Go {
                 [201],
                 CreateNotebookResponse,
             ),
-        createCell: async (id, body) =>
+        addCell: async (id, hash, body) =>
             unwrap(
-                await session.call((init) => createCell(id, body, init)),
+                await session.call((init) => addNotebookCell(id, body, ifMatch(init, hash))),
                 [201],
-                CreateCellResponse,
+                AddNotebookCellResponse,
             ),
-        deleteCell: async (id, index) => {
-            unwrap(await session.call((init) => deleteCell(id, index, init)), [204]);
-        },
+        editCell: async (id, cellId, hash, body) =>
+            unwrap(
+                await session.call((init) =>
+                    editNotebookCell(id, cellId, body, ifMatch(init, hash)),
+                ),
+                [200],
+                EditNotebookCellResponse,
+            ),
+        moveCell: async (id, cellId, hash, body) =>
+            unwrap(
+                await session.call((init) =>
+                    moveNotebookCell(id, cellId, body, ifMatch(init, hash)),
+                ),
+                [200],
+                MoveNotebookCellResponse,
+            ),
+        removeCell: async (id, cellId, hash) =>
+            unwrap(
+                await session.call((init) => removeNotebookCell(id, cellId, ifMatch(init, hash))),
+                [200],
+                RemoveNotebookCellResponse,
+            ),
         // refresh-токен читается в момент вызова: call мог его только что обновить
         logout: async () => {
             unwrap(
