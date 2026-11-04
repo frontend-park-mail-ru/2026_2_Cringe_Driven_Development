@@ -3,6 +3,7 @@ import { IconButton } from '@components/IconButton/IconButton';
 import styles from './Modal.module.css';
 
 const DIALOG_ID = 'modal';
+const OVERLAY_ID = 'modal-overlay';
 const TITLE_ID = 'modal-title';
 const DESCRIPTION_ID = 'modal-description';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
@@ -14,6 +15,8 @@ interface ModalProps {
     description?: string;
     /** id элемента, который получает фокус при открытии */
     initialFocusId: string;
+    /** Клик по затемнению вокруг модалки тоже закрывает её */
+    closeOnBackdrop?: boolean;
     onClose: () => void;
     children: ReactNode;
 }
@@ -48,7 +51,14 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
  * @param props свойства модалки
  * @returns модалка
  */
-export function Modal({ title, description, initialFocusId, onClose, children }: ModalProps) {
+export function Modal({
+    title,
+    description,
+    initialFocusId,
+    closeOnBackdrop,
+    onClose,
+    children,
+}: ModalProps) {
     useEffect(() => {
         const opener =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -66,12 +76,20 @@ export function Modal({ title, description, initialFocusId, onClose, children }:
             const dialog = document.getElementById(DIALOG_ID);
             if (dialog) trapFocus(event, dialog);
         };
+        // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
+        const handleClick = (event: MouseEvent) => {
+            if (closeOnBackdrop && (event.target as Element | null)?.id === OVERLAY_ID) onClose();
+        };
         document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+        document.addEventListener('click', handleClick);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('click', handleClick);
+        };
+    }, [onClose, closeOnBackdrop]);
 
     return (
-        <div className={styles.overlay}>
+        <div id={OVERLAY_ID} className={styles.overlay}>
             <dialog
                 id={DIALOG_ID}
                 className={styles.modal}

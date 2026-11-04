@@ -9,35 +9,102 @@
     box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
-.content {
+.selected {
+    background: var(--color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--color-focus);
+}
+
+.cell.tooLarge {
+    box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.gutter {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 40px;
+    padding-top: 4px;
+}
+
+.kind {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.body {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 12px;
     min-width: 0;
+    padding-top: 4px;
+}
+
+/* Высота — по содержимому (из Cell.tsx), прокручивается страница; по горизонтали — только код */
+.editor {
+    display: block;
+    width: 100%;
     margin: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    background: none;
     font: var(--font-body);
+    color: var(--color-text-primary);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
-.code .content {
+.code .editor,
+.selected .editor {
     font: var(--font-code);
+}
+
+.code .editor {
     color: var(--code-text);
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
 }
 
-.cell .empty {
+.editor:focus-visible {
+    /* фокус видно по рамке выбранной ячейки */
+    outline: none;
+}
+
+.editor::placeholder {
     color: var(--color-text-secondary);
+    opacity: 1;
 }
 
-.code .empty {
-    padding: 2px 0;
+.error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font: var(--font-caption);
+    color: var(--color-error);
 }
 
-.delete {
-    margin: -6px -6px -6px 0;
+.actions {
+    display: flex;
+    flex: none;
+    gap: 2px;
+    margin: -6px -6px 0 0;
+}
+
+.action {
+    width: 32px;
+    height: 32px;
     background: none;
     box-shadow: none;
 }
 
-.delete:hover {
+.delete:not(:disabled):hover {
     color: var(--color-error);
 }
 

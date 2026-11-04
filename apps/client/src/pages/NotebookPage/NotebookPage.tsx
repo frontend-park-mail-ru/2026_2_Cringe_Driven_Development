@@ -1,20 +1,35 @@
-import { useEffect, useState } from '@cdd-team/react';
+import { useEffect, useLayoutEffect, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc, type Cell as CellData, type Notebook } from '@api/trpc';
+import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
 import LogoMark from '@assets/logo-mark.svg?react';
-import { Cell, CellSkeleton, cellDomId } from '@components/Cell/Cell';
+import { Cell, CellSkeleton, cellEditorId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
+import { SaveStatus, type SaveStatusTone } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
+import {
+    addCell,
+    closeNotebook,
+    commitSource,
+    deleteCell,
+    editSource,
+    moveCell,
+    openNotebook,
+    retry,
+    structureLocked,
+    useNotebookStore,
+    type SaveStatus as SaveState,
+} from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
+import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -22,95 +37,32 @@ const SKELETON_COUNT = 4;
 
 type CellKind = CellData['kind'];
 
-type PageState =
-    | { status: 'loading' }
-    | { status: 'error' }
-    | { status: 'ready'; notebook: Notebook };
-
 /**
  * Загружает блокнот.
  * @param id id блокнота
- * @returns блокнот, 'missing', если такого блокнота нет, или undefined, если загрузить не удалось
+ * @returns данные блокнота, 'missing', если такого блокнота нет, или undefined, если загрузить не удалось
  */
-async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefined> {
+async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
     try {
-        return (await trpc.notebooks.get.query({ id })).notebook;
+        return await trpc.notebooks.get.query({ id });
     } catch (error) {
         const code = isRpcError(error) ? error.data?.code : undefined;
         return code === 'NOT_FOUND' || code === 'BAD_REQUEST' ? 'missing' : undefined;
     }
 }
 
-/**
- * Добавляет пустую ячейку в конец блокнота.
- * @param notebook блокнот: id и последний подтверждённый hash
- * @param kind вид ячейки
- * @returns новый hash и ячейка или undefined, если добавить не удалось
- */
-async function createCell(
-    notebook: Notebook,
-    kind: CellKind,
-): Promise<{ hash: string; cell: CellData } | undefined> {
-    try {
-        const { hash, cell } = await trpc.cells.create.mutate({
-            notebookId: notebook.id,
-            hash: notebook.hash,
-            kind,
-            source: '',
-        });
-        return {
-            hash,
-            cell:
-                cell.kind === 'code'
-                    ? {
-                          ...cell,
-                          kind: 'code',
-                          outputs: [],
-                          execution_count: null,
-                          output_truncated: false,
-                      }
-                    : { ...cell, kind: 'markdown' },
-        };
-    } catch {
-        return undefined;
-    }
-}
-
-/**
- * Удаляет ячейку.
- * @param notebook блокнот: id и последний подтверждённый hash
- * @param cellId id ячейки
- * @returns новый hash или undefined, если удалить не удалось
- */
-async function deleteCell(notebook: Notebook, cellId: string): Promise<string | undefined> {
-    try {
-        return (
-            await trpc.cells.delete.mutate({ notebookId: notebook.id, hash: notebook.hash, cellId })
-        ).hash;
-    } catch {
-        return undefined;
-    }
-}
-
-/**
- * Название в шапке.
- * @param state состояние страницы
- * @returns текст названия
- */
-function title(state: PageState): string {
-    switch (state.status) {
-        case 'loading':
-            return 'Загрузка блокнота…';
-        case 'error':
-            return 'Не удалось загрузить блокнот';
-        case 'ready':
-            return state.notebook.name;
-    }
-}
+const STATUS: Partial<Record<SaveState, { tone: SaveStatusTone; text: string }>> = {
+    dirty: { tone: 'error', text: 'Изменения не сохранены' },
+    saving: { tone: 'progress', text: 'Сохраняем…' },
+    saved: { tone: 'success', text: 'Сохранено' },
+    error: { tone: 'error', text: 'Не удалось сохранить изменения' },
+    conflict: { tone: 'error', text: 'Конфликт сохранения: файл изменён в другой вкладке' },
+};
 
 /** Свойства {@link AddCellChips}. */
 interface AddCellChipsProps {
+    disabled: boolean;
     onAdd: (kind: CellKind) => void;
 }
 
@@ -119,22 +71,33 @@ interface AddCellChipsProps {
  * @param props свойства чипов
  * @returns чипы
  */
-function AddCellChips({ onAdd }: AddCellChipsProps) {
+function AddCellChips({ disabled, onAdd }: AddCellChipsProps) {
     return (
         <>
-            <Chip key="code" onClick={() => onAdd('code')}>
+            <Chip key="code" disabled={disabled} onClick={() => onAdd('code')}>
                 Код
             </Chip>
-            <Chip key="markdown" onClick={() => onAdd('markdown')}>
+            <Chip key="markdown" disabled={disabled} onClick={() => onAdd('markdown')}>
                 Текст
             </Chip>
         </>
     );
 }
 
+// Фокус в редактор ячейки; без ячейки — на первый чип «+ Код»
+const focusCell = (id: string | undefined): void => {
+    const target = id ? document.getElementById(cellEditorId(id)) : null;
+    if (target) {
+        target.focus();
+        target.closest('li')?.scrollIntoView({ block: 'nearest' });
+        return;
+    }
+    document.querySelector<HTMLButtonElement>(`.${styles.add} button`)?.focus();
+};
+
 /**
- * Страница блокнота: шапка с названием и ячейки.
- * Ошибки загрузки, добавления и удаления ячейки — в снекбаре с «Повторить».
+ * Страница блокнота: шапка со статусом сохранения и редактируемые ячейки. Всё сохранение — в
+ * `@stores/notebook`; страница показывает его состояние и передаёт действия.
  * @returns страница
  */
 export function NotebookPage() {
@@ -142,41 +105,44 @@ export function NotebookPage() {
     const login = useSessionStore((state) => state.user?.login ?? '');
     const id = Number(useParams({ from: '/_auth/notebooks/$notebookId' }).notebookId);
     // При прямом открытии своего блокнота BFF уже положил его в bootstrap: первый показ без запроса
-    const preloaded = peekPreloadedNotebook(id)?.notebook;
-    const [page, setPage] = useState<PageState>(
-        preloaded ? { status: 'ready', notebook: preloaded } : { status: 'loading' },
+    const [load, setLoad] = useState<'loading' | 'error' | 'ready'>(
+        peekPreloadedNotebook(id) ? 'ready' : 'loading',
     );
     const [attempt, setAttempt] = useState(0);
-    const [addedId, setAddedId] = useState<string | undefined>(undefined);
-    // Изменения идут с последним hash, поэтому добавление и удаление — строго по одному
-    const [busy, setBusy] = useState(false);
-    const [life] = useState({ alive: true });
+    const [selected, setSelected] = useState<string | undefined>(undefined);
+    // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
+    const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
+    const notebook = useNotebookStore();
 
-    useEffect(() => {
+    // до первой отрисовки: блокнот из bootstrap открывается в сторе без мигания скелетона
+    useLayoutEffect(() => {
         let alive = true;
-        const retry = () => {
-            hideSnackbar();
-            setAttempt((current) => current + 1);
-        };
-        const first = takePreloadedNotebook(id)?.notebook;
+        const first = takePreloadedNotebook(id);
         if (first) {
-            setPage({ status: 'ready', notebook: first });
-            return;
+            openNotebook(first);
+            setLoad('ready');
+            return () => {
+                alive = false;
+            };
         }
-        setPage({ status: 'loading' });
-        void loadNotebook(id).then((notebook) => {
+        setLoad('loading');
+        void loadNotebook(id).then((page) => {
             if (!alive) return;
             // отсутствующий и чужой блокнот (одинаковый NOT_FOUND) — как прямое открытие: на /404
-            if (notebook === 'missing') {
+            if (page === 'missing') {
                 void navigate({ to: '/404', replace: true });
                 return;
             }
-            if (notebook) {
-                setPage({ status: 'ready', notebook });
+            if (page) {
+                openNotebook(page);
+                setLoad('ready');
                 return;
             }
-            setPage({ status: 'error' });
-            showSnackbar('Не удалось загрузить блокнот', { label: 'Повторить', onClick: retry });
+            setLoad('error');
+            showSnackbar('Не удалось загрузить блокнот', {
+                label: 'Повторить',
+                onClick: () => setAttempt((current) => current + 1),
+            });
         });
         return () => {
             alive = false;
@@ -184,89 +150,89 @@ export function NotebookPage() {
         };
     }, [id, attempt, navigate]);
 
-    useEffect(
-        () => () => {
-            life.alive = false;
-        },
-        [life],
-    );
+    useEffect(() => () => closeNotebook(), [id]);
+
+    // Несохранённый текст: браузер предупредит перед уходом и перезагрузкой
+    const unsaved = notebook.status !== 'idle' && notebook.status !== 'saved';
+    useEffect(() => {
+        if (!unsaved) return;
+        const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [unsaved]);
 
     useEffect(() => {
-        if (addedId === undefined) return;
-        document.getElementById(cellDomId(addedId))?.parentElement?.scrollIntoView({
-            block: 'nearest',
+        if (notebook.error === 'save') {
+            const shown = showSnackbar('Не удалось сохранить изменения', {
+                label: 'Повторить',
+                onClick: () => void retry(),
+            });
+            return () => hideSnackbar(shown);
+        }
+        if (notebook.error === 'too_many_cells') {
+            const shown = showSnackbar('В блокноте уже 1000 ячеек — больше добавить нельзя');
+            return () => hideSnackbar(shown);
+        }
+        if (notebook.error === 'notebook_gone') {
+            const shown = showSnackbar('Блокнот недоступен: возможно, его удалили');
+            return () => hideSnackbar(shown);
+        }
+    }, [notebook.error]);
+
+    useEffect(() => {
+        if (!focusTarget) return;
+        focusCell(focusTarget.id);
+        setFocusTarget(null);
+    }, [focusTarget]);
+
+    const ready = load === 'ready' && notebook.confirmed !== null;
+    const cells = ready ? notebook.confirmed!.cells : [];
+    const locked = structureLocked(notebook);
+    const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
+    const hasToolbar = load !== 'error';
+    const status = ready ? STATUS[notebook.status] : undefined;
+    const title =
+        load === 'loading'
+            ? 'Загрузка блокнота…'
+            : load === 'error'
+              ? 'Не удалось загрузить блокнот'
+              : (notebook.meta?.name ?? '');
+
+    // Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус
+    const handleAdd = (kind: CellKind) => {
+        void addCell(kind).then((created) => {
+            if (created) setFocusTarget({ id: created });
         });
-    }, [addedId]);
-
-    const addCell = async (kind: CellKind) => {
-        if (page.status !== 'ready' || busy) return;
-        setBusy(true);
-        hideSnackbar();
-
-        const created = await createCell(page.notebook, kind);
-        if (!life.alive) return;
-        setBusy(false);
-        if (!created) {
-            showSnackbar('Не удалось добавить ячейку', {
-                label: 'Повторить',
-                onClick: () => void addCell(kind),
-            });
-            return;
-        }
-        setPage((current) =>
-            current.status === 'ready' && current.notebook.id === id
-                ? {
-                      status: 'ready',
-                      notebook: {
-                          ...current.notebook,
-                          hash: created.hash,
-                          cells: [...current.notebook.cells, created.cell],
-                      },
-                  }
-                : current,
-        );
-        setAddedId(created.cell.id);
     };
-    const handleAdd = (kind: CellKind) => void addCell(kind);
-
-    const removeCell = async (cellId: string) => {
-        if (page.status !== 'ready' || busy) return;
-        setBusy(true);
-        hideSnackbar();
-
-        const hash = await deleteCell(page.notebook, cellId);
-        if (!life.alive) return;
-        setBusy(false);
-        if (hash === undefined) {
-            showSnackbar('Не удалось удалить ячейку', {
-                label: 'Повторить',
-                onClick: () => void removeCell(cellId),
-            });
-            return;
-        }
-        setPage((current) =>
-            current.status === 'ready' && current.notebook.id === id
-                ? {
-                      status: 'ready',
-                      notebook: {
-                          ...current.notebook,
-                          hash,
-                          cells: current.notebook.cells.filter((cell) => cell.id !== cellId),
-                      },
-                  }
-                : current,
-        );
+    const handleDelete = (cellId: string) => {
+        const index = cells.findIndex((cell) => cell.id === cellId);
+        void deleteCell(cellId).then((deleted) => {
+            if (!deleted) return;
+            const next = useNotebookStore.getState().confirmed?.cells ?? [];
+            setFocusTarget({ id: (next[index] ?? next[index - 1])?.id });
+        });
     };
 
-    const cells = page.status === 'ready' ? page.notebook.cells : [];
-    const isEmpty = page.status === 'ready' && cells.length === 0;
-    const hasToolbar = page.status === 'loading' || page.status === 'ready';
+    // черновики удалённых на сервере ячеек — на их прежних местах
+    const rows = [
+        ...cells.map((cell, index) => ({ index, cell, orphan: undefined })),
+        ...notebook.orphans.map((orphan) => ({
+            index: orphan.index - 0.5,
+            cell: undefined,
+            orphan,
+        })),
+    ].toSorted((a, b) => a.index - b.index);
 
     return (
         <div className={styles.page}>
             <Space key="space" variant="plain" />
             <div key="content" className={styles.content}>
-                <Header key="header" toolbar={hasToolbar && <AddCellChips onAdd={handleAdd} />}>
+                <Header
+                    key="header"
+                    toolbar={
+                        hasToolbar && <AddCellChips disabled={!ready || locked} onAdd={handleAdd} />
+                    }
+                >
                     <IconButton
                         key="back"
                         icon="back"
@@ -281,18 +247,27 @@ export function NotebookPage() {
                         aria-hidden="true"
                     />
                     <div key="heading" className={styles.heading}>
-                        <h1 key="title" className={styles.title} title={title(page)}>
-                            {title(page)}
+                        <h1 key="title" className={styles.title} title={title}>
+                            {title}
                         </h1>
-                        {page.status === 'ready' && (
+                        {ready && (
                             <p key="meta" className={styles.meta}>
-                                {plural(cells.length, 'ячейка', 'ячейки', 'ячеек')}
+                                <span key="count">
+                                    {plural(cells.length, 'ячейка', 'ячейки', 'ячеек')}
+                                </span>
+                                {status && (
+                                    <SaveStatus
+                                        key="status"
+                                        tone={status.tone}
+                                        text={status.text}
+                                    />
+                                )}
                             </p>
                         )}
                     </div>
                     <ProfileMenu key="profile" login={login} />
                 </Header>
-                {page.status === 'loading' && (
+                {load === 'loading' && (
                     <ul
                         key="skeletons"
                         className={clsx(styles.cells, styles.column)}
@@ -305,17 +280,42 @@ export function NotebookPage() {
                         ))}
                     </ul>
                 )}
-                {page.status === 'ready' && !isEmpty && (
+                {ready && notebook.conflict.phase !== 'none' && (
+                    <ConflictBanner key="conflict" className={styles.column} />
+                )}
+                {ready && !isEmpty && (
                     <div key="body" className={clsx(styles.body, styles.column)}>
                         <ul key="cells" className={styles.cells}>
-                            {cells.map((cell) => (
-                                <li key={cell.id}>
-                                    <Cell cell={cell} onDelete={() => void removeCell(cell.id)} />
-                                </li>
-                            ))}
+                            {rows.map(({ index, cell, orphan }) =>
+                                orphan ? (
+                                    <li key={`orphan-${orphan.cellId}`}>
+                                        <OrphanDraft orphan={orphan} />
+                                    </li>
+                                ) : (
+                                    <li key={cell!.id}>
+                                        <Cell
+                                            cell={cell!}
+                                            text={notebook.drafts[cell!.id] ?? cell!.source}
+                                            selected={selected === cell!.id}
+                                            tooLarge={notebook.tooLarge[cell!.id] === true}
+                                            canMoveUp={index > 0}
+                                            canMoveDown={index < cells.length - 1}
+                                            locked={locked}
+                                            onInput={(text, composing) =>
+                                                editSource(cell!.id, text, composing)
+                                            }
+                                            onCommit={() => commitSource(cell!.id)}
+                                            onFocus={() => setSelected(cell!.id)}
+                                            onMoveUp={() => void moveCell(cell!.id, -1)}
+                                            onMoveDown={() => void moveCell(cell!.id, 1)}
+                                            onDelete={() => handleDelete(cell!.id)}
+                                        />
+                                    </li>
+                                ),
+                            )}
                         </ul>
                         <div key="add" className={styles.add}>
-                            <AddCellChips onAdd={handleAdd} />
+                            <AddCellChips disabled={locked} onAdd={handleAdd} />
                         </div>
                     </div>
                 )}
@@ -326,10 +326,11 @@ export function NotebookPage() {
                         description="Добавьте первую ячейку с кодом или текстом."
                         actionsClassName={styles.chips}
                     >
-                        <AddCellChips onAdd={handleAdd} />
+                        <AddCellChips disabled={locked} onAdd={handleAdd} />
                     </StateBlock>
                 )}
             </div>
+            {ready && <ConflictDialog key="dialog" />}
         </div>
     );
 }

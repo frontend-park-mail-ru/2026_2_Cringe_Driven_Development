@@ -32,7 +32,7 @@
             "cache": false,
             "persistent": true,
             "interruptible": true,
-            "passThroughEnv": ["GO_API_URL", "MOCK_PREFER"]
+            "passThroughEnv": ["GO_API_URL", "BFF_KEY", "MOCK_PREFER"]
         },
         "//#lint:scripts": {
             "inputs": ["scripts/**", "oxlint.config.ts"]

@@ -32,6 +32,8 @@
     /* Статусы */
     --color-success: #5ef0a8;
     --color-error: #ff9a9a;
+    --color-error-soft: rgb(255 154 154 / 0.1);
+    --color-warning: #ffc98a;
 
     /* Код */
     --code-text: #cfc8f2;

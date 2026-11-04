@@ -32,6 +32,10 @@
 }
 
 .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
     font: var(--font-caption);
     color: var(--color-text-secondary);
 }

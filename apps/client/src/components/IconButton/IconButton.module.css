@@ -21,3 +21,13 @@
     background: var(--color-surface-hover);
     color: var(--color-text-primary);
 }
+
+.button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.button:disabled:hover {
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+}

@@ -15,7 +15,14 @@ const prism = Bun.spawn(
 
 const dev = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: root,
-    env: { ...process.env, GO_API_URL: PRISM_URL, MOCK_PREFER: '1', VITE_MOCK_PREFER: '1' },
+    env: {
+        ...process.env,
+        GO_API_URL: PRISM_URL,
+        // контракт требует X-BFF-Key: без него Prism отклоняет запрос; значение мок не проверяет
+        BFF_KEY: process.env.BFF_KEY || 'local-prism',
+        MOCK_PREFER: '1',
+        VITE_MOCK_PREFER: '1',
+    },
     stdio: ['inherit', 'inherit', 'inherit'],
 });
 

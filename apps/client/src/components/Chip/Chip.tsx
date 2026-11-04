@@ -6,6 +6,8 @@ import styles from './Chip.module.css';
 interface ChipProps {
     /** Текст чипа */
     children: ReactNode;
+    /** Действие сейчас недоступно */
+    disabled?: boolean;
     onClick: () => void;
 }
 
@@ -14,9 +16,9 @@ interface ChipProps {
  * @param props свойства чипа
  * @returns элемент button
  */
-export function Chip({ children, onClick }: ChipProps) {
+export function Chip({ children, disabled, onClick }: ChipProps) {
     return (
-        <button className={styles.chip} type="button" onClick={onClick}>
+        <button className={styles.chip} type="button" disabled={disabled} onClick={onClick}>
             <Icon key="icon" name="plus" size={12} />
             <span key="label">{children}</span>
         </button>
