@@ -6,13 +6,12 @@ import { Cell, CellSkeleton, cellDomId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
-import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
+import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
-import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import styles from './NotebookPage.module.css';
@@ -117,7 +116,6 @@ function AddCellChips({ onAdd }: AddCellChipsProps) {
  */
 export function NotebookPage() {
     const navigate = useNavigate();
-    const login = useSessionStore((state) => state.user?.login ?? '');
     const id = Number(useParams({ from: '/_auth/notebooks/$notebookId' }).notebookId);
     // При прямом открытии своего блокнота BFF уже положил его в bootstrap: первый показ без запроса
     const preloaded = peekPreloadedNotebook(id);
@@ -265,7 +263,7 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
-                    <ProfileMenu key="profile" login={login} />
+                    <ProfileLink key="profile" />
                 </Header>
                 {page.status === 'loading' && (
                     <ul

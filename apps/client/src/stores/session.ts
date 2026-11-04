@@ -122,3 +122,46 @@ export async function logout(): Promise<boolean> {
     useSessionStore.setState(GUEST);
     return true;
 }
+
+/** Итог выхода со всех устройств: ok — Go подтвердил, lost — сессия потеряна без подтверждения. */
+export type LogoutAllResult = 'ok' | 'lost' | 'failed';
+
+/**
+ * Выход со всех устройств через `switchSession`. Успех — только после подтверждения Go: тогда
+ * пользователь — гость. Потеря сессии (`UNAUTHORIZED`) — не подтверждение общего отзыва: её
+ * обрабатывает `onSessionLost`. Сбой сети, Go 5xx или S2S — исход неизвестен, сессия остаётся.
+ * @returns итог выхода
+ */
+export async function logoutAll(): Promise<LogoutAllResult> {
+    try {
+        await switchSession(() => trpc.auth.logoutAll.mutate());
+    } catch {
+        return useSessionStore.getState().status === 'guest' ? 'lost' : 'failed';
+    }
+    useSessionStore.setState(GUEST);
+    return 'ok';
+}
+
+/** Ошибка загрузки аватара: file — файл отвергнут, upload — сбой сети, Go или BFF. */
+export type AvatarError = 'file' | 'upload';
+
+const FILE_ERRORS = new Set(['validation_error', 'payload_too_large', 'unsupported_media_type']);
+
+/**
+ * Загрузка или замена аватара. После `200 User` — пользователь в сторе с новым `avatar_url`.
+ * `UNAUTHORIZED` обрабатывает транспорт; здесь это сбой загрузки.
+ * @param file JPEG или PNG, уже проверенный клиентом
+ * @returns null после успеха, иначе вид ошибки
+ */
+export async function uploadAvatar(file: File): Promise<AvatarError | null> {
+    const form = new FormData();
+    form.append('avatar', file);
+    try {
+        const user = await trpc.users.uploadAvatar.mutate(form);
+        useSessionStore.setState({ user });
+        return null;
+    } catch (error) {
+        const code = isRpcError(error) ? error.data?.appCode : undefined;
+        return code && FILE_ERRORS.has(code) ? 'file' : 'upload';
+    }
+}
