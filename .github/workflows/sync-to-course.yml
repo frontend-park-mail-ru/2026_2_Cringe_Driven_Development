@@ -37,11 +37,11 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@aa7238934172fecf4777a8ebb29031e9a4af10cd
+    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main
     with:
       sha: ${{ needs.resolve.outputs.sha }}
       ci_run_id: ${{ inputs.ci_run_id }}
-      automation_ref: aa7238934172fecf4777a8ebb29031e9a4af10cd
+      automation_ref: main
     secrets:
       COURSE_SYNC_SSH_KEY: ${{ secrets.COURSE_SYNC_SSH_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

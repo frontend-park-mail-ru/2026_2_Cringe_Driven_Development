@@ -150,3 +150,17 @@ test.each(['ci.yml', 'cd.yml', 'rollback.yml', 'release-status.yml', 'sync-to-co
         }
     },
 );
+
+test.each([
+    ['ci.yml', 'course-sync'],
+    ['sync-to-course.yml', 'sync'],
+])('%s вызывает общую синхронизацию из .github/main', async (name, job) => {
+    const call = (await workflow(name)).jobs[job] as unknown as {
+        uses: string;
+        with: Record<string, unknown>;
+    };
+    expect(call.uses).toBe(
+        'Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main',
+    );
+    expect(call.with.automation_ref).toBe('main');
+});
