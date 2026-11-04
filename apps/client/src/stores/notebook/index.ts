@@ -93,6 +93,12 @@ let active: number | null = null;
 let pending: Job | null = null;
 // Ожидание итога «Сохранить мой текст»: true — сохранено, false — снова конфликт или ошибка
 let resolution: ((ok: boolean) => void) | null = null;
+// Выполняемая сейчас операция очереди
+let inflight: Job | null = null;
+// Ячейки, чьё удаление ждёт или идёт: их правки больше не отправляются
+const deleting = new Set<string>();
+// Идёт сверка после сбоя: «Повторить» в это время не запускает вторую
+let reconciling = false;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -104,6 +110,8 @@ const clearTimers = (): void => {
 
 const reset = (): void => {
     generation++;
+    inflight = null;
+    reconciling = false;
     clearTimers();
     dropQueue();
     resolution?.(false);
@@ -115,6 +123,7 @@ function dropQueue(): void {
     for (const job of [...queue, ...(pending ? [pending] : [])]) job.done(undefined);
     queue = [];
     pending = null;
+    deleting.clear();
 }
 
 // Конфликт, который ждёт выбора версии или загрузки снимка
@@ -209,7 +218,7 @@ const refreshStatus = (justSaved = false): void => {
  */
 export function editSource(cellId: string, text: string, composing: boolean): void {
     const drafts = { ...get().drafts };
-    if (text === sourceOf(cellId)) delete drafts[cellId];
+    if (text === sourceOf(cellId) && !updateUnconfirmed(cellId)) delete drafts[cellId];
     else drafts[cellId] = text;
     const tooLarge = { ...get().tooLarge };
     if (utf8Bytes(text) > SOURCE_LIMIT_BYTES) tooLarge[cellId] = true;
@@ -234,7 +243,7 @@ export function commitSource(cellId: string): void {
     clearTimeout(timers.get(cellId));
     timers.delete(cellId);
     const source = get().drafts[cellId];
-    if (source === undefined || get().tooLarge[cellId]) return;
+    if (source === undefined || get().tooLarge[cellId] || deleting.has(cellId)) return;
     const queued = queue.find((job) => job.op.type === 'update' && job.op.cellId === cellId);
     if (queued) queued.op = { type: 'update', cellId, source };
     else queue.push({ op: { type: 'update', cellId, source }, done: () => {} });
@@ -292,7 +301,10 @@ export async function deleteCell(cellId: string): Promise<boolean> {
     clearTimeout(timers.get(cellId));
     timers.delete(cellId);
     queue = queue.filter((job) => !(job.op.type === 'update' && job.op.cellId === cellId));
-    return (await structural({ type: 'delete', cellId })) === true;
+    deleting.add(cellId);
+    const deleted = (await structural({ type: 'delete', cellId })) === true;
+    deleting.delete(cellId);
+    return deleted;
 }
 
 // Подтверждённая операция: новый снимок, черновик снимается, только если он равен отправленному
@@ -365,6 +377,12 @@ async function execute(job: Job, notebookId: number, hash: string, live: () => b
     }
 }
 
+// У ячейки есть отправленная или ждущая отправки правка, ещё не подтверждённая сервером
+const updateUnconfirmed = (cellId: string): boolean =>
+    [inflight, pending, ...queue].some(
+        (job) => job?.op.type === 'update' && job.op.cellId === cellId,
+    );
+
 const structureQueued = (): boolean => queue.some((j) => j.op.type !== 'update');
 
 // Очередь одного блокнота: строго по одной операции, каждая с hash предыдущего ответа
@@ -378,12 +396,16 @@ async function run(): Promise<void> {
         const job = queue.shift()!;
         const { notebookId, confirmed } = get();
         if (notebookId === null || !confirmed) break;
+        inflight = job;
         try {
             await execute(job, notebookId, confirmed.hash, live);
         } catch (error) {
             if (!live()) break;
+            inflight = null;
             active = null;
             return failed(job, error);
+        } finally {
+            if (live()) inflight = null;
         }
         if (live() && job.op.type !== 'update') set({ structureBusy: structureQueued() });
     }
@@ -446,8 +468,11 @@ const loadFailed = (result: { error: 'gone' | 'failed' }): void => {
 
 // Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений
 async function reconcile(): Promise<void> {
+    if (reconciling) return;
+    reconciling = true;
     const started = generation;
     const result = await load(() => started === generation);
+    reconciling = false;
     if (!result) return;
     if ('error' in result) return loadFailed(result);
     const server = result.snapshot;
