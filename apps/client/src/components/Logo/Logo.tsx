@@ -1,4 +1,4 @@
-import logoMarkUrl from '@assets/logo-mark.svg';
+import LogoMark from '@assets/logo-mark.svg?react';
 import styles from './Logo.module.css';
 
 /**
@@ -8,13 +8,12 @@ import styles from './Logo.module.css';
 export function Logo() {
     return (
         <span className={styles.logo}>
-            <img
+            <LogoMark
                 key="mark"
                 className={styles.mark}
-                src={logoMarkUrl}
-                alt=""
                 width={24}
                 height={24}
+                aria-hidden="true"
             />
             <span key="text">cellestial</span>
         </span>
