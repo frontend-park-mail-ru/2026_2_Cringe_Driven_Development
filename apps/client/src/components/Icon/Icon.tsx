@@ -1,6 +1,39 @@
 import { clsx } from '@cdd-team/clsx';
-import { ICON_MASKS, type IconName } from './icons';
+import AlertIcon from '@assets/icons/alert.svg?react';
+import BackIcon from '@assets/icons/back.svg?react';
+import CheckIcon from '@assets/icons/check.svg?react';
+import CloseIcon from '@assets/icons/close.svg?react';
+import DotIcon from '@assets/icons/dot.svg?react';
+import EyeIcon from '@assets/icons/eye.svg?react';
+import EyeSlashIcon from '@assets/icons/eye-slash.svg?react';
+import InfoIcon from '@assets/icons/info.svg?react';
+import LogoutIcon from '@assets/icons/logout.svg?react';
+import PencilIcon from '@assets/icons/pencil.svg?react';
+import PlusIcon from '@assets/icons/plus.svg?react';
+import SpinnerIcon from '@assets/icons/spinner.svg?react';
+import TrashIcon from '@assets/icons/trash.svg?react';
+import UserIcon from '@assets/icons/user.svg?react';
 import styles from './Icon.module.css';
+
+const ICONS = {
+    eye: EyeIcon,
+    eyeSlash: EyeSlashIcon,
+    alert: AlertIcon,
+    back: BackIcon,
+    trash: TrashIcon,
+    plus: PlusIcon,
+    close: CloseIcon,
+    info: InfoIcon,
+    logout: LogoutIcon,
+    check: CheckIcon,
+    dot: DotIcon,
+    user: UserIcon,
+    pencil: PencilIcon,
+    spinner: SpinnerIcon,
+};
+
+/** Имя иконки из макета. */
+export type IconName = keyof typeof ICONS;
 
 /** Свойства {@link Icon}. */
 interface IconProps {
@@ -15,13 +48,15 @@ interface IconProps {
 /**
  * Декоративная иконка. Цвет наследуется из `color` родителя, для скринридеров не видна.
  * @param props свойства иконки
- * @returns span с CSS-маской
+ * @returns svg-иконка
  */
 export function Icon({ name, size = 16, className }: IconProps) {
+    const Svg = ICONS[name];
     return (
-        <span
+        <Svg
             className={clsx(styles.icon, className)}
-            style={{ '--icon': ICON_MASKS[name], width: size, height: size }}
+            width={size}
+            height={size}
             aria-hidden="true"
         />
     );
