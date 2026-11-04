@@ -10,11 +10,17 @@ export type User = RouterOutputs['users']['me'];
 /** Блокнот в списке. */
 export type NotebookSummary = RouterOutputs['notebooks']['list'][number];
 
-/** Блокнот с ячейками. */
-export type Notebook = RouterOutputs['notebooks']['get'];
+/** Данные страницы блокнота, как их отдаёт `notebooks.get`: `{ notebook }`. */
+export type NotebookPageData = RouterOutputs['notebooks']['get'];
+
+/** Блокнот с hash и ячейками. */
+export type Notebook = NotebookPageData['notebook'];
 
 /** Ячейка блокнота. */
 export type Cell = Notebook['cells'][number];
+
+/** Кодовая ячейка с сохранёнными результатами исполнения. */
+export type CodeCell = Extract<Cell, { kind: 'code' }>;
 
 /** Ошибка процедуры BFF: `data.code`, `data.appCode`, `data.zodError`. */
 export type RpcError = TRPCClientError<AppRouter>;

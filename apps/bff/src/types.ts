@@ -14,11 +14,14 @@ export type RouterOutputs = inferRouterOutputs<AppRouter>;
 /** Пользователь, как его отдаёт `users.me`. */
 export type CurrentUser = RouterOutputs['users']['me'];
 
-/** Блокнот с ячейками, как его отдаёт `notebooks.get`. */
-export type NotebookData = RouterOutputs['notebooks']['get'];
+/** Данные страницы блокнота, как их отдаёт `notebooks.get`: `{ notebook }`. */
+export type NotebookPageData = RouterOutputs['notebooks']['get'];
+
+/** Блокнот с hash и ячейками. */
+export type NotebookData = NotebookPageData['notebook'];
 
 /**
  * Данные, которые BFF кладёт в `<script id="bootstrap">` первого HTML: пользователь, а на прямом
- * открытии своего блокнота — и сам блокнот.
+ * открытии своего блокнота — и данные страницы блокнота, как у `notebooks.get`.
  */
-export type BootstrapData = { user: CurrentUser | null; notebook?: NotebookData };
+export type BootstrapData = { user: CurrentUser | null; notebookPage?: NotebookPageData };

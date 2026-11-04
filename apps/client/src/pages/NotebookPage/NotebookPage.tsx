@@ -35,7 +35,7 @@ type PageState =
 async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
     try {
-        return await trpc.notebooks.get.query({ id });
+        return (await trpc.notebooks.get.query({ id })).notebook;
     } catch (error) {
         const code = isRpcError(error) ? error.data?.code : undefined;
         return code === 'NOT_FOUND' || code === 'BAD_REQUEST' ? 'missing' : undefined;
@@ -50,7 +50,10 @@ async function loadNotebook(id: number): Promise<Notebook | 'missing' | undefine
  */
 async function createCell(id: number, kind: CellKind): Promise<CellData | undefined> {
     try {
-        return await trpc.cells.create.mutate({ notebookId: id, kind });
+        const cell = await trpc.cells.create.mutate({ notebookId: id, kind });
+        return cell.kind === 'code'
+            ? { ...cell, kind: 'code', outputs: [], execution_count: null, output_truncated: false }
+            : { ...cell, kind: 'markdown' };
     } catch {
         return undefined;
     }
@@ -120,7 +123,7 @@ export function NotebookPage() {
     const login = useSessionStore((state) => state.user?.login ?? '');
     const id = Number(useParams({ from: '/_auth/notebooks/$notebookId' }).notebookId);
     // При прямом открытии своего блокнота BFF уже положил его в bootstrap: первый показ без запроса
-    const preloaded = peekPreloadedNotebook(id);
+    const preloaded = peekPreloadedNotebook(id)?.notebook;
     const [page, setPage] = useState<PageState>(
         preloaded ? { status: 'ready', notebook: preloaded } : { status: 'loading' },
     );
@@ -136,7 +139,7 @@ export function NotebookPage() {
             hideSnackbar();
             setAttempt((current) => current + 1);
         };
-        const first = takePreloadedNotebook(id);
+        const first = takePreloadedNotebook(id)?.notebook;
         if (first) {
             setPage({ status: 'ready', notebook: first });
             return;

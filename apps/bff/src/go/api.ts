@@ -2,6 +2,7 @@ import {
     CreateCellResponse,
     CreateNotebookResponse,
     GetCurrentUserResponse,
+    GetNotebookContentResponse,
     GetNotebookResponse,
     ListNotebooksResponse,
     LoginUserResponse,
@@ -17,6 +18,7 @@ import {
     deleteCell,
     getCurrentUser,
     getNotebook,
+    getNotebookContent,
     listNotebooks,
     loginUser,
     logoutUser,
@@ -28,6 +30,7 @@ import {
     type CreateNotebookRequest,
     type Credentials,
     type Notebook,
+    type NotebookContent,
     type NotebookSummary,
     type TokenPair,
     type UpdateCurrentUserRequest,
@@ -42,6 +45,7 @@ export type Go = {
     changeCurrentUserPassword(body: ChangeCurrentUserPasswordRequest): Promise<void>;
     listNotebooks(): Promise<NotebookSummary[]>;
     getNotebook(id: number): Promise<Notebook>;
+    getNotebookContent(id: number): Promise<NotebookContent>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
     createCell(id: number, body: CreateCellRequest): Promise<Cell>;
     deleteCell(id: number, index: number): Promise<void>;
@@ -71,6 +75,12 @@ export function createGo(session: Session): Go {
             unwrap(await session.call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
             unwrap(await session.call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
+        getNotebookContent: async (id) =>
+            unwrap(
+                await session.call((init) => getNotebookContent(id, init)),
+                [200],
+                GetNotebookContentResponse,
+            ),
         createNotebook: async (body) =>
             unwrap(
                 await session.call((init) => createNotebook(body, init)),

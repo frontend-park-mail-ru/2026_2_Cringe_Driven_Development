@@ -295,6 +295,30 @@ describe('HTML', () => {
         created_at: '2026-10-01T10:00:00Z',
         updated_at: '2026-10-02T10:00:00Z',
     };
+    const CONTENT = {
+        hash: 'h1',
+        cells: [
+            {
+                id: 'c1',
+                kind: 'code',
+                source: 'print(2)',
+                outputs: [{ output_type: 'stream', name: 'stdout', text: '2' }],
+                execution_count: 3,
+                output_truncated: false,
+            },
+            { id: 'c2', kind: 'markdown', source: '# Заголовок' },
+        ],
+    };
+    // данные блокнота — метаданные из GET /notebooks/{id}, hash и ячейки — из content
+    const PAGE = {
+        notebook: {
+            id: 1,
+            name: 'Первый блокнот',
+            created_at: '2026-10-01T10:00:00Z',
+            updated_at: '2026-10-02T10:00:00Z',
+            ...CONTENT,
+        },
+    };
 
     test('гость — { user: null }, Go не вызывается, private no-store', async () => {
         useGo({});
@@ -348,19 +372,54 @@ describe('HTML', () => {
         await expectRedirect(await head('/nope', session), '/404', 'HEAD');
     });
 
-    test('вошедший, свой блокнот — 200 и блокнот в bootstrap без лишних полей Go', async () => {
+    test('вошедший, свой блокнот — 200 и блокнот с hash в bootstrap без лишних полей Go', async () => {
         useGo({
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
+            'GET /notebooks/:id/content': () => Response.json(CONTENT),
         });
         const session = await cookie(goTokens().issue());
         // %31 — тот же блокнот 1: сегмент декодируется, как в роутере клиента
         for (const path of ['/notebooks/1', '/notebooks/%31']) {
             const res = await page(session, path);
             expect(res.status, path).toBe(200);
-            expect(await bootstrap(res)).toEqual({ user: USER, notebook: NOTEBOOK });
+            expect(await bootstrap(res)).toEqual({ user: USER, notebookPage: PAGE });
         }
         expect(go?.calls.filter((c) => c.path === '/notebooks/1')).toHaveLength(2);
+        expect(go?.calls.filter((c) => c.path === '/notebooks/1/content')).toHaveLength(2);
+    });
+
+    test('notebooks.get — метаданные и content одним объектом, ячейки из content', async () => {
+        useGo({
+            'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
+            'GET /notebooks/:id/content': () => Response.json(CONTENT),
+        });
+        const res = await rpc(`notebooks.get?input=${encodeURIComponent('{"id":1}')}`, {
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(((await res.json()) as { result: { data: unknown } }).result.data).toEqual(PAGE);
+    });
+
+    test('content 404 — NOT_FOUND и 302 на /404; content 500 — BAD_GATEWAY и 503', async () => {
+        const session = await cookie(goTokens().issue());
+        const get = () =>
+            rpc(`notebooks.get?input=${encodeURIComponent('{"id":1}')}`, { cookie: session });
+        for (const [status, rpcStatus] of [
+            [404, 404],
+            [500, 502],
+        ] as const) {
+            useGo({
+                'GET /users/me': () => Response.json(USER),
+                'GET /notebooks/:id': () => Response.json(NOTEBOOK),
+                'GET /notebooks/:id/content': () => goError(status, 'x'),
+            });
+            expect((await get()).status, String(status)).toBe(rpcStatus);
+            const html = await page(session, '/notebooks/1');
+            if (status === 404) await expectRedirect(html, '/404', 'content 404');
+            else expect(html.status).toBe(503);
+            go?.restore();
+        }
     });
 
     test('вошедший, отсутствующий и чужой блокнот — одинаковый 302 на /404 без данных', async () => {
@@ -400,6 +459,7 @@ describe('HTML', () => {
         useGo({
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => goError(401, 'unauthorized'),
+            'GET /notebooks/:id/content': () => goError(401, 'unauthorized'),
             'POST /auth/refresh': () => goError(401, 'unauthorized'),
         });
         const res = await page(await cookie(goTokens().issue()), '/notebooks/1');

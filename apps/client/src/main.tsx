@@ -19,9 +19,9 @@ if (!container) throw new Error('Не найден элемент #root');
 // Сломанный bootstrap — ошибка запуска, гостем и запасным users.me она не прикрывается.
 let started = false;
 try {
-    const { user, notebook } = readBootstrap();
+    const { user, notebookPage } = readBootstrap();
     initSession(user);
-    setPreloadedNotebook(notebook);
+    setPreloadedNotebook(notebookPage);
     started = true;
 } catch (error) {
     console.error(error);
