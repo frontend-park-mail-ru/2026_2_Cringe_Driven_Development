@@ -49,12 +49,15 @@ import {
 } from './client.ts';
 import { unwrap } from './errors.ts';
 
-// hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
-const ifMatch = (init: RequestInit, hash: string): RequestInit => {
+const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
     const headers = new Headers(init.headers);
-    headers.set('If-Match', `"${hash}"`);
+    headers.set(name, value);
     return { ...init, headers };
 };
+
+// hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
+const ifMatch = (init: RequestInit, hash: string): RequestInit =>
+    withHeader(init, 'If-Match', `"${hash}"`);
 
 /** Вызовы Go от имени сессии. */
 export type Go = {
@@ -92,15 +95,8 @@ export type Go = {
  * @returns вызовы Go
  */
 export function createGo(session: Session, prefer?: string): Go {
-    const call: Session['call'] =
-        prefer === undefined
-            ? (fn) => session.call(fn)
-            : (fn) =>
-                  session.call((init) => {
-                      const headers = new Headers(init.headers);
-                      headers.set('Prefer', prefer);
-                      return fn({ ...init, headers });
-                  });
+    const call: Session['call'] = (fn) =>
+        session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init));
     return {
         getCurrentUser: async () =>
             unwrap(await call(getCurrentUser), [200], GetCurrentUserResponse),

@@ -23,6 +23,7 @@ import {
     retry,
     structureLocked,
     useNotebookStore,
+    type Orphan,
     type SaveStatus as SaveState,
 } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
@@ -61,6 +62,12 @@ const STATUS: Partial<Record<SaveState, { tone: SaveStatusTone; text: string }>>
 
 // «+ Код» в шапке: есть всегда, в том числе в пустом блокноте
 const ADD_CODE_ID = 'add-code';
+
+const ERRORS = {
+    save: 'Не удалось сохранить изменения',
+    too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
+    notebook_gone: 'Блокнот недоступен: возможно, его удалили',
+};
 
 /** Свойства {@link AddCellChips}. */
 interface AddCellChipsProps {
@@ -165,23 +172,15 @@ export function NotebookPage() {
         return () => window.removeEventListener('beforeunload', warn);
     }, [unsaved]);
 
+    // failure растёт при каждой ошибке: после неудачного «Повторить» снекбар появляется снова
     useEffect(() => {
-        if (notebook.error === 'save') {
-            const shown = showSnackbar('Не удалось сохранить изменения', {
-                label: 'Повторить',
-                onClick: () => void retry(),
-            });
-            return () => hideSnackbar(shown);
-        }
-        if (notebook.error === 'too_many_cells') {
-            const shown = showSnackbar('В блокноте уже 1000 ячеек — больше добавить нельзя');
-            return () => hideSnackbar(shown);
-        }
-        if (notebook.error === 'notebook_gone') {
-            const shown = showSnackbar('Блокнот недоступен: возможно, его удалили');
-            return () => hideSnackbar(shown);
-        }
-    }, [notebook.error]);
+        if (!notebook.error || notebook.error === 'load') return;
+        const shown =
+            notebook.error === 'save'
+                ? showSnackbar(ERRORS.save, { label: 'Повторить', onClick: () => void retry() })
+                : showSnackbar(ERRORS[notebook.error]);
+        return () => hideSnackbar(shown);
+    }, [notebook.error, notebook.failure]);
 
     useEffect(() => {
         if (!focusTarget) return;
@@ -218,14 +217,10 @@ export function NotebookPage() {
     };
 
     // черновики удалённых на сервере ячеек — на их прежних местах
-    const rows = [
-        ...cells.map((cell, index) => ({ index, cell, orphan: undefined })),
-        ...notebook.orphans.map((orphan) => ({
-            index: orphan.index - 0.5,
-            cell: undefined,
-            orphan,
-        })),
-    ].toSorted((a, b) => a.index - b.index);
+    const rows: ({ at: number } & ({ cell: CellData; index: number } | { orphan: Orphan }))[] = [
+        ...cells.map((cell, index) => ({ at: index, cell, index })),
+        ...notebook.orphans.map((orphan) => ({ at: orphan.index - 0.5, orphan })),
+    ].toSorted((a, b) => a.at - b.at);
 
     return (
         <div className={styles.page}>
@@ -290,35 +285,33 @@ export function NotebookPage() {
                         ))}
                     </ul>
                 )}
-                {ready && notebook.conflict.phase !== 'none' && (
-                    <ConflictBanner key="conflict" className={styles.column} />
-                )}
+                {ready && <ConflictBanner key="conflict" className={styles.column} />}
                 {ready && !isEmpty && (
                     <div key="body" className={clsx(styles.body, styles.column)}>
                         <ul key="cells" className={styles.cells}>
-                            {rows.map(({ index, cell, orphan }) =>
-                                orphan ? (
-                                    <li key={`orphan-${orphan.cellId}`}>
-                                        <OrphanDraft orphan={orphan} />
+                            {rows.map((row) =>
+                                'orphan' in row ? (
+                                    <li key={`orphan-${row.orphan.cellId}`}>
+                                        <OrphanDraft orphan={row.orphan} />
                                     </li>
                                 ) : (
-                                    <li key={cell!.id}>
+                                    <li key={row.cell.id}>
                                         <Cell
-                                            cell={cell!}
-                                            text={notebook.drafts[cell!.id] ?? cell!.source}
-                                            selected={selected === cell!.id}
-                                            tooLarge={notebook.tooLarge[cell!.id] === true}
-                                            canMoveUp={index > 0}
-                                            canMoveDown={index < cells.length - 1}
+                                            cell={row.cell}
+                                            text={notebook.drafts[row.cell.id] ?? row.cell.source}
+                                            selected={selected === row.cell.id}
+                                            tooLarge={notebook.tooLarge[row.cell.id] === true}
+                                            canMoveUp={row.index > 0}
+                                            canMoveDown={row.index < cells.length - 1}
                                             locked={locked}
                                             onInput={(text, composing) =>
-                                                editSource(cell!.id, text, composing)
+                                                editSource(row.cell.id, text, composing)
                                             }
-                                            onCommit={() => commitSource(cell!.id)}
-                                            onFocus={() => setSelected(cell!.id)}
-                                            onMoveUp={() => void moveCell(cell!.id, -1)}
-                                            onMoveDown={() => void moveCell(cell!.id, 1)}
-                                            onDelete={() => handleDelete(cell!.id)}
+                                            onCommit={() => commitSource(row.cell.id)}
+                                            onFocus={() => setSelected(row.cell.id)}
+                                            onMoveUp={() => void moveCell(row.cell.id, -1)}
+                                            onMoveDown={() => void moveCell(row.cell.id, 1)}
+                                            onDelete={() => handleDelete(row.cell.id)}
                                         />
                                     </li>
                                 ),

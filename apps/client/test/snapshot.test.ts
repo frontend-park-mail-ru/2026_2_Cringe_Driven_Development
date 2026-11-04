@@ -7,7 +7,7 @@ import {
     applyMove,
     applyUpdate,
     sameStructure,
-    utf8Bytes,
+    exceedsBytes,
 } from '@stores/notebook/snapshot';
 
 const code: Cell = {
@@ -21,9 +21,12 @@ const code: Cell = {
 const md: Cell = { id: 'b', kind: 'markdown', source: '# T' };
 const snap = { hash: 'h1', cells: [code, md] };
 
-test('utf8Bytes считает байты UTF-8, а не символы', () => {
-    expect(utf8Bytes('я'.repeat(32_768))).toBe(65_536);
-    expect(utf8Bytes('ab')).toBe(2);
+test('exceedsBytes считает байты UTF-8, а не символы', () => {
+    expect(exceedsBytes('я'.repeat(32_768), 65_536)).toBe(false);
+    expect(exceedsBytes('я'.repeat(32_769), 65_536)).toBe(true);
+    expect(exceedsBytes('a'.repeat(65_536), 65_536)).toBe(false);
+    expect(exceedsBytes('a'.repeat(65_537), 65_536)).toBe(true);
+    expect(exceedsBytes('€'.repeat(21_845), 65_536)).toBe(false);
 });
 
 test('applyUpdate кода сбрасывает результаты, markdown — только source', () => {
@@ -49,7 +52,7 @@ test('applyUpdate неизвестной ячейки не воссоздаёт 
 });
 
 test('applyCreate добавляет пустую ячейку в конец, код — без результатов', () => {
-    const next = applyCreate(snap, 'h2', { id: 'c', kind: 'code', source: '' });
+    const next = applyCreate(snap, 'h2', 'c', 'code');
     expect(next.cells.map((c) => c.id)).toEqual(['a', 'b', 'c']);
     expect(next.cells[2]).toEqual({
         id: 'c',

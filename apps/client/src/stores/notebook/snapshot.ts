@@ -3,24 +3,33 @@ import type { Cell } from '@api/trpc';
 /** Подтверждённое сервером содержимое блокнота: hash и ячейки по порядку. */
 export type Snapshot = { hash: string; cells: Cell[] };
 
-/** Ячейка из ответа создания: без сохранённых результатов. */
-export type NewCell = { id: string; kind: Cell['kind']; source: string };
+/** Операция над ячейками, которую подтверждает сервер. */
+export type Op =
+    | { type: 'update'; cellId: string; source: string }
+    | { type: 'create'; kind: Cell['kind'] }
+    | { type: 'move'; cellId: string; index: number }
+    | { type: 'delete'; cellId: string };
 
 const encoder = new TextEncoder();
 
 /**
- * Размер текста в байтах UTF-8 — так считается лимит source.
+ * Больше ли текст лимита в байтах UTF-8. Кодируется только неоднозначная длина: символ UTF-16 —
+ * от 1 до 3 байт.
  * @param text текст
- * @returns число байт
+ * @param limit лимит в байтах
+ * @returns true, если байт больше лимита
  */
-export function utf8Bytes(text: string): number {
-    return encoder.encode(text).length;
+export function exceedsBytes(text: string, limit: number): boolean {
+    if (text.length > limit) return true;
+    if (text.length * 3 <= limit) return false;
+    return encoder.encode(text).length > limit;
 }
 
+// У кода без результата исполнения: до первого запуска и после изменения source
+const noOutput = () => ({ outputs: [], execution_count: null, output_truncated: false });
+
 const withSource = (cell: Cell, source: string): Cell =>
-    cell.kind === 'code'
-        ? { ...cell, source, outputs: [], execution_count: null, output_truncated: false }
-        : { ...cell, source };
+    cell.kind === 'code' ? { ...cell, source, ...noOutput() } : { ...cell, source };
 
 /**
  * Подтверждённое изменение source: у кода прежний результат больше не относится к ячейке.
@@ -43,17 +52,21 @@ export function applyUpdate(
 }
 
 /**
- * Подтверждённое создание ячейки в конце блокнота.
+ * Подтверждённое создание пустой ячейки в конце блокнота.
  * @param snapshot снимок
  * @param hash hash из ответа
- * @param cell ячейка из ответа
+ * @param id id из ответа
+ * @param kind вид ячейки
  * @returns новый снимок
  */
-export function applyCreate(snapshot: Snapshot, hash: string, cell: NewCell): Snapshot {
+export function applyCreate(
+    snapshot: Snapshot,
+    hash: string,
+    id: string,
+    kind: Cell['kind'],
+): Snapshot {
     const created: Cell =
-        cell.kind === 'code'
-            ? { ...cell, kind: 'code', outputs: [], execution_count: null, output_truncated: false }
-            : { ...cell, kind: 'markdown' };
+        kind === 'code' ? { id, kind, source: '', ...noOutput() } : { id, kind, source: '' };
     return { hash, cells: [...snapshot.cells, created] };
 }
 
@@ -86,6 +99,27 @@ export function applyMove(
  */
 export function applyDelete(snapshot: Snapshot, hash: string, cellId: string): Snapshot {
     return { hash, cells: snapshot.cells.filter((c) => c.id !== cellId) };
+}
+
+/**
+ * Подтверждённая операция: тот же снимок, что даст сервер, если она применилась.
+ * @param snapshot снимок до операции
+ * @param hash hash после операции
+ * @param op операция
+ * @param createdId id созданной ячейки — для create
+ * @returns снимок после операции
+ */
+export function applyOp(snapshot: Snapshot, hash: string, op: Op, createdId = ''): Snapshot {
+    switch (op.type) {
+        case 'update':
+            return applyUpdate(snapshot, hash, op.cellId, op.source);
+        case 'create':
+            return applyCreate(snapshot, hash, createdId, op.kind);
+        case 'move':
+            return applyMove(snapshot, hash, op.cellId, op.index);
+        case 'delete':
+            return applyDelete(snapshot, hash, op.cellId);
+    }
 }
 
 /**

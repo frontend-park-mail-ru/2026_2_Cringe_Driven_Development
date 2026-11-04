@@ -305,7 +305,7 @@ export const createCellBodyIndexMin = 0;
 
 
 
-export const CreateCellBody = zod.strictObject({
+export const CreateCellBody = zod.object({
   "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
   "index": zod.int().min(createCellBodyIndexMin).optional().describe('Позиция нового блока, с нуля. Без поля блок добавляется в конец')
 })

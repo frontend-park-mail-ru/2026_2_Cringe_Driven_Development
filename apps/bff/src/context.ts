@@ -8,12 +8,12 @@ import { createSession, type Session } from './session/session.ts';
 
 /**
  * Контекст процедур: сессия запроса, заголовки ответа для её `Set-Cookie` и одноразовые статусы
- * локального мока по процедурам (пусто вне `dev:prism`).
+ * локального мока по процедурам (`null` вне `dev:prism`).
  */
 export type Context = {
     session: Session;
     resHeaders: Headers;
-    mockPrefer: ReadonlyMap<string, number>;
+    mockPrefer: ReadonlyMap<string, number> | null;
 };
 
 const csrfInvalid = (): TRPCError =>
@@ -37,6 +37,6 @@ export async function createContext({
         if (site !== null && site !== 'same-origin') throw csrfInvalid();
     }
     const mockPrefer =
-        env.MOCK_PREFER === '1' ? parseMockPrefer(req.headers.get('X-Mock-Prefer')) : new Map();
+        env.MOCK_PREFER === '1' ? parseMockPrefer(req.headers.get('X-Mock-Prefer')) : null;
     return { session: await createSession(req), resHeaders, mockPrefer };
 }

@@ -129,7 +129,7 @@ test('«Загрузить серверную версию»: снимок, че
 test('«Сохранить мой текст»: по очереди с hash снимка, удалённая ячейка — в orphans', async () => {
     await inConflict();
     const done = resolveConflict('mine');
-    expect(state().conflict).toMatchObject({ phase: 'resolving', choice: 'mine' });
+    expect(state().conflict).toMatchObject({ phase: 'resolving' });
     expect(await done).toBe(true);
     expect(inputs('cells.update').slice(1)).toEqual([
         { notebookId: 1, hash: 'h5', cellId: 'a', source: 'мой a' },

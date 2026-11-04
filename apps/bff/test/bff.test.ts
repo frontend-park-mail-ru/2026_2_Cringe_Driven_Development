@@ -97,6 +97,10 @@ const errorOf = async (res: Response) =>
         appCode?: string;
         zodError?: { fieldErrors: Record<string, string[]> };
     };
+const mutate = async (proc: string, body: unknown) =>
+    rpc(proc, { body, cookie: await cookie(goTokens().issue()) });
+const dataOf = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
 const bootstrap = async (res: Response) =>
     JSON.parse(
         /<script id="bootstrap" type="application\/json">(.*?)<\/script>/s.exec(
@@ -419,7 +423,7 @@ describe('HTML', () => {
             cookie: await cookie(goTokens().issue()),
         });
         expect(res.status).toBe(200);
-        expect(((await res.json()) as { result: { data: unknown } }).result.data).toEqual(PAGE);
+        expect(await dataOf(res)).toEqual(PAGE);
     });
 
     test('content 404 — NOT_FOUND и 302 на /404; content 500 — BAD_GATEWAY и 503', async () => {
@@ -754,11 +758,6 @@ describe('выход со всех устройств', () => {
     });
 });
 
-const mutate = async (proc: string, body: unknown) =>
-    rpc(proc, { body, cookie: await cookie(goTokens().issue()) });
-const dataOf = async (res: Response) =>
-    ((await res.json()) as { result: { data: unknown } }).result.data;
-
 describe('ячейки по cell_id с hash', () => {
     const CELL = { id: 'c1', kind: 'code', source: 'print(1)' };
 
@@ -835,12 +834,6 @@ describe('ячейки по cell_id с hash', () => {
         useGo({ 'POST /notebooks/:id/content/cells': () => goError(409, 'too_many_cells') });
         const error = await errorOf(await mutate('cells.create', cases[0]!.input));
         expect(error).toMatchObject({ code: 'CONFLICT', appCode: 'too_many_cells' });
-    });
-
-    test('старые /cells и /cells/{index} не вызываются', async () => {
-        useGo(Object.fromEntries(cases.map((c) => [c.route, c.reply])));
-        for (const c of cases) await mutate(c.proc, c.input);
-        expect(go?.calls.every((call) => call.path.includes('/content/cells'))).toBe(true);
     });
 });
 

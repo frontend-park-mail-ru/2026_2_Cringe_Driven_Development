@@ -18,7 +18,7 @@
         color 0.15s;
 }
 
-.chip:hover {
+.chip:hover:not(:disabled) {
     background: var(--color-surface-hover);
     color: var(--color-text-primary);
 }
@@ -26,9 +26,4 @@
 .chip:disabled {
     opacity: 0.4;
     cursor: default;
-}
-
-.chip:disabled:hover {
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
 }

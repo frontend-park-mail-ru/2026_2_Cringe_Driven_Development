@@ -1,10 +1,10 @@
 import type { Go } from './go/api.ts';
 import type { NotebookContent } from './go/client.ts';
 
-/** Ячейка блокнота из content: у code — сохранённые результаты исполнения. */
-export type ContentCell = NotebookContent['cells'][number];
-
-/** Данные страницы блокнота: результат `notebooks.get` и поле `notebookPage` bootstrap. */
+/**
+ * Данные страницы блокнота: результат `notebooks.get` и поле `notebookPage` bootstrap. Обёртка
+ * `{ notebook }` — по frontend#37: рядом #51 добавит сессию и очередь исполнения.
+ */
 export type NotebookPage = {
     notebook: {
         id: number;
@@ -12,7 +12,7 @@ export type NotebookPage = {
         created_at: string;
         updated_at: string;
         hash: string;
-        cells: ContentCell[];
+        cells: NotebookContent['cells'];
     };
 };
 

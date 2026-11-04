@@ -1,17 +1,9 @@
 import { create } from '@cdd-team/zustand';
 import { isRpcError, trpc, type Cell, type NotebookPageData } from '@api/trpc';
-import {
-    applyCreate,
-    applyDelete,
-    applyMove,
-    applyUpdate,
-    sameStructure,
-    utf8Bytes,
-    type Snapshot,
-} from './snapshot';
+import { applyOp, exceedsBytes, sameStructure, type Op, type Snapshot } from './snapshot';
 
-/** Лимит исходника ячейки — 64 КиБ в UTF-8. */
-export const SOURCE_LIMIT_BYTES = 65_536;
+// Лимит исходника ячейки — 64 КиБ в UTF-8
+const SOURCE_LIMIT_BYTES = 65_536;
 /** Пауза ввода перед автосохранением. */
 export const AUTOSAVE_DELAY_MS = 500;
 /** Сколько видна подпись «Сохранено». */
@@ -29,7 +21,7 @@ export type Conflict =
     | { phase: 'loading' }
     | { phase: 'failed' }
     | { phase: 'ready'; snapshot: Snapshot; dialogOpen: boolean }
-    | { phase: 'resolving'; snapshot: Snapshot; choice: 'server' | 'mine' };
+    | { phase: 'resolving'; snapshot: Snapshot };
 
 /** Черновик ячейки, которую удалили на сервере: остаётся для копирования, сам не воссоздаётся. */
 export type Orphan = { cellId: string; kind: Cell['kind']; text: string; index: number };
@@ -79,12 +71,6 @@ export const useNotebookStore = create<NotebookState>()(() => empty());
 const get = () => useNotebookStore.getState();
 const set = (patch: Partial<NotebookState>) => useNotebookStore.setState(patch);
 
-type Op =
-    | { type: 'update'; cellId: string; source: string }
-    | { type: 'create'; kind: Cell['kind'] }
-    | { type: 'move'; cellId: string; index: number }
-    | { type: 'delete'; cellId: string };
-
 type Job = { op: Op; done: (result: string | boolean | undefined) => void };
 
 // Поколение меняется при открытии и закрытии блокнота: ответы прежнего в стор не попадают
@@ -130,6 +116,15 @@ function dropQueue(): void {
     deleting.clear();
 }
 
+// Ошибка, после которой сохранение стоит до перечитывания
+const halted = (error: NotebookError | null): boolean =>
+    error === 'save' || error === 'notebook_gone';
+
+const cancelAutosave = (cellId: string): void => {
+    clearTimeout(timers.get(cellId));
+    timers.delete(cellId);
+};
+
 // Конфликт, который ждёт выбора версии или загрузки снимка
 const unresolved = (conflict: Conflict): boolean =>
     conflict.phase !== 'none' && conflict.phase !== 'resolving';
@@ -137,7 +132,7 @@ const unresolved = (conflict: Conflict): boolean =>
 // Очередь стоит при неразрешённом конфликте и при ошибке, требующей перечитывания
 const paused = (): boolean => {
     const { conflict, error } = get();
-    return unresolved(conflict) || error === 'save' || error === 'notebook_gone';
+    return unresolved(conflict) || halted(error);
 };
 
 const edits = new Set<(cellId: string) => void>();
@@ -170,12 +165,7 @@ export function onSaved(listener: (snapshot: Snapshot) => void): () => void {
  *   из-за ошибки
  */
 export function structureLocked(state: NotebookState): boolean {
-    return (
-        state.structureBusy ||
-        state.conflict.phase !== 'none' ||
-        state.error === 'save' ||
-        state.error === 'notebook_gone'
-    );
+    return state.structureBusy || state.conflict.phase !== 'none' || halted(state.error);
 }
 
 /**
@@ -210,21 +200,26 @@ export function closeNotebook(): void {
 const sourceOf = (cellId: string): string | undefined =>
     get().confirmed?.cells.find((c) => c.id === cellId)?.source;
 
+// Статус меняется только при новом значении: на каждое нажатие не уведомлять подписчиков зря
+const setStatus = (status: SaveStatus): void => {
+    if (get().status !== status) set({ status });
+};
+
 // Статус шапки по текущему состоянию; saved — только когда сохранять больше нечего
 const refreshStatus = (justSaved = false): void => {
     const { error, drafts, conflict } = get();
-    if (unresolved(conflict)) return set({ status: 'conflict' });
-    if (error === 'save' || error === 'notebook_gone') return set({ status: 'error' });
-    if (active === generation || queue.length > 0) return set({ status: 'saving' });
-    if (Object.keys(drafts).length > 0) return set({ status: 'dirty' });
+    if (unresolved(conflict)) return setStatus('conflict');
+    if (halted(error)) return setStatus('error');
+    if (active === generation || queue.length > 0) return setStatus('saving');
+    if (Object.keys(drafts).length > 0) return setStatus('dirty');
     if (justSaved) {
         clearTimeout(savedTimer);
         savedTimer = setTimeout(() => {
-            if (get().status === 'saved') set({ status: 'idle' });
+            if (get().status === 'saved') setStatus('idle');
         }, SAVED_VISIBLE_MS);
-        return set({ status: 'saved' });
+        return setStatus('saved');
     }
-    if (get().status !== 'saved') set({ status: 'idle' });
+    if (get().status !== 'saved') setStatus('idle');
 };
 
 /**
@@ -235,15 +230,20 @@ const refreshStatus = (justSaved = false): void => {
  * @param composing идёт ли IME-композиция
  */
 export function editSource(cellId: string, text: string, composing: boolean): void {
-    const drafts = { ...get().drafts };
-    if (text === sourceOf(cellId) && !updateUnconfirmed(cellId)) delete drafts[cellId];
-    else drafts[cellId] = text;
-    const tooLarge = { ...get().tooLarge };
-    if (utf8Bytes(text) > SOURCE_LIMIT_BYTES) tooLarge[cellId] = true;
-    else delete tooLarge[cellId];
-    set({ drafts, tooLarge });
-    clearTimeout(timers.get(cellId));
-    timers.delete(cellId);
+    const keep = text !== sourceOf(cellId) || updateUnconfirmed(cellId);
+    const big = exceedsBytes(text, SOURCE_LIMIT_BYTES);
+    const state = get();
+    const patch: Partial<NotebookState> = {};
+    if (keep ? state.drafts[cellId] !== text : cellId in state.drafts) {
+        const { [cellId]: _, ...rest } = state.drafts;
+        patch.drafts = keep ? { ...rest, [cellId]: text } : rest;
+    }
+    if (big !== (state.tooLarge[cellId] === true)) {
+        const { [cellId]: _, ...rest } = state.tooLarge;
+        patch.tooLarge = big ? { ...rest, [cellId]: true } : rest;
+    }
+    if (patch.drafts || patch.tooLarge) set(patch);
+    cancelAutosave(cellId);
     for (const listener of edits) listener(cellId);
     if (!composing)
         timers.set(
@@ -258,8 +258,7 @@ export function editSource(cellId: string, text: string, composing: boolean): vo
  * @param cellId ячейка
  */
 export function commitSource(cellId: string): void {
-    clearTimeout(timers.get(cellId));
-    timers.delete(cellId);
+    cancelAutosave(cellId);
     const source = get().drafts[cellId];
     if (source === undefined || get().tooLarge[cellId] || deleting.has(cellId)) return;
     const queued = queue.find((job) => job.op.type === 'update' && job.op.cellId === cellId);
@@ -296,14 +295,9 @@ export async function addCell(kind: Cell['kind']): Promise<string | undefined> {
  */
 export async function moveCell(cellId: string, direction: -1 | 1): Promise<boolean> {
     const cells = get().confirmed?.cells ?? [];
-    const index = cells.findIndex((c) => c.id === cellId) + direction;
-    if (
-        get().structureBusy ||
-        paused() ||
-        index < 0 ||
-        index >= cells.length ||
-        index - direction < 0
-    ) {
+    const from = cells.findIndex((c) => c.id === cellId);
+    const index = from + direction;
+    if (get().structureBusy || paused() || from < 0 || index < 0 || index >= cells.length) {
         return false;
     }
     return (await structural({ type: 'move', cellId, index })) === true;
@@ -316,8 +310,7 @@ export async function moveCell(cellId: string, direction: -1 | 1): Promise<boole
  */
 export async function deleteCell(cellId: string): Promise<boolean> {
     if (get().structureBusy || paused() || sourceOf(cellId) === undefined) return false;
-    clearTimeout(timers.get(cellId));
-    timers.delete(cellId);
+    cancelAutosave(cellId);
     queue = queue.filter((job) => !(job.op.type === 'update' && job.op.cellId === cellId));
     deleting.add(cellId);
     const deleted = (await structural({ type: 'delete', cellId })) === true;
@@ -348,60 +341,51 @@ function expectedAfter(
     op: Op,
     server: Snapshot,
 ): { snapshot: Snapshot; createdId?: string } | null {
-    switch (op.type) {
-        case 'update':
-            return { snapshot: applyUpdate(confirmed, server.hash, op.cellId, op.source) };
-        case 'move':
-            return { snapshot: applyMove(confirmed, server.hash, op.cellId, op.index) };
-        case 'delete':
-            return { snapshot: applyDelete(confirmed, server.hash, op.cellId) };
-        case 'create': {
-            const known = new Set(confirmed.cells.map((c) => c.id));
-            const added = server.cells.filter((c) => !known.has(c.id));
-            if (added.length !== 1) return null;
-            const cell = { id: added[0]!.id, kind: op.kind, source: '' };
-            return { snapshot: applyCreate(confirmed, server.hash, cell), createdId: cell.id };
-        }
-    }
+    if (op.type !== 'create') return { snapshot: applyOp(confirmed, server.hash, op) };
+    const known = new Set(confirmed.cells.map((c) => c.id));
+    const added = server.cells.filter((c) => !known.has(c.id));
+    if (added.length !== 1) return null;
+    const createdId = added[0]!.id;
+    return { snapshot: applyOp(confirmed, server.hash, op, createdId), createdId };
 }
 
-// Одна операция с текущим hash; ответ применяется, только если блокнот не сменился
-async function execute(job: Job, notebookId: number, hash: string, live: () => boolean) {
-    const { op } = job;
+// Запрос операции с текущим hash: новый hash и, для create, id ячейки
+async function send(
+    op: Op,
+    notebookId: number,
+    hash: string,
+): Promise<{ hash: string; createdId?: string }> {
     switch (op.type) {
-        case 'update': {
-            const { cellId, source } = op;
-            const res = await trpc.cells.update.mutate({ notebookId, hash, cellId, source });
-            if (live()) commit(job, applyUpdate(get().confirmed!, res.hash, cellId, source));
-            return;
-        }
+        case 'update':
+            return trpc.cells.update.mutate({
+                notebookId,
+                hash,
+                cellId: op.cellId,
+                source: op.source,
+            });
         case 'create': {
-            const { kind } = op;
-            const res = await trpc.cells.create.mutate({ notebookId, hash, kind, source: '' });
-            const cell = { id: res.cell.id, kind, source: '' };
-            if (live()) commit(job, applyCreate(get().confirmed!, res.hash, cell), cell.id);
-            return;
+            const res = await trpc.cells.create.mutate({
+                notebookId,
+                hash,
+                kind: op.kind,
+                source: '',
+            });
+            return { hash: res.hash, createdId: res.cell.id };
         }
-        case 'move': {
-            const { cellId, index } = op;
-            const res = await trpc.cells.move.mutate({ notebookId, hash, cellId, index });
-            if (live()) commit(job, applyMove(get().confirmed!, res.hash, cellId, index));
-            return;
-        }
-        case 'delete': {
-            const { cellId } = op;
-            const res = await trpc.cells.delete.mutate({ notebookId, hash, cellId });
-            if (live()) commit(job, applyDelete(get().confirmed!, res.hash, cellId));
-            return;
-        }
+        case 'move':
+            return trpc.cells.move.mutate({ notebookId, hash, cellId: op.cellId, index: op.index });
+        case 'delete':
+            return trpc.cells.delete.mutate({ notebookId, hash, cellId: op.cellId });
     }
 }
 
 // У ячейки есть отправленная или ждущая отправки правка, ещё не подтверждённая сервером
+const isUpdateOf = (job: Job | null, cellId: string): boolean =>
+    job?.op.type === 'update' && job.op.cellId === cellId;
 const updateUnconfirmed = (cellId: string): boolean =>
-    [inflight, pending, ...queue].some(
-        (job) => job?.op.type === 'update' && job.op.cellId === cellId,
-    );
+    isUpdateOf(inflight, cellId) ||
+    isUpdateOf(pending, cellId) ||
+    queue.some((job) => isUpdateOf(job, cellId));
 
 const structureQueued = (): boolean => queue.some((j) => j.op.type !== 'update');
 
@@ -418,7 +402,12 @@ async function run(): Promise<void> {
         if (notebookId === null || !confirmed) break;
         inflight = job;
         try {
-            await execute(job, notebookId, confirmed.hash, live);
+            const res = await send(job.op, notebookId, confirmed.hash);
+            // ответ применяется, только если блокнот не сменился
+            if (live()) {
+                const next = applyOp(get().confirmed!, res.hash, job.op, res.createdId);
+                commit(job, next, res.createdId);
+            }
         } catch (error) {
             if (!live()) break;
             inflight = null;
@@ -622,7 +611,7 @@ export function resolveConflict(choice: 'server' | 'mine'): Promise<boolean> {
         confirmed: snapshot,
         drafts: kept,
         orphans,
-        conflict: { phase: 'resolving', snapshot, choice },
+        conflict: { phase: 'resolving', snapshot },
     });
     const { promise, resolve } = Promise.withResolvers<boolean>();
     resolution = resolve;

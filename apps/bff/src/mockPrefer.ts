@@ -8,9 +8,7 @@ export function parseMockPrefer(header: string | null): Map<string, number> {
     const rules = new Map<string, number>();
     for (const pair of header?.split(',') ?? []) {
         const [path, code] = pair.trim().split('=');
-        if (!path || !code || !/^\d{3}$/.test(code)) continue;
-        const status = Number(code);
-        if (status >= 100 && status <= 599) rules.set(path, status);
+        if (path && code && /^[1-5]\d\d$/.test(code)) rules.set(path, Number(code));
     }
     return rules;
 }

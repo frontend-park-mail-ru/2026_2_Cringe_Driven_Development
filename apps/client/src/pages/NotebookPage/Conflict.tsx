@@ -16,6 +16,21 @@ import styles from './Conflict.module.css';
 
 const SERVER_ID = 'conflict-server';
 
+const BANNER = {
+    loading: {
+        title: 'Конфликт сохранения: загружаем актуальную версию',
+        text: 'Ваши правки остаются в редакторе. Выбрать версию можно после загрузки.',
+    },
+    failed: {
+        title: 'Не удалось загрузить актуальную версию',
+        text: 'Ваши правки остаются в редакторе, сохранение приостановлено. Повторите загрузку, чтобы выбрать версию.',
+    },
+    ready: {
+        title: 'Конфликт сохранения',
+        text: 'Блокнот изменили в другой вкладке или браузере. Ваши правки в редакторе, сохранение приостановлено до выбора версии.',
+    },
+};
+
 /** Свойства {@link ConflictBanner}. */
 interface ConflictBannerProps {
     className?: string;
@@ -30,21 +45,7 @@ interface ConflictBannerProps {
 export function ConflictBanner({ className }: ConflictBannerProps) {
     const conflict = useNotebookStore((state) => state.conflict);
     if (conflict.phase === 'none' || conflict.phase === 'resolving') return null;
-    const banner =
-        conflict.phase === 'loading'
-            ? {
-                  title: 'Конфликт сохранения: загружаем актуальную версию',
-                  text: 'Ваши правки остаются в редакторе. Выбрать версию можно после загрузки.',
-              }
-            : conflict.phase === 'failed'
-              ? {
-                    title: 'Не удалось загрузить актуальную версию',
-                    text: 'Ваши правки остаются в редакторе, сохранение приостановлено. Повторите загрузку, чтобы выбрать версию.',
-                }
-              : {
-                    title: 'Конфликт сохранения',
-                    text: 'Блокнот изменили в другой вкладке или браузере. Ваши правки в редакторе, сохранение приостановлено до выбора версии.',
-                };
+    const banner = BANNER[conflict.phase];
     return (
         <div className={clsx(styles.banner, className)} role="alert">
             <Icon key="icon" name="alert" className={styles.alert} />
@@ -102,10 +103,8 @@ export function ConflictDialog() {
             title="Конфликт сохранения"
             description="Блокнот изменили в другой вкладке или браузере. Мы загрузили актуальную версию, ваш текст пока в редакторе. Выберите, что оставить."
             initialFocusId={SERVER_ID}
-            closeOnBackdrop={!saving}
-            onClose={() => {
-                if (!saving) closeConflictDialog();
-            }}
+            closeOnBackdrop
+            onClose={closeConflictDialog}
         >
             <div className={styles.options}>
                 <div key="server" className={styles.option}>

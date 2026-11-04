@@ -72,7 +72,13 @@ export function Cell({
         if (!element) return;
         // проверка орфографии подчёркивала бы код; атрибута в типах JSX нет
         element.spellcheck = false;
-        const observer = new ResizeObserver(() => fitHeight(element));
+        // высоту меняет сам fitHeight: пересчёт нужен только при смене ширины
+        let width = element.clientWidth;
+        const observer = new ResizeObserver(() => {
+            if (element.clientWidth === width) return;
+            width = element.clientWidth;
+            fitHeight(element);
+        });
         observer.observe(element);
         return () => observer.disconnect();
     }, [cell.id]);
@@ -84,7 +90,6 @@ export function Cell({
 
     return (
         <div
-            id={cellDomId(cell.id)}
             className={clsx(
                 styles.cell,
                 isCode && styles.code,
@@ -158,15 +163,6 @@ export function Cell({
             </div>
         </div>
     );
-}
-
-/**
- * Id элемента ячейки: по нему страница прокручивает к новой ячейке.
- * @param id id ячейки внутри блокнота
- * @returns id элемента
- */
-export function cellDomId(id: string): string {
-    return `cell-${id}`;
 }
 
 /**
