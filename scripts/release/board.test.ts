@@ -173,6 +173,85 @@ afterEach(() => {
     f.restore();
 });
 
+test.each([1, 2])('production читается дважды независимо от числа карточек: %i', async (count) => {
+    if (count === 1) states.get(2)!.closed = false;
+    const snapshot = await readReleaseSnapshot(f.dir);
+    expect((await syncBoard(snapshot, f.dir)).errors).toEqual([]);
+    expect(
+        f.requests.filter(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toHaveLength(2);
+    expect(
+        f.requests.filter((r) => r.url.pathname.endsWith('/deployments/20/statuses')),
+    ).toHaveLength(2);
+    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(1);
+});
+
+test('смена статуса существующей выкатки пересчитывает весь проход без лишнего чтения production', async () => {
+    f.deploy(f.b, 21);
+    f.statuses.get(21)![0]!.state = 'in_progress';
+    read = (number) => {
+        if (number === 2) f.statuses.get(21)![0]!.state = 'success';
+    };
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+    expect(states.get(1)!.status).toBe('Done');
+    expect(states.get(2)!.status).toBe('Done');
+    expect(writes).toEqual([
+        { issue: 2, status: 'Ready for release' },
+        { issue: 2, status: 'Done' },
+    ]);
+    expect(
+        f.requests.filter(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toHaveLength(3);
+    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(2);
+});
+
+test('три изменения production завершаются ошибкой без четвёртого пересчёта', async () => {
+    const snapshot = await readReleaseSnapshot(f.dir);
+    const original = f.extra!;
+    f.extra = (url, body, init) => {
+        if (
+            url.pathname.endsWith('/deployments') &&
+            url.searchParams.get('environment') === 'production'
+        ) {
+            const status = f.statuses.get(20)![0]!;
+            status.state = status.state === 'success' ? 'in_progress' : 'success';
+        }
+        return original(url, body, init);
+    };
+    const result = await syncBoard(snapshot, f.dir);
+    expect(result.errors).toEqual([
+        'История production менялась три прохода подряд; повторите синхронизацию',
+    ]);
+    expect(
+        f.requests.filter(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toHaveLength(4);
+    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(3);
+});
+
+test('ошибка финального чтения production не скрывается после обновления карточек', async () => {
+    const snapshot = await readReleaseSnapshot(f.dir);
+    const original = f.extra!;
+    f.extra = (url, body, init) =>
+        url.pathname.endsWith('/deployments') &&
+        url.searchParams.get('environment') === 'production'
+            ? Response.json({}, { status: 503 })
+            : original(url, body, init);
+    await expect(syncBoard(snapshot, f.dir)).rejects.toThrow('503');
+    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+});
+
 test('первый запуск подхватывает только опубликованную и ещё не выкаченную задачу', async () => {
     const snapshot = await readReleaseSnapshot(f.dir);
     expect((await syncBoard(snapshot, f.dir)).errors).toEqual([]);
