@@ -10,6 +10,58 @@ beforeEach(() => {
 });
 afterEach(() => f.restore());
 
+test('снимок использует переданную production историю без повторных HTTP-запросов', async () => {
+    f.publish();
+    f.deploy();
+    const production = await catalog.readProductionDeployments();
+    f.requests.length = 0;
+    const snapshot = await readReleaseSnapshot(f.dir, production);
+    expect(snapshot.production).toEqual(production);
+    expect([...snapshot.deployed]).toEqual([1]);
+    expect(
+        f.requests.some(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toBe(false);
+    expect(f.requests.some((r) => r.url.pathname.endsWith('/deployments/20/statuses'))).toBe(false);
+});
+
+test('переданная пустая production история не заменяется повторным чтением', async () => {
+    f.publish();
+    f.deploy();
+    const snapshot = await readReleaseSnapshot(f.dir, []);
+    expect(snapshot.production).toEqual([]);
+    expect([...snapshot.deployed]).toEqual([]);
+    expect(
+        f.requests.some(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toBe(false);
+    expect(f.requests.some((r) => r.url.pathname.endsWith('/deployments/20/statuses'))).toBe(false);
+});
+
+test('обычный снимок читает production и его статус один раз', async () => {
+    f.publish();
+    f.deploy();
+    const snapshot = await readReleaseSnapshot(f.dir);
+    expect(snapshot.production).toMatchObject([{ id: 20, sha: f.a, state: 'success' }]);
+    expect([...snapshot.deployed]).toEqual([1]);
+    expect(
+        f.requests.filter(
+            (r) =>
+                r.url.pathname.endsWith('/deployments') &&
+                r.url.searchParams.get('environment') === 'production',
+        ),
+    ).toHaveLength(1);
+    expect(
+        f.requests.filter((r) => r.url.pathname.endsWith('/deployments/20/statuses')),
+    ).toHaveLength(1);
+});
+
 test('выпуск включает merged PR по графу, включая base другой ветки', async () => {
     f.publish();
     f.deploy();
