@@ -529,13 +529,16 @@ async function startConflict(): Promise<void> {
     enterConflict(result.snapshot);
 }
 
+// Конфликт снят, если не начался новый. Успех — только когда сохранено всё: черновик больше
+// лимита на сервер не ушёл и останется несохранённым, пока его не сократят
 function finishResolving(ok: boolean): void {
     if (get().conflict.phase !== 'resolving') return;
-    if (ok) set({ conflict: { phase: 'none' } });
-    else if (!unresolved(get().conflict)) set({ conflict: { phase: 'none' } });
+    if (ok || !unresolved(get().conflict)) set({ conflict: { phase: 'none' } });
+    const { drafts, tooLarge } = get();
+    const saved = ok && !Object.keys(drafts).some((cellId) => tooLarge[cellId]);
     const done = resolution;
     resolution = null;
-    done?.(ok);
+    done?.(saved);
 }
 
 /** Повторная загрузка свежего снимка после её ошибки. */
@@ -560,7 +563,8 @@ export function closeConflictDialog(): void {
  * «mine» — сохранить свои исходники затронутых ячеек поверх свежей версии с её hash.
  * Черновики ячеек, удалённых на сервере, остаются в `orphans` и не воссоздаются.
  * @param choice выбранная версия
- * @returns true, если выбор подтверждён сервером; false — снова конфликт или ошибка
+ * @returns true, если всё сохранено; false — снова конфликт, ошибка или остался черновик больше
+ *   лимита (он не отправлен и ждёт сокращения)
  */
 export function resolveConflict(choice: 'server' | 'mine'): Promise<boolean> {
     const { conflict, drafts, tooLarge, confirmed } = get();

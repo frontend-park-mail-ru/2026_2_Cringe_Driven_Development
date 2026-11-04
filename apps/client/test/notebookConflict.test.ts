@@ -233,3 +233,28 @@ test('onEdit — на ввод, не на открытие и снимок; onSa
     offEdit();
     offSaved();
 });
+
+test('«Сохранить мой текст» с черновиком больше лимита — не успех, черновик цел и не отправлен', async () => {
+    await inConflict();
+    editSource('a', 'я'.repeat(40_000), false);
+    expect(await resolveConflict('mine')).toBe(false);
+    expect(inputs('cells.update')).toHaveLength(1);
+    expect(state().conflict).toEqual({ phase: 'none' });
+    expect(state().drafts.a).toHaveLength(40_000);
+    expect(state().status).toBe('dirty');
+});
+
+test('«Сохранить мой текст»: обычная правка уходит, но большой черновик соседней ячейки — не успех', async () => {
+    openNotebook(page([md('a'), md('b')]));
+    rpc.on('notebooks.get', () => ok(page([md('a'), md('b', 'чужое')], 'h5')));
+    rpc.on('cells.update', conflict, saved('h6'));
+    editSource('b', 'я'.repeat(40_000), false);
+    save('a', 'мой a');
+    await settle();
+    expect(await resolveConflict('mine')).toBe(false);
+    expect(inputs('cells.update').slice(1)).toEqual([
+        { notebookId: 1, hash: 'h5', cellId: 'a', source: 'мой a' },
+    ]);
+    expect(state().drafts.b).toHaveLength(40_000);
+    expect(state().status).toBe('dirty');
+});
