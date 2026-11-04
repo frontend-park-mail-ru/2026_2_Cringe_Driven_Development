@@ -4,23 +4,23 @@ import { readReleaseSnapshot } from './catalog.ts';
 import { fixture, REPO } from './test/fixture.ts';
 
 let f: ReturnType<typeof fixture>;
-const now = Date.now;
-const sleep = Bun.sleep;
 const closedAt = '2026-11-01T01:00:00Z';
-let clock: number;
 let writes: { issue: number; status: string }[];
 let states: Map<
     number,
     {
         closed: boolean;
         title: string;
-        status: string;
+        status: string | null;
         statusAt: string;
         closer: number | null;
         reopened: boolean;
         card: boolean;
         repo: string;
         reason: string;
+        base: string;
+        merged: boolean;
+        closedAt: string;
     }
 >;
 let canUpdate: boolean;
@@ -30,11 +30,6 @@ beforeEach(() => {
     f = fixture();
     f.publish();
     f.deploy();
-    clock = 0;
-    Date.now = () => clock;
-    Bun.sleep = (async () => {
-        clock += 10_000;
-    }) as typeof Bun.sleep;
     writes = [];
     states = new Map();
     canUpdate = true;
@@ -50,11 +45,19 @@ beforeEach(() => {
             card: true,
             repo: REPO,
             reason: 'COMPLETED',
+            base: 'main',
+            merged: true,
+            closedAt,
         });
     f.extra = (url, body) => {
         if (url.pathname !== '/graphql') return;
         const query = String(body?.query);
-        const vars = body?.variables as { id?: string; option?: string; item?: string };
+        const vars = body?.variables as {
+            id?: string;
+            option?: string;
+            item?: string;
+            reset?: boolean;
+        };
         if (query.includes('ReleaseProject'))
             return Response.json({
                 data: {
@@ -84,8 +87,14 @@ beforeEach(() => {
             const status = vars.option === 'ready' ? 'Ready for release' : 'Done';
             writes.push({ issue: number, status });
             states.get(number)!.status = status;
+            states.get(number)!.statusAt = '2026-11-01T05:00:00Z';
             return Response.json({
-                data: { updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.item } } },
+                data: {
+                    updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.item } },
+                    clearProjectV2ItemFieldValue: vars.reset
+                        ? { projectV2Item: { id: vars.item } }
+                        : undefined,
+                },
             });
         }
         const number = Number(vars.id?.slice(1));
@@ -104,12 +113,17 @@ beforeEach(() => {
                             nodes: [
                                 {
                                     kind: 'ClosedEvent',
-                                    createdAt: closedAt,
+                                    createdAt: state.closedAt,
                                     closer: state.closer
                                         ? {
                                               kind: 'PullRequest',
                                               number: state.closer,
-                                              repository: { nameWithOwner: REPO },
+                                              merged: state.merged,
+                                              baseRefName: state.base,
+                                              repository: {
+                                                  nameWithOwner: REPO,
+                                                  defaultBranchRef: { name: 'main' },
+                                              },
                                           }
                                         : null,
                                 },
@@ -138,10 +152,13 @@ beforeEach(() => {
                                       {
                                           id: `C${number}`,
                                           project: { id: 'P' },
-                                          fieldValueByName: {
-                                              name: state.status,
-                                              updatedAt: state.statusAt,
-                                          },
+                                          fieldValueByName:
+                                              state.status === null
+                                                  ? null
+                                                  : {
+                                                        name: state.status,
+                                                        updatedAt: state.statusAt,
+                                                    },
                                       },
                                   ]
                                 : [],
@@ -153,8 +170,6 @@ beforeEach(() => {
     };
 });
 afterEach(() => {
-    Date.now = now;
-    Bun.sleep = sleep;
     f.restore();
 });
 
@@ -174,39 +189,55 @@ test('выкатка и последующий откат не возвраща�
     expect(writes).toEqual([{ issue: 2, status: 'Done' }]);
 });
 
-test('ожидает закрытия и обновления Done после ClosedEvent', async () => {
-    const state = states.get(2)!;
-    state.closed = false;
-    state.statusAt = '2026-10-31T00:00:00Z';
-    let reads = 0;
-    read = (number) => {
-        if (number === 2) {
-            reads++;
-            if (reads >= 2) state.closed = true;
-            if (reads >= 3) state.statusAt = closedAt;
+test.each(['Ready for build', 'In review', 'Ready for test', 'In testing', null, 'Done'])(
+    'публикация переводит %s в Ready for release без предварительного Done',
+    async (status) => {
+        states.get(2)!.status = status;
+        states.get(2)!.statusAt = '2026-10-31T00:00:00Z';
+        expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+        expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+    },
+);
+
+test('переименование задачи не выключает релизные статусы', async () => {
+    states.get(2)!.title = 'Исправить автоматизацию';
+    const original = f.extra!;
+    f.extra = (url, body, init) => {
+        if (String(body?.query).includes('LinkedIssues')) {
+            const number = (body!.variables as { number: number }).number;
+            return Response.json({
+                data: {
+                    repository: {
+                        pullRequest: {
+                            closingIssuesReferences: {
+                                nodes: [
+                                    {
+                                        id: `I${number}`,
+                                        number,
+                                        title: 'Без префикса',
+                                        repository: { nameWithOwner: REPO },
+                                    },
+                                ],
+                                pageInfo: { hasNextPage: false },
+                            },
+                        },
+                    },
+                },
+            });
         }
+        return original(url, body, init);
     };
-    const result = await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(result.errors).toEqual([]);
-    expect(clock).toBeGreaterThan(0);
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
     expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
 });
 
-test('пять минут без подтверждённого Done завершаются ошибкой без записи', async () => {
-    states.get(2)!.statusAt = '2026-10-31T00:00:00Z';
-    const result = await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(result.errors.join()).toContain('300000');
-    expect(writes).toEqual([]);
-});
-
-test('ручные статусы, чужие задачи и ручное закрытие сохраняются', async () => {
+test('чужие задачи, открытые и ручные закрытия сохраняются', async () => {
     const state = states.get(2)!;
     const original = { ...state };
     for (const patch of [
-        { status: 'Ready for test' },
-        { status: 'In testing' },
-        { status: 'Ready for build' },
-        { title: 'Backend. Test' },
+        { closed: false },
+        { base: 'parent' },
+        { merged: false },
         { repo: 'other/repo' },
         { closer: null },
         { reason: 'NOT_PLANNED' },
@@ -286,4 +317,31 @@ test('нет карточки или прав PAT — видимая ошибк�
     canUpdate = false;
     await expect(syncBoard(await readReleaseSnapshot(f.dir), f.dir)).rejects.toThrow('Project');
     expect(writes).toEqual([]);
+});
+
+test('неуспешная публикация не продвигает Ready for build', async () => {
+    states.get(2)!.status = 'Ready for build';
+    f.statuses.set(1, [{ state: 'failure', created_at: '2026-11-01T02:00:00Z' }]);
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+    expect(writes).toEqual([]);
+});
+
+test('неуспешный CD не переводит опубликованную задачу в Done', async () => {
+    states.get(2)!.status = 'Ready for release';
+    f.deploy(f.b, 21);
+    f.statuses.set(21, [{ state: 'failure', created_at: '2026-11-01T03:00:00Z' }]);
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+    expect(writes).toEqual([]);
+});
+
+test('новый закрывающий PR после reopen определяет новый цикл', async () => {
+    const state = states.get(2)!;
+    state.reopened = true;
+    state.closedAt = '2026-11-01T04:00:00Z';
+    state.closer = 3;
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+    expect(writes).toEqual([]);
+    state.closer = 2;
+    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
 });
