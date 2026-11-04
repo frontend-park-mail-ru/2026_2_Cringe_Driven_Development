@@ -732,6 +732,9 @@ describe('ячейки по cell_id с hash', () => {
     });
 });
 
+const preferOf = (path: string) =>
+    go?.calls.find((c) => c.path === path)?.headers.get('Prefer') ?? null;
+
 describe('X-Mock-Prefer для локального мока', () => {
     const update = { notebookId: 1, hash: 'h1', cellId: 'c1', source: 'x' };
     const routes = {
@@ -739,8 +742,6 @@ describe('X-Mock-Prefer для локального мока', () => {
             Response.json({ hash: 'h2', cell: { id: 'c1', kind: 'code', source: 'x' } }),
         'GET /notebooks': () => Response.json([]),
     };
-    const preferOf = (path: string) =>
-        go?.calls.find((c) => c.path === path)?.headers.get('Prefer') ?? null;
     afterEach(() => {
         env.MOCK_PREFER = undefined;
     });
