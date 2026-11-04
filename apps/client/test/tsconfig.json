@@ -1,8 +1,8 @@
 {
-    // тесты выполняет bun: его типы — только здесь; vite/client — для CSS-модулей компонентов из стора тоста
+    // тесты выполняет bun: его типы — только здесь; vite/client и svg.d.ts — для CSS-модулей и иконок компонентов из стора тоста
     "extends": "../tsconfig.json",
     "compilerOptions": {
         "types": ["bun", "vite/client"]
     },
-    "include": ["."]
+    "include": [".", "../src/svg.d.ts"]
 }

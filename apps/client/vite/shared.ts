@@ -1,3 +1,4 @@
+import svgr from 'vite-plugin-svgr';
 import { loadEnv, type UserConfig } from 'vite';
 import { releaseMetaPlugin, staticUrlPlugin, vitepwaPlugin } from './plugins.ts';
 
@@ -35,6 +36,16 @@ export const sharedConfig = (env: Record<string, string>, release: string): User
         // %VITE_STATIC_URL% в index.html подставляет сам Vite и берёт значение и из define: так
         // в HTML попадает адрес по умолчанию и тот же нормализованный адрес, что и в CSS
         define: { 'import.meta.env.VITE_STATIC_URL': JSON.stringify(staticUrl) },
-        plugins: [staticUrlPlugin(staticUrl), releaseMetaPlugin(release), vitepwaPlugin()],
+        plugins: [
+            staticUrlPlugin(staticUrl),
+            releaseMetaPlugin(release),
+            vitepwaPlugin(),
+            // *.svg?react — компонент (иконки, знак логотипа); обычный импорт .svg остаётся URL (empty-planet, favicon)
+            svgr({
+                svgrOptions: { jsxRuntime: 'automatic' },
+                // ?react-модуль не видит tsconfig, jsxImportSource задаём здесь
+                oxcOptions: { jsx: { runtime: 'automatic', importSource: '@cdd-team/react' } },
+            }),
+        ],
     };
 };

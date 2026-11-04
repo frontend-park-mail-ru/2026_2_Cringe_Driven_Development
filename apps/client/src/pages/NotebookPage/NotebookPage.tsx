@@ -1,7 +1,7 @@
 import { useEffect, useState } from '@cdd-team/react';
 
 import { isRpcError, trpc, type Cell as CellData, type Notebook } from '@api/trpc';
-import logoMarkUrl from '@assets/logo-mark.svg';
+import LogoMark from '@assets/logo-mark.svg?react';
 import { Cell, CellSkeleton, cellDomId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
@@ -248,13 +248,12 @@ export function NotebookPage() {
                         label="К списку блокнотов"
                         onClick={() => navigate({ to: '/' })}
                     />
-                    <img
+                    <LogoMark
                         key="mark"
                         className={styles.mark}
-                        src={logoMarkUrl}
-                        alt=""
                         width={24}
                         height={24}
+                        aria-hidden="true"
                     />
                     <div key="heading" className={styles.heading}>
                         <h1 key="title" className={styles.title} title={title(page)}>

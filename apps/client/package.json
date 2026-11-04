@@ -12,7 +12,7 @@
     },
     "dependencies": {
         "@cdd-team/clsx": "^0.1.0",
-        "@cdd-team/react": "^1.7.0",
+        "@cdd-team/react": "^1.7.1",
         "@cdd-team/router": "^0.1.0",
         "@cdd-team/zustand": "^1.0.1",
         "@trpc/client": "^11.19.0",
@@ -25,6 +25,7 @@
         "typescript": "^7.0.2",
         "vite": "^8.3.5",
         "vite-plugin-mkcert": "2.1.0",
-        "vite-plugin-pwa": "2.0.0"
+        "vite-plugin-pwa": "2.0.0",
+        "vite-plugin-svgr": "^5.2.0"
     }
 }
