@@ -293,10 +293,12 @@ export const CreateCellParams = zod.object({
 })
 
 
+export const createCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
 
 
 export const CreateCellHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(createCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
 })
 
 export const createCellBodyIndexMin = 0;
@@ -322,7 +324,9 @@ export const CreateCellResponse = zod.object({
 
 
 /**
- * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: "h123" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.
+ * Возвращает согласованный снимок hash и всех ячеек блокнота текущего пользователя, включая сохранённые nbformat outputs и execution_count кодовых ячеек. У code без результатов outputs: [], execution_count: null. Markdown содержит id/kind/source. Данные доступны без активной runtime-сессии и после удаления VPS. source — обычный текст, MIME/HTML/SVG результатов недоверенные и требуют безопасного отображения. hash — непрозрачная редакция снимка; ETag содержит её в двойных кавычках. Изменение только outputs, execution_count и output_truncated не меняет hash: он отражает исходники и порядок ячеек. Старый результат не применяется к изменённому source. Чтение не создаёт и не продлевает runtime. Доступ только владельцу.
+ *
+ * Каждая code-ячейка содержит обязательный output_truncated:boolean — сохранённый вместе с outputs и execution_count признак усечения вывода. Он доступен после завершения сессии и удаления VPS. До первого результата false; новый применённый результат заменяет и outputs, и флаг. Значение не накапливается по всем запускам. Результат с конфликтом source не меняет сохранённые outputs и флаг актуальной ячейки.
  * @summary Содержимое блокнота с хешем
  */
 
@@ -340,22 +344,35 @@ export const GetNotebookContentHeader = zod.object({
 })
 
 
-export const getNotebookContentResponseCellsItemIdMax = 64;
+export const getNotebookContentResponseCellsItemOneIdMax = 64;
 
 
-export const getNotebookContentResponseCellsItemIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const getNotebookContentResponseCellsItemOneIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const getNotebookContentResponseCellsItemTwoIdMax = 64;
+
+
+export const getNotebookContentResponseCellsItemTwoIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const getNotebookContentResponseCellsItemTwoExecutionCountMin = 0;
+
 export const getNotebookContentResponseCellsMax = 1000;
 
 
 
 export const GetNotebookContentResponse = zod.object({
   "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
-  "cells": zod.array(zod.object({
-  "id": zod.string().min(1).max(getNotebookContentResponseCellsItemIdMax).regex(getNotebookContentResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "cells": zod.array(zod.union([zod.object({
+  "id": zod.string().min(1).max(getNotebookContentResponseCellsItemOneIdMax).regex(getNotebookContentResponseCellsItemOneIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['markdown']).describe('Вид блока'),
   "source": zod.string().describe('Содержимое блока')
-}).describe('Блок блокнота')).max(getNotebookContentResponseCellsMax)
-})
+}),zod.object({
+  "id": zod.string().min(1).max(getNotebookContentResponseCellsItemTwoIdMax).regex(getNotebookContentResponseCellsItemTwoIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code']).describe('Вид блока'),
+  "source": zod.string().describe('Содержимое блока'),
+  "outputs": zod.array(zod.record(zod.string(), zod.unknown())).describe('Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение.'),
+  "execution_count": zod.int().min(getNotebookContentResponseCellsItemTwoExecutionCountMin).nullable().describe('Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.'),
+  "output_truncated": zod.boolean().describe('Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется.')
+})])).max(getNotebookContentResponseCellsMax)
+}).describe('Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.')
 
 
 /**
@@ -499,10 +516,12 @@ export const DeleteCellParams = zod.object({
 })
 
 
+export const deleteCellHeaderIfMatchRegExp = new RegExp('^"[^"\\r\\n]+"$');
 
 
 export const DeleteCellHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.'),
+  "If-Match": zod.string().regex(deleteCellHeaderIfMatchRegExp).describe('Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.')
 })
 
 export const DeleteCellResponse = zod.void()
@@ -645,3 +664,541 @@ export const CreateNotebookResponse = zod.object({
   "created_at": zod.iso.datetime({"offset":true}),
   "updated_at": zod.iso.datetime({"offset":true})
 }).describe('Блокнот (.ipynb)')
+
+
+/**
+ * Возвращает снимок незавершённых исполнений сессии текущего пользователя из хранилища backend: выполняемое первым, затем очередь в устойчивом порядке принятия. Принятые, но ещё не переданные агенту команды имеют состояние QUEUED. Завершённые исполнения не включаются. Пустая очередь — items: [], а не null или ошибка. Чтение не продлевает таймаут неактивности и не запускает команды. Ошибка чтения не подменяется пустой очередью. Чужая или отсутствующая сессия — 404. Запрос требует X-BFF-Key и Bearer access-токен пользователя. Токен агента, адрес VPS, код и выводы в ответ не включаются.
+ *
+ * Возвращаются только исполнения code-ячеек. Инспекции переменных в этот снимок не входят и не получают фиктивный cell_id; их состояние и результаты доступны через POST/GET /runtime-sessions/{id}/variables. Пустой items не означает отсутствие инспекции и не заменяет проверку свободного kernel при restart.
+ * @summary Получить очередь выполнения
+ */
+export const GetRuntimeQueueParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const GetRuntimeQueueHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const GetRuntimeQueueResponse = zod.object({
+  "session_id": zod.uuid(),
+  "items": zod.array(zod.object({
+  "execution_id": zod.string(),
+  "cell_id": zod.string(),
+  "state": zod.enum(['QUEUED', 'RUNNING'])
+})).describe('Только команды исполнения code-ячеек с настоящим cell_id: RUNNING первым, затем QUEUED в порядке принятия. Инспекции переменных исключены; их состояние и результаты доступны через /variables. Пустая очередь ячеек — [].')
+}).describe('Снимок только незавершённых исполнений code-ячеек. Инспекции переменных не входят в items и отслеживаются через /runtime-sessions/{id}/variables. Пустой items не подтверждает свободу kernel для restart.')
+
+
+/**
+ * Только READY. Один запрос атомарно принимает фиксированный упорядоченный список сохранённых code-ячеек: проверяет владельца, уникальность cell_id, порядок и source_hash, сохраняет исходники и все исполнения до отправки агенту. Клиент фиксирует список при нажатии; добавленные позже ячейки не входят. Изменённый/удалённый source или изменившийся порядок — 409 без частичного принятия. При недостатке места — 429, весь пакет отклонён. Markdown и дубли cell_id — 400. Повтор request_id с тем же телом возвращает исходный полный execution_ids, даже если исполнение уже закончилось или блокнот изменился; другое тело — 409. Дедупликация проверяется до повторной валидации текущего состояния. IDs назначает backend. Команды идут в общей durable FIFO; ошибка одной принятой ячейки не отменяет остальные. UNKNOWN автоматически не перезапускается. Возвращаемый список соответствует cells запроса и не сокращается до текущей очереди. Тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Выполнить все сохранённые кодовые ячейки
+ */
+export const CreateRuntimeExecutionBatchParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const CreateRuntimeExecutionBatchHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const createRuntimeExecutionBatchBodyRequestIdMax = 128;
+
+export const createRuntimeExecutionBatchBodyCellsItemCellIdMax = 64;
+
+
+export const createRuntimeExecutionBatchBodyCellsItemCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+export const createRuntimeExecutionBatchBodyCellsItemSourceHashMin = 64;
+export const createRuntimeExecutionBatchBodyCellsItemSourceHashMax = 64;
+
+
+export const createRuntimeExecutionBatchBodyCellsItemSourceHashRegExp = new RegExp('^[0-9a-f]{64}$');
+export const createRuntimeExecutionBatchBodyCellsMax = 1000;
+
+export const createRuntimeExecutionBatchBodyTimeoutSecondsDefault = 300;
+export const createRuntimeExecutionBatchBodyTimeoutSecondsMax = 86400;
+
+
+
+export const CreateRuntimeExecutionBatchBody = zod.object({
+  "request_id": zod.string().min(1).max(createRuntimeExecutionBatchBodyRequestIdMax).describe('Ключ идемпотентности массового запуска в пределах runtime-сессии.'),
+  "cells": zod.array(zod.object({
+  "cell_id": zod.string().min(1).max(createRuntimeExecutionBatchBodyCellsItemCellIdMax).regex(createRuntimeExecutionBatchBodyCellsItemCellIdRegExp),
+  "source_hash": zod.string().min(createRuntimeExecutionBatchBodyCellsItemSourceHashMin).max(createRuntimeExecutionBatchBodyCellsItemSourceHashMax).regex(createRuntimeExecutionBatchBodyCellsItemSourceHashRegExp)
+})).min(1).max(createRuntimeExecutionBatchBodyCellsMax).describe('Фиксированный список всех сохранённых code-ячеек в порядке блокнота на момент нажатия. Backend проверяет принадлежность, уникальность cell_id, порядок и SHA-256 source перед атомарным принятием. Позднее добавленные ячейки не включаются.'),
+  "timeout_seconds": zod.number().min(1).max(createRuntimeExecutionBatchBodyTimeoutSecondsMax).default(createRuntimeExecutionBatchBodyTimeoutSecondsDefault).describe('Общий для элементов пакета конечный таймаут одной команды в секундах; не длительность всего пакета.')
+})
+
+export const createRuntimeExecutionBatchResponseRequestIdMax = 128;
+
+export const createRuntimeExecutionBatchResponseExecutionIdsItemMax = 128;
+
+export const createRuntimeExecutionBatchResponseExecutionIdsMax = 1000;
+
+
+
+export const CreateRuntimeExecutionBatchResponse = zod.object({
+  "request_id": zod.string().min(1).max(createRuntimeExecutionBatchResponseRequestIdMax),
+  "session_id": zod.uuid(),
+  "execution_ids": zod.array(zod.string().min(1).max(createRuntimeExecutionBatchResponseExecutionIdsItemMax)).min(1).max(createRuntimeExecutionBatchResponseExecutionIdsMax).describe('Полный неизменный список IDs всех принятых исполнений в порядке cells запроса, включая уже завершённые. При повторе возвращается тот же список; текущая очередь его не заменяет.')
+})
+
+
+/**
+ * Возвращает сохранённое состояние и дескрипторы переменных принятой инспекции текущего пользователя. Доступен после завершения сессии по сохранённой истории. Чтение не вызывает новую инспекцию и не продлевает idle timeout. Чужая/отсутствующая сессия или инспекция — 404. Кодовая команда с этим ID не является инспекцией. Состояние SUCCEEDED с variables: [] — корректный пустой результат. При недостоверном результате — UNKNOWN, автоматический повтор запрещён.
+ * @summary Получить результат инспекции переменных
+ */
+export const getRuntimeInspectionPathExecutionIdMax = 128;
+
+
+
+export const GetRuntimeInspectionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя'),
+  "execution_id": zod.string().min(1).max(getRuntimeInspectionPathExecutionIdMax).describe('ID принятой инспекции текущей runtime-сессии.')
+})
+
+
+
+
+export const GetRuntimeInspectionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const getRuntimeInspectionResponseExecutionIdMax = 128;
+
+export const getRuntimeInspectionResponseVariablesItemPreviewMax = 200;
+
+export const getRuntimeInspectionResponseVariablesMax = 200;
+
+
+
+export const GetRuntimeInspectionResponse = zod.object({
+  "execution_id": zod.string().min(1).max(getRuntimeInspectionResponseExecutionIdMax),
+  "session_id": zod.uuid(),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'INTERRUPTED', 'TIMED_OUT', 'CANCELLED', 'UNKNOWN', 'REJECTED']),
+  "variables": zod.array(zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "preview": zod.string().max(getRuntimeInspectionResponseVariablesItemPreviewMax).nullable()
+})).max(getRuntimeInspectionResponseVariablesMax).describe('Дескрипторы переменных от агента; до успешного результата пустой массив. Не использовать текст preview как HTML или исполняемый код.'),
+  "output_truncated": zod.boolean(),
+  "reason": zod.string().nullable().describe('Безопасный код причины ошибки/недостоверного результата; без raw-ошибок и секретов, null при отсутствии.')
+})
+
+
+/**
+ * Только READY. Сохраняет инспекцию до отправки готовому агенту POST /variables. Инспекция выполняется в общей очереди с кодом; таймаут выполнения 5 секунд, ожидание в очереди отдельно. Повтор execution_id с тем же видом команды возвращает исходную инспекцию без повторного выполнения; конфликт с кодовой командой — 409. 202 не означает готовый список переменных; читать GET variables/{execution_id} до терминального state. Инспекция не привязана к cell_id и не записывается в outputs/execution_count ячейки. До успеха variables: []; ошибка отражается в state/reason. Ограничения и безопасные preview совпадают с агентом. Неизвестные поля отклоняются.
+ * @summary Запросить инспекцию переменных
+ */
+export const InspectRuntimeVariablesParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const InspectRuntimeVariablesHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const inspectRuntimeVariablesBodyExecutionIdMax = 128;
+
+
+
+export const InspectRuntimeVariablesBody = zod.object({
+  "execution_id": zod.string().min(1).max(inspectRuntimeVariablesBodyExecutionIdMax)
+})
+
+export const inspectRuntimeVariablesResponseExecutionIdMax = 128;
+
+export const inspectRuntimeVariablesResponseVariablesItemPreviewMax = 200;
+
+export const inspectRuntimeVariablesResponseVariablesMax = 200;
+
+
+
+export const InspectRuntimeVariablesResponse = zod.object({
+  "execution_id": zod.string().min(1).max(inspectRuntimeVariablesResponseExecutionIdMax),
+  "session_id": zod.uuid(),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'INTERRUPTED', 'TIMED_OUT', 'CANCELLED', 'UNKNOWN', 'REJECTED']),
+  "variables": zod.array(zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "preview": zod.string().max(inspectRuntimeVariablesResponseVariablesItemPreviewMax).nullable()
+})).max(inspectRuntimeVariablesResponseVariablesMax).describe('Дескрипторы переменных от агента; до успешного результата пустой массив. Не использовать текст preview как HTML или исполняемый код.'),
+  "output_truncated": zod.boolean(),
+  "reason": zod.string().nullable().describe('Безопасный код причины ошибки/недостоверного результата; без raw-ошибок и секретов, null при отсутствии.')
+})
+
+
+/**
+ * Запрашивает прерывание активного исполнения или инспекции через готового агента. Не завершает runtime-сессию и не удаляет окружение. 200 подтверждает только отправленный запрос прерывания; итог читать из состояния исполнения и событий. Ожидающие команды не отменяются; при отсутствии активной команды — безопасный no-op. Недоступная/не готовая сессия — 409/503. Не повторять автоматически после потери ответа, чтобы не прервать следующую команду; перечитать состояние. Тело отсутствует. Команда управления является пользовательской активностью.
+ * @summary Прервать текущее выполнение kernel
+ */
+export const InterruptRuntimeKernelParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const InterruptRuntimeKernelHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const InterruptRuntimeKernelResponse = zod.object({
+  "interrupt_requested": zod.literal(true)
+})
+
+
+/**
+ * Только READY и полностью свободная общая очередь: нет активных/ожидающих code-команд и инспекций, включая принятые backend, но ещё не отправленные агенту. Проверка и блокировка приёма команд атомарны относительно restart; иначе 409. Вызывает готовый агент, возвращает новое поколение kernel после успешного перезапуска. Очищает переменные в памяти, но сохраняет outputs/execution_count блокнота и журнал; публичный seq не обнуляется. Поколение обновляется в состоянии сессии. При потере ответа не повторять автоматически: перечитать session/generation; сбой — 503. Сессия/VPS не пересоздаётся. Тело отсутствует; действие продлевает activity.
+ * @summary Перезапустить свободный kernel
+ */
+export const RestartRuntimeKernelParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const RestartRuntimeKernelHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const RestartRuntimeKernelResponse = zod.object({
+  "generation": zod.uuid()
+})
+
+
+/**
+ * Возвращает единственную активную сессию текущего пользователя во всех блокнотах. Если её нет — 200 с active_session: null. STOPPING/cleanup_pending продолжает занимать слот. Другие пользователи и auth-сессии сюда не относятся. Чтение не продлевает activity. Тот же источник состояния используется в backend#65 для has_active_session; успех/ошибка ячейки не является завершением runtime-сессии.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить активную runtime-сессию пользователя
+ */
+
+
+
+export const GetActiveRuntimeSessionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+export const getActiveRuntimeSessionResponseActiveSessionOnePublicSeqMin = 0;
+
+
+
+export const GetActiveRuntimeSessionResponse = zod.object({
+  "active_session": zod.union([zod.object({
+  "id": zod.uuid(),
+  "notebook_id": zod.int().min(1),
+  "language": zod.enum(['python', 'r']),
+  "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
+  "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
+  "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
+  "generation": zod.uuid().nullable().describe('Поколение kernel; null до его появления.'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "last_activity_at": zod.iso.datetime({"offset":true}),
+  "public_seq": zod.int().min(getActiveRuntimeSessionResponseActiveSessionOnePublicSeqMin).describe('Последний публичный курсор событий #13; отличается от seq агента.'),
+  "journal_incomplete": zod.boolean().describe('Часть журнала агента недоступна и не была подтверждённо сохранена.'),
+  "cleanup_error": zod.string().nullable().describe('Безопасный код ошибки очистки; null при её отсутствии.')
+}).describe('Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.'),zod.null()]).describe('Единственная активная сессия пользователя; null, если её нет.')
+})
+
+
+/**
+ * Сохраняет намерение создания сессии и возвращает 202 без ожидания VPS. У пользователя может быть только одна активная сессия во всех блокнотах. PROVISIONING/STARTING/READY/RECONNECTING/STOPPING занимают слот до подтверждённой очистки. При новом запуске и занятом слоте — 409 active_session_exists с текущим notebook_id и сессией. Предварительный GET active не требуется и не резервирует слот. Идемпотентный повтор того же request_id/параметров возвращает прежнюю сессию до проверки конфликта; изменённые параметры того же request_id — 409 conflict. Профиль ресурсов выбирается сервером.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Запустить runtime-сессию блокнота
+ */
+
+
+
+export const StartRuntimeSessionParams = zod.object({
+  "id": zod.int().min(1).describe('ID блокнота текущего пользователя')
+})
+
+
+
+
+export const StartRuntimeSessionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const startRuntimeSessionBodyRequestIdMax = 128;
+
+
+
+export const StartRuntimeSessionBody = zod.object({
+  "request_id": zod.string().min(1).max(startRuntimeSessionBodyRequestIdMax).describe('Ключ идемпотентности в пределах пользователя. Повтор с теми же параметрами возвращает прежнюю сессию.'),
+  "language": zod.enum(['python', 'r'])
+})
+
+
+export const startRuntimeSessionResponsePublicSeqMin = 0;
+
+
+
+export const StartRuntimeSessionResponse = zod.object({
+  "id": zod.uuid(),
+  "notebook_id": zod.int().min(1),
+  "language": zod.enum(['python', 'r']),
+  "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
+  "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
+  "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
+  "generation": zod.uuid().nullable().describe('Поколение kernel; null до его появления.'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "last_activity_at": zod.iso.datetime({"offset":true}),
+  "public_seq": zod.int().min(startRuntimeSessionResponsePublicSeqMin).describe('Последний публичный курсор событий #13; отличается от seq агента.'),
+  "journal_incomplete": zod.boolean().describe('Часть журнала агента недоступна и не была подтверждённо сохранена.'),
+  "cleanup_error": zod.string().nullable().describe('Безопасный код ошибки очистки; null при её отсутствии.')
+}).describe('Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.')
+
+
+/**
+ * Возвращает актуальное состояние, этап, безопасную причину и публичный курсор. Чужая сессия — 404. Чтение не продлевает activity.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить состояние runtime-сессии
+ */
+export const GetRuntimeSessionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const GetRuntimeSessionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+export const getRuntimeSessionResponsePublicSeqMin = 0;
+
+
+
+export const GetRuntimeSessionResponse = zod.object({
+  "id": zod.uuid(),
+  "notebook_id": zod.int().min(1),
+  "language": zod.enum(['python', 'r']),
+  "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
+  "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
+  "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
+  "generation": zod.uuid().nullable().describe('Поколение kernel; null до его появления.'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "last_activity_at": zod.iso.datetime({"offset":true}),
+  "public_seq": zod.int().min(getRuntimeSessionResponsePublicSeqMin).describe('Последний публичный курсор событий #13; отличается от seq агента.'),
+  "journal_incomplete": zod.boolean().describe('Часть журнала агента недоступна и не была подтверждённо сохранена.'),
+  "cleanup_error": zod.string().nullable().describe('Безопасный код ошибки очистки; null при её отсутствии.')
+}).describe('Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.')
+
+
+/**
+ * Только READY: сохраняет immutable execution до отправки агенту. Код читается из сохранённой code-ячейки PostgreSQL и проверяется по source_hash. Один execution_id с тем же запросом не запускает код повторно; изменённое содержимое — conflict. Сетевой timeout не создаёт новый ID, UNKNOWN автоматически не повторяется. Нет исполнения после STOPPING. Известный асинхронный отказ агента отражается в состоянии REJECTED уже принятого execution.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Выполнить сохранённую ячейку
+ */
+export const CreateRuntimeExecutionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const CreateRuntimeExecutionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const createRuntimeExecutionBodyExecutionIdMax = 128;
+
+
+export const createRuntimeExecutionBodySourceHashMin = 64;
+export const createRuntimeExecutionBodySourceHashMax = 64;
+
+
+export const createRuntimeExecutionBodySourceHashRegExp = new RegExp('^[0-9a-f]{64}$');
+export const createRuntimeExecutionBodyTimeoutSecondsDefault = 300;
+export const createRuntimeExecutionBodyTimeoutSecondsMax = 86400;
+
+
+
+export const CreateRuntimeExecutionBody = zod.object({
+  "execution_id": zod.string().min(1).max(createRuntimeExecutionBodyExecutionIdMax).describe('Ключ идемпотентности в пределах runtime-сессии.'),
+  "cell_id": zod.string().min(1).describe('ID существующей кодовой ячейки этого блокнота.'),
+  "source_hash": zod.string().min(createRuntimeExecutionBodySourceHashMin).max(createRuntimeExecutionBodySourceHashMax).regex(createRuntimeExecutionBodySourceHashRegExp).describe('SHA-256 UTF-8 сохранённого source конкретной ячейки. Код читает backend из PostgreSQL; исходный код в запросе не передаётся. Не путать с непрозрачной редакцией всего блокнота.'),
+  "timeout_seconds": zod.number().min(1).max(createRuntimeExecutionBodyTimeoutSecondsMax).default(createRuntimeExecutionBodyTimeoutSecondsDefault).describe('Конечное число секунд. По умолчанию 300, NaN и Infinity недопустимы.')
+})
+
+export const createRuntimeExecutionResponseExecutionIdMax = 128;
+
+
+export const createRuntimeExecutionResponseSourceHashRegExp = new RegExp('^[0-9a-f]{64}$');
+export const createRuntimeExecutionResponseTimeoutSecondsMax = 86400;
+
+
+export const createRuntimeExecutionResponseExecutionCountMin = 0;
+
+
+
+export const CreateRuntimeExecutionResponse = zod.object({
+  "execution_id": zod.string().min(1).max(createRuntimeExecutionResponseExecutionIdMax),
+  "session_id": zod.uuid(),
+  "cell_id": zod.string().min(1),
+  "source_hash": zod.string().regex(createRuntimeExecutionResponseSourceHashRegExp),
+  "timeout_seconds": zod.number().min(1).max(createRuntimeExecutionResponseTimeoutSecondsMax),
+  "attempt": zod.int().min(1),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'INTERRUPTED', 'TIMED_OUT', 'CANCELLED', 'UNKNOWN', 'REJECTED']),
+  "outputs": zod.array(zod.record(zod.string(), zod.unknown())).describe('Выводы ячейки в формате nbformat. MIME/HTML — недоверенные данные, frontend отображает их безопасно.'),
+  "execution_count": zod.int().min(createRuntimeExecutionResponseExecutionCountMin).nullable(),
+  "output_truncated": zod.boolean().describe('Достигнут лимит вывода; код мог продолжить работу.'),
+  "projection": zod.enum(['pending', 'applied', 'conflict']).describe('Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения.')
+})
+
+
+/**
+ * Возвращает состояние попытки, outputs, execution_count, признак усечения и состояние проекции в ipynb. Сохранённый в БД результат доступен и после удаления VPS; projection pending не означает потерю DB archive. Чтение не продлевает activity.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить состояние и вывод выполнения
+ */
+export const getRuntimeExecutionPathExecutionIdMax = 128;
+
+
+
+export const GetRuntimeExecutionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя'),
+  "execution_id": zod.string().min(1).max(getRuntimeExecutionPathExecutionIdMax)
+})
+
+
+
+
+export const GetRuntimeExecutionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const getRuntimeExecutionResponseExecutionIdMax = 128;
+
+
+export const getRuntimeExecutionResponseSourceHashRegExp = new RegExp('^[0-9a-f]{64}$');
+export const getRuntimeExecutionResponseTimeoutSecondsMax = 86400;
+
+
+export const getRuntimeExecutionResponseExecutionCountMin = 0;
+
+
+
+export const GetRuntimeExecutionResponse = zod.object({
+  "execution_id": zod.string().min(1).max(getRuntimeExecutionResponseExecutionIdMax),
+  "session_id": zod.uuid(),
+  "cell_id": zod.string().min(1),
+  "source_hash": zod.string().regex(getRuntimeExecutionResponseSourceHashRegExp),
+  "timeout_seconds": zod.number().min(1).max(getRuntimeExecutionResponseTimeoutSecondsMax),
+  "attempt": zod.int().min(1),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'INTERRUPTED', 'TIMED_OUT', 'CANCELLED', 'UNKNOWN', 'REJECTED']),
+  "outputs": zod.array(zod.record(zod.string(), zod.unknown())).describe('Выводы ячейки в формате nbformat. MIME/HTML — недоверенные данные, frontend отображает их безопасно.'),
+  "execution_count": zod.int().min(getRuntimeExecutionResponseExecutionCountMin).nullable(),
+  "output_truncated": zod.boolean().describe('Достигнут лимит вывода; код мог продолжить работу.'),
+  "projection": zod.enum(['pending', 'applied', 'conflict']).describe('Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения.')
+})
+
+
+/**
+ * HTTP polling по публичному курсору #13, а не agent seq. До 100 записей и target 16 MiB; первая крупная запись не пропускается. next_cursor продвигается только до отданного события, при пустой странице равен after. has_more определяется следующей записью. Чтение и heartbeat не продлевают activity. События хранятся после удаления VPS.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ *
+ * События исполнения ячейки содержат body.execution_id для GET executions/{execution_id}, в том числе поздние события исходной команды. События инспекции имеют body.inspection_id без body.execution_id и читаются через GET variables/{execution_id}; их нельзя загружать как обычное исполнение. События сессии могут не иметь ID команды. Курсор берётся из next_cursor, пустая страница не означает отсутствие активной сессии.
+ * @summary Получить события runtime-сессии
+ */
+export const ListRuntimeEventsParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+export const listRuntimeEventsQueryAfterDefault = 0;
+export const listRuntimeEventsQueryAfterMin = 0;
+export const listRuntimeEventsQueryAfterMax = 9223372036854776000;
+
+
+
+export const ListRuntimeEventsQueryParams = zod.object({
+  "after": zod.int().min(listRuntimeEventsQueryAfterMin).max(listRuntimeEventsQueryAfterMax).default(listRuntimeEventsQueryAfterDefault)
+})
+
+
+
+
+export const ListRuntimeEventsHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+
+export const listRuntimeEventsResponseEventsMax = 100;
+
+export const listRuntimeEventsResponseNextCursorMin = 0;
+
+
+
+export const ListRuntimeEventsResponse = zod.object({
+  "events": zod.array(zod.object({
+  "seq": zod.int().min(1),
+  "kind": zod.string().min(1),
+  "body": zod.record(zod.string(), zod.unknown()).describe('Публичные данные события. События кодовой команды содержат body.execution_id — ID для GET executions/{execution_id}; ID стабилен при поздних событиях. События инспекции содержат body.inspection_id и не содержат body.execution_id; результат читается через GET variables/{execution_id}. События сессии могут не иметь обоих полей. Не выводить IDs из parent_msg_id или порядка ячеек. Не содержат токены, endpoint или ID облачных ресурсов.')
+})).max(listRuntimeEventsResponseEventsMax),
+  "next_cursor": zod.int().min(listRuntimeEventsResponseNextCursorMin).describe('Последний действительно отданный public seq; при пустой странице равен входному after.'),
+  "has_more": zod.boolean()
+})
+
+
+/**
+ * Только READY/RECONNECTING: сохраняет activity intent и доставляет агенту. Фронтенд отправляет после реального редактирования не чаще раза в 30 секунд. Открытая вкладка и чтение выводов не считаются активностью. Запрос не создаёт и не возрождает остановленное окружение.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Сообщить о действиях пользователя в редакторе
+ */
+export const TouchRuntimeSessionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const TouchRuntimeSessionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const TouchRuntimeSessionResponse = zod.object({
+  "accepted": zod.literal(true)
+})
+
+
+/**
+ * Идемпотентно сохраняет намерение остановки и возвращает 202 без ожидания cleanup. Новые исполнения запрещаются, доступный финальный журнал сначала архивируется в БД, затем #57 получает запрос удаления VPS/диска/порта. Слот занят до подтверждённого cleanup; ошибка очистки не означает STOPPED. Недоступный хвост журнала помечается journal_incomplete, незавершённые исполнения — UNKNOWN. Успешный logout/logout-all сам по себе не вызывает эту операцию.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Завершить runtime-сессию
+ */
+export const StopRuntimeSessionParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const StopRuntimeSessionHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const StopRuntimeSessionResponse = zod.object({
+  "accepted": zod.literal(true)
+})

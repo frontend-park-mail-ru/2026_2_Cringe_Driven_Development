@@ -9,3 +9,4 @@ dist/
 
 # спеки и планы локальные
 docs/superpowers/
+.superpowers/

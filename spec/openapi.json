@@ -14,6 +14,9 @@
     },
     {
       "name": "notebooks"
+    },
+    {
+      "name": "runtime-sessions"
     }
   ],
   "paths": {
@@ -1105,6 +1108,17 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "pattern": "^\"[^\"\\r\\n]+\"$",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1112,7 +1126,8 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateCellRequest"
-              }
+              },
+              "examples": {}
             }
           },
           "required": true
@@ -1157,10 +1172,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "s2s_forbidden",
-                  "message": "service access forbidden"
                 }
               }
             },
@@ -1178,11 +1189,11 @@
             "headers": {}
           },
           "409": {
-            "description": "В блокноте уже максимальное число блоков (1000)",
+            "description": "Редакция блокнота изменилась: notebook_conflict. Достигнут лимит 1000 блоков: validation_error.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/NotebookEditingError"
                 }
               }
             },
@@ -1211,7 +1222,7 @@
       "get": {
         "summary": "Содержимое блокнота с хешем",
         "deprecated": false,
-        "description": "Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: \"h123\" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.",
+        "description": "Возвращает согласованный снимок hash и всех ячеек блокнота текущего пользователя, включая сохранённые nbformat outputs и execution_count кодовых ячеек. У code без результатов outputs: [], execution_count: null. Markdown содержит id/kind/source. Данные доступны без активной runtime-сессии и после удаления VPS. source — обычный текст, MIME/HTML/SVG результатов недоверенные и требуют безопасного отображения. hash — непрозрачная редакция снимка; ETag содержит её в двойных кавычках. Изменение только outputs, execution_count и output_truncated не меняет hash: он отражает исходники и порядок ячеек. Старый результат не применяется к изменённому source. Чтение не создаёт и не продлевает runtime. Доступ только владельцу.\n\nКаждая code-ячейка содержит обязательный output_truncated:boolean — сохранённый вместе с outputs и execution_count признак усечения вывода. Он доступен после завершения сессии и удаления VPS. До первого результата false; новый применённый результат заменяет и outputs, и флаг. Значение не накапливается по всем запускам. Результат с конфликтом source не меняет сохранённые outputs и флаг актуальной ячейки.",
         "operationId": "getNotebookContent",
         "tags": [
           "notebooks"
@@ -1249,15 +1260,64 @@
                 "schema": {
                   "$ref": "#/components/schemas/NotebookContent"
                 },
-                "example": {
-                  "hash": "h123",
-                  "cells": [
-                    {
-                      "id": "cell-a",
-                      "kind": "code",
-                      "source": "print(1)"
+                "examples": {
+                  "1": {
+                    "summary": "Сохранённый результат и ещё не запущенная ячейка",
+                    "value": {
+                      "hash": "revision-42",
+                      "cells": [
+                        {
+                          "id": "cell-a",
+                          "kind": "code",
+                          "source": "print(42)",
+                          "outputs": [
+                            {
+                              "output_type": "stream",
+                              "name": "stdout",
+                              "text": "42\n"
+                            }
+                          ],
+                          "execution_count": 2,
+                          "output_truncated": false
+                        },
+                        {
+                          "id": "cell-b",
+                          "kind": "markdown",
+                          "source": "Описание"
+                        },
+                        {
+                          "id": "cell-c",
+                          "kind": "code",
+                          "source": "x = 1",
+                          "outputs": [],
+                          "execution_count": null,
+                          "output_truncated": false
+                        }
+                      ]
                     }
-                  ]
+                  },
+                  "2": {
+                    "summary": "Сохранённый усечённый вывод после завершения сессии",
+                    "value": {
+                      "hash": "revision-truncated",
+                      "cells": [
+                        {
+                          "id": "cell-a",
+                          "kind": "code",
+                          "source": "print(\"large output\")",
+                          "outputs": [
+                            {
+                              "output_type": "stream",
+                              "name": "stdout",
+                              "text": "Сохранённая часть вывода\n"
+                            }
+                          ],
+                          "execution_count": 3,
+                          "output_truncated": true
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             },
@@ -1910,6 +1970,17 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Ровно один сильный ETag из последнего ответа. Списки, *, W/ и пустые значения недопустимы (400). При несовпадении — 409 notebook_conflict без применения изменений.",
+            "required": true,
+            "example": "\"h123\"",
+            "schema": {
+              "pattern": "^\"[^\"\\r\\n]+\"$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1945,10 +2016,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "s2s_forbidden",
-                  "message": "service access forbidden"
                 }
               }
             },
@@ -1960,6 +2027,17 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "Редакция блокнота изменилась: notebook_conflict. Изменения не применены; нужно повторно получить актуальное содержимое и хеш.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotebookEditingError"
                 }
               }
             },
@@ -2450,6 +2528,1421 @@
           }
         ]
       }
+    },
+    "/runtime-sessions/{id}/queue": {
+      "get": {
+        "summary": "Получить очередь выполнения",
+        "deprecated": false,
+        "description": "Возвращает снимок незавершённых исполнений сессии текущего пользователя из хранилища backend: выполняемое первым, затем очередь в устойчивом порядке принятия. Принятые, но ещё не переданные агенту команды имеют состояние QUEUED. Завершённые исполнения не включаются. Пустая очередь — items: [], а не null или ошибка. Чтение не продлевает таймаут неактивности и не запускает команды. Ошибка чтения не подменяется пустой очередью. Чужая или отсутствующая сессия — 404. Запрос требует X-BFF-Key и Bearer access-токен пользователя. Токен агента, адрес VPS, код и выводы в ответ не включаются.\n\nВозвращаются только исполнения code-ячеек. Инспекции переменных в этот снимок не входят и не получают фиктивный cell_id; их состояние и результаты доступны через POST/GET /runtime-sessions/{id}/variables. Пустой items не означает отсутствие инспекции и не заменяет проверку свободного kernel при restart.",
+        "operationId": "getRuntimeQueue",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Снимок очереди; items всегда массив, в том числе пустой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeQueueSnapshot"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "Исполнение и очередь",
+                    "value": {
+                      "session_id": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+                      "items": [
+                        {
+                          "execution_id": "run-1",
+                          "cell_id": "cell-1",
+                          "state": "RUNNING"
+                        },
+                        {
+                          "execution_id": "run-2",
+                          "cell_id": "cell-3",
+                          "state": "QUEUED"
+                        }
+                      ]
+                    }
+                  },
+                  "2": {
+                    "summary": "Пустая очередь",
+                    "value": {
+                      "session_id": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+                      "items": []
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Сервис чтения очереди технически недоступен. Пустая очередь не является ошибкой.",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/executions/batch": {
+      "post": {
+        "summary": "Выполнить все сохранённые кодовые ячейки",
+        "deprecated": false,
+        "description": "Только READY. Один запрос атомарно принимает фиксированный упорядоченный список сохранённых code-ячеек: проверяет владельца, уникальность cell_id, порядок и source_hash, сохраняет исходники и все исполнения до отправки агенту. Клиент фиксирует список при нажатии; добавленные позже ячейки не входят. Изменённый/удалённый source или изменившийся порядок — 409 без частичного принятия. При недостатке места — 429, весь пакет отклонён. Markdown и дубли cell_id — 400. Повтор request_id с тем же телом возвращает исходный полный execution_ids, даже если исполнение уже закончилось или блокнот изменился; другое тело — 409. Дедупликация проверяется до повторной валидации текущего состояния. IDs назначает backend. Команды идут в общей durable FIFO; ошибка одной принятой ячейки не отменяет остальные. UNKNOWN автоматически не перезапускается. Возвращаемый список соответствует cells запроса и не сокращается до текущей очереди. Тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "createRuntimeExecutionBatch",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeBatchExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Команда принята",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeBatchExecution"
+                },
+                "example": {
+                  "request_id": "batch-001",
+                  "session_id": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+                  "execution_ids": [
+                    "run-1",
+                    "run-2"
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова, source изменился или конфликт execution_id",
+            "headers": {}
+          },
+          "429": {
+            "$ref": "#/components/responses/RuntimeQueueFull",
+            "description": "Очередь исполнения переполнена",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/variables/{execution_id}": {
+      "get": {
+        "summary": "Получить результат инспекции переменных",
+        "deprecated": false,
+        "description": "Возвращает сохранённое состояние и дескрипторы переменных принятой инспекции текущего пользователя. Доступен после завершения сессии по сохранённой истории. Чтение не вызывает новую инспекцию и не продлевает idle timeout. Чужая/отсутствующая сессия или инспекция — 404. Кодовая команда с этим ID не является инспекцией. Состояние SUCCEEDED с variables: [] — корректный пустой результат. При недостоверном результате — UNKNOWN, автоматический повтор запрещён.",
+        "operationId": "getRuntimeInspection",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "execution_id",
+            "in": "path",
+            "description": "ID принятой инспекции текущей runtime-сессии.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeInspection"
+                },
+                "example": {
+                  "execution_id": "inspect-1",
+                  "session_id": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+                  "state": "SUCCEEDED",
+                  "variables": [
+                    {
+                      "name": "x",
+                      "type": "int",
+                      "preview": "42"
+                    }
+                  ],
+                  "output_truncated": false,
+                  "reason": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/variables": {
+      "post": {
+        "summary": "Запросить инспекцию переменных",
+        "deprecated": false,
+        "description": "Только READY. Сохраняет инспекцию до отправки готовому агенту POST /variables. Инспекция выполняется в общей очереди с кодом; таймаут выполнения 5 секунд, ожидание в очереди отдельно. Повтор execution_id с тем же видом команды возвращает исходную инспекцию без повторного выполнения; конфликт с кодовой командой — 409. 202 не означает готовый список переменных; читать GET variables/{execution_id} до терминального state. Инспекция не привязана к cell_id и не записывается в outputs/execution_count ячейки. До успеха variables: []; ошибка отражается в state/reason. Ограничения и безопасные preview совпадают с агентом. Неизвестные поля отклоняются.",
+        "operationId": "inspectRuntimeVariables",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "execution_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "execution_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Команда принята",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeInspection"
+                },
+                "example": {
+                  "execution_id": "inspect-1",
+                  "session_id": "d8838602-1de6-4f40-ad6a-a1a558ef682e",
+                  "state": "QUEUED",
+                  "variables": [],
+                  "output_truncated": false,
+                  "reason": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова, source изменился или конфликт execution_id",
+            "headers": {}
+          },
+          "429": {
+            "$ref": "#/components/responses/RuntimeQueueFull",
+            "description": "Очередь исполнения переполнена",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/kernel/interrupt": {
+      "post": {
+        "summary": "Прервать текущее выполнение kernel",
+        "deprecated": false,
+        "description": "Запрашивает прерывание активного исполнения или инспекции через готового агента. Не завершает runtime-сессию и не удаляет окружение. 200 подтверждает только отправленный запрос прерывания; итог читать из состояния исполнения и событий. Ожидающие команды не отменяются; при отсутствии активной команды — безопасный no-op. Недоступная/не готовая сессия — 409/503. Не повторять автоматически после потери ответа, чтобы не прервать следующую команду; перечитать состояние. Тело отсутствует. Команда управления является пользовательской активностью.",
+        "operationId": "interruptRuntimeKernel",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "interrupt_requested": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "interrupt_requested"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "interrupt_requested": true
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова, source изменился или конфликт execution_id",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/kernel/restart": {
+      "post": {
+        "summary": "Перезапустить свободный kernel",
+        "deprecated": false,
+        "description": "Только READY и полностью свободная общая очередь: нет активных/ожидающих code-команд и инспекций, включая принятые backend, но ещё не отправленные агенту. Проверка и блокировка приёма команд атомарны относительно restart; иначе 409. Вызывает готовый агент, возвращает новое поколение kernel после успешного перезапуска. Очищает переменные в памяти, но сохраняет outputs/execution_count блокнота и журнал; публичный seq не обнуляется. Поколение обновляется в состоянии сессии. При потере ответа не повторять автоматически: перечитать session/generation; сбой — 503. Сессия/VPS не пересоздаётся. Тело отсутствует; действие продлевает activity.",
+        "operationId": "restartRuntimeKernel",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generation": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "generation"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "generation": "8e7d2a58-7808-4b45-8d66-4f7465ce3038"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова, source изменился или конфликт execution_id",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/active": {
+      "get": {
+        "summary": "Получить активную runtime-сессию пользователя",
+        "deprecated": false,
+        "description": "Возвращает единственную активную сессию текущего пользователя во всех блокнотах. Если её нет — 200 с active_session: null. STOPPING/cleanup_pending продолжает занимать слот. Другие пользователи и auth-сессии сюда не относятся. Чтение не продлевает activity. Тот же источник состояния используется в backend#65 для has_active_session; успех/ошибка ячейки не является завершением runtime-сессии.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "getActiveRuntimeSession",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Активная сессия или null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "active_session": {
+                      "description": "Единственная активная сессия пользователя; null, если её нет.",
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RuntimeSession"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "active_session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notebooks/{id}/runtime-sessions": {
+      "post": {
+        "summary": "Запустить runtime-сессию блокнота",
+        "deprecated": false,
+        "description": "Сохраняет намерение создания сессии и возвращает 202 без ожидания VPS. У пользователя может быть только одна активная сессия во всех блокнотах. PROVISIONING/STARTING/READY/RECONNECTING/STOPPING занимают слот до подтверждённой очистки. При новом запуске и занятом слоте — 409 active_session_exists с текущим notebook_id и сессией. Предварительный GET active не требуется и не резервирует слот. Идемпотентный повтор того же request_id/параметров возвращает прежнюю сессию до проверки конфликта; изменённые параметры того же request_id — 409 conflict. Профиль ресурсов выбирается сервером.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "startRuntimeSession",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID блокнота текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Запрос принят; сессия может ещё подготавливаться",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSession"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeSessionConflict",
+            "description": "Уже есть активная сессия либо конфликт ключа идемпотентности",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}": {
+      "get": {
+        "summary": "Получить состояние runtime-сессии",
+        "deprecated": false,
+        "description": "Возвращает актуальное состояние, этап, безопасную причину и публичный курсор. Чужая сессия — 404. Чтение не продлевает activity.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "getRuntimeSession",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSession"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/executions": {
+      "post": {
+        "summary": "Выполнить сохранённую ячейку",
+        "deprecated": false,
+        "description": "Только READY: сохраняет immutable execution до отправки агенту. Код читается из сохранённой code-ячейки PostgreSQL и проверяется по source_hash. Один execution_id с тем же запросом не запускает код повторно; изменённое содержимое — conflict. Сетевой timeout не создаёт новый ID, UNKNOWN автоматически не повторяется. Нет исполнения после STOPPING. Известный асинхронный отказ агента отражается в состоянии REJECTED уже принятого execution.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "createRuntimeExecution",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Исполнение принято",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeExecution"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова, source изменился или конфликт execution_id",
+            "headers": {}
+          },
+          "429": {
+            "$ref": "#/components/responses/RuntimeQueueFull",
+            "description": "Очередь исполнения переполнена",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/executions/{execution_id}": {
+      "get": {
+        "summary": "Получить состояние и вывод выполнения",
+        "deprecated": false,
+        "description": "Возвращает состояние попытки, outputs, execution_count, признак усечения и состояние проекции в ipynb. Сохранённый в БД результат доступен и после удаления VPS; projection pending не означает потерю DB archive. Чтение не продлевает activity.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "getRuntimeExecution",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "execution_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Исполнение и результат",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeExecution"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/events": {
+      "get": {
+        "summary": "Получить события runtime-сессии",
+        "deprecated": false,
+        "description": "HTTP polling по публичному курсору #13, а не agent seq. До 100 записей и target 16 MiB; первая крупная запись не пропускается. next_cursor продвигается только до отданного события, при пустой странице равен after. has_more определяется следующей записью. Чтение и heartbeat не продлевают activity. События хранятся после удаления VPS.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.\n\nСобытия исполнения ячейки содержат body.execution_id для GET executions/{execution_id}, в том числе поздние события исходной команды. События инспекции имеют body.inspection_id без body.execution_id и читаются через GET variables/{execution_id}; их нельзя загружать как обычное исполнение. События сессии могут не иметь ID команды. Курсор берётся из next_cursor, пустая страница не означает отсутствие активной сессии.",
+        "operationId": "listRuntimeEvents",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 9223372036854776000,
+              "default": 0
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница событий",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeEventsResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/activity": {
+      "post": {
+        "summary": "Сообщить о действиях пользователя в редакторе",
+        "deprecated": false,
+        "description": "Только READY/RECONNECTING: сохраняет activity intent и доставляет агенту. Фронтенд отправляет после реального редактирования не чаще раза в 30 секунд. Открытая вкладка и чтение выводов не считаются активностью. Запрос не создаёт и не возрождает остановленное окружение.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "touchRuntimeSession",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Активность принята",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не принимает активность",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/runtime-sessions/{id}/stop": {
+      "post": {
+        "summary": "Завершить runtime-сессию",
+        "deprecated": false,
+        "description": "Идемпотентно сохраняет намерение остановки и возвращает 202 без ожидания cleanup. Новые исполнения запрещаются, доступный финальный журнал сначала архивируется в БД, затем #57 получает запрос удаления VPS/диска/порта. Слот занят до подтверждённого cleanup; ошибка очистки не означает STOPPED. Недоступный хвост журнала помечается journal_incomplete, незавершённые исполнения — UNKNOWN. Успешный logout/logout-all сам по себе не вызывает эту операцию.\n\nЗапрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.",
+        "operationId": "stopRuntimeSession",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Остановка принята; завершение отслеживается через GET сессии",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Runtime недоступен или создание новых окружений отключено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "webhooks": {},
@@ -2743,25 +4236,6 @@
           "h123"
         ]
       },
-      "NotebookContent": {
-        "type": "object",
-        "properties": {
-          "hash": {
-            "$ref": "#/components/schemas/NotebookHash"
-          },
-          "cells": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Cell"
-            },
-            "maxItems": 1000
-          }
-        },
-        "required": [
-          "hash",
-          "cells"
-        ]
-      },
       "NotebookCellChange": {
         "type": "object",
         "properties": {
@@ -2930,6 +4404,682 @@
           "code",
           "message"
         ]
+      },
+      "RuntimeSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notebook_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "r"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PROVISIONING",
+              "STARTING",
+              "READY",
+              "RECONNECTING",
+              "STOPPING",
+              "STOPPED",
+              "FAILED"
+            ],
+            "description": "Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя."
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "creating_vps",
+              "configuring_agent",
+              "verifying_agent",
+              "ready",
+              "reconnecting",
+              "stopping",
+              "deleting_environment",
+              "cleanup_pending",
+              "stopped",
+              "failed"
+            ],
+            "description": "Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible."
+          },
+          "generation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Поколение kernel; null до его появления."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_activity_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "public_seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Последний публичный курсор событий #13; отличается от seq агента."
+          },
+          "journal_incomplete": {
+            "type": "boolean",
+            "description": "Часть журнала агента недоступна и не была подтверждённо сохранена."
+          },
+          "cleanup_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Безопасный код ошибки очистки; null при её отсутствии."
+          }
+        },
+        "required": [
+          "id",
+          "notebook_id",
+          "language",
+          "state",
+          "stage",
+          "reason",
+          "generation",
+          "created_at",
+          "last_activity_at",
+          "public_seq",
+          "journal_incomplete",
+          "cleanup_error"
+        ],
+        "additionalProperties": false,
+        "description": "Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов."
+      },
+      "RuntimeStartRequest": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Ключ идемпотентности в пределах пользователя. Повтор с теми же параметрами возвращает прежнюю сессию."
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "r"
+            ]
+          }
+        },
+        "required": [
+          "request_id",
+          "language"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeActiveSessionConflict": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "active_session_exists"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "active_session": {
+            "$ref": "#/components/schemas/RuntimeSession"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "active_session"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "unauthorized",
+              "s2s_forbidden",
+              "not_found",
+              "conflict",
+              "queue_full",
+              "runtime_unavailable",
+              "internal"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Безопасное описание без секретов и сырых ошибок внешних сервисов."
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeEventsResponse": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeEvent"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Последний действительно отданный public seq; при пустой странице равен входному after."
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "events",
+          "next_cursor",
+          "has_more"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeConflictResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RuntimeActiveSessionConflict"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeError"
+          }
+        ],
+        "description": "active_session_exists содержит текущую сессию; обычный conflict обозначает несовместимый повтор request_id."
+      },
+      "RuntimeQueueSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "items"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "description": "Только команды исполнения code-ячеек с настоящим cell_id: RUNNING первым, затем QUEUED в порядке принятия. Инспекции переменных исключены; их состояние и результаты доступны через /variables. Пустая очередь ячеек — [].",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "execution_id",
+                "cell_id",
+                "state"
+              ],
+              "properties": {
+                "execution_id": {
+                  "type": "string"
+                },
+                "cell_id": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "QUEUED",
+                    "RUNNING"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Снимок только незавершённых исполнений code-ячеек. Инспекции переменных не входят в items и отслеживаются через /runtime-sessions/{id}/variables. Пустой items не подтверждает свободу kernel для restart."
+      },
+      "RuntimeBatchExecuteRequest": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Ключ идемпотентности массового запуска в пределах runtime-сессии."
+          },
+          "cells": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "description": "Фиксированный список всех сохранённых code-ячеек в порядке блокнота на момент нажатия. Backend проверяет принадлежность, уникальность cell_id, порядок и SHA-256 source перед атомарным принятием. Позднее добавленные ячейки не включаются.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cell_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                "source_hash": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "minLength": 64,
+                  "maxLength": 64
+                }
+              },
+              "required": [
+                "cell_id",
+                "source_hash"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400,
+            "default": 300,
+            "description": "Общий для элементов пакета конечный таймаут одной команды в секундах; не длительность всего пакета."
+          }
+        },
+        "required": [
+          "request_id",
+          "cells"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeBatchExecution": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "execution_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Полный неизменный список IDs всех принятых исполнений в порядке cells запроса, включая уже завершённые. При повторе возвращается тот же список; текущая очередь его не заменяет."
+          }
+        },
+        "required": [
+          "request_id",
+          "session_id",
+          "execution_ids"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeInspection": {
+        "type": "object",
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "INTERRUPTED",
+              "TIMED_OUT",
+              "CANCELLED",
+              "UNKNOWN",
+              "REJECTED"
+            ]
+          },
+          "variables": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "preview": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "preview"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Дескрипторы переменных от агента; до успешного результата пустой массив. Не использовать текст preview как HTML или исполняемый код."
+          },
+          "output_truncated": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Безопасный код причины ошибки/недостоверного результата; без raw-ошибок и секретов, null при отсутствии."
+          }
+        },
+        "required": [
+          "execution_id",
+          "session_id",
+          "state",
+          "variables",
+          "output_truncated",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "NotebookContent": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "markdown"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "code"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    },
+                    "outputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "properties": {}
+                      },
+                      "description": "Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение."
+                    },
+                    "execution_count": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "format": "int64",
+                      "description": "Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии."
+                    },
+                    "output_truncated": {
+                      "type": "boolean",
+                      "description": "Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source",
+                    "outputs",
+                    "execution_count",
+                    "output_truncated"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "hash",
+          "cells"
+        ],
+        "description": "Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла."
+      },
+      "RuntimeExecution": {
+        "type": "object",
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cell_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400
+          },
+          "attempt": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "INTERRUPTED",
+              "TIMED_OUT",
+              "CANCELLED",
+              "UNKNOWN",
+              "REJECTED"
+            ]
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {}
+            },
+            "description": "Выводы ячейки в формате nbformat. MIME/HTML — недоверенные данные, frontend отображает их безопасно."
+          },
+          "execution_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "output_truncated": {
+            "type": "boolean",
+            "description": "Достигнут лимит вывода; код мог продолжить работу."
+          },
+          "projection": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "applied",
+              "conflict"
+            ],
+            "description": "Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения."
+          }
+        },
+        "required": [
+          "execution_id",
+          "session_id",
+          "cell_id",
+          "source_hash",
+          "timeout_seconds",
+          "attempt",
+          "state",
+          "outputs",
+          "execution_count",
+          "output_truncated",
+          "projection"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeExecuteRequest": {
+        "type": "object",
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Ключ идемпотентности в пределах runtime-сессии."
+          },
+          "cell_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "ID существующей кодовой ячейки этого блокнота."
+          },
+          "source_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64,
+            "description": "SHA-256 UTF-8 сохранённого source конкретной ячейки. Код читает backend из PostgreSQL; исходный код в запросе не передаётся. Не путать с непрозрачной редакцией всего блокнота."
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 86400,
+            "default": 300,
+            "description": "Конечное число секунд. По умолчанию 300, NaN и Infinity недопустимы."
+          }
+        },
+        "required": [
+          "execution_id",
+          "cell_id",
+          "source_hash"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeEvent": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Публичные данные события. События кодовой команды содержат body.execution_id — ID для GET executions/{execution_id}; ID стабилен при поздних событиях. События инспекции содержат body.inspection_id и не содержат body.execution_id; результат читается через GET variables/{execution_id}. События сессии могут не иметь обоих полей. Не выводить IDs из parent_msg_id или порядка ячеек. Не содержат токены, endpoint или ID облачных ресурсов.",
+            "properties": {}
+          }
+        },
+        "required": [
+          "seq",
+          "kind",
+          "body"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {
@@ -2998,6 +5148,46 @@
                   "message": "service access forbidden"
                 }
               }
+            }
+          }
+        }
+      },
+      "RuntimeSessionConflict": {
+        "description": "Есть активная сессия пользователя либо несовместимый повтор request_id. active_session_exists возвращает текущую сессию и notebook_id.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RuntimeConflictResponse"
+            }
+          }
+        }
+      },
+      "RuntimeConflict": {
+        "description": "Сессия не готова, изменился source или повтор execution_id содержит другие параметры.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RuntimeError"
+            }
+          }
+        }
+      },
+      "RuntimeUnavailable": {
+        "description": "Runtime недоступен или создание окружений отключено.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RuntimeError"
+            }
+          }
+        }
+      },
+      "RuntimeQueueFull": {
+        "description": "Очередь исполнения переполнена.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RuntimeError"
             }
           }
         }

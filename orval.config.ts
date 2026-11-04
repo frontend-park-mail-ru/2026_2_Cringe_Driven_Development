@@ -11,7 +11,12 @@ export default defineConfig({
         output: {
             target: 'apps/bff/src/go/client.ts',
             client: 'fetch',
-            override: { mutator: { path: 'apps/bff/src/go/fetch.ts', name: 'bearerFetch' } },
+            override: {
+                mutator: { path: 'apps/bff/src/go/fetch.ts', name: 'bearerFetch' },
+                // по умолчанию типы ответов-компонентов получают суффикс Response и совпадают со
+                // схемами: ответ RuntimeConflict и схема RuntimeConflictResponse
+                components: { responses: { suffix: 'ResponseBody' } },
+            },
         },
     },
     // zod-схемы операций — пакет @cdd/schemas: вход процедур BFF
