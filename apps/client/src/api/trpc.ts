@@ -1,5 +1,13 @@
 import type { AppRouter, RouterOutputs } from '@cdd/bff';
-import { TRPCClientError, createTRPCClient, httpBatchLink, type TRPCLink } from '@trpc/client';
+import {
+    TRPCClientError,
+    createTRPCClient,
+    httpBatchLink,
+    httpLink,
+    isNonJsonSerializable,
+    splitLink,
+    type TRPCLink,
+} from '@trpc/client';
 // observable — та же утилита, что внутри самого @trpc/client: так пишутся свои link
 import { observable } from '@trpc/server/observable';
 import { fetchTracked } from '@stores/connection';
@@ -19,12 +27,11 @@ export type Cell = Notebook['cells'][number];
 /** Ошибка процедуры BFF: `data.code`, `data.appCode`, `data.zodError`. */
 export type RpcError = TRPCClientError<AppRouter>;
 
-// Смена пароля завершает сессию и идёт через switchSession, как auth.*
-const CHANGE_PASSWORD = 'users.changePassword';
+// Завершают сессию и идут через switchSession, как auth.*, но самим им сессия нужна
+const ENDING = new Set(['users.changePassword', 'auth.logoutAll']);
 
 // Защищённые процедуры — все, кроме смен сессии: им нужна сессия, их результаты — данные пользователя
-const isProtected = (path: string): boolean =>
-    !path.startsWith('auth.') && path !== CHANGE_PASSWORD;
+const isProtected = (path: string): boolean => !path.startsWith('auth.') && !ENDING.has(path);
 
 // Идёт смена сессии: новые защищённые запросы не стартуют
 let closing = false;
@@ -54,8 +61,8 @@ const sessionLink: TRPCLink<AppRouter> =
     () =>
     ({ next, op }) =>
         observable((observer) => {
-            if (op.path === CHANGE_PASSWORD) {
-                // самой смене пароля нужна сессия: её 401 — потеря сессии, а не отказ, как у входа
+            if (ENDING.has(op.path)) {
+                // их 401 — потеря сессии, а не отказ, как у входа
                 return next(op).subscribe({
                     next: (value) => observer.next(value),
                     error(error) {
@@ -105,6 +112,13 @@ const sessionLink: TRPCLink<AppRouter> =
             };
         });
 
+const transport = {
+    url: '/api/trpc',
+    headers: { 'X-CSRF': '1' },
+    fetch: (url: URL | RequestInfo, init?: RequestInit) =>
+        fetchTracked(url, { ...init, credentials: 'same-origin' }),
+};
+
 /**
  * Клиент BFF: процедуры на `/api/trpc` своего origin, запросы одного тика — одним батчем.
  * Сессия — в HttpOnly-cookie, её прикладывает браузер; токены и refresh — забота BFF.
@@ -112,12 +126,15 @@ const sessionLink: TRPCLink<AppRouter> =
 export const trpc = createTRPCClient<AppRouter>({
     links: [
         sessionLink,
-        httpBatchLink({
-            url: '/api/trpc',
-            // длинный батч GET делится, чтобы не упереться в лимит URL прокси
-            maxURLLength: 2000,
-            headers: { 'X-CSRF': '1' },
-            fetch: (url, init) => fetchTracked(url, { ...init, credentials: 'same-origin' }),
+        // FormData (аватар) — отдельным запросом без батча и JSON: tRPC передаёт его как multipart
+        splitLink({
+            condition: (op) => isNonJsonSerializable(op.input),
+            true: httpLink(transport),
+            false: httpBatchLink({
+                ...transport,
+                // длинный батч GET делится, чтобы не упереться в лимит URL прокси
+                maxURLLength: 2000,
+            }),
         }),
     ],
 });
@@ -140,14 +157,15 @@ export function onSessionLost(handler: () => void): void {
 }
 
 /**
- * Смена сессии — вход, регистрация, выход или смена пароля. Новые защищённые запросы не стартуют, `call`
+ * Смена сессии — вход, регистрация, выход, выход со всех устройств или смена пароля. Новые защищённые запросы не стартуют, `call`
  * отправляется после того, как ответили уже отправленные: их `Set-Cookie` браузер применяет раньше,
  * чем `call` поставит или удалит cookie, и прежняя сессия её не перезапишет. После успеха ответы
  * прежней сессии в интерфейс не попадают. Ошибка `call` — сессия остаётся прежней; но если пока
  * ждали отправленные, один из них получил `UNAUTHORIZED`, сессии уже нет — срабатывает
  * {@link onSessionLost}, ошибка `call` всё равно пробрасывается. Смены сессии идут по очереди:
  * вызов, пришедший во время другой смены, начнётся после её завершения.
- * @param call вызов `auth.login`, `auth.register`, `auth.logout` или `users.changePassword`
+ * @param call вызов `auth.login`, `auth.register`, `auth.logout`, `auth.logoutAll` или
+ *   `users.changePassword`
  * @returns ответ `call`
  */
 export function switchSession<T>(call: () => Promise<T>): Promise<T> {

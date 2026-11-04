@@ -1,0 +1,8 @@
+.link {
+    display: flex;
+    border-radius: 50%;
+}
+
+.link:hover .avatar {
+    background: var(--color-primary-deep);
+}

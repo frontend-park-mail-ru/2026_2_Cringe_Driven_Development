@@ -7,6 +7,7 @@ import {
     LoginUserResponse,
     RegisterUserResponse,
     UpdateCurrentUserResponse,
+    UploadCurrentUserAvatarResponse,
 } from '@cdd/schemas';
 
 import type { Session } from '../session/session.ts';
@@ -19,9 +20,11 @@ import {
     getNotebook,
     listNotebooks,
     loginUser,
+    logoutAllUserSessions,
     logoutUser,
     registerUser,
     updateCurrentUser,
+    uploadCurrentUserAvatar,
     type Cell,
     type ChangeCurrentUserPasswordRequest,
     type CreateCellRequest,
@@ -40,12 +43,14 @@ export type Go = {
     getCurrentUser(): Promise<User>;
     updateCurrentUser(body: UpdateCurrentUserRequest): Promise<User>;
     changeCurrentUserPassword(body: ChangeCurrentUserPasswordRequest): Promise<void>;
+    uploadCurrentUserAvatar(avatar: Blob): Promise<User>;
     listNotebooks(): Promise<NotebookSummary[]>;
     getNotebook(id: number): Promise<Notebook>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
     createCell(id: number, body: CreateCellRequest): Promise<Cell>;
     deleteCell(id: number, index: number): Promise<void>;
     logout(): Promise<void>;
+    logoutAll(): Promise<void>;
 };
 
 /**
@@ -67,6 +72,12 @@ export function createGo(session: Session): Go {
         changeCurrentUserPassword: async (body) => {
             unwrap(await session.call((init) => changeCurrentUserPassword(body, init)), [204]);
         },
+        uploadCurrentUserAvatar: async (avatar) =>
+            unwrap(
+                await session.call((init) => uploadCurrentUserAvatar({ avatar }, init)),
+                [200],
+                UploadCurrentUserAvatarResponse,
+            ),
         listNotebooks: async () =>
             unwrap(await session.call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
@@ -94,6 +105,9 @@ export function createGo(session: Session): Go {
                 ),
                 [204],
             );
+        },
+        logoutAll: async () => {
+            unwrap(await session.call((init) => logoutAllUserSessions(init)), [204]);
         },
     };
 }

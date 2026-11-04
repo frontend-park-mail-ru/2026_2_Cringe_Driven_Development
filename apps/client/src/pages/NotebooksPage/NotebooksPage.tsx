@@ -5,11 +5,10 @@ import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Logo } from '@components/Logo/Logo';
 import { NotebookCard, NotebookCardSkeleton } from '@components/NotebookCard/NotebookCard';
-import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
+import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { Link } from '@cdd-team/router';
-import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
@@ -60,7 +59,6 @@ function subtitle(state: ListState): string {
  * @returns страница
  */
 export function NotebooksPage() {
-    const login = useSessionStore((state) => state.user?.login ?? '');
     const [list, setList] = useState<ListState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
     const [creating, setCreating] = useState(false);
@@ -103,7 +101,7 @@ export function NotebooksPage() {
                     >
                         <Logo />
                     </Link>
-                    <ProfileMenu key="profile" login={login} />
+                    <ProfileLink key="profile" />
                 </Header>
                 <div key="hero" className={styles.hero}>
                     <div key="heading" className={styles.heading}>

@@ -27,11 +27,12 @@ export function fakeGo(routes: Record<string, GoRoute>): { calls: GoCall[]; rest
         const path = url.pathname.replace(/^\/api\/v1/, '');
         const method = init?.method ?? 'GET';
         const text = typeof init?.body === 'string' ? init.body : '';
+        const form = init?.body instanceof FormData ? init.body : undefined;
         const call = {
             method,
             path,
             headers: new Headers(init?.headers),
-            body: text ? JSON.parse(text) : undefined,
+            body: form ?? (text ? JSON.parse(text) : undefined),
         };
         calls.push(call);
         const hit = table.find((r) => r.method === method && r.re.test(path));

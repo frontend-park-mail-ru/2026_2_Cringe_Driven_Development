@@ -25,6 +25,8 @@ const HTTP_CODES: Record<number, Code> = {
     403: 'FORBIDDEN',
     404: 'NOT_FOUND',
     409: 'CONFLICT',
+    413: 'PAYLOAD_TOO_LARGE',
+    415: 'UNSUPPORTED_MEDIA_TYPE',
 };
 
 const fromGo = (err: GoError): TRPCError => {
@@ -42,7 +44,7 @@ const fromGo = (err: GoError): TRPCError => {
 
 /**
  * Переводит ошибку процедуры в ответ tRPC: `SessionEnded` — `UNAUTHORIZED`, `GoError` — по статусу
- * Go (400, 401, 403, 404, 409), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
+ * Go (400, 401, 403, 404, 409, 413, 415), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
  * `BAD_GATEWAY`. Прочие ошибки tRPC остаются как есть.
  * @param e ошибка процедуры или её обёртка tRPC
  * @returns ошибка tRPC
