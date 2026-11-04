@@ -30,7 +30,7 @@ export function fixture() {
     git(dir, 'config', 'user.name', 'Release Test');
     git(dir, 'config', 'user.email', 'release@example.invalid');
     mkdirSync(join(dir, '.github/workflows'), { recursive: true });
-    writeFileSync(join(dir, '.github/workflows/release-status.yml'), 'name: Release status\n');
+    writeFileSync(join(dir, '.github/workflows/ci.yml'), 'name: CI\n');
     git(dir, 'add', '.');
     git(dir, 'commit', '-m', 'root');
     const root = git(dir, 'rev-parse', 'HEAD');

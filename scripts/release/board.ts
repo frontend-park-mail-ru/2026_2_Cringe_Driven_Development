@@ -1,11 +1,7 @@
 import { need, ReleaseError } from './env.ts';
 import { graphql } from './github.ts';
-import {
-    readProductionDeployments,
-    readReleaseSnapshot,
-    type ReleaseSnapshot,
-    type LinkedIssue,
-} from './catalog.ts';
+import type { ChangeReport, ReleaseKind } from './report.ts';
+import type { LinkedIssue } from './catalog.ts';
 
 /** Итог синхронизации без потери ошибок отдельных карточек. */
 export interface BoardResult {
@@ -16,8 +12,7 @@ export interface BoardResult {
 interface Project {
     id: string;
     field: string;
-    ready: string;
-    done: string;
+    option: string;
 }
 interface Page {
     hasNextPage: boolean;
@@ -50,7 +45,7 @@ interface Card {
     fieldValueByName: { name: string; updatedAt: string } | null;
 }
 
-async function project(): Promise<Project> {
+async function project(target: string): Promise<Project> {
     let cursor: string | null = null;
     do {
         const data: {
@@ -103,11 +98,9 @@ async function project(): Promise<Project> {
             throw new ReleaseError('Нет права записи Project у ADD_TO_PROJECT_PAT');
         const field = value.fields.nodes.find((item) => item.name === 'Status');
         if (field) {
-            const ready = field.options?.find((option) => option.name === 'Ready for release')?.id;
-            const done = field.options?.find((option) => option.name === 'Done')?.id;
-            if (!ready || !done)
-                throw new ReleaseError('Project Status: нет Ready for release/Done');
-            return { id: value.id, field: field.id, ready, done };
+            const option = field.options?.find((candidate) => candidate.name === target)?.id;
+            if (!option) throw new ReleaseError(`Project Status: нет ${target}`);
+            return { id: value.id, field: field.id, option };
         }
         cursor = value.fields.pageInfo.hasNextPage ? value.fields.pageInfo.endCursor : null;
         if (value.fields.pageInfo.hasNextPage && !cursor)
@@ -241,11 +234,35 @@ async function issueState(id: string, projectId: string) {
     };
 }
 
-/** Сверяет закрытые мержем задачи с историей проверенных выпусков. */
-export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Promise<BoardResult> {
-    const context = await project();
+/** Применяет результат успешной операции только к задачам её полного отчёта. */
+export async function updateReleaseBoard(
+    kind: ReleaseKind,
+    report: ChangeReport,
+): Promise<BoardResult> {
+    if (!report.complete) throw new ReleaseError('Неполный отчёт операции: карточки не обновлены');
     const result: BoardResult = { changed: 0, skipped: 0, errors: [] };
-    let current = snapshot;
+    if (!report.issues.length) return result;
+    const target =
+        kind === 'publish'
+            ? 'Ready for release'
+            : kind === 'deploy'
+              ? 'Done'
+              : 'Rollback from production';
+    const context = await project(target);
+    const prs = new Set(report.prs.map((pr) => pr.number));
+    const issues = new Map<string, LinkedIssue>();
+    for (const linked of report.issues) {
+        const previous = issues.get(linked.id);
+        issues.set(
+            linked.id,
+            previous
+                ? {
+                      ...previous,
+                      prNumbers: [...new Set([...previous.prNumbers, ...linked.prNumbers])],
+                  }
+                : linked,
+        );
+    }
     const processIssue = async (linked: LinkedIssue) => {
         if (linked.repo !== 'Cringe-Driven-Development-Team/frontend') {
             result.skipped++;
@@ -268,7 +285,8 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                 state.closer.repository.nameWithOwner !==
                     'Cringe-Driven-Development-Team/frontend' ||
                 state.closer.baseRefName !== state.closer.repository.defaultBranchRef?.name ||
-                !linked.prNumbers.includes(state.closer.number)
+                !linked.prNumbers.includes(state.closer.number) ||
+                !prs.has(state.closer.number)
             ) {
                 result.skipped++;
                 return;
@@ -276,15 +294,13 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
             if (!state.card) throw new ReleaseError('Нет карточки Scrumban');
             const status = state.card.fieldValueByName?.name;
             if (
-                !state.closer ||
-                !current.published.some((release) =>
-                    release.prNumbers.includes(state.closer!.number),
-                )
+                kind === 'publish' &&
+                (status === 'Done' || status === 'Rollback from production') &&
+                Date.parse(state.card.fieldValueByName!.updatedAt) >= Date.parse(state.closedAt!)
             ) {
                 result.skipped++;
                 return;
             }
-            const target = current.deployed.has(state.closer.number) ? 'Done' : 'Ready for release';
             const reset =
                 status === target &&
                 !(
@@ -332,7 +348,7 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                     project: context.id,
                     item: state.card!.id,
                     field: context.field,
-                    option: target === 'Done' ? context.done : context.ready,
+                    option: context.option,
                     reset,
                 },
                 need('ADD_TO_PROJECT_PAT'),
@@ -353,33 +369,21 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                     !(Date.parse(value.updatedAt) >= Date.parse(state.closedAt!))
                 )
                     throw new ReleaseError(
-                        'Нет подтверждения Status для текущего закрытия; повторите Board',
+                        'Нет подтверждения Status для текущего закрытия; проверьте карточку вручную',
                     );
             }
-            console.log(
-                `issue #${linked.number}, PR #${state.closer.number}, releases ${current.published
-                    .filter((release) => release.prNumbers.includes(state.closer!.number))
-                    .map((release) => release.sha)
-                    .join(',')}: ${status} → ${target}`,
-            );
             result.changed++;
             return;
         }
     };
-    for (let pass = 0; pass < 3; pass++) {
-        for (const linked of current.issues) {
-            try {
-                await processIssue(linked);
-            } catch (error) {
-                const message = `issue #${linked.number}: ${error instanceof Error ? error.message : String(error)}`;
-                console.error(`::error::${message}`);
-                result.errors.push(message);
-            }
+    for (const linked of issues.values()) {
+        try {
+            await processIssue(linked);
+        } catch (error) {
+            result.errors.push(
+                `issue #${linked.number}: ${error instanceof Error ? error.message : String(error)}`,
+            );
         }
-        const nextProduction = await readProductionDeployments();
-        if (JSON.stringify(nextProduction) === JSON.stringify(current.production)) return result;
-        if (pass < 2) current = await readReleaseSnapshot(repoDir, nextProduction);
     }
-    result.errors.push('История production менялась три прохода подряд; повторите синхронизацию');
     return result;
 }

@@ -55,10 +55,11 @@ jobs:
     environment:
       name: production
       deployment: false
-    # один SHA публикуется одним запуском: повторный ждёт и находит уже готовый выпуск
+    # публикация, CD, Rollback и issues.closed выполняются в общей очереди
     concurrency:
-      group: publish-${{ github.sha }}
+      group: release-board
       cancel-in-progress: false
+      queue: max
     env:
       SHA: ${{ github.sha }}
       GITHUB_TOKEN: ${{ github.token }}
@@ -116,14 +117,24 @@ jobs:
       - name: Release report
         id: report
         if: steps.published.outputs.published != 'true'
+        env:
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
         run: bun run release report publish "$SHA"
       - name: Register release
+        id: register
         if: steps.published.outputs.published != 'true'
         env:
           RELEASE_REPORT_BASE_SHA: ${{ steps.report.outputs.report_base_sha }}
           RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
           IMAGE_REF: ${{ steps.image.outputs.image_ref }}
         run: bun run release register "$SHA" "$IMAGE_REF"
+      - name: Update release issues
+        id: board
+        if: "!cancelled() && steps.register.outcome == 'success' && steps.published.outputs.published != 'true'"
+        env:
+          ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
+        run: bun run release board publish "$SHA"
 
   course-sync:
     needs: [check]

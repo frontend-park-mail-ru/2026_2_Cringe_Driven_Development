@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { syncBoard } from './board.ts';
-import { readReleaseSnapshot } from './catalog.ts';
+import { updateReleaseBoard } from './board.ts';
+import type { ChangeReport } from './report.ts';
 import { fixture, REPO } from './test/fixture.ts';
 
 let f: ReturnType<typeof fixture>;
@@ -24,21 +24,25 @@ let states: Map<
     }
 >;
 let canUpdate: boolean;
+let options: { id: string; name: string }[];
 let read: ((number: number) => void) | undefined;
 
 beforeEach(() => {
     f = fixture();
-    f.publish();
-    f.deploy();
     writes = [];
     states = new Map();
     canUpdate = true;
+    options = [
+        { id: 'ready', name: 'Ready for release' },
+        { id: 'done', name: 'Done' },
+        { id: 'rollback', name: 'Rollback from production' },
+    ];
     read = undefined;
-    for (const number of [1, 2])
+    for (const number of [1, 2, 3, 4])
         states.set(number, {
             closed: true,
             title: 'Frontend. Test',
-            status: 'Done',
+            status: 'In review',
             statusAt: closedAt,
             closer: number,
             reopened: false,
@@ -70,10 +74,7 @@ beforeEach(() => {
                                     {
                                         id: 'F',
                                         name: 'Status',
-                                        options: [
-                                            { id: 'ready', name: 'Ready for release' },
-                                            { id: 'done', name: 'Done' },
-                                        ],
+                                        options,
                                     },
                                 ],
                                 pageInfo: { hasNextPage: false },
@@ -84,7 +85,12 @@ beforeEach(() => {
             });
         if (query.includes('UpdateReleaseStatus')) {
             const number = Number(vars.item?.slice(1));
-            const status = vars.option === 'ready' ? 'Ready for release' : 'Done';
+            const status =
+                vars.option === 'ready'
+                    ? 'Ready for release'
+                    : vars.option === 'done'
+                      ? 'Done'
+                      : 'Rollback from production';
             writes.push({ issue: number, status });
             states.get(number)!.status = status;
             states.get(number)!.statusAt = '2026-11-01T05:00:00Z';
@@ -173,146 +179,104 @@ afterEach(() => {
     f.restore();
 });
 
-test.each([1, 2])('production читается дважды независимо от числа карточек: %i', async (count) => {
-    if (count === 1) states.get(2)!.closed = false;
-    const snapshot = await readReleaseSnapshot(f.dir);
-    expect((await syncBoard(snapshot, f.dir)).errors).toEqual([]);
-    expect(
-        f.requests.filter(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
-        ),
-    ).toHaveLength(2);
-    expect(
-        f.requests.filter((r) => r.url.pathname.endsWith('/deployments/20/statuses')),
-    ).toHaveLength(2);
-    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(1);
-});
-
-test('смена статуса существующей выкатки пересчитывает весь проход без лишнего чтения production', async () => {
-    f.deploy(f.b, 21);
-    f.statuses.get(21)![0]!.state = 'in_progress';
-    read = (number) => {
-        if (number === 2) f.statuses.get(21)![0]!.state = 'success';
+function report(): ChangeReport {
+    return {
+        baseSha: f.root,
+        headSha: f.b,
+        complete: true,
+        prs: [1, 2, 3].map((number) => ({
+            number,
+            title: `PR ${number}`,
+            url: `https://github.com/${REPO}/pull/${number}`,
+            mergeSha: f.b,
+        })),
+        issues: [1, 2, 3].map((number) => ({
+            id: `I${number}`,
+            number,
+            title: `Issue ${number}`,
+            repo: REPO,
+            prNumbers: [number],
+        })),
     };
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(states.get(1)!.status).toBe('Done');
-    expect(states.get(2)!.status).toBe('Done');
-    expect(writes).toEqual([
-        { issue: 2, status: 'Ready for release' },
-        { issue: 2, status: 'Done' },
-    ]);
+}
+
+test('deploy_changes_only_report_issues', async () => {
+    const input = report();
+    input.issues.push(input.issues[0]!);
+    expect(await updateReleaseBoard('deploy', input)).toEqual({
+        changed: 3,
+        skipped: 0,
+        errors: [],
+    });
+    expect(writes.map((x) => x.issue)).toEqual([1, 2, 3]);
+    expect(writes.every((x) => x.status === 'Done')).toBe(true);
+    expect(states.get(4)!.status).toBe('In review');
+    expect(f.requests.some((r) => (r.body?.variables as { id?: string })?.id === 'I4')).toBe(false);
     expect(
-        f.requests.filter(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
+        f.requests.some(
+            (r) => r.url.pathname.includes('/deployments') || r.url.pathname.endsWith('/pulls'),
         ),
-    ).toHaveLength(3);
-    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(2);
+    ).toBe(false);
 });
 
-test('три изменения production завершаются ошибкой без четвёртого пересчёта', async () => {
-    const snapshot = await readReleaseSnapshot(f.dir);
-    const original = f.extra!;
-    f.extra = (url, body, init) => {
-        if (
-            url.pathname.endsWith('/deployments') &&
-            url.searchParams.get('environment') === 'production'
-        ) {
-            const status = f.statuses.get(20)![0]!;
-            status.state = status.state === 'success' ? 'in_progress' : 'success';
-        }
-        return original(url, body, init);
-    };
-    const result = await syncBoard(snapshot, f.dir);
-    expect(result.errors).toEqual([
-        'История production менялась три прохода подряд; повторите синхронизацию',
-    ]);
-    expect(
-        f.requests.filter(
-            (r) =>
-                r.url.pathname.endsWith('/deployments') &&
-                r.url.searchParams.get('environment') === 'production',
-        ),
-    ).toHaveLength(4);
-    expect(f.requests.filter((r) => r.url.pathname.endsWith('/pulls'))).toHaveLength(3);
+test('empty report skips Project; incomplete report fails before reading cards', async () => {
+    const empty = { ...report(), prs: [], issues: [] };
+    expect(await updateReleaseBoard('deploy', empty)).toEqual({
+        changed: 0,
+        skipped: 0,
+        errors: [],
+    });
+    await expect(updateReleaseBoard('deploy', { ...empty, complete: false })).rejects.toThrow(
+        'Неполный',
+    );
+    expect(f.requests).toEqual([]);
 });
 
-test('ошибка финального чтения production не скрывается после обновления карточек', async () => {
-    const snapshot = await readReleaseSnapshot(f.dir);
-    const original = f.extra!;
-    f.extra = (url, body, init) =>
-        url.pathname.endsWith('/deployments') &&
-        url.searchParams.get('environment') === 'production'
-            ? Response.json({}, { status: 503 })
-            : original(url, body, init);
-    await expect(syncBoard(snapshot, f.dir)).rejects.toThrow('503');
-    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+test('rollback then deploy applies each successful operation', async () => {
+    await updateReleaseBoard('rollback', report());
+    expect(writes).toEqual(
+        [1, 2, 3].map((issue) => ({ issue, status: 'Rollback from production' })),
+    );
+    await updateReleaseBoard('deploy', report());
+    expect(writes.slice(3)).toEqual([1, 2, 3].map((issue) => ({ issue, status: 'Done' })));
 });
 
-test('первый запуск подхватывает только опубликованную и ещё не выкаченную задачу', async () => {
-    const snapshot = await readReleaseSnapshot(f.dir);
-    expect((await syncBoard(snapshot, f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
-    await syncBoard(snapshot, f.dir);
-    expect(writes).toHaveLength(1);
-});
-
-test('выкатка и последующий откат не возвращают карточку в ожидание', async () => {
-    states.get(2)!.status = 'Ready for release';
-    f.deploy(f.b, 21);
-    f.deploy(f.a, 22);
-    await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(writes).toEqual([{ issue: 2, status: 'Done' }]);
-});
-
-test.each(['Ready for build', 'In review', 'Ready for test', 'In testing', null, 'Done'])(
-    'публикация переводит %s в Ready for release без предварительного Done',
+test.each(['Done', 'Rollback from production'])(
+    'publish preserves current-cycle %s but replaces an old cycle',
     async (status) => {
-        states.get(2)!.status = status;
-        states.get(2)!.statusAt = '2026-10-31T00:00:00Z';
-        expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-        expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+        for (const state of states.values()) state.status = status;
+        expect((await updateReleaseBoard('publish', report())).changed).toBe(0);
+        for (const state of states.values()) state.statusAt = '2026-10-31T00:00:00Z';
+        expect((await updateReleaseBoard('publish', report())).errors).toEqual([]);
+        expect(writes).toEqual([1, 2, 3].map((issue) => ({ issue, status: 'Ready for release' })));
     },
 );
 
-test('переименование задачи не выключает релизные статусы', async () => {
-    states.get(2)!.title = 'Исправить автоматизацию';
-    const original = f.extra!;
-    f.extra = (url, body, init) => {
-        if (String(body?.query).includes('LinkedIssues')) {
-            const number = (body!.variables as { number: number }).number;
-            return Response.json({
-                data: {
-                    repository: {
-                        pullRequest: {
-                            closingIssuesReferences: {
-                                nodes: [
-                                    {
-                                        id: `I${number}`,
-                                        number,
-                                        title: 'Без префикса',
-                                        repository: { nameWithOwner: REPO },
-                                    },
-                                ],
-                                pageInfo: { hasNextPage: false },
-                            },
-                        },
-                    },
-                },
-            });
-        }
-        return original(url, body, init);
-    };
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+test.each(['Ready for build', 'In review', 'Ready for test', 'In testing', null])(
+    'publish advances %s without preliminary Done',
+    async (status) => {
+        states.get(1)!.status = status;
+        await updateReleaseBoard('publish', report());
+        expect(writes[0]).toEqual({ issue: 1, status: 'Ready for release' });
+    },
+);
+
+test('current closer must belong to report PRs and issue links', async () => {
+    const input = report();
+    input.prs = input.prs.filter((pr) => pr.number !== 1);
+    input.issues[1]!.prNumbers = [1];
+    expect((await updateReleaseBoard('deploy', input)).errors).toEqual([]);
+    expect(writes).toEqual([{ issue: 3, status: 'Done' }]);
 });
 
-test('чужие задачи, открытые и ручные закрытия сохраняются', async () => {
-    const state = states.get(2)!;
-    const original = { ...state };
+test('renaming a linked issue does not disable release status', async () => {
+    states.get(1)!.title = 'Без префикса';
+    await updateReleaseBoard('publish', report());
+    expect(writes[0]).toEqual({ issue: 1, status: 'Ready for release' });
+});
+
+test('foreign, open, manual, not planned, unmerged and wrong-base closures are skipped', async () => {
+    const original = { ...states.get(1)! };
     for (const patch of [
         { closed: false },
         { base: 'parent' },
@@ -320,107 +284,119 @@ test('чужие задачи, открытые и ручные закрытия
         { repo: 'other/repo' },
         { closer: null },
         { reason: 'NOT_PLANNED' },
-        { reopened: true, closed: false },
+        { reopened: true },
     ]) {
-        Object.assign(state, original, patch);
-        expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
+        Object.assign(states.get(1)!, original, patch);
+        await updateReleaseBoard('deploy', { ...report(), issues: [report().issues[0]!] });
     }
+    const input = report();
+    input.issues[0]!.repo = 'other/repo';
+    await updateReleaseBoard('deploy', { ...input, issues: [input.issues[0]!] });
     expect(writes).toEqual([]);
 });
 
-test('переоткрытие непосредственно перед записью отменяет изменение', async () => {
+test('reopen immediately before mutation cancels update', async () => {
     let reads = 0;
     read = (number) => {
-        if (number === 2 && ++reads >= 2) {
-            states.get(2)!.closed = false;
-            states.get(2)!.reopened = true;
-        }
+        if (number === 1 && ++reads >= 2) states.get(1)!.closed = false;
     };
-    await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(writes).toEqual([]);
+    await updateReleaseBoard('deploy', report());
+    expect(writes.map((write) => write.issue)).toEqual([2, 3]);
 });
 
-test('успешная выкатка во время синхронизации не оставляет устаревший статус', async () => {
-    const snapshot = await readReleaseSnapshot(f.dir);
-    let changed = false;
-    read = (number) => {
-        if (number === 2 && !changed) {
-            changed = true;
-            f.deploy(f.b, 21);
-        }
-    };
-    const result = await syncBoard(snapshot, f.dir);
-    expect(result.errors).toEqual([]);
-    expect(states.get(2)!.status).toBe('Done');
-});
-
-test('GitHub union selection требует __typename aliases, иначе карточки не обновляются', async () => {
+test('GraphQL union selections retain both __typename aliases', async () => {
     const original = f.extra!;
     f.extra = (url, body, init) => {
         const query = String(body?.query);
         if (
             query.includes('BoardIssue') &&
             [...query.matchAll(/\bkind\s*:\s*__typename\b/g)].length !== 2
-        ) {
-            return Response.json({
-                errors: [{ message: "Selections can't be made directly on unions" }],
-            });
-        }
+        )
+            return Response.json({ errors: [{ message: 'Union selection requires aliases' }] });
         return original(url, body, init);
     };
-    const result = await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(result.errors).toEqual([]);
-    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
+    expect((await updateReleaseBoard('deploy', report())).errors).toEqual([]);
+    expect(writes).toHaveLength(3);
 });
 
-test('CD при второй карточке пересчитывает и ранее обработанную первую', async () => {
-    f.records.production = [];
-    let changed = false;
-    read = (number) => {
-        if (number === 2 && !changed) {
-            changed = true;
-            f.deploy(f.b, 21);
-        }
-    };
-    const result = await syncBoard(await readReleaseSnapshot(f.dir), f.dir);
-    expect(result.errors).toEqual([]);
-    expect(states.get(1)!.status).toBe('Done');
-    expect(states.get(2)!.status).toBe('Done');
+test('old matching Status is cleared and confirmed for current closure', async () => {
+    const state = states.get(1)!;
+    state.status = 'Done';
+    state.statusAt = '2026-10-31T00:00:00Z';
+    await updateReleaseBoard('deploy', report());
+    expect(
+        (
+            f.requests.find((r) => String(r.body?.query).includes('UpdateReleaseStatus'))!.body!
+                .variables as { reset: boolean }
+        ).reset,
+    ).toBe(true);
+    const count = writes.length;
+    await updateReleaseBoard('deploy', report());
+    expect(writes).toHaveLength(count);
 });
 
-test('нет карточки или прав PAT — видимая ошибка без посторонних mutations', async () => {
+test('one card API failure is returned while other issues are updated', async () => {
+    const original = f.extra!;
+    f.extra = (url, body, init) =>
+        (body?.variables as { id?: string })?.id === 'I2'
+            ? new Response('unavailable', { status: 503 })
+            : original(url, body, init);
+    const result = await updateReleaseBoard('deploy', report());
+    expect(result.errors.join()).toContain('503');
+    expect(writes.map((write) => write.issue)).toEqual([1, 3]);
+});
+
+test('missing card is reported; missing option or PAT permission fails before writes', async () => {
     states.get(2)!.card = false;
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors.join()).toContain(
-        'карточ',
-    );
+    expect((await updateReleaseBoard('deploy', report())).errors.join()).toContain('карточ');
+    writes = [];
     canUpdate = false;
-    await expect(syncBoard(await readReleaseSnapshot(f.dir), f.dir)).rejects.toThrow('Project');
+    await expect(updateReleaseBoard('deploy', report())).rejects.toThrow('Project');
     expect(writes).toEqual([]);
 });
 
-test('неуспешная публикация не продвигает Ready for build', async () => {
-    states.get(2)!.status = 'Ready for build';
-    f.statuses.set(1, [{ state: 'failure', created_at: '2026-11-01T02:00:00Z' }]);
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([]);
+test.each(['publish', 'deploy', 'rollback'] as const)(
+    'missing target option fails before mutations: %s',
+    async (kind) => {
+        options = [];
+        await expect(updateReleaseBoard(kind, report())).rejects.toThrow('Status');
+        expect(writes).toEqual([]);
+    },
+);
+
+test('only the operation target option is required', async () => {
+    options = [{ id: 'done', name: 'Done' }];
+    expect((await updateReleaseBoard('deploy', report())).errors).toEqual([]);
+    expect(writes).toEqual([1, 2, 3].map((issue) => ({ issue, status: 'Done' })));
 });
 
-test('неуспешный CD не переводит опубликованную задачу в Done', async () => {
-    states.get(2)!.status = 'Ready for release';
-    f.deploy(f.b, 21);
-    f.statuses.set(21, [{ state: 'failure', created_at: '2026-11-01T03:00:00Z' }]);
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([]);
-});
-
-test('новый закрывающий PR после reopen определяет новый цикл', async () => {
-    const state = states.get(2)!;
-    state.reopened = true;
-    state.closedAt = '2026-11-01T04:00:00Z';
-    state.closer = 3;
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([]);
-    state.closer = 2;
-    expect((await syncBoard(await readReleaseSnapshot(f.dir), f.dir)).errors).toEqual([]);
-    expect(writes).toEqual([{ issue: 2, status: 'Ready for release' }]);
-});
+test.each(['failure', 'missing-confirmation', 'stale-confirmation'])(
+    'partial clear/set %s is visible',
+    async (failure) => {
+        states.get(1)!.status = 'Done';
+        states.get(1)!.statusAt = '2026-10-31T00:00:00Z';
+        const original = f.extra!;
+        f.extra = (url, body, init) => {
+            if (
+                String(body?.query).includes('UpdateReleaseStatus') &&
+                (body?.variables as { item?: string })?.item === 'C1'
+            ) {
+                if (failure === 'failure') {
+                    states.get(1)!.status = null;
+                    return Response.json({ errors: [{ message: 'set failed after clear' }] });
+                }
+                if (failure === 'missing-confirmation') return Response.json({ data: {} });
+                return Promise.resolve(original(url, body, init)).then((response) => {
+                    states.get(1)!.statusAt = '2026-10-31T00:00:00Z';
+                    return response!;
+                });
+            }
+            return original(url, body, init);
+        };
+        const result = await updateReleaseBoard('deploy', report());
+        expect(result.errors).toHaveLength(1);
+        expect(writes.filter((write) => write.issue !== 1).map((write) => write.issue)).toEqual([
+            2, 3,
+        ]);
+    },
+);

@@ -34,32 +34,153 @@ async function workflow(name: string): Promise<Workflow> {
     ) as Workflow;
 }
 
-test('Board остаётся отдельной сверкой без Telegram и enqueue', async () => {
-    const config = await workflow('release-status.yml');
-    expect(config.on.workflow_run).toEqual({
-        workflows: ['CI', 'CD', 'Rollback'],
-        types: ['completed'],
-        branches: ['main'],
-    });
-    expect(config.on.workflow_dispatch).toBeDefined();
-    expect(config.on.pull_request_target).toBeUndefined();
-    expect(Object.keys(config.jobs)).toEqual(['board']);
-    const board = config.jobs.board!;
-    expect(board.concurrency).toEqual({
-        group: 'release-board',
-        'cancel-in-progress': false,
-        queue: 'max',
-    });
-    expect(board.permissions?.deployments).toBe('read');
-    expect(board.env?.ADD_TO_PROJECT_PAT).toBeDefined();
-    expect(Object.keys(board.env ?? {}).some((key) => /TELEGRAM|S3|SSH|VAULT/.test(key))).toBe(
-        false,
-    );
+test('historical Board workflow is removed', async () => {
     expect(
-        board.steps.find((step) => step.uses?.startsWith('actions/checkout'))?.with,
-    ).toMatchObject({ ref: 'main', 'fetch-depth': 0, 'persist-credentials': false });
-    expect(board.steps.at(-1)?.run).toBe('bun run release sync');
+        await Bun.file(
+            new URL('../../.github/workflows/release-status.yml', import.meta.url),
+        ).exists(),
+    ).toBe(false);
 });
+
+test.each(['ci.yml', 'cd.yml', 'rollback.yml'])(
+    '%s updates report issues only after operation success in the shared queue',
+    async (name) => {
+        const config = await workflow(name);
+        const job =
+            config.jobs[name === 'ci.yml' ? 'publish' : name === 'cd.yml' ? 'cd' : 'rollback']!;
+        expect(job.concurrency).toEqual({
+            group: 'release-board',
+            queue: 'max',
+            'cancel-in-progress': false,
+        });
+        for (const id of ['report', 'board'])
+            expect(job.steps.find((step) => step.id === id)?.env?.RELEASE_REPORT_FILE).toBe(
+                '${{ runner.temp }}/release-report.json',
+            );
+        expect(job.env?.ADD_TO_PROJECT_PAT).toBeUndefined();
+        const board = job.steps.findIndex((step) => step.id === 'board');
+        expect(board).toBeGreaterThan(0);
+        const boardStep = job.steps[board]!;
+        expect(boardStep.env?.ADD_TO_PROJECT_PAT).toBe('${{ secrets.ADD_TO_PROJECT_PAT }}');
+        expect(job.steps.filter((step) => step.env?.ADD_TO_PROJECT_PAT)).toHaveLength(1);
+        expect(boardStep.run).toBe(
+            `bun run release board ${name === 'ci.yml' ? 'publish' : name === 'cd.yml' ? 'deploy' : 'rollback'} "$SHA"`,
+        );
+        expect(boardStep.if).toContain('!cancelled()');
+        if (name === 'ci.yml') {
+            expect(boardStep.if).toContain("steps.register.outcome == 'success'");
+            expect(boardStep.if).toContain("steps.published.outputs.published != 'true'");
+            expect(board).toBeGreaterThan(job.steps.findIndex((step) => step.id === 'register'));
+            expect(job.needs).toBe('check');
+            expect(JSON.stringify(config.jobs.check)).not.toContain('ADD_TO_PROJECT_PAT');
+        } else {
+            expect(boardStep.if).toContain("steps.health.outcome == 'success'");
+            expect(boardStep.if).toContain("steps.finish.outcome == 'success'");
+            const finish = job.steps.findIndex((step) => step.id === 'finish');
+            expect(board).toBeGreaterThan(finish);
+            const direction = job.steps.findIndex((step) => step.id === 'direction');
+            expect(direction).toBeGreaterThan(
+                job.steps.findIndex(
+                    (step) => step.id === (name === 'cd.yml' ? 'confirmed' : 'target'),
+                ),
+            );
+            expect(direction).toBeLessThan(job.steps.findIndex((step) => step.id === 'start'));
+            expect(direction).toBeLessThan(
+                job.steps.findIndex((step) => step.name === 'Prepare SSH and Vault files'),
+            );
+            expect(direction).toBeLessThan(job.steps.findIndex((step) => step.id === 'switch'));
+            expect(job.steps[direction]?.env?.RELEASE_BEFORE_SHA).toContain('before_sha');
+            expect(job.steps[direction]?.run).toBe(
+                `bun run release direction ${name === 'cd.yml' ? 'deploy' : 'rollback'} "$SHA"`,
+            );
+            expect(job.steps[0]?.with?.['fetch-depth']).toBe(0);
+            if (name === 'cd.yml') {
+                const retention = job.steps.find((step) => step.id === 'retention')!;
+                expect(retention.if).toBe(
+                    "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'",
+                );
+            }
+        }
+    },
+);
+
+const evaluate = (expression: string, steps: Record<string, unknown>, cancelled = false) =>
+    Function(
+        'steps',
+        'cancelled',
+        'success',
+        `return (${expression});`,
+    )(
+        steps,
+        () => cancelled,
+        () => false,
+    );
+
+test.each(['ci.yml', 'cd.yml', 'rollback.yml'])(
+    '%s gates Board on product success and keeps cleanup after card failure',
+    async (name) => {
+        const config = await workflow(name);
+        const job =
+            config.jobs[name === 'ci.yml' ? 'publish' : name === 'cd.yml' ? 'cd' : 'rollback']!;
+        const board = job.steps.find((step) => step.id === 'board')!;
+        if (name === 'ci.yml') {
+            for (const outcome of ['failure', 'cancelled', 'skipped'])
+                expect(
+                    evaluate(board.if!, {
+                        register: { outcome },
+                        published: { outputs: { published: 'false' } },
+                    }),
+                ).toBe(false);
+            expect(
+                evaluate(board.if!, {
+                    register: { outcome: 'success' },
+                    published: { outputs: { published: 'true' } },
+                }),
+            ).toBe(false);
+            expect(
+                evaluate(
+                    board.if!,
+                    {
+                        register: { outcome: 'success' },
+                        published: { outputs: { published: 'false' } },
+                    },
+                    true,
+                ),
+            ).toBe(false);
+            expect(
+                evaluate(board.if!, {
+                    register: { outcome: 'success' },
+                    published: { outputs: { published: 'false' } },
+                }),
+            ).toBe(true);
+            // course-sync is a sibling; its outcome cannot cancel a completed publication.
+            expect(job.needs).toBe('check');
+        } else {
+            const ready = {
+                health: { outcome: 'success' },
+                finish: { outcome: 'success' },
+                board: { outcome: 'failure' },
+            };
+            expect(evaluate(board.if!, ready)).toBe(true);
+            expect(evaluate(board.if!, ready, true)).toBe(false);
+            for (const outcome of ['failure', 'cancelled', 'skipped']) {
+                expect(evaluate(board.if!, { ...ready, health: { outcome } })).toBe(false);
+                expect(evaluate(board.if!, { ...ready, finish: { outcome } })).toBe(false);
+            }
+            if (name === 'cd.yml') {
+                const retention = job.steps.find((step) => step.id === 'retention')!;
+                expect(evaluate(retention.if!, ready)).toBe(true);
+                expect(evaluate(retention.if!, ready, true)).toBe(false);
+                expect(evaluate(retention.if!, { ...ready, health: { outcome: 'failure' } })).toBe(
+                    false,
+                );
+                expect(evaluate(retention.if!, { ...ready, finish: { outcome: 'failure' } })).toBe(
+                    false,
+                );
+            }
+        }
+    },
+);
 
 test.each(['ci.yml', 'cd.yml', 'rollback.yml'])(
     '%s не отправляет release-сообщения в Telegram',
@@ -131,7 +252,7 @@ test.each(['cd.yml', 'rollback.yml'])('%s берёт плейбук из infra/m
     expect(JSON.stringify(config)).not.toContain('INFRA_REF');
 });
 
-test.each(['ci.yml', 'cd.yml', 'rollback.yml', 'release-status.yml', 'sync-to-course.yml'])(
+test.each(['ci.yml', 'cd.yml', 'rollback.yml', 'sync-to-course.yml'])(
     '%s не зависит от миграционных флагов, ограничения сохранены',
     async (name) => {
         const text = await Bun.file(
@@ -143,7 +264,6 @@ test.each(['ci.yml', 'cd.yml', 'rollback.yml', 'release-status.yml', 'sync-to-co
             'ci.yml': ['publish', 'course-sync'],
             'cd.yml': ['cd'],
             'rollback.yml': ['rollback'],
-            'release-status.yml': ['board'],
             'sync-to-course.yml': ['resolve'],
         }[name]!;
         for (const job of guarded) {
@@ -188,14 +308,14 @@ test('все очереди валидны, несмотря на точечно
     )) {
         validateQueue(await workflow(name));
     }
-    const config = await workflow('release-status.yml');
+    const config = await workflow('cd.yml');
     for (const concurrency of [
         { group: 'test', queue: 'typo', 'cancel-in-progress': false },
         { group: 'test', queue: 'max', 'cancel-in-progress': true },
     ]) {
         expect(() => validateQueue({ ...config, concurrency })).toThrow();
         expect(() =>
-            validateQueue({ ...config, jobs: { board: { ...config.jobs.board!, concurrency } } }),
+            validateQueue({ ...config, jobs: { cd: { ...config.jobs.cd!, concurrency } } }),
         ).toThrow();
     }
 });

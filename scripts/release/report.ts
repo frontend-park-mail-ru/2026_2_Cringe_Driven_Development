@@ -1,7 +1,7 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { linkedIssues, readTrustedRun, type LinkedIssue } from './catalog.ts';
 import { readyArtifacts } from './deployments.ts';
-import { checkSha, need, output, ReleaseError } from './env.ts';
+import { checkSha, isSha, need, output, ReleaseError } from './env.ts';
 import { api, listDeployments, runUrl, type ArtifactsPayload } from './github.ts';
 
 /** Состав конкретного диапазона, независимо от Telegram и доски. */
@@ -11,6 +11,68 @@ export interface ChangeReport {
     prs: { number: number; title: string; url: string; mergeSha: string }[];
     issues: LinkedIssue[];
     complete: boolean;
+}
+
+/** Операция, для которой подготовлен локальный отчёт. */
+export type ReleaseKind = 'publish' | 'deploy' | 'rollback';
+
+/** Состав одной операции в текущем job, без повторного чтения GitHub. */
+export interface OperationReport {
+    kind: ReleaseKind;
+    sha: string;
+    report: ChangeReport;
+}
+
+function object(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function positiveNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function validSha(value: unknown): value is string {
+    return typeof value === 'string' && isSha(value);
+}
+
+/** Читает полный отчёт текущей операции из обязательного локального файла, без сети. */
+export async function readOperationReport(kind: ReleaseKind, sha: string): Promise<ChangeReport> {
+    checkSha(sha);
+    const operation: unknown = JSON.parse(readFileSync(need('RELEASE_REPORT_FILE'), 'utf8'));
+    if (!object(operation) || operation.kind !== kind || operation.sha !== sha)
+        throw new ReleaseError('Локальный отчёт относится к другой операции');
+    const report = operation.report;
+    if (
+        !object(report) ||
+        report.complete !== true ||
+        !validSha(report.baseSha) ||
+        !validSha(report.headSha) ||
+        (kind === 'rollback' ? report.baseSha !== sha : report.headSha !== sha) ||
+        !Array.isArray(report.prs) ||
+        !report.prs.every(
+            (pr: unknown) =>
+                object(pr) &&
+                positiveNumber(pr.number) &&
+                typeof pr.title === 'string' &&
+                typeof pr.url === 'string' &&
+                validSha(pr.mergeSha),
+        ) ||
+        !Array.isArray(report.issues) ||
+        !report.issues.every(
+            (issue: unknown) =>
+                object(issue) &&
+                typeof issue.id === 'string' &&
+                issue.id.length > 0 &&
+                positiveNumber(issue.number) &&
+                typeof issue.title === 'string' &&
+                typeof issue.repo === 'string' &&
+                issue.repo.length > 0 &&
+                Array.isArray(issue.prNumbers) &&
+                issue.prNumbers.every(positiveNumber),
+        )
+    )
+        throw new ReleaseError('Неполный или некорректный локальный отчёт операции');
+    return report as unknown as ChangeReport;
 }
 
 /** Читает только PR фактического диапазона и их закрывающие связи. */
@@ -29,6 +91,7 @@ export async function readChangeReport(
     };
     if (baseSha === null) return report;
     checkSha(baseSha);
+    if (baseSha === headSha) return { ...report, complete: true };
     const commits = new Set<string>();
     for (let page = 1; ; page++) {
         const batch = await api<{ total_commits: number; commits: { sha: string }[] }>(
@@ -153,6 +216,7 @@ export async function reportRelease(kind: string, sha: string, repoDir: string):
     checkSha(sha);
     let baseSha: string | null = null;
     let reportUrl: string | null = null;
+    let report: ChangeReport;
     try {
         baseSha =
             kind === 'publish'
@@ -162,7 +226,7 @@ export async function reportRelease(kind: string, sha: string, repoDir: string):
                   : null;
         const head = kind === 'rollback' ? baseSha : sha;
         const base = kind === 'rollback' ? sha : baseSha;
-        const report = head
+        report = head
             ? await readChangeReport(need('GITHUB_REPOSITORY'), base, head)
             : { baseSha: null, headSha: sha, prs: [], issues: [], complete: false };
         reportUrl = writeChangeSummary(report);
@@ -170,17 +234,22 @@ export async function reportRelease(kind: string, sha: string, repoDir: string):
         console.warn(
             '::warning::Состав выпуска недоступен; результат операции сохраняется без полного отчёта',
         );
+        report = {
+            baseSha: kind === 'rollback' ? sha : baseSha,
+            headSha: kind === 'rollback' && baseSha ? baseSha : sha,
+            prs: [],
+            issues: [],
+            complete: false,
+        };
         try {
-            writeChangeSummary({
-                baseSha: kind === 'rollback' ? sha : baseSha,
-                headSha: kind === 'rollback' && baseSha ? baseSha : sha,
-                prs: [],
-                issues: [],
-                complete: false,
-            });
+            writeChangeSummary(report);
         } catch {
             console.warn('::warning::Не удалось записать неполный Summary');
         }
+    }
+    if (process.env.RELEASE_REPORT_FILE) {
+        const operation: OperationReport = { kind: kind as ReleaseKind, sha, report };
+        writeFileSync(process.env.RELEASE_REPORT_FILE, JSON.stringify(operation));
     }
     output('report_base_sha', baseSha ?? '');
     output('report_url', reportUrl ?? '');

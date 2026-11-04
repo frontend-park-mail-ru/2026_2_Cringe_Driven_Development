@@ -26,10 +26,11 @@ jobs:
     environment:
       name: production
       deployment: false
-    # CD, Rollback и retention — по одному; идущий запуск не отменяется (docs/release.md, «Очередь»)
+    # общая очередь публикации, CD, Rollback и issues.closed
     concurrency:
-      group: production
+      group: release-board
       cancel-in-progress: false
+      queue: max
     env:
       SHA: ${{ inputs.sha || github.sha }}
       GITHUB_TOKEN: ${{ github.token }}
@@ -37,6 +38,8 @@ jobs:
       ANSIBLE_HOST_KEY_CHECKING: 'True'
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -45,6 +48,11 @@ jobs:
         id: confirmed
         run: bun run release confirmed
       # до изменения сервера: единственный готовый выпуск SHA, образ анонимно, ассеты с CDN
+      - name: Check release direction
+        id: direction
+        env:
+          RELEASE_BEFORE_SHA: ${{ steps.confirmed.outputs.before_sha }}
+        run: bun run release direction deploy "$SHA"
       - name: Ready release
         id: artifacts
         run: bun run release artifacts "$SHA"
@@ -90,6 +98,7 @@ jobs:
       - name: Release report
         id: report
         env:
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
           RELEASE_BEFORE_SHA: ${{ steps.confirmed.outputs.before_sha }}
         run: bun run release report deploy "$SHA"
       - name: Production record
@@ -117,12 +126,21 @@ jobs:
         run: bun run release health "$SHA"
       # success — только после проверок запущенного выпуска; сбой до проверки — error
       - name: Production result
+        id: finish
         if: always() && steps.start.outputs.deployment_id
         env:
           ID: ${{ steps.start.outputs.deployment_id }}
           RESULT: ${{ steps.health.outcome == 'success' && 'success' || (steps.switch.outcome == 'success' && 'failure' || 'error') }}
         run: bun run release finish "$ID" "$RESULT"
+      - name: Update release issues
+        id: board
+        if: "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'"
+        env:
+          ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
+        run: bun run release board deploy "$SHA"
       - name: Retention
+        if: "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'"
         id: retention
         env:
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
