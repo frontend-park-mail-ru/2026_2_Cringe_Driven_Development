@@ -21,7 +21,13 @@ interface Page {
 interface Event {
     kind: string;
     createdAt: string;
-    closer?: { kind: string; number: number; repository: { nameWithOwner: string } } | null;
+    closer?: {
+        kind: string;
+        number: number;
+        merged: boolean;
+        baseRefName: string;
+        repository: { nameWithOwner: string; defaultBranchRef: { name: string } | null };
+    } | null;
 }
 interface Issue {
     closed: boolean;
@@ -134,8 +140,13 @@ async function issueState(id: string, projectId: string) {
                                             kind: __typename
                                             ... on PullRequest {
                                                 number
+                                                merged
+                                                baseRefName
                                                 repository {
                                                     nameWithOwner
+                                                    defaultBranchRef {
+                                                        name
+                                                    }
                                                 }
                                             }
                                         }
@@ -225,7 +236,7 @@ async function issueState(id: string, projectId: string) {
     };
 }
 
-/** Приводит только Done/Ready for release к истории проверенных выпусков. */
+/** Сверяет закрытые мержем задачи с историей проверенных выпусков. */
 export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Promise<BoardResult> {
     const context = await project();
     const result: BoardResult = { changed: 0, skipped: 0, errors: [] };
@@ -240,52 +251,34 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
     };
     await refresh();
     const processIssue = async (linked: LinkedIssue) => {
-        if (linked.repo !== need('GITHUB_REPOSITORY') || !/^(Frontend|BFF)\./.test(linked.title)) {
+        if (linked.repo !== 'Cringe-Driven-Development-Team/frontend') {
             result.skipped++;
             return;
         }
-        const deadline = Date.now() + 300_000;
         for (;;) {
             const state = await issueState(linked.id, context.id);
             if (
-                state.repo !== need('GITHUB_REPOSITORY') ||
-                !/^(Frontend|BFF)\./.test(state.title) ||
+                state.repo !== 'Cringe-Driven-Development-Team/frontend' ||
+                !state.closed ||
                 state.reopened
             ) {
                 result.skipped++;
                 return;
             }
             if (
-                state.closed &&
-                (state.reason !== 'COMPLETED' ||
-                    state.closer?.kind !== 'PullRequest' ||
-                    state.closer.repository.nameWithOwner !== need('GITHUB_REPOSITORY') ||
-                    !linked.prNumbers.includes(state.closer.number))
+                state.reason !== 'COMPLETED' ||
+                state.closer?.kind !== 'PullRequest' ||
+                !state.closer.merged ||
+                state.closer.repository.nameWithOwner !==
+                    'Cringe-Driven-Development-Team/frontend' ||
+                state.closer.baseRefName !== state.closer.repository.defaultBranchRef?.name ||
+                !linked.prNumbers.includes(state.closer.number)
             ) {
                 result.skipped++;
                 return;
             }
-            if (state.closed && !state.card) throw new ReleaseError('Нет карточки Scrumban');
-            const status = state.card?.fieldValueByName?.name;
-            if (state.closed && status && status !== 'Done' && status !== 'Ready for release') {
-                console.log(`issue #${linked.number}: ручной статус ${status}, пропуск`);
-                result.skipped++;
-                return;
-            }
-            const deployed = Boolean(state.closer && current.deployed.has(state.closer.number));
-            const awaitingDone =
-                !state.closed ||
-                !status ||
-                (status === 'Done' &&
-                    !deployed &&
-                    Date.parse(state.card!.fieldValueByName!.updatedAt) <
-                        Date.parse(state.closedAt!));
-            if (awaitingDone) {
-                if (Date.now() >= deadline)
-                    throw new ReleaseError('Нет подтверждения закрытия/Done за 300000 ms');
-                await Bun.sleep(1000);
-                continue;
-            }
+            if (!state.card) throw new ReleaseError('Нет карточки Scrumban');
+            const status = state.card.fieldValueByName?.name;
             if (
                 !state.closer ||
                 !current.published.some((release) =>
@@ -303,12 +296,6 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
             }
             const latest = await issueState(linked.id, context.id);
             if (JSON.stringify(latest) !== JSON.stringify(state)) continue;
-            if (
-                target === 'Ready for release' &&
-                (!Number.isFinite(Date.parse(state.card!.fieldValueByName!.updatedAt)) ||
-                    !Number.isFinite(Date.parse(state.closedAt!)))
-            )
-                throw new ReleaseError('Нет времени закрытия/Status');
             await graphql(
                 `
                     mutation UpdateReleaseStatus(
