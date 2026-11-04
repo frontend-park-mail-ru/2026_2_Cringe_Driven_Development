@@ -3,12 +3,14 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+    assertReleaseDirection,
     chooseRollbackTarget,
     finishProduction,
     protectedReleases,
     readyArtifacts,
     startProduction,
 } from './deployments.ts';
+import { fixture } from './test/fixture.ts';
 import { ReleaseError } from './env.ts';
 import type { ArtifactsPayload, Deployment, DeploymentState, ProductionPayload } from './github.ts';
 
@@ -32,6 +34,51 @@ const prod = (
     },
     createdAt: '',
     state,
+});
+
+test('направление выкатки и отката проверяется по локальному Git до изменений', async () => {
+    const f = fixture();
+    try {
+        await expect(assertReleaseDirection('deploy', f.a, f.b, f.dir)).resolves.toBeUndefined();
+        await expect(assertReleaseDirection('rollback', f.b, f.a, f.dir)).resolves.toBeUndefined();
+        await expect(assertReleaseDirection('deploy', f.b, f.a, f.dir)).rejects.toThrow(
+            'направление',
+        );
+        await expect(assertReleaseDirection('rollback', f.a, f.b, f.dir)).rejects.toThrow(
+            'направление',
+        );
+        for (const kind of ['deploy', 'rollback'] as const) {
+            await expect(assertReleaseDirection(kind, f.a, f.a, f.dir)).resolves.toBeUndefined();
+            await expect(assertReleaseDirection(kind, f.a, f.outside, f.dir)).rejects.toThrow();
+            await expect(assertReleaseDirection(kind, '', f.b, f.dir)).rejects.toThrow('база');
+            await expect(assertReleaseDirection(kind, f.a, sha('f'), f.dir)).rejects.toThrow('Git');
+            await expect(assertReleaseDirection(kind, sha('f'), sha('f'), f.dir)).rejects.toThrow(
+                'Git',
+            );
+        }
+        expect(f.requests).toHaveLength(0);
+    } finally {
+        f.restore();
+    }
+});
+
+test('после A → B → A выбранный историей B отклоняется без поиска другой цели', async () => {
+    const f = fixture();
+    try {
+        const history = [
+            prod('a', 'a', 'success'),
+            prod('b', 'b', 'success'),
+            prod('a', 'a', 'success'),
+        ];
+        history[0]!.sha = f.a;
+        history[1]!.sha = f.b;
+        history[2]!.sha = f.a;
+        const target = chooseRollbackTarget(history);
+        expect(target.sha).toBe(f.b);
+        await expect(assertReleaseDirection('rollback', f.a, target.sha, f.dir)).rejects.toThrow();
+    } finally {
+        f.restore();
+    }
 });
 
 test('после успешной выкатки откат — к предыдущему успешному с другим digest', () => {

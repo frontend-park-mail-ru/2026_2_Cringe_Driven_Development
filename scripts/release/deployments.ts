@@ -16,6 +16,25 @@ import {
 import { checkImageRef } from './image.ts';
 import { checkSha } from './env.ts';
 
+/** Проверяет локальный граф: выкатка идёт к потомку, откат — к предку; тот же SHA допустим. */
+export async function assertReleaseDirection(
+    kind: 'deploy' | 'rollback',
+    beforeSha: string,
+    targetSha: string,
+    repoDir: string,
+): Promise<void> {
+    if (!beforeSha) throw new ReleaseError('Неизвестна база production для проверки направления');
+    checkSha(beforeSha);
+    checkSha(targetSha);
+    const [base, head] = kind === 'deploy' ? [beforeSha, targetSha] : [targetSha, beforeSha];
+    const git = Bun.spawnSync(['git', 'merge-base', '--is-ancestor', base, head], { cwd: repoDir });
+    if (git.exitCode === 1)
+        throw new ReleaseError(
+            `Неверное направление ${kind}: ${targetSha} должен быть ${kind === 'deploy' ? 'потомком' : 'предком'} ${beforeSha} или тем же SHA`,
+        );
+    if (git.exitCode) throw new ReleaseError(`Git: ${git.stderr.toString().trim()}`);
+}
+
 function notificationMetadata(): NotificationMetadata {
     const base = process.env.RELEASE_REPORT_BASE_SHA;
     const report = process.env.RELEASE_REPORT_URL;

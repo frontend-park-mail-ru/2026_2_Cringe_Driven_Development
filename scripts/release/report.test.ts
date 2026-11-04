@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
-import { readChangeReport, writeChangeSummary, reportRelease } from './report.ts';
+import { readFileSync, writeFileSync } from 'node:fs';
+import {
+    readChangeReport,
+    readOperationReport,
+    writeChangeSummary,
+    reportRelease,
+} from './report.ts';
 import { register, startProduction } from './deployments.ts';
 import { fixture, IMAGE, REPO } from './test/fixture.ts';
 const sha = (n: number) => n.toString(16).padStart(40, '0');
@@ -9,6 +14,9 @@ let f: ReturnType<typeof fixture>;
 beforeEach(() => {
     f = fixture();
     delete process.env.GITHUB_STEP_SUMMARY;
+    delete process.env.GITHUB_OUTPUT;
+    delete process.env.RELEASE_BEFORE_SHA;
+    process.env.RELEASE_REPORT_FILE = join(f.dir, 'operation.json');
     process.env.GITHUB_RUN_ID = '77';
     process.env.GITHUB_RUN_ATTEMPT = '2';
     f.extra = (url) => {
@@ -64,6 +72,135 @@ test('rollback_uses_target_to_before', async () => {
     expect(f.requests.some((r) => r.url.pathname.endsWith(`/compare/${f.a}...${f.b}`))).toBe(true);
     expect(readFileSync(process.env.GITHUB_OUTPUT, 'utf8')).toContain(`report_base_sha=${f.b}`);
     expect(readFileSync(process.env.GITHUB_STEP_SUMMARY, 'utf8')).toContain('#2: PR 2');
+    const report = await readOperationReport('rollback', f.a);
+    expect(report).toMatchObject({ baseSha: f.a, headSha: f.b, complete: true });
+    expect(report.prs.map((pr) => pr.number)).toEqual([2]);
+});
+
+test('deploy сохраняет состав один раз и reader читает тот же файл без сети', async () => {
+    process.env.RELEASE_BEFORE_SHA = f.a;
+    await reportRelease('deploy', f.b, f.dir);
+    const stored = JSON.parse(readFileSync(process.env.RELEASE_REPORT_FILE!, 'utf8'));
+    expect(stored).toMatchObject({
+        kind: 'deploy',
+        sha: f.b,
+        report: { baseSha: f.a, headSha: f.b, complete: true },
+    });
+    expect(stored.report.issues.map((issue: { number: number }) => issue.number)).toEqual([2]);
+    expect(f.requests.filter((r) => r.url.pathname.includes('/compare/'))).toHaveLength(1);
+    f.requests.length = 0;
+    delete process.env.RELEASE_BEFORE_SHA;
+    expect(await readOperationReport('deploy', f.b)).toEqual(stored.report);
+    expect(f.requests).toHaveLength(0);
+});
+
+test.each(['deploy', 'rollback'] as const)(
+    'равные SHA дают полный пустой отчёт %s',
+    async (kind) => {
+        process.env.RELEASE_BEFORE_SHA = f.a;
+        await reportRelease(kind, f.a, f.dir);
+        expect(await readOperationReport(kind, f.a)).toEqual({
+            baseSha: f.a,
+            headSha: f.a,
+            complete: true,
+            prs: [],
+            issues: [],
+        });
+        expect(f.requests).toHaveLength(0);
+    },
+);
+
+test.each(['403', 'partial', 'enrichment', 'null-base'])(
+    'неполный состав %s сохраняется без частичных задач и не поступает на доску',
+    async (failure) => {
+        process.env.RELEASE_BEFORE_SHA = f.root;
+        f.extra = (url, body) => {
+            if (failure === '403') return Response.json({}, { status: 403 });
+            if (failure === 'partial' && url.pathname.includes('/compare/'))
+                return Response.json({ total_commits: 1, commits: [] });
+            if (
+                failure === 'enrichment' &&
+                url.pathname === '/graphql' &&
+                (body?.variables as { number?: number })?.number === 2
+            )
+                return Response.json({}, { status: 403 });
+        };
+        const kind = failure === 'null-base' ? 'publish' : 'deploy';
+        await reportRelease(kind, f.b, f.dir);
+        expect(JSON.parse(readFileSync(process.env.RELEASE_REPORT_FILE!, 'utf8'))).toMatchObject({
+            kind,
+            sha: f.b,
+            report: { complete: false, prs: [], issues: [] },
+        });
+        f.requests.length = 0;
+        await expect(readOperationReport(kind, f.b)).rejects.toThrow();
+        expect(f.requests).toHaveLength(0);
+    },
+);
+
+test('reader отклоняет отсутствующий файл, повреждённый JSON и незаданный путь без сети', async () => {
+    await expect(readOperationReport('deploy', f.b)).rejects.toThrow();
+    writeFileSync(process.env.RELEASE_REPORT_FILE!, '{');
+    await expect(readOperationReport('deploy', f.b)).rejects.toThrow();
+    delete process.env.RELEASE_REPORT_FILE;
+    await expect(readOperationReport('deploy', f.b)).rejects.toThrow();
+    expect(f.requests).toHaveLength(0);
+});
+
+test('reader проверяет kind, SHA, направление границ и полную структуру', async () => {
+    const valid = {
+        kind: 'deploy',
+        sha: f.b,
+        report: {
+            baseSha: f.a,
+            headSha: f.b,
+            complete: true,
+            prs: [
+                {
+                    number: 2,
+                    title: 'PR 2',
+                    url: `https://github.com/${REPO}/pull/2`,
+                    mergeSha: f.b,
+                },
+            ],
+            issues: [{ id: 'I2', number: 2, title: 'Frontend. 2', repo: REPO, prNumbers: [2] }],
+        },
+    };
+    const invalid = [
+        null,
+        {},
+        { ...valid, kind: 'rollback' },
+        { ...valid, sha: f.a },
+        { ...valid, sha: 'bad' },
+        ...[
+            { baseSha: null },
+            { baseSha: 'bad' },
+            { headSha: f.a },
+            { headSha: 'bad' },
+            { complete: false },
+            { complete: 'true' },
+            { prs: null },
+            { issues: {} },
+            { prs: [{ ...valid.report.prs[0], number: 0 }] },
+            { prs: [{ ...valid.report.prs[0], title: null }] },
+            { prs: [{ ...valid.report.prs[0], url: 2 }] },
+            { prs: [{ ...valid.report.prs[0], mergeSha: 'bad' }] },
+            { issues: [{ ...valid.report.issues[0], id: '' }] },
+            { issues: [{ ...valid.report.issues[0], number: -1 }] },
+            { issues: [{ ...valid.report.issues[0], title: null }] },
+            { issues: [{ ...valid.report.issues[0], repo: null }] },
+            { issues: [{ ...valid.report.issues[0], prNumbers: [0] }] },
+        ].map((report) => ({ ...valid, report: { ...valid.report, ...report } })),
+    ];
+    for (const value of invalid) {
+        writeFileSync(process.env.RELEASE_REPORT_FILE!, JSON.stringify(value));
+        await expect(readOperationReport('deploy', f.b)).rejects.toThrow();
+    }
+    writeFileSync(process.env.RELEASE_REPORT_FILE!, JSON.stringify({ ...valid, kind: 'publish' }));
+    expect(await readOperationReport('publish', f.b)).toEqual(valid.report);
+    writeFileSync(process.env.RELEASE_REPORT_FILE!, JSON.stringify({ ...valid, kind: 'rollback' }));
+    await expect(readOperationReport('rollback', f.b)).rejects.toThrow();
+    expect(f.requests).toHaveLength(0);
 });
 test('unknown_base_does_not_invent_sha', async () => {
     process.env.GITHUB_STEP_SUMMARY = join(f.dir, 'unknown.md');
@@ -102,6 +239,7 @@ test('publication_uses_nearest_verified_ancestor', async () => {
     process.env.GITHUB_STEP_SUMMARY = join(f.dir, 'report.md');
     await reportRelease('publish', f.b, f.dir);
     expect(readFileSync(process.env.GITHUB_OUTPUT, 'utf8')).toContain(`report_base_sha=${f.a}`);
+    expect(await readOperationReport('publish', f.b)).toMatchObject({ baseSha: f.a, headSha: f.b });
 });
 test('foreign_publication_url_does_not_become_report_base', async () => {
     f.publish(f.a).payload.ci_run = 'https://evil.invalid/actions/runs/1';
