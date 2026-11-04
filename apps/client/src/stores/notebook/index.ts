@@ -31,6 +31,14 @@ export type Conflict =
     | { phase: 'ready'; snapshot: Snapshot; dialogOpen: boolean }
     | { phase: 'resolving'; snapshot: Snapshot; choice: 'server' | 'mine' };
 
+/** Черновик ячейки, которую удалили на сервере: остаётся для копирования, сам не воссоздаётся. */
+export type Orphan = { cellId: string; kind: Cell['kind']; text: string; index: number };
+
+/** Итог ожидания сохранения перед запуском. */
+export type FlushResult =
+    | { ok: true }
+    | { ok: false; reason: 'conflict' | 'error' | 'too_large' | 'edited' };
+
 interface NotebookState {
     /** Открытый блокнот; null — страница блокнота не открыта */
     notebookId: number | null;
@@ -46,6 +54,7 @@ interface NotebookState {
     structureBusy: boolean;
     error: NotebookError | null;
     conflict: Conflict;
+    orphans: Orphan[];
 }
 
 const empty = (): NotebookState => ({
@@ -58,6 +67,7 @@ const empty = (): NotebookState => ({
     structureBusy: false,
     error: null,
     conflict: { phase: 'none' },
+    orphans: [],
 });
 
 /** Стор открытого блокнота: снимок, черновики, очередь сохранения и её статус. */
@@ -81,6 +91,8 @@ let queue: Job[] = [];
 let active: number | null = null;
 // Операция, результат которой неизвестен после сбоя сети или 5xx: ждёт сверки со снимком
 let pending: Job | null = null;
+// Ожидание итога «Сохранить мой текст»: true — сохранено, false — снова конфликт или ошибка
+let resolution: ((ok: boolean) => void) | null = null;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -94,6 +106,8 @@ const reset = (): void => {
     generation++;
     clearTimers();
     dropQueue();
+    resolution?.(false);
+    resolution = null;
 };
 
 // Сброс очереди: структурные операции не воспроизводятся, правки снова берутся из черновиков
@@ -103,11 +117,47 @@ function dropQueue(): void {
     pending = null;
 }
 
-// Очередь стоит при конфликте и при ошибке, требующей перечитывания
+// Конфликт, который ждёт выбора версии или загрузки снимка
+const unresolved = (conflict: Conflict): boolean =>
+    conflict.phase !== 'none' && conflict.phase !== 'resolving';
+
+// Очередь стоит при неразрешённом конфликте и при ошибке, требующей перечитывания
 const paused = (): boolean => {
     const { conflict, error } = get();
-    return conflict.phase !== 'none' || error === 'save' || error === 'notebook_gone';
+    return unresolved(conflict) || error === 'save' || error === 'notebook_gone';
 };
+
+const edits = new Set<(cellId: string) => void>();
+const saves = new Set<(snapshot: Snapshot) => void>();
+
+/**
+ * Подписка на реальный ввод пользователя (не на загрузку и снимки): для `runtime.activity` в #51.
+ * @param listener вызывается с id ячейки
+ * @returns отписка
+ */
+export function onEdit(listener: (cellId: string) => void): () => void {
+    edits.add(listener);
+    return () => edits.delete(listener);
+}
+
+/**
+ * Подписка на каждое подтверждение изменения сервером.
+ * @param listener вызывается с новым подтверждённым снимком
+ * @returns отписка
+ */
+export function onSaved(listener: (snapshot: Snapshot) => void): () => void {
+    saves.add(listener);
+    return () => saves.delete(listener);
+}
+
+/**
+ * Заблокированы ли добавление, перемещение и удаление ячеек.
+ * @param state состояние стора
+ * @returns true во время структурной операции и пока конфликт не разрешён
+ */
+export function structureLocked(state: NotebookState): boolean {
+    return state.structureBusy || state.conflict.phase !== 'none';
+}
 
 /**
  * Открывает блокнот: подтверждённый снимок — из bootstrap или `notebooks.get`.
@@ -136,7 +186,7 @@ const sourceOf = (cellId: string): string | undefined =>
 // Статус шапки по текущему состоянию; saved — только когда сохранять больше нечего
 const refreshStatus = (justSaved = false): void => {
     const { error, drafts, conflict } = get();
-    if (conflict.phase !== 'none') return set({ status: 'conflict' });
+    if (unresolved(conflict)) return set({ status: 'conflict' });
     if (error === 'save' || error === 'notebook_gone') return set({ status: 'error' });
     if (active === generation || queue.length > 0) return set({ status: 'saving' });
     if (Object.keys(drafts).length > 0) return set({ status: 'dirty' });
@@ -167,6 +217,7 @@ export function editSource(cellId: string, text: string, composing: boolean): vo
     set({ drafts, tooLarge });
     clearTimeout(timers.get(cellId));
     timers.delete(cellId);
+    for (const listener of edits) listener(cellId);
     if (!composing)
         timers.set(
             cellId,
@@ -256,6 +307,7 @@ function commit(job: Job, confirmed: Snapshot, createdId?: string): void {
     }
     set({ confirmed, drafts, tooLarge });
     job.done(op.type === 'create' ? createdId : true);
+    for (const listener of saves) listener(confirmed);
 }
 
 // Снимок после операции, если она применилась; для create — и id созданной ячейки
@@ -337,7 +389,9 @@ async function run(): Promise<void> {
     }
     if (active !== started) return;
     active = null;
-    if (live()) refreshStatus(!paused());
+    if (!live()) return;
+    if (queue.length === 0) finishResolving(true);
+    refreshStatus(!paused());
 }
 
 // Категории ошибок, после которых запись могла состояться
@@ -363,6 +417,7 @@ function failed(job: Job, error: unknown): void {
     }
     pending = code === undefined || UNKNOWN_RESULT.has(code) ? job : null;
     if (!pending) job.done(undefined);
+    finishResolving(false);
     set({ error: 'save' });
     refreshStatus();
     void reconcile();
@@ -413,6 +468,7 @@ async function reconcile(): Promise<void> {
     }
     set({ structureBusy: structureQueued() });
     if (queue.length > 0) return void run();
+    finishResolving(true);
     refreshStatus(true);
 }
 
@@ -430,6 +486,7 @@ function enterConflict(snapshot: Snapshot): void {
 
 // 409 notebook_conflict: очередь стоит, черновики остаются, загружается свежий снимок
 async function startConflict(): Promise<void> {
+    finishResolving(false);
     dropQueue();
     set({ conflict: { phase: 'loading' }, structureBusy: false });
     refreshStatus();
@@ -445,4 +502,138 @@ async function startConflict(): Promise<void> {
         return refreshStatus();
     }
     enterConflict(result.snapshot);
+}
+
+function finishResolving(ok: boolean): void {
+    if (get().conflict.phase !== 'resolving') return;
+    if (ok) set({ conflict: { phase: 'none' } });
+    else if (!unresolved(get().conflict)) set({ conflict: { phase: 'none' } });
+    const done = resolution;
+    resolution = null;
+    done?.(ok);
+}
+
+/** Повторная загрузка свежего снимка после её ошибки. */
+export async function retryConflictLoad(): Promise<void> {
+    if (get().conflict.phase === 'failed') await startConflict();
+}
+
+/** Снова открывает диалог выбора версии: «Разрешить конфликт», ▶ и «Запустить всё» при конфликте. */
+export function openConflictDialog(): void {
+    const { conflict } = get();
+    if (conflict.phase === 'ready') set({ conflict: { ...conflict, dialogOpen: true } });
+}
+
+/** Закрывает диалог без выбора версии: черновики и пауза очереди остаются. */
+export function closeConflictDialog(): void {
+    const { conflict } = get();
+    if (conflict.phase === 'ready') set({ conflict: { ...conflict, dialogOpen: false } });
+}
+
+/**
+ * Выбор версии при конфликте. «server» — принять свежий снимок и отбросить несохранённое;
+ * «mine» — сохранить свои исходники затронутых ячеек поверх свежей версии с её hash.
+ * Черновики ячеек, удалённых на сервере, остаются в `orphans` и не воссоздаются.
+ * @param choice выбранная версия
+ * @returns true, если выбор подтверждён сервером; false — снова конфликт или ошибка
+ */
+export function resolveConflict(choice: 'server' | 'mine'): Promise<boolean> {
+    const { conflict, drafts, tooLarge, confirmed } = get();
+    if (conflict.phase !== 'ready') return Promise.resolve(false);
+    const { snapshot } = conflict;
+    dropQueue();
+    if (choice === 'server') {
+        set({
+            confirmed: snapshot,
+            drafts: {},
+            tooLarge: {},
+            orphans: [],
+            conflict: { phase: 'none' },
+        });
+        refreshStatus(true);
+        return Promise.resolve(true);
+    }
+    const present = new Set(snapshot.cells.map((c) => c.id));
+    const kept: Record<string, string> = {};
+    const orphans = [...get().orphans];
+    for (const [cellId, text] of Object.entries(drafts)) {
+        if (present.has(cellId)) {
+            kept[cellId] = text;
+            continue;
+        }
+        const index = confirmed?.cells.findIndex((c) => c.id === cellId) ?? -1;
+        const kind = confirmed?.cells[index]?.kind ?? 'code';
+        orphans.push({ cellId, kind, text, index: index === -1 ? snapshot.cells.length : index });
+    }
+    set({
+        confirmed: snapshot,
+        drafts: kept,
+        orphans,
+        conflict: { phase: 'resolving', snapshot, choice },
+    });
+    const { promise, resolve } = Promise.withResolvers<boolean>();
+    resolution = resolve;
+    for (const [cellId, source] of Object.entries(kept)) {
+        if (!tooLarge[cellId])
+            queue.push({ op: { type: 'update', cellId, source }, done: () => {} });
+    }
+    if (queue.length === 0) finishResolving(true);
+    else void run();
+    refreshStatus(queue.length === 0);
+    return promise;
+}
+
+/**
+ * Убирает черновик удалённой на сервере ячейки.
+ * @param cellId ячейка
+ */
+export function dismissOrphan(cellId: string): void {
+    set({ orphans: get().orphans.filter((o) => o.cellId !== cellId) });
+}
+
+/**
+ * Для запуска в #51: немедленно отправить ожидающие правки выбранных ячеек и структурные операции
+ * и дождаться подтверждения. Конфликт, ошибка, лимит или новый ввод этих ячеек за время ожидания —
+ * отказ; разрешение конфликта отказ не отменяет, запуск нужно нажать заново.
+ * @param cellIds ячейки, чей код будет исполнен; без них — все несохранённые
+ * @returns итог ожидания
+ */
+export function flush(cellIds?: string[]): Promise<FlushResult> {
+    const start = get();
+    const started = generation;
+    if (start.conflict.phase !== 'none') return Promise.resolve({ ok: false, reason: 'conflict' });
+    if (paused()) return Promise.resolve({ ok: false, reason: 'error' });
+    const targets = cellIds ?? Object.keys(start.drafts);
+    if (targets.some((id) => start.tooLarge[id])) {
+        return Promise.resolve({ ok: false, reason: 'too_large' });
+    }
+    const watched = new Set(targets);
+    for (const id of targets) commitSource(id);
+    return new Promise((resolve) => {
+        let finished = false;
+        const cleanup: (() => void)[] = [];
+        const finish = (result: FlushResult) => {
+            if (finished) return;
+            finished = true;
+            for (const off of cleanup) off();
+            resolve(result);
+        };
+        cleanup.push(
+            onEdit((cellId) => {
+                if (watched.has(cellId)) finish({ ok: false, reason: 'edited' });
+            }),
+        );
+        const check = () => {
+            const state = get();
+            if (started !== generation) return finish({ ok: false, reason: 'error' });
+            if (state.conflict.phase !== 'none') return finish({ ok: false, reason: 'conflict' });
+            if (paused()) return finish({ ok: false, reason: 'error' });
+            const busy = active === generation || queue.length > 0 || pending !== null;
+            if (!busy && targets.every((id) => state.drafts[id] === undefined)) {
+                finish({ ok: true });
+            }
+        };
+        cleanup.push(useNotebookStore.subscribe(check));
+        check();
+    });
 }
