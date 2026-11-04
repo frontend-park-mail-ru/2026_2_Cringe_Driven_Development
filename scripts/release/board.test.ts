@@ -52,7 +52,12 @@ beforeEach(() => {
     f.extra = (url, body) => {
         if (url.pathname !== '/graphql') return;
         const query = String(body?.query);
-        const vars = body?.variables as { id?: string; option?: string; item?: string };
+        const vars = body?.variables as {
+            id?: string;
+            option?: string;
+            item?: string;
+            reset?: boolean;
+        };
         if (query.includes('ReleaseProject'))
             return Response.json({
                 data: {
@@ -82,8 +87,14 @@ beforeEach(() => {
             const status = vars.option === 'ready' ? 'Ready for release' : 'Done';
             writes.push({ issue: number, status });
             states.get(number)!.status = status;
+            states.get(number)!.statusAt = '2026-11-01T05:00:00Z';
             return Response.json({
-                data: { updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.item } } },
+                data: {
+                    updateProjectV2ItemFieldValue: { projectV2Item: { id: vars.item } },
+                    clearProjectV2ItemFieldValue: vars.reset
+                        ? { projectV2Item: { id: vars.item } }
+                        : undefined,
+                },
             });
         }
         const number = Number(vars.id?.slice(1));

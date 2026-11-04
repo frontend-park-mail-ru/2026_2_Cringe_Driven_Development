@@ -290,20 +290,35 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
             }
             await refresh();
             const target = current.deployed.has(state.closer.number) ? 'Done' : 'Ready for release';
-            if (status === target) {
+            const reset =
+                status === target &&
+                !(
+                    Date.parse(state.card.fieldValueByName!.updatedAt) >=
+                    Date.parse(state.closedAt!)
+                );
+            if (status === target && !reset) {
                 result.skipped++;
                 return;
             }
             const latest = await issueState(linked.id, context.id);
             if (JSON.stringify(latest) !== JSON.stringify(state)) continue;
-            await graphql(
+            // Same-option writes may be no-ops; recreate stale evidence for this closure.
+            const written = await graphql<Record<string, { projectV2Item: { id: string } }>>(
                 `
                     mutation UpdateReleaseStatus(
                         $project: ID!
                         $item: ID!
                         $field: ID!
                         $option: String!
+                        $reset: Boolean!
                     ) {
+                        clearProjectV2ItemFieldValue(
+                            input: { projectId: $project, itemId: $item, fieldId: $field }
+                        ) @include(if: $reset) {
+                            projectV2Item {
+                                id
+                            }
+                        }
                         updateProjectV2ItemFieldValue(
                             input: {
                                 projectId: $project
@@ -323,9 +338,29 @@ export async function syncBoard(snapshot: ReleaseSnapshot, repoDir: string): Pro
                     item: state.card!.id,
                     field: context.field,
                     option: target === 'Done' ? context.done : context.ready,
+                    reset,
                 },
                 need('ADD_TO_PROJECT_PAT'),
             );
+            if (
+                written.updateProjectV2ItemFieldValue?.projectV2Item?.id !== state.card.id ||
+                (reset && written.clearProjectV2ItemFieldValue?.projectV2Item?.id !== state.card.id)
+            )
+                throw new ReleaseError('Нет подтверждения записи Status');
+            if (reset) {
+                const confirmed = await issueState(linked.id, context.id);
+                const value = confirmed.card?.fieldValueByName;
+                if (
+                    !confirmed.closed ||
+                    confirmed.reopened ||
+                    confirmed.closedAt !== state.closedAt ||
+                    value?.name !== target ||
+                    !(Date.parse(value.updatedAt) >= Date.parse(state.closedAt!))
+                )
+                    throw new ReleaseError(
+                        'Нет подтверждения Status для текущего закрытия; повторите Board',
+                    );
+            }
             console.log(
                 `issue #${linked.number}, PR #${state.closer.number}, releases ${current.published
                     .filter((release) => release.prNumbers.includes(state.closer!.number))
