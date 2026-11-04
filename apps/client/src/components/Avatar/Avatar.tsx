@@ -1,10 +1,13 @@
+import { useState } from '@cdd-team/react';
 import { clsx } from '@cdd-team/clsx';
 import styles from './Avatar.module.css';
 
 /** Свойства {@link Avatar}. */
 interface AvatarProps {
-    /** Логин: на аватаре его первая буква */
+    /** Логин: первая буква — на аватаре без фото */
     login: string;
+    /** Публичный URL фото; null или ошибка загрузки — первая буква логина */
+    src?: string | null;
     className?: string;
 }
 
@@ -13,10 +16,21 @@ interface AvatarProps {
  * @param props свойства аватара
  * @returns аватар
  */
-export function Avatar({ login, className }: AvatarProps) {
+export function Avatar({ login, src, className }: AvatarProps) {
+    const [failed, setFailed] = useState<string | null>(null);
     return (
         <span className={clsx(styles.avatar, className)} aria-hidden="true">
-            {login.charAt(0).toUpperCase()}
+            {src && failed !== src ? (
+                <img
+                    key={src}
+                    className={styles.image}
+                    src={src}
+                    alt=""
+                    onError={() => setFailed(src)}
+                />
+            ) : (
+                login.charAt(0).toUpperCase()
+            )}
         </span>
     );
 }

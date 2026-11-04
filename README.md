@@ -136,3 +136,13 @@ Docker не нужен. HMR там нет, после изменений кли�
 Менторы: [Ярослав Михалёв](https://github.com/YarikMix) (frontend),
 [Александр Батовкин](https://github.com/blackHATred) (backend),
 [Дарья Ченцова](https://t.me/dewon_d) (UX).
+
+Совместная проверка Board и обработчика закрытия issues запускается из checkout
+командного `.github`:
+
+```bash
+FRONTEND_DIR=/absolute/frontend-checkout bun test tests/board-status-integration.test.ts
+```
+
+Тест использует временный Git-граф и поддельный HTTP; проверяет оба обработчика
+и согласованность concurrency-групп. Живую очередь Actions проверяют при подключении.

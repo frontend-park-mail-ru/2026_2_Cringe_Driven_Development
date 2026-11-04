@@ -6,7 +6,7 @@ import { Cell, CellSkeleton, cellEditorId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
-import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
+import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { SaveStatus, type SaveStatusTone } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
@@ -26,7 +26,6 @@ import {
     type SaveStatus as SaveState,
 } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
-import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
@@ -102,7 +101,6 @@ const focusCell = (id: string | undefined): void => {
  */
 export function NotebookPage() {
     const navigate = useNavigate();
-    const login = useSessionStore((state) => state.user?.login ?? '');
     const id = Number(useParams({ from: '/_auth/notebooks/$notebookId' }).notebookId);
     // При прямом открытии своего блокнота BFF уже положил его в bootstrap: первый показ без запроса
     const [load, setLoad] = useState<'loading' | 'error' | 'ready'>(
@@ -265,7 +263,7 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
-                    <ProfileMenu key="profile" login={login} />
+                    <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (
                     <ul

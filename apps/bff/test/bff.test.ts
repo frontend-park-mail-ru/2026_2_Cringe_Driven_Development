@@ -57,6 +57,26 @@ function rpc(
     );
 }
 
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Загрузка аватара: multipart без батча, как его шлёт клиент. */
+async function avatar(body: File | FormData, headers: Record<string, string> = {}) {
+    const form = body instanceof FormData ? body : new FormData();
+    if (body instanceof File) form.append('avatar', body);
+    const { 'Content-Type': _json, ...rpcHeaders } = RPC;
+    return bff(
+        new Request(`${ORIGIN}/api/trpc/users.uploadAvatar`, {
+            method: 'POST',
+            headers: {
+                ...rpcHeaders,
+                ...headers,
+                Cookie: `${SESSION_COOKIE}=${await cookie(goTokens().issue())}`,
+            },
+            body: form,
+        }),
+    );
+}
+
 function page(sessionCookie?: string, path = '/notebooks/1') {
     const headers: Record<string, string> = { Accept: 'text/html' };
     if (sessionCookie) headers.Cookie = `${SESSION_COOKIE}=${sessionCookie}`;
@@ -639,6 +659,98 @@ describe('смена логина и пароля', () => {
             appCode: 'invalid_current_password',
         });
         expect(cleared(res)).toBe(false);
+    });
+    test('uploadAvatar передаёт в Go multipart только с файлом avatar', async () => {
+        const updated = { ...USER, avatar_url: 'https://cdn.example/a.png' };
+        useGo({ 'PUT /users/me/avatar': () => Response.json(updated) });
+        const res = await avatar(new File([PNG], 'a.png', { type: 'image/png' }));
+        expect(res.status).toBe(200);
+        expect(((await res.json()) as { result: { data: unknown } }).result.data).toEqual(updated);
+        const sent = go?.calls[0];
+        expect(sent?.headers.get('Authorization')).toStartWith('Bearer ');
+        expect(sent?.headers.get('Content-Type')).toBeNull();
+        const form = sent?.body as FormData;
+        expect([...form.keys()]).toEqual(['avatar']);
+        expect(await (form.get('avatar') as File).bytes()).toEqual(PNG);
+    });
+
+    test('uploadAvatar: пустой, слишком большой файл и лишние поля не доходят до Go', async () => {
+        useGo({});
+        const extra = new FormData();
+        extra.append('avatar', new File([PNG], 'a.png', { type: 'image/png' }));
+        extra.append('user_id', '2');
+        for (const res of [
+            await avatar(new File([], 'a.png', { type: 'image/png' })),
+            await avatar(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'a.png')),
+            await avatar(extra),
+        ]) {
+            expect(res.status).toBe(400);
+        }
+        expect(go?.calls).toHaveLength(0);
+    });
+
+    test('uploadAvatar: ошибки Go — с кодом, 403 s2s — BAD_GATEWAY; сессия остаётся', async () => {
+        const file = new File([PNG], 'a.png', { type: 'image/png' });
+        for (const [status, code, trpcCode] of [
+            [400, 'validation_error', 'BAD_REQUEST'],
+            [413, 'payload_too_large', 'PAYLOAD_TOO_LARGE'],
+            [415, 'unsupported_media_type', 'UNSUPPORTED_MEDIA_TYPE'],
+            [403, 's2s_forbidden', 'BAD_GATEWAY'],
+            [500, 'internal', 'BAD_GATEWAY'],
+        ] as const) {
+            useGo({ 'PUT /users/me/avatar': () => goError(status, code) });
+            const res = await avatar(file);
+            expect(await errorOf(res)).toMatchObject({ code: trpcCode, appCode: code });
+            expect(cleared(res)).toBe(false);
+            go?.restore();
+        }
+    });
+
+    test('uploadAvatar без CSRF не доходит до Go', async () => {
+        useGo({});
+        const res = await avatar(new File([PNG], 'a.png', { type: 'image/png' }), {
+            'X-CSRF': '',
+        });
+        expect(await errorOf(res)).toMatchObject({ code: 'FORBIDDEN', appCode: 'csrf_invalid' });
+        expect(go?.calls).toHaveLength(0);
+    });
+});
+
+describe('выход со всех устройств', () => {
+    test('logoutAll шлёт POST /auth/logout-all без тела и удаляет cookie', async () => {
+        useGo({ 'POST /auth/logout-all': () => new Response(null, { status: 204 }) });
+        const res = await rpc('auth.logoutAll', {
+            body: {},
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(go?.calls).toHaveLength(1);
+        expect(go?.calls[0]?.headers.get('Authorization')).toStartWith('Bearer ');
+        expect(go?.calls[0]?.body).toBeUndefined();
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('logoutAll: сбой Go не удаляет cookie', async () => {
+        for (const [status, code] of [
+            [500, 'internal'],
+            [403, 's2s_forbidden'],
+        ] as const) {
+            useGo({ 'POST /auth/logout-all': () => goError(status, code) });
+            const res = await rpc('auth.logoutAll', {
+                body: {},
+                cookie: await cookie(goTokens().issue()),
+            });
+            expect(await errorOf(res)).toMatchObject({ code: 'BAD_GATEWAY' });
+            expect(cleared(res)).toBe(false);
+            go?.restore();
+        }
+    });
+
+    test('logoutAll без сессии — UNAUTHORIZED без Go', async () => {
+        useGo({});
+        const res = await rpc('auth.logoutAll', { body: {} });
+        expect(await errorOf(res)).toMatchObject({ code: 'UNAUTHORIZED' });
+        expect(go?.calls).toHaveLength(0);
     });
 });
 

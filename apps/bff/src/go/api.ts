@@ -11,6 +11,7 @@ import {
     LoginUserResponse,
     RegisterUserResponse,
     UpdateCurrentUserResponse,
+    UploadCurrentUserAvatarResponse,
 } from '@cdd/schemas';
 
 import type { Session } from '../session/session.ts';
@@ -24,11 +25,13 @@ import {
     getNotebookContent,
     listNotebooks,
     loginUser,
-    moveNotebookCell,
-    removeNotebookCell,
+    logoutAllUserSessions,
     logoutUser,
+    moveNotebookCell,
     registerUser,
+    removeNotebookCell,
     updateCurrentUser,
+    uploadCurrentUserAvatar,
     type AddNotebookCellRequest,
     type ChangeCurrentUserPasswordRequest,
     type CreateNotebookRequest,
@@ -58,6 +61,7 @@ export type Go = {
     getCurrentUser(): Promise<User>;
     updateCurrentUser(body: UpdateCurrentUserRequest): Promise<User>;
     changeCurrentUserPassword(body: ChangeCurrentUserPasswordRequest): Promise<void>;
+    uploadCurrentUserAvatar(avatar: Blob): Promise<User>;
     listNotebooks(): Promise<NotebookSummary[]>;
     getNotebook(id: number): Promise<Notebook>;
     getNotebookContent(id: number): Promise<NotebookContent>;
@@ -77,6 +81,7 @@ export type Go = {
     ): Promise<NotebookContentChange>;
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
     logout(): Promise<void>;
+    logoutAll(): Promise<void>;
 };
 
 /**
@@ -108,6 +113,12 @@ export function createGo(session: Session, prefer?: string): Go {
         changeCurrentUserPassword: async (body) => {
             unwrap(await call((init) => changeCurrentUserPassword(body, init)), [204]);
         },
+        uploadCurrentUserAvatar: async (avatar) =>
+            unwrap(
+                await call((init) => uploadCurrentUserAvatar({ avatar }, init)),
+                [200],
+                UploadCurrentUserAvatarResponse,
+            ),
         listNotebooks: async () => unwrap(await call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
             unwrap(await call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
@@ -151,6 +162,9 @@ export function createGo(session: Session, prefer?: string): Go {
                 ),
                 [204],
             );
+        },
+        logoutAll: async () => {
+            unwrap(await call((init) => logoutAllUserSessions(init)), [204]);
         },
     };
 }

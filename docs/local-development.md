@@ -45,8 +45,7 @@ bun run build
 
 `apps/bff` — сервер перед Go: процедуры tRPC на `/api/trpc`, сессия в зашифрованной cookie
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
-[BFF](https://docs.cellestial.ru/modules/2/tracks/bff), спека и план —
-`docs/superpowers/specs/2026-10-21-bff-design.md`, `docs/superpowers/plans/2026-10-21-bff.md`.
+[BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
 | Переменная            | Что это                                                                                                                 |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |

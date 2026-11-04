@@ -166,6 +166,7 @@ vite берёт их оттуда.
   cookie делает BFF. В `localStorage` токены не писать, cookie не читать.
 - Все вызовы — через один клиент `trpc` из `@api/trpc` (`@trpc/client`, `httpBatchLink` на
   `/api/trpc`): он ставит `X-CSRF: 1` и `credentials: 'same-origin'`. Второй транспорт не заводить.
+  Вход-`FormData` (аватар) тот же клиент шлёт через `splitLink` → `httpLink`: multipart без батча.
   Типы входов и ответов — `RouterInputs` / `RouterOutputs` из `@cdd/bff` через `import type`.
 - Пользователь — из `<script id="bootstrap">` первого HTML (`src/bootstrap.ts`), до первого
   рендера. Статус сессии сразу `guest` | `authed`, запроса при старте нет. Сломанный bootstrap —
@@ -179,7 +180,8 @@ vite берёт их оттуда.
   `data.appCode`, ошибки полей — `data.zodError`; на `message` поведение не завязывать.
   `UNAUTHORIZED` защищённой процедуры транспорт сам переводит в гостя и ведёт на `/login`;
   `FORBIDDEN`, `BAD_GATEWAY` и сбой сети сессию не завершают.
-- Вход, регистрация, выход и смена пароля — `login()`, `register()`, `logout()`, `changePassword()`
+- Вход, регистрация, выход, выход со всех устройств и смена пароля — `login()`, `register()`,
+  `logout()`, `logoutAll()`, `changePassword()`
   из `@stores/session` через `switchSession`: транспорт не пускает новые защищённые запросы, ждёт ответа уже отправленных и
   только затем вызывает процедуру смены — поздний `Set-Cookie` прежней сессии не перепишет новую cookie. Ответ на запрос прежней сессии приходит
   ошибкой `SESSION_CHANGED` и в интерфейс не попадает. Если, пока ждали, запрос получил `UNAUTHORIZED`, а

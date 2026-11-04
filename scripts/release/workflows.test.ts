@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { readdirSync } from 'node:fs';
 
 interface Step {
     id?: string;
@@ -13,7 +14,7 @@ interface Step {
 interface Workflow {
     on: Record<string, { types?: string[]; workflows?: string[]; branches?: string[] }>;
     permissions: Record<string, string>;
-    concurrency?: { group: string; 'cancel-in-progress': boolean };
+    concurrency?: { group: string; 'cancel-in-progress': boolean; queue?: string };
     jobs: Record<
         string,
         {
@@ -22,7 +23,7 @@ interface Workflow {
             if?: string;
             env?: Record<string, string>;
             needs?: unknown;
-            concurrency?: { group: string; 'cancel-in-progress': boolean };
+            concurrency?: { group: string; 'cancel-in-progress': boolean; queue?: string };
             permissions?: Record<string, string>;
         }
     >;
@@ -44,7 +45,11 @@ test('Board остаётся отдельной сверкой без Telegram �
     expect(config.on.pull_request_target).toBeUndefined();
     expect(Object.keys(config.jobs)).toEqual(['board']);
     const board = config.jobs.board!;
-    expect(board.concurrency).toEqual({ group: 'release-board', 'cancel-in-progress': false });
+    expect(board.concurrency).toEqual({
+        group: 'release-board',
+        'cancel-in-progress': false,
+        queue: 'max',
+    });
     expect(board.permissions?.deployments).toBe('read');
     expect(board.env?.ADD_TO_PROJECT_PAT).toBeDefined();
     expect(Object.keys(board.env ?? {}).some((key) => /TELEGRAM|S3|SSH|VAULT/.test(key))).toBe(
@@ -163,4 +168,34 @@ test.each([
         'Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main',
     );
     expect(call.with.automation_ref).toBe('main');
+});
+
+function validateQueue(config: Workflow) {
+    for (const block of [
+        config.concurrency,
+        ...Object.values(config.jobs).map((job) => job.concurrency),
+    ]) {
+        if (!block || typeof block === 'string' || !('queue' in block)) continue;
+        if (!['single', 'max'].includes(block.queue!)) throw Error('Invalid queue');
+        if (block.queue === 'max' && block['cancel-in-progress'] !== false)
+            throw Error('max requires cancel=false');
+    }
+}
+
+test('все очереди валидны, несмотря на точечное исключение actionlint', async () => {
+    for (const name of readdirSync(new URL('../../.github/workflows', import.meta.url)).filter(
+        (file) => /\.ya?ml$/.test(file),
+    )) {
+        validateQueue(await workflow(name));
+    }
+    const config = await workflow('release-status.yml');
+    for (const concurrency of [
+        { group: 'test', queue: 'typo', 'cancel-in-progress': false },
+        { group: 'test', queue: 'max', 'cancel-in-progress': true },
+    ]) {
+        expect(() => validateQueue({ ...config, concurrency })).toThrow();
+        expect(() =>
+            validateQueue({ ...config, jobs: { board: { ...config.jobs.board!, concurrency } } }),
+        ).toThrow();
+    }
 });

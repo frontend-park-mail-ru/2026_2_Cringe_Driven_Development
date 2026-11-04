@@ -4,18 +4,20 @@ import { trpc } from '@api/trpc';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Logo } from '@components/Logo/Logo';
-import { ProfileMenu } from '@components/ProfileMenu/ProfileMenu';
+import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { Link } from '@cdd-team/router';
 import { useSessionStore } from '@stores/session';
 import { LoginForm } from './LoginForm';
+import { LogoutAllSection } from './LogoutAllSection';
 import { PasswordForm } from './PasswordForm';
 import { ProfileSkeleton } from './ProfileSkeleton';
 import styles from './ProfilePage.module.css';
 
 /**
- * Профиль (экран «05. Профиль»): данные из `users.me`, смена логина и пароля.
+ * Профиль (экран «05. Профиль»): данные из `users.me`, смена аватара, логина и пароля, выход со
+ * всех устройств.
  * Загруженный пользователь попадает в стор сессии: страница и шапка показывают один логин.
  * @returns страница
  */
@@ -59,7 +61,7 @@ export function ProfilePage() {
                     >
                         <Logo />
                     </Link>
-                    <ProfileMenu key="profile" login={login} />
+                    <ProfileLink key="profile" />
                 </Header>
                 <div key="profile" className={styles.profile}>
                     <h1 key="title" className={styles.title}>
@@ -80,6 +82,7 @@ export function ProfilePage() {
                     )}
                     {status === 'ready' && <LoginForm key="login" login={login} />}
                     {status === 'ready' && <PasswordForm key="password" />}
+                    {status === 'ready' && <LogoutAllSection key="logout-all" />}
                 </div>
             </div>
         </div>

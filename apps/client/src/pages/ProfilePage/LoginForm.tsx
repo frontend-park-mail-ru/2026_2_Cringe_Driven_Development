@@ -1,13 +1,13 @@
 import { useEffect, useState } from '@cdd-team/react';
 
 import { isRpcError, trpc } from '@api/trpc';
-import { Avatar } from '@components/Avatar/Avatar';
 import { Button } from '@components/Button/Button';
 import { Input } from '@components/Input/Input';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { LOGIN_RULE, validateLogin } from '@utils/credentials';
+import { AvatarPicker } from './AvatarPicker';
 import styles from './ProfilePage.module.css';
 
 const FIELD_ID = 'profile-login';
@@ -19,7 +19,7 @@ interface LoginFormProps {
 }
 
 /**
- * Раздел «Личные данные»: аватар и смена логина.
+ * Раздел «Личные данные»: аватар, его смена и смена логина.
  * Занятый логин — красная рамка и снекбар, введённое значение остаётся в поле.
  * @param props свойства формы
  * @returns раздел с формой
@@ -43,8 +43,11 @@ export function LoginForm({ login }: LoginFormProps) {
         setPending(true);
         hideSnackbar();
         try {
-            const user = await trpc.users.updateLogin.mutate({ login: value });
-            useSessionStore.setState({ user });
+            const { login: saved } = await trpc.users.updateLogin.mutate({ login: value });
+            // только своё поле: параллельная загрузка аватара не откатывается
+            useSessionStore.setState((state) => ({
+                user: state.user && { ...state.user, login: saved },
+            }));
             if (!life.alive) return;
             setSubmitted(false);
             showToast('Изменения сохранены');
@@ -85,12 +88,7 @@ export function LoginForm({ login }: LoginFormProps) {
             <h2 key="title" className={styles.sectionTitle}>
                 Личные данные
             </h2>
-            <div key="identity" className={styles.identity}>
-                <Avatar key="avatar" login={login} className={styles.avatar} />
-                <span key="login" className={styles.login}>
-                    {login}
-                </span>
-            </div>
+            <AvatarPicker key="identity" />
             <Input
                 key="input"
                 id={FIELD_ID}
