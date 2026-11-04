@@ -5,6 +5,10 @@ const INTERVAL_MS = Number(process.env.CHECK_INTERVAL_MS || 5000);
 // после переключения Caddy и BFF отвечают не сразу
 const HEALTH_WAIT_MS = Number(process.env.HEALTH_WAIT_MS || 120_000);
 const RELEASE_CHECK_TRIES = 3;
+const ASSET_TYPES: Record<string, string[]> = {
+    js: ['text/javascript', 'application/javascript'],
+    css: ['text/css'],
+};
 
 function releaseOf(html: string): string | undefined {
     return /<meta name="release" content="([^"]*)"/.exec(html)?.[1];
@@ -21,8 +25,9 @@ function message(err: unknown): string {
 }
 
 /**
- * Все JS и CSS из HTML выпуска — с CDN его SHA и грузятся; JS — с CORS: чанки подключены как
- * <script type="module" crossorigin>, без CORS браузер их не выполнит.
+ * Все JS и CSS из HTML выпуска — с CDN его SHA и грузятся с типом своего вида (HTML с 200 не
+ * подходит); JS — с CORS: чанки подключены как <script type="module" crossorigin>, без CORS браузер
+ * их не выполнит.
  */
 async function checkAssets(html: string, base: string, where: string): Promise<number> {
     const site = siteUrl();
@@ -39,6 +44,12 @@ async function checkAssets(html: string, base: string, where: string): Promise<n
     for (const { url, kind } of assets) {
         const res = await get(url, { Origin: site });
         await res.body?.cancel();
+        const type = res.headers.get('content-type') ?? '';
+        if (!ASSET_TYPES[kind]!.includes(type.split(';')[0]!.trim().toLowerCase())) {
+            throw new Error(
+                `${url}: Content-Type='${type}', нужен ${ASSET_TYPES[kind]!.join(' или ')}`,
+            );
+        }
         const origin = res.headers.get('access-control-allow-origin');
         if (kind === 'js' && origin !== '*' && origin !== site) {
             throw new Error(
@@ -78,6 +89,32 @@ export async function releaseCheck(sha: string): Promise<void> {
         }
     }
     throw new ReleaseError(`Release check не прошёл: релиз ${sha} не отдаётся с CDN`);
+}
+
+/**
+ * Вход со случайными данными доходит до Go: только его отказ `invalid_credentials` подтверждает
+ * BFF, S2S и обработчик входа. Такой логин не создаёт ни пользователя, ни сессии.
+ */
+async function checkGo(site: string): Promise<void> {
+    const url = `${site}/api/trpc/auth.login`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF': '1', Origin: site },
+        body: JSON.stringify({
+            login: `health_${crypto.randomUUID().replaceAll('-', '').slice(0, 24)}`,
+            password: crypto.randomUUID(),
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const body = (await res.json().catch(() => undefined)) as
+        | { error?: { data?: { code?: string; appCode?: string } } }
+        | undefined;
+    const { code, appCode } = body?.error?.data ?? {};
+    if (res.status !== 401 || code !== 'UNAUTHORIZED' || appCode !== 'invalid_credentials') {
+        throw new Error(
+            `${url}: ${res.status} ${code ?? ''} ${appCode ?? ''}, нужен отказ Go invalid_credentials`,
+        );
+    }
 }
 
 async function healthOnce(sha: string): Promise<string> {
@@ -124,12 +161,14 @@ async function healthOnce(sha: string): Promise<string> {
     ) {
         throw new Error(`${site}/api/unknown: ${unknown.status}, нужен 404 не HTML`);
     }
+    await checkGo(site);
     return `JS и CSS (файлов: ${assets})`;
 }
 
 /**
  * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, его JS и CSS с CDN,
- * tRPC UNAUTHORIZED без сессии и 404 не HTML на неизвестном /api. Выполняется после переключения;
+ * tRPC UNAUTHORIZED без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
+ * вход со случайными данными. Выполняется после переключения;
  * образ, healthy и внутренний /health проверяет Ansible (deploy-bff.yml).
  * @param sha sha релиза
  */

@@ -104,3 +104,63 @@ test.each(['ci.yml', 'cd.yml', 'rollback.yml'])(
         }
     },
 );
+
+test('Check собирает образ BFF после сборки, локально и без секретов', async () => {
+    const { steps, environment, permissions } = (await workflow('ci.yml')).jobs.check!;
+    const build = steps.findIndex((step) => step.run === 'bun run build');
+    const image = steps[build + 1]!;
+    expect(image.run).toBe('docker build -f apps/bff/Dockerfile -t cdd-bff:ci .');
+    expect(image.if).toBeUndefined();
+    expect(environment).toBeUndefined();
+    expect(permissions).toBeUndefined();
+    expect(JSON.stringify(steps)).not.toMatch(/docker (login|push)|secrets\./);
+});
+
+test.each(['cd.yml', 'rollback.yml'])('%s берёт плейбук из infra/main', async (name) => {
+    const config = await workflow(name);
+    const job = config.jobs[name === 'cd.yml' ? 'cd' : 'rollback']!;
+    const infra = job.steps.find(
+        (step) => step.with?.repository === 'Cringe-Driven-Development-Team/infra',
+    );
+    expect(infra?.with?.ref).toBe('main');
+    expect(JSON.stringify(config)).not.toContain('INFRA_REF');
+});
+
+test.each(['ci.yml', 'cd.yml', 'rollback.yml', 'release-status.yml', 'sync-to-course.yml'])(
+    '%s не зависит от миграционных флагов, ограничения сохранены',
+    async (name) => {
+        const text = await Bun.file(
+            new URL(`../../.github/workflows/${name}`, import.meta.url),
+        ).text();
+        expect(text).not.toMatch(/PRODUCTION_ENABLED|COURSE_SYNC_ENABLED/);
+        const { jobs } = await workflow(name);
+        const guarded = {
+            'ci.yml': ['publish', 'course-sync'],
+            'cd.yml': ['cd'],
+            'rollback.yml': ['rollback'],
+            'release-status.yml': ['board'],
+            'sync-to-course.yml': ['resolve'],
+        }[name]!;
+        for (const job of guarded) {
+            expect(jobs[job]?.if).toContain(
+                "github.repository == 'Cringe-Driven-Development-Team/frontend'",
+            );
+            expect(jobs[job]?.if).toContain("github.ref == 'refs/heads/main'");
+            if (name === 'ci.yml') expect(jobs[job]?.if).toContain("github.event_name == 'push'");
+        }
+    },
+);
+
+test.each([
+    ['ci.yml', 'course-sync'],
+    ['sync-to-course.yml', 'sync'],
+])('%s вызывает общую синхронизацию из .github/main', async (name, job) => {
+    const call = (await workflow(name)).jobs[job] as unknown as {
+        uses: string;
+        with: Record<string, unknown>;
+    };
+    expect(call.uses).toBe(
+        'Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main',
+    );
+    expect(call.with.automation_ref).toBe('main');
+});

@@ -1,5 +1,14 @@
 import { expect, test } from 'bun:test';
-import { chooseRollbackTarget, protectedReleases, readyArtifacts } from './deployments.ts';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+    chooseRollbackTarget,
+    finishProduction,
+    protectedReleases,
+    readyArtifacts,
+    startProduction,
+} from './deployments.ts';
 import { ReleaseError } from './env.ts';
 import type { ArtifactsPayload, Deployment, DeploymentState, ProductionPayload } from './github.ts';
 
@@ -120,4 +129,48 @@ test('готовый выпуск — успешная запись release-arti
     expect(() => readyArtifacts([artifacts('a', 'a', 'success', 'releases/x/')], sha('a'))).toThrow(
         'каталог',
     );
+});
+
+test('сбой статуса in_progress: id уже в выходе, итог error, откат к последнему успешному', async () => {
+    const env = { ...process.env };
+    const realFetch = globalThis.fetch;
+    const dir = mkdtempSync(join(tmpdir(), 'release-'));
+    const outputFile = join(dir, 'output');
+    Object.assign(process.env, {
+        GITHUB_OUTPUT: outputFile,
+        GITHUB_REPOSITORY: 'team/frontend',
+        GITHUB_TOKEN: 'token',
+        GITHUB_RUN_ATTEMPT: '1',
+    });
+    const states: string[] = [];
+    let failStatus = true;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/deployments')) return Response.json({ id: 77 }, { status: 201 });
+        if (url.endsWith('/deployments/77/statuses')) {
+            const { state } = JSON.parse(String(init?.body)) as { state: string };
+            if (failStatus) {
+                failStatus = false;
+                return new Response('unavailable', { status: 503 });
+            }
+            states.push(state);
+            return Response.json({}, { status: 201 });
+        }
+        throw new Error(`неожиданный запрос ${url}`);
+    }) as typeof fetch;
+    try {
+        await expect(startProduction(sha('c'), ref('c'), 'deploy')).rejects.toThrow(ReleaseError);
+        const outputId = /deployment_id=(\d+)/.exec(readFileSync(outputFile, 'utf8'))?.[1];
+        expect(outputId).toBe('77');
+
+        await finishProduction(outputId!, 'error');
+        expect(states).toEqual(['error']);
+
+        const target = chooseRollbackTarget([prod('c', 'c', 'error'), prod('b', 'b', 'success')]);
+        expect(target).toMatchObject({ sha: sha('b'), imageRef: ref('b') });
+    } finally {
+        globalThis.fetch = realFetch;
+        process.env = env;
+        rmSync(dir, { recursive: true, force: true });
+    }
 });

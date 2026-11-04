@@ -32,6 +32,9 @@ jobs:
       - run: bun run check
       - run: bun run test
       - run: bun run build
+      # настоящая сборка: COPY проверяет файлы контекста; образ остаётся на runner
+      - name: Build BFF image
+        run: docker build -f apps/bff/Dockerfile -t cdd-bff:ci .
 
   # Готовый выпуск коммита main: ассеты клиента в S3/CDN releases/<sha>/ и публичный образ BFF в GHCR
   # с HTML того же коммита. Запись release-artifacts (GitHub Deployment) появляется только после
@@ -39,7 +42,7 @@ jobs:
   publish:
     name: Publish release
     needs: check
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,15 +127,15 @@ jobs:
 
   course-sync:
     needs: [check]
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.COURSE_SYNC_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       actions: read
-    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@d807366e2fc048426e396c79cbb921d12cc23dc7
+    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main
     with:
       sha: ${{ github.sha }}
       ci_run_id: ${{ format('{0}', github.run_id) }}
-      automation_ref: d807366e2fc048426e396c79cbb921d12cc23dc7
+      automation_ref: main
     secrets:
       COURSE_SYNC_SSH_KEY: ${{ secrets.COURSE_SYNC_SSH_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -250,12 +250,13 @@ export async function startProduction(
         notification: notificationMetadata(),
     };
     const id = await createDeployment({ environment: PRODUCTION_ENV, sha, task: action, payload });
+    // до статуса: при его сбое завершающий шаг workflow найдёт запись и поставит ей error
+    output('deployment_id', String(id));
     await setDeploymentState(
         id,
         'in_progress',
         `${action === 'deploy' ? 'Выкатка' : 'Откат'} ${sha}`,
     );
-    output('deployment_id', String(id));
     console.log(`production ${id}: ${action} ${sha} → ${imageRef}`);
 }
 

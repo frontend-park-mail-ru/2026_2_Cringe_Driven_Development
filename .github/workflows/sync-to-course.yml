@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   resolve:
-    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main' && vars.COURSE_SYNC_ENABLED == 'true'
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.run.outputs.sha }}
@@ -37,11 +37,11 @@ jobs:
     permissions:
       contents: read
       actions: read
-    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@d807366e2fc048426e396c79cbb921d12cc23dc7
+    uses: Cringe-Driven-Development-Team/.github/.github/workflows/sync-to-course.yml@main
     with:
       sha: ${{ needs.resolve.outputs.sha }}
       ci_run_id: ${{ inputs.ci_run_id }}
-      automation_ref: d807366e2fc048426e396c79cbb921d12cc23dc7
+      automation_ref: main
     secrets:
       COURSE_SYNC_SSH_KEY: ${{ secrets.COURSE_SYNC_SSH_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
