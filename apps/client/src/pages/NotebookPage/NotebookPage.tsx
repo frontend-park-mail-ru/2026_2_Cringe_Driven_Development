@@ -144,6 +144,8 @@ export function NotebookPage() {
     const [selected, setSelected] = useState<string | undefined>(undefined);
     // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
+    // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
+    const [fresh, setFresh] = useState<string | undefined>(undefined);
     const notebook = useNotebookStore();
 
     // до первой отрисовки: блокнот из bootstrap открывается в сторе без мигания скелетона
@@ -229,6 +231,7 @@ export function NotebookPage() {
         void addCell(kind, index).then((created) => {
             if (!created) return;
             setSelected(created);
+            setFresh(created);
             setFocusTarget({ id: created });
         });
     };
@@ -337,6 +340,7 @@ export function NotebookPage() {
                                             canMoveUp={row.index > 0}
                                             canMoveDown={row.index < cells.length - 1}
                                             locked={locked}
+                                            startEditing={fresh === row.cell.id}
                                             onInput={(text, composing) =>
                                                 editSource(row.cell.id, text, composing)
                                             }

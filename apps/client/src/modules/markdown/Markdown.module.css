@@ -19,10 +19,9 @@
         padding-left: 24px;
     }
 
-    & li {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+    /* li остаётся list-item: у flex-пункта пропал бы маркер */
+    & li > * + * {
+        margin-top: 8px;
     }
 
     & li::marker {

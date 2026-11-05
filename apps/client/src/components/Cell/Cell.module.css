@@ -120,6 +120,31 @@
     }
 }
 
+/* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
+.preview {
+    min-width: 0;
+    cursor: text;
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
+.empty {
+    font: var(--font-body);
+    color: var(--color-text-secondary);
+}
+
+/* Подсказка клавиш для чтения с экрана */
+.hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .error {
     display: flex;
     align-items: center;
