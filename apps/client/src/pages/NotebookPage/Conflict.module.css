@@ -76,11 +76,11 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     user-select: text;
-}
 
-.orphanText.code {
-    font: var(--font-code);
-    color: var(--code-text);
+    &.code {
+        font: var(--font-code);
+        color: var(--code-text);
+    }
 }
 
 @media (max-width: 600px) {

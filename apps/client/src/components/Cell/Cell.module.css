@@ -8,15 +8,15 @@
     border-radius: 16px;
     background: var(--color-surface);
     box-shadow: inset 0 0 0 1px var(--color-border);
+
+    &.tooLarge {
+        box-shadow: inset 0 0 0 1px var(--color-error);
+    }
 }
 
 .selected {
     background: var(--color-surface-hover);
     box-shadow: inset 0 0 0 1px var(--color-focus);
-}
-
-.cell.tooLarge {
-    box-shadow: inset 0 0 0 1px var(--color-error);
 }
 
 .gutter {
