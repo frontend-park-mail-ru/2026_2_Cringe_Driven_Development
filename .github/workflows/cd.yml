@@ -2,10 +2,6 @@ name: CD
 
 on:
   workflow_dispatch:
-    inputs:
-      sha:
-        description: Полный SHA готового выпуска (40 символов). Пусто — голова main
-        type: string
 
 permissions:
   contents: read
@@ -32,7 +28,7 @@ jobs:
       cancel-in-progress: false
       queue: max
     env:
-      SHA: ${{ inputs.sha || github.sha }}
+      SHA: ${{ github.sha }}
       GITHUB_TOKEN: ${{ github.token }}
       CDN_URL: ${{ vars.CDN_URL }}
       ANSIBLE_HOST_KEY_CHECKING: 'True'
