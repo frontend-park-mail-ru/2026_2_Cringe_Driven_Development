@@ -70,8 +70,8 @@ const ERRORS = {
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
 };
 
-// Больше лимита не вставляется: такой исходник не сохранить, а огромный редактор Chrome рисует со
-// вспышками. Помещающаяся часть вставляется как обычный ввод — с отменой по Ctrl+Z
+// Больше лимита не вставляется: такой исходник не сохранить. Помещающаяся часть вставляется как
+// обычный ввод — с отменой по Ctrl+Z
 const handlePaste = (event: ClipboardEvent): void => {
     const editor = event.target as HTMLTextAreaElement;
     const pasted = event.clipboardData?.getData('text/plain') ?? '';
