@@ -72,6 +72,9 @@ const ERRORS = {
 
 const PASTE_NOTICE_MS = 4000;
 
+// Лимит — в байтах, но человеку понятнее, сколько символов вошло: «37 090»
+const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
+
 // Больше лимита не вставляется: такой исходник не сохранить. Помещающаяся часть вставляется как
 // обычный ввод — с отменой по Ctrl+Z
 const handlePaste = (event: ClipboardEvent): void => {
@@ -81,7 +84,9 @@ const handlePaste = (event: ClipboardEvent): void => {
     if (part === pasted) return;
     event.preventDefault();
     if (part) document.execCommand('insertText', false, part);
-    const shown = showSnackbar('Вставлена только часть текста: в ячейке максимум 64 КиБ');
+    const shown = showSnackbar(
+        `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
+    );
     // это уведомление, а не ошибка с действием: прячется само
     setTimeout(() => hideSnackbar(shown), PASTE_NOTICE_MS);
 };
