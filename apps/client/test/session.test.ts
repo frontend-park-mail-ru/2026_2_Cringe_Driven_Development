@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, mock, test } from 'bun:test';
 import { SESSION_CHANGED, onSessionLost, switchSession, trpc } from '@api/trpc';
 import { changePassword, logout, logoutAll, uploadAvatar, useSessionStore } from '@stores/session';
+import { useSnackbarStore } from '@stores/snackbar';
 
 type Answer = { status: number; body: unknown };
 
@@ -16,6 +17,7 @@ const unauthorized: Answer = {
 };
 const ok = (data: unknown): Answer => ({ status: 200, body: [{ result: { data } }] });
 const networkError = () => Promise.reject(new TypeError('Failed to fetch'));
+const ended = (serverRevocation: string) => ({ browserSession: 'ended', serverRevocation });
 
 /**
  * Ответ, который тест отпускает сам.
@@ -30,6 +32,7 @@ function held(answer: Answer) {
 beforeEach(() => {
     answers.clear();
     sessionLost.mockClear();
+    useSnackbarStore.setState({ snackbar: null });
     onSessionLost(sessionLost);
     useSessionStore.setState({
         status: 'authed',
@@ -67,7 +70,7 @@ test('UNAUTHORIZED во время выхода и сбой auth.logout — се
     list.release();
     await listed;
 
-    expect(await done).toBe(true);
+    expect(await done).toBe('failed');
     expect(sessionLost).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().status).toBe('guest');
 });
@@ -75,7 +78,7 @@ test('UNAUTHORIZED во время выхода и сбой auth.logout — се
 test('UNAUTHORIZED во время выхода и удачный auth.logout — обычный выход без потери сессии', async () => {
     const list = held(unauthorized);
     answers.set('notebooks.list', list.answer);
-    answers.set('auth.logout', async () => ok(null));
+    answers.set('auth.logout', async () => ok(ended('confirmed')));
     const listed = trpc.notebooks.list.query().catch(() => undefined);
     await Bun.sleep(0);
 
@@ -83,14 +86,17 @@ test('UNAUTHORIZED во время выхода и удачный auth.logout �
     list.release();
     await listed;
 
-    expect(await done).toBe(true);
+    expect(await done).toBe('confirmed');
     expect(sessionLost).not.toHaveBeenCalled();
     expect(useSessionStore.getState().status).toBe('guest');
 });
 
-test('сбой auth.logout без UNAUTHORIZED — выхода нет, сессия прежняя', async () => {
+test('сбой auth.logout без UNAUTHORIZED — выхода нет, сессия прежняя, снекбар с ошибкой', async () => {
     answers.set('auth.logout', networkError);
-    expect(await logout()).toBe(false);
+    expect(await logout()).toBe('failed');
+    expect(useSnackbarStore.getState().snackbar?.text).toBe(
+        'Не удалось выйти. Проверьте подключение и попробуйте снова',
+    );
     expect(sessionLost).not.toHaveBeenCalled();
     expect(useSessionStore.getState().status).toBe('authed');
 });
@@ -98,7 +104,7 @@ test('сбой auth.logout без UNAUTHORIZED — выхода нет, сесс
 test('факт потери не переживает смену сессии: следующий сбой выхода её не завершает', async () => {
     const list = held(unauthorized);
     answers.set('notebooks.list', list.answer);
-    answers.set('auth.logout', async () => ok(null));
+    answers.set('auth.logout', async () => ok(ended('confirmed')));
     const listed = trpc.notebooks.list.query().catch(() => undefined);
     await Bun.sleep(0);
     const first = switchSession(() => trpc.auth.logout.mutate());
@@ -111,7 +117,7 @@ test('факт потери не переживает смену сессии: �
         user: { id: 1, login: 'denis', avatar_url: null },
     });
     answers.set('auth.logout', networkError);
-    expect(await logout()).toBe(false);
+    expect(await logout()).toBe('failed');
     expect(sessionLost).not.toHaveBeenCalled();
 });
 
@@ -284,5 +290,42 @@ test('ошибки аватара: файл отвергнут или сбой �
     answers.set('users.uploadAvatar', networkError);
     expect(await uploadAvatar(file)).toBe('upload');
     expect(useSessionStore.getState().user?.avatar_url).toBeNull();
+    expect(sessionLost).not.toHaveBeenCalled();
+});
+
+test('выход: любой ответ BFF делает гостем; без подтверждения отзыва — снекбар', async () => {
+    for (const [revocation, text] of [
+        ['confirmed', undefined],
+        ['not_requested', undefined],
+        ['unconfirmed', 'Вы вышли в этом браузере. Отзыв сессии на сервере не подтверждён'],
+        ['unknown', 'Вы вышли в этом браузере. Не удалось подтвердить отзыв сессии на сервере'],
+    ] as const) {
+        useSessionStore.setState({
+            status: 'authed',
+            user: { id: 1, login: 'denis', avatar_url: null },
+        });
+        useSnackbarStore.setState({ snackbar: null });
+        answers.set('auth.logout', async () => ok(ended(revocation)));
+        expect(await logout()).toBe(revocation);
+        expect(useSessionStore.getState().status).toBe('guest');
+        expect(useSnackbarStore.getState().snackbar?.text).toBe(text);
+    }
+});
+
+test('CSRF-отказ auth.logout — не выход', async () => {
+    answers.set('auth.logout', async () => ({
+        status: 403,
+        body: [
+            {
+                error: {
+                    message: 'csrf',
+                    code: -32003,
+                    data: { code: 'FORBIDDEN', appCode: 'csrf_invalid' },
+                },
+            },
+        ],
+    }));
+    expect(await logout()).toBe('failed');
+    expect(useSessionStore.getState().status).toBe('authed');
     expect(sessionLost).not.toHaveBeenCalled();
 });

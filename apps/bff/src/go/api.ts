@@ -59,6 +59,9 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
 const ifMatch = (init: RequestInit, hash: string): RequestInit =>
     withHeader(init, 'If-Match', `"${hash}"`);
 
+/** Итог отзыва сессии в Go при выходе. */
+export type ServerRevocation = 'confirmed' | 'unconfirmed' | 'unknown';
+
 /** Вызовы Go от имени сессии. */
 export type Go = {
     getCurrentUser(): Promise<User>;
@@ -83,12 +86,12 @@ export type Go = {
         body: MoveNotebookCellRequest,
     ): Promise<NotebookContentChange>;
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
-    logout(): Promise<void>;
+    logout(): Promise<ServerRevocation>;
     logoutAll(): Promise<void>;
 };
 
 /**
- * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`. Заголовки
+ * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`; кроме `logout`. Заголовки
  * браузера в Go не уходят: `init` собирает сессия.
  * @param session сессия запроса
  * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
@@ -150,14 +153,19 @@ export function createGo(session: Session, prefer?: string): Go {
                 [200],
                 RemoveNotebookCellResponse,
             ),
-        // refresh-токен читается в момент вызова: call мог его только что обновить
+        // мимо call: выход не обновляет токены и не повторяет запрос
         logout: async () => {
-            unwrap(
-                await call((init) =>
-                    logoutUser({ refresh_token: session.refreshToken ?? '' }, init),
-                ),
-                [204],
-            );
+            const pair = session.revocation();
+            if (!pair) return 'unconfirmed';
+            const init = prefer ? withHeader(pair.init, 'Prefer', prefer) : pair.init;
+            let status: number;
+            try {
+                ({ status } = await logoutUser({ refresh_token: pair.refresh }, init));
+            } catch {
+                return 'unknown';
+            }
+            if (status === 204) return 'confirmed';
+            return status >= 400 && status < 500 ? 'unconfirmed' : 'unknown';
         },
         logoutAll: async () => {
             unwrap(await call((init) => logoutAllUserSessions(init)), [204]);

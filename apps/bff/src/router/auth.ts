@@ -17,12 +17,12 @@ export const auth = router({
         ctx.session.clearLegacy();
         return user;
     }),
-    // выход всегда успешен: отзыв refresh в Go — по возможности, cookie удаляется в любом случае
+    // cookie удаляется при любом итоге Go; serverRevocation говорит, подтвердил ли Go отзыв
     logout: optionalSessionProcedure.mutation(async ({ ctx }) => {
-        if (ctx.session.active) await ctx.go.logout().catch(() => undefined);
+        const serverRevocation = ctx.session.active ? await ctx.go.logout() : 'not_requested';
         ctx.session.end();
         ctx.session.clearLegacy();
-        return { ok: true as const };
+        return { browserSession: 'ended' as const, serverRevocation };
     }),
     // cookie удаляется только после подтверждения Go: при сбое сессии могли и не завершиться
     logoutAll: authedProcedure.mutation(async ({ ctx }) => {
