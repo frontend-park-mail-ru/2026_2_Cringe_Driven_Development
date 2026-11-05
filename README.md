@@ -30,6 +30,10 @@ bun run dev
 `bun run dev:pwa`: он собирает клиент production-конфигом и запускает BFF на `http://localhost:4173`,
 Docker не нужен. HMR там нет, после изменений клиента команду надо запустить заново. Подробнее —
 [«Проверка PWA»](docs/local-development.md#проверка-pwa).
+
+Изменения ячеек блокнота Cloud Mock не пропускает (`412` на `If-Match`) — для ручной проверки есть
+`bun run dev:prism`: Go заменяет локальный Prism по `spec/openapi.json`, подробнее —
+[«Локальный мок на Prism»](docs/api-contract.md#локальный-мок-на-prism).
 Подробности — в [локальной разработке](docs/local-development.md).
 
 ## Монорепа

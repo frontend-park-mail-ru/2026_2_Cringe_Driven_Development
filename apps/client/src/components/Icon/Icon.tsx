@@ -4,6 +4,7 @@ import BackIcon from '@assets/icons/back.svg?react';
 import CheckIcon from '@assets/icons/check.svg?react';
 import CloseIcon from '@assets/icons/close.svg?react';
 import DotIcon from '@assets/icons/dot.svg?react';
+import DownIcon from '@assets/icons/down.svg?react';
 import EyeIcon from '@assets/icons/eye.svg?react';
 import EyeSlashIcon from '@assets/icons/eye-slash.svg?react';
 import InfoIcon from '@assets/icons/info.svg?react';
@@ -12,6 +13,7 @@ import PencilIcon from '@assets/icons/pencil.svg?react';
 import PlusIcon from '@assets/icons/plus.svg?react';
 import SpinnerIcon from '@assets/icons/spinner.svg?react';
 import TrashIcon from '@assets/icons/trash.svg?react';
+import UpIcon from '@assets/icons/up.svg?react';
 import UserIcon from '@assets/icons/user.svg?react';
 import styles from './Icon.module.css';
 
@@ -30,6 +32,8 @@ const ICONS = {
     user: UserIcon,
     pencil: PencilIcon,
     spinner: SpinnerIcon,
+    up: UpIcon,
+    down: DownIcon,
 };
 
 /** Имя иконки из макета. */

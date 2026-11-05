@@ -1,0 +1,94 @@
+.banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: var(--color-error-soft);
+}
+
+.alert {
+    margin-top: 4px;
+    color: var(--color-error);
+}
+
+.text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.title {
+    font: var(--font-body-accent);
+    color: var(--color-text-primary);
+}
+
+.body {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.option {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.warning {
+    font: var(--font-caption);
+    color: var(--color-warning);
+}
+
+.orphan {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.orphanHead {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.orphanTitle {
+    flex: 1;
+    min-width: 0;
+    font: var(--font-caption);
+    color: var(--color-error);
+}
+
+.orphanText {
+    margin: 0;
+    font: var(--font-body);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+
+    &.code {
+        font: var(--font-code);
+        color: var(--code-text);
+    }
+}
+
+@media (max-width: 600px) {
+    .banner {
+        flex-wrap: wrap;
+    }
+
+    .action {
+        width: 100%;
+    }
+}

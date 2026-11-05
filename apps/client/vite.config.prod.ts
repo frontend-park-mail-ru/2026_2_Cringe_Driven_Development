@@ -10,6 +10,6 @@ export default defineConfig(({ mode }) => {
     return mergeConfig(sharedConfig(env, sha || 'dev'), {
         // чанки релиза лежат в S3 под своим sha и грузятся с CDN: открытая вкладка живёт на своём релизе
         base: sha && cdnUrl ? `${cdnUrl}/releases/${sha}/` : '/',
-        build: { outDir: 'dist', sourcemap: true },
+        build: { outDir: 'dist' },
     });
 });

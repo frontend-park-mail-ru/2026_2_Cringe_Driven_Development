@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Context } from './context.ts';
 import { appCodeOf, toTrpcError } from './errors.ts';
 import { createGo } from './go/api.ts';
+import { mockPreferHeader } from './mockPrefer.ts';
 
 const t = initTRPC.context<Context>().create({
     isDev: false,
@@ -47,7 +48,8 @@ export const optionalSessionProcedure = base.use(({ ctx, next }) =>
 );
 
 /** Процедура с обязательной сессией: без неё — `UNAUTHORIZED`; даёт `ctx.go`. */
-export const authedProcedure = base.use(({ ctx, next }) => {
+export const authedProcedure = base.use(({ ctx, next, path }) => {
     if (!ctx.session.active) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Нет сессии' });
-    return next({ ctx: { go: createGo(ctx.session) } });
+    const prefer = ctx.mockPrefer ? mockPreferHeader(path, ctx.mockPrefer.get(path)) : undefined;
+    return next({ ctx: { go: createGo(ctx.session, prefer) } });
 });

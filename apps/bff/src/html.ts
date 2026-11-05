@@ -2,6 +2,7 @@ import serialize from 'serialize-javascript';
 
 import { createGo } from './go/api.ts';
 import { GoError } from './go/errors.ts';
+import { loadNotebook } from './notebook.ts';
 import { type Page, decodeSegment, pageOf } from './pages.ts';
 import { SessionEnded } from './session/refresh.ts';
 import { createSession } from './session/session.ts';
@@ -22,7 +23,7 @@ export const UNAVAILABLE_HTML =
  * `serialize-javascript` с `isJSON`: `</script>` и `<!--` в строках экранируются и не создают
  * элементов. `HTMLRewriter` — новый на каждый ответ, шаблон не меняется.
  * @param template проверенный HTML-шаблон клиента
- * @param data пользователь или `null`, на странице своего блокнота — и блокнот
+ * @param data пользователь или `null`, на странице своего блокнота — и данные блокнота
  * @param headers заголовки ответа, уже с `Set-Cookie` сессии
  * @param status 200, для страницы `/404` — 404
  * @returns ответ с `Cache-Control: private, no-store`
@@ -74,7 +75,7 @@ const notebookId = (pathname: string): number | undefined => {
  * - Гость: вход, регистрация и `/404` — приложение (`/404` со статусом 404), остальное, включая
  *   неизвестный адрес, — `302` на `/login`; блокнот у Go не запрашивается.
  * - Вошедший: неизвестный адрес — `302` на `/404`, `/404` — приложение со статусом 404. Блокнот
- *   BFF запрашивает у Go до выдачи HTML: свой — 200 и блокнот в bootstrap; отсутствующий, чужой
+ *   BFF загружает метаданные и content до выдачи HTML: свой — 200 и данные блокнота в bootstrap; отсутствующий, чужой
  *   (Go отвечает 404 на оба) и некорректный ID — `302` на `/404`; сбой Go — 503.
  * @param template проверенный HTML-шаблон клиента
  * @returns обработчик GET-запросов страниц
@@ -87,7 +88,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
         const headers = new Headers();
         const go = createGo(session);
         let user: BootstrapData['user'] = null;
-        let notebook: BootstrapData['notebook'];
+        let notebookPage: BootstrapData['notebookPage'];
         try {
             if (session.active) {
                 const me = await go.getCurrentUser();
@@ -101,7 +102,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
                     return redirect('/404', headers);
                 }
                 try {
-                    notebook = await go.getNotebook(id);
+                    notebookPage = await loadNotebook(go, id);
                 } catch (err) {
                     // отсутствующий и чужой блокнот: Go ищет по ID и владельцу и отвечает 404 на оба
                     if (!(err instanceof GoError && err.kind === 'http' && err.status === 404)) {
@@ -123,6 +124,11 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
             if (!GUEST_PAGES.has(page)) return redirect('/login', headers);
         } else if (!page) return redirect('/404', headers);
         const status = page === 'notFound' ? 404 : 200;
-        return renderBootstrap(template, notebook ? { user, notebook } : { user }, headers, status);
+        return renderBootstrap(
+            template,
+            notebookPage ? { user, notebookPage } : { user },
+            headers,
+            status,
+        );
     };
 }

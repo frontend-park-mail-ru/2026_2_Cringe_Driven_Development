@@ -1,5 +1,6 @@
 import { createRoot } from '@cdd-team/react';
 
+import { installMockCommand } from './api/mockPrefer';
 import { onSessionLost } from './api/trpc';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
@@ -19,9 +20,9 @@ if (!container) throw new Error('Не найден элемент #root');
 // Сломанный bootstrap — ошибка запуска, гостем и запасным users.me она не прикрывается.
 let started = false;
 try {
-    const { user, notebook } = readBootstrap();
+    const { user, notebookPage } = readBootstrap();
     initSession(user);
-    setPreloadedNotebook(notebook);
+    setPreloadedNotebook(notebookPage);
     started = true;
 } catch (error) {
     console.error(error);
@@ -37,5 +38,7 @@ onSessionLost(() => {
 
 registerServiceWorker();
 watchConnection();
+// bun run dev:prism: mock(процедура, статус) в консоли — следующий вызов получит этот ответ мока
+if (import.meta.env.VITE_MOCK_PREFER === '1') installMockCommand();
 
 if (started) createRoot(container).render(<RouterProvider router={router} />);

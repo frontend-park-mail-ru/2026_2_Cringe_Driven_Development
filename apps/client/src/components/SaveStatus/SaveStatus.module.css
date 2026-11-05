@@ -1,0 +1,34 @@
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    font: var(--font-caption);
+    white-space: nowrap;
+}
+
+.progress {
+    color: var(--color-primary-text);
+}
+
+.error {
+    color: var(--color-error);
+}
+
+.success {
+    color: var(--color-success);
+}
+
+.spin {
+    animation: spin 1.2s linear infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

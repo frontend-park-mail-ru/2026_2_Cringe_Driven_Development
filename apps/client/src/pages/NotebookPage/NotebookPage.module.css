@@ -32,6 +32,10 @@
 }
 
 .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 8px;
     font: var(--font-caption);
     color: var(--color-text-secondary);
 }
@@ -49,18 +53,54 @@
     margin: 0 auto;
 }
 
+/* Свой слой: плашки кнопок и вставки поверх ячеек, но под прилипшей шапкой */
 .cells {
+    position: relative;
+    z-index: 0;
     display: flex;
     flex-direction: column;
     gap: 24px;
     margin: 0;
     padding: 0;
     list-style: none;
+
+    /* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
+    & > li {
+        position: relative;
+        scroll-margin: 160px 0 96px;
+    }
 }
 
-/* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
-.cells > li {
-    scroll-margin: 160px 0 96px;
+/* Вставка между ячейками: зона — промежуток под ячейкой, чипы видны при наведении или фокусе */
+.insert {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    &::before {
+        position: absolute;
+        top: 50%;
+        right: 16px;
+        left: 16px;
+        z-index: -1;
+        height: 1px;
+        background: var(--color-border);
+        content: '';
+    }
+
+    &:hover,
+    &:focus-within {
+        opacity: 1;
+    }
 }
 
 .add {

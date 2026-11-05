@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import { createBff } from '../src/bff.ts';
+import { env } from '../src/env.ts';
 import { renderBootstrap } from '../src/html.ts';
 import { SESSION_COOKIE } from '../src/session/cookies.ts';
 import { sealSession } from '../src/session/crypto.ts';
@@ -96,6 +97,10 @@ const errorOf = async (res: Response) =>
         appCode?: string;
         zodError?: { fieldErrors: Record<string, string[]> };
     };
+const mutate = async (proc: string, body: unknown) =>
+    rpc(proc, { body, cookie: await cookie(goTokens().issue()) });
+const dataOf = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
 const bootstrap = async (res: Response) =>
     JSON.parse(
         /<script id="bootstrap" type="application\/json">(.*?)<\/script>/s.exec(
@@ -315,6 +320,30 @@ describe('HTML', () => {
         created_at: '2026-10-01T10:00:00Z',
         updated_at: '2026-10-02T10:00:00Z',
     };
+    const CONTENT = {
+        hash: 'h1',
+        cells: [
+            {
+                id: 'c1',
+                kind: 'code',
+                source: 'print(2)',
+                outputs: [{ output_type: 'stream', name: 'stdout', text: '2' }],
+                execution_count: 3,
+                output_truncated: false,
+            },
+            { id: 'c2', kind: 'markdown', source: '# Заголовок' },
+        ],
+    };
+    // данные блокнота — метаданные из GET /notebooks/{id}, hash и ячейки — из content
+    const PAGE = {
+        notebook: {
+            id: 1,
+            name: 'Первый блокнот',
+            created_at: '2026-10-01T10:00:00Z',
+            updated_at: '2026-10-02T10:00:00Z',
+            ...CONTENT,
+        },
+    };
 
     test('гость — { user: null }, Go не вызывается, private no-store', async () => {
         useGo({});
@@ -368,19 +397,54 @@ describe('HTML', () => {
         await expectRedirect(await head('/nope', session), '/404', 'HEAD');
     });
 
-    test('вошедший, свой блокнот — 200 и блокнот в bootstrap без лишних полей Go', async () => {
+    test('вошедший, свой блокнот — 200 и блокнот с hash в bootstrap без лишних полей Go', async () => {
         useGo({
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
+            'GET /notebooks/:id/content': () => Response.json(CONTENT),
         });
         const session = await cookie(goTokens().issue());
         // %31 — тот же блокнот 1: сегмент декодируется, как в роутере клиента
         for (const path of ['/notebooks/1', '/notebooks/%31']) {
             const res = await page(session, path);
             expect(res.status, path).toBe(200);
-            expect(await bootstrap(res)).toEqual({ user: USER, notebook: NOTEBOOK });
+            expect(await bootstrap(res)).toEqual({ user: USER, notebookPage: PAGE });
         }
         expect(go?.calls.filter((c) => c.path === '/notebooks/1')).toHaveLength(2);
+        expect(go?.calls.filter((c) => c.path === '/notebooks/1/content')).toHaveLength(2);
+    });
+
+    test('notebooks.get — метаданные и content одним объектом, ячейки из content', async () => {
+        useGo({
+            'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
+            'GET /notebooks/:id/content': () => Response.json(CONTENT),
+        });
+        const res = await rpc(`notebooks.get?input=${encodeURIComponent('{"id":1}')}`, {
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(await dataOf(res)).toEqual(PAGE);
+    });
+
+    test('content 404 — NOT_FOUND и 302 на /404; content 500 — BAD_GATEWAY и 503', async () => {
+        const session = await cookie(goTokens().issue());
+        const get = () =>
+            rpc(`notebooks.get?input=${encodeURIComponent('{"id":1}')}`, { cookie: session });
+        for (const [status, rpcStatus] of [
+            [404, 404],
+            [500, 502],
+        ] as const) {
+            useGo({
+                'GET /users/me': () => Response.json(USER),
+                'GET /notebooks/:id': () => Response.json(NOTEBOOK),
+                'GET /notebooks/:id/content': () => goError(status, 'x'),
+            });
+            expect((await get()).status, String(status)).toBe(rpcStatus);
+            const html = await page(session, '/notebooks/1');
+            if (status === 404) await expectRedirect(html, '/404', 'content 404');
+            else expect(html.status).toBe(503);
+            go?.restore();
+        }
     });
 
     test('вошедший, отсутствующий и чужой блокнот — одинаковый 302 на /404 без данных', async () => {
@@ -420,6 +484,7 @@ describe('HTML', () => {
         useGo({
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => goError(401, 'unauthorized'),
+            'GET /notebooks/:id/content': () => goError(401, 'unauthorized'),
             'POST /auth/refresh': () => goError(401, 'unauthorized'),
         });
         const res = await page(await cookie(goTokens().issue()), '/notebooks/1');
@@ -690,5 +755,163 @@ describe('выход со всех устройств', () => {
         const res = await rpc('auth.logoutAll', { body: {} });
         expect(await errorOf(res)).toMatchObject({ code: 'UNAUTHORIZED' });
         expect(go?.calls).toHaveLength(0);
+    });
+});
+
+describe('ячейки по cell_id с hash', () => {
+    const CELL = { id: 'c1', kind: 'code', source: 'print(1)' };
+
+    const cases = [
+        {
+            proc: 'cells.create',
+            input: { notebookId: 1, hash: 'h1', kind: 'code', source: '' },
+            route: 'POST /notebooks/:id/content/cells',
+            path: '/notebooks/1/content/cells',
+            goBody: { kind: 'code', source: '' },
+            reply: () => Response.json({ hash: 'h2', cell: CELL }, { status: 201 }),
+            data: { hash: 'h2', cell: CELL },
+        },
+        {
+            proc: 'cells.update',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1', source: 'x = 1' },
+            route: 'PATCH /notebooks/:id/content/cells/:cell',
+            path: '/notebooks/1/content/cells/c1',
+            goBody: { source: 'x = 1' },
+            reply: () => Response.json({ hash: 'h2', cell: CELL }),
+            data: { hash: 'h2', cell: CELL },
+        },
+        {
+            proc: 'cells.move',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1', index: 0 },
+            route: 'POST /notebooks/:id/content/cells/:cell/move',
+            path: '/notebooks/1/content/cells/c1/move',
+            goBody: { index: 0 },
+            reply: () => Response.json({ hash: 'h2' }),
+            data: { hash: 'h2' },
+        },
+        {
+            proc: 'cells.delete',
+            input: { notebookId: 1, hash: 'h1', cellId: 'c1' },
+            route: 'DELETE /notebooks/:id/content/cells/:cell',
+            path: '/notebooks/1/content/cells/c1',
+            goBody: undefined,
+            reply: () => Response.json({ hash: 'h2' }),
+            data: { hash: 'h2' },
+        },
+    ];
+
+    for (const c of cases) {
+        test(`${c.proc} — путь, тело и один сильный If-Match`, async () => {
+            useGo({ [c.route]: c.reply });
+            const res = await mutate(c.proc, c.input);
+            expect(res.status).toBe(200);
+            expect(await dataOf(res)).toEqual(c.data);
+            expect(go?.calls).toHaveLength(1);
+            const call = go!.calls[0]!;
+            expect(`${call.method} ${call.path}`).toBe(`${c.route.split(' ')[0]} ${c.path}`);
+            expect(call.body).toEqual(c.goBody);
+            expect(call.headers.get('If-Match')).toBe('"h1"');
+        });
+
+        test(`${c.proc} — hash с кавычкой отклоняется без вызова Go`, async () => {
+            useGo({ [c.route]: c.reply });
+            const res = await mutate(c.proc, { ...c.input, hash: 'h"1' });
+            expect((await errorOf(res)).code).toBe('BAD_REQUEST');
+            expect(go?.calls).toHaveLength(0);
+        });
+
+        test(`${c.proc} — 409 notebook_conflict и 500`, async () => {
+            useGo({ [c.route]: () => goError(409, 'notebook_conflict') });
+            const conflict = await errorOf(await mutate(c.proc, c.input));
+            expect(conflict).toMatchObject({ code: 'CONFLICT', appCode: 'notebook_conflict' });
+            go?.restore();
+            useGo({ [c.route]: () => goError(500, 'internal') });
+            expect((await mutate(c.proc, c.input)).status).toBe(502);
+        });
+    }
+
+    test('cells.create — 409 too_many_cells отличается от конфликта', async () => {
+        useGo({ 'POST /notebooks/:id/content/cells': () => goError(409, 'too_many_cells') });
+        const error = await errorOf(await mutate('cells.create', cases[0]!.input));
+        expect(error).toMatchObject({ code: 'CONFLICT', appCode: 'too_many_cells' });
+    });
+});
+
+const preferOf = (path: string) =>
+    go?.calls.find((c) => c.path === path)?.headers.get('Prefer') ?? null;
+
+describe('X-Mock-Prefer для локального мока', () => {
+    const update = { notebookId: 1, hash: 'h1', cellId: 'c1', source: 'x' };
+    const routes = {
+        'PATCH /notebooks/:id/content/cells/:cell': () =>
+            Response.json({ hash: 'h2', cell: { id: 'c1', kind: 'code', source: 'x' } }),
+        'GET /notebooks': () => Response.json([]),
+    };
+    afterEach(() => {
+        env.MOCK_PREFER = undefined;
+    });
+
+    test('с MOCK_PREFER=1 — Prefer только у названной процедуры батча', async () => {
+        env.MOCK_PREFER = '1';
+        useGo(routes);
+        const c = await cookie(goTokens().issue());
+        await rpc('cells.update', {
+            body: update,
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        await rpc('notebooks.list', {
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        expect(preferOf('/notebooks/1/content/cells/c1')).toBe('code=409');
+        expect(preferOf('/notebooks')).toBeNull();
+    });
+
+    test('с MOCK_PREFER=1 cells.create просит случайные данные — у новых ячеек разные id', async () => {
+        env.MOCK_PREFER = '1';
+        useGo({
+            'POST /notebooks/:id/content/cells': () =>
+                Response.json(
+                    { hash: 'h2', cell: { id: 'c9', kind: 'code', source: '' } },
+                    { status: 201 },
+                ),
+        });
+        const c = await cookie(goTokens().issue());
+        const create = { notebookId: 1, hash: 'h1', kind: 'code', source: '' };
+        await rpc('cells.create', { body: create, cookie: c });
+        await rpc('cells.create', {
+            body: create,
+            cookie: c,
+            headers: { 'X-Mock-Prefer': 'cells.create=409' },
+        });
+        expect(go?.calls.map((call) => call.headers.get('Prefer'))).toEqual([
+            'dynamic=true',
+            'code=409',
+        ]);
+    });
+
+    test('без MOCK_PREFER заголовок игнорируется', async () => {
+        useGo(routes);
+        await rpc('cells.update', {
+            body: update,
+            cookie: await cookie(goTokens().issue()),
+            headers: { 'X-Mock-Prefer': 'cells.update=409' },
+        });
+        expect(preferOf('/notebooks/1/content/cells/c1')).toBeNull();
+    });
+
+    test('неверный код игнорируется', async () => {
+        env.MOCK_PREFER = '1';
+        for (const value of ['cells.update=abc', 'cells.update=99', 'cells.update=600']) {
+            useGo(routes);
+            await rpc('cells.update', {
+                body: update,
+                cookie: await cookie(goTokens().issue()),
+                headers: { 'X-Mock-Prefer': value },
+            });
+            expect(preferOf('/notebooks/1/content/cells/c1'), value).toBeNull();
+            go?.restore();
+        }
     });
 });

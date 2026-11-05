@@ -1,7 +1,11 @@
 import {
-    CreateCellResponse,
+    AddNotebookCellResponse,
+    EditNotebookCellResponse,
+    MoveNotebookCellResponse,
+    RemoveNotebookCellResponse,
     CreateNotebookResponse,
     GetCurrentUserResponse,
+    GetNotebookContentResponse,
     GetNotebookResponse,
     ListNotebooksResponse,
     LoginUserResponse,
@@ -12,31 +16,48 @@ import {
 
 import type { Session } from '../session/session.ts';
 import {
+    addNotebookCell,
     changeCurrentUserPassword,
-    createCell,
     createNotebook,
-    deleteCell,
+    editNotebookCell,
     getCurrentUser,
     getNotebook,
+    getNotebookContent,
     listNotebooks,
     loginUser,
     logoutAllUserSessions,
     logoutUser,
+    moveNotebookCell,
     registerUser,
+    removeNotebookCell,
     updateCurrentUser,
     uploadCurrentUserAvatar,
-    type Cell,
+    type AddNotebookCellRequest,
     type ChangeCurrentUserPasswordRequest,
-    type CreateCellRequest,
     type CreateNotebookRequest,
+    type EditNotebookCellRequest,
+    type MoveNotebookCellRequest,
     type Credentials,
     type Notebook,
+    type NotebookCellChange,
+    type NotebookContent,
+    type NotebookContentChange,
     type NotebookSummary,
     type TokenPair,
     type UpdateCurrentUserRequest,
     type User,
 } from './client.ts';
 import { unwrap } from './errors.ts';
+
+const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
+    const headers = new Headers(init.headers);
+    headers.set(name, value);
+    return { ...init, headers };
+};
+
+// hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
+const ifMatch = (init: RequestInit, hash: string): RequestInit =>
+    withHeader(init, 'If-Match', `"${hash}"`);
 
 /** Вызовы Go от имени сессии. */
 export type Go = {
@@ -46,9 +67,22 @@ export type Go = {
     uploadCurrentUserAvatar(avatar: Blob): Promise<User>;
     listNotebooks(): Promise<NotebookSummary[]>;
     getNotebook(id: number): Promise<Notebook>;
+    getNotebookContent(id: number): Promise<NotebookContent>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
-    createCell(id: number, body: CreateCellRequest): Promise<Cell>;
-    deleteCell(id: number, index: number): Promise<void>;
+    addCell(id: number, hash: string, body: AddNotebookCellRequest): Promise<NotebookCellChange>;
+    editCell(
+        id: number,
+        cellId: string,
+        hash: string,
+        body: EditNotebookCellRequest,
+    ): Promise<NotebookCellChange>;
+    moveCell(
+        id: number,
+        cellId: string,
+        hash: string,
+        body: MoveNotebookCellRequest,
+    ): Promise<NotebookContentChange>;
+    removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
     logout(): Promise<void>;
     logoutAll(): Promise<void>;
 };
@@ -57,57 +91,76 @@ export type Go = {
  * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`. Заголовки
  * браузера в Go не уходят: `init` собирает сессия.
  * @param session сессия запроса
+ * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
  * @returns вызовы Go
  */
-export function createGo(session: Session): Go {
+export function createGo(session: Session, prefer?: string): Go {
+    const call: Session['call'] = (fn) =>
+        session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init));
     return {
         getCurrentUser: async () =>
-            unwrap(await session.call(getCurrentUser), [200], GetCurrentUserResponse),
+            unwrap(await call(getCurrentUser), [200], GetCurrentUserResponse),
         updateCurrentUser: async (body) =>
             unwrap(
-                await session.call((init) => updateCurrentUser(body, init)),
+                await call((init) => updateCurrentUser(body, init)),
                 [200],
                 UpdateCurrentUserResponse,
             ),
         changeCurrentUserPassword: async (body) => {
-            unwrap(await session.call((init) => changeCurrentUserPassword(body, init)), [204]);
+            unwrap(await call((init) => changeCurrentUserPassword(body, init)), [204]);
         },
         uploadCurrentUserAvatar: async (avatar) =>
             unwrap(
-                await session.call((init) => uploadCurrentUserAvatar({ avatar }, init)),
+                await call((init) => uploadCurrentUserAvatar({ avatar }, init)),
                 [200],
                 UploadCurrentUserAvatarResponse,
             ),
-        listNotebooks: async () =>
-            unwrap(await session.call(listNotebooks), [200], ListNotebooksResponse),
+        listNotebooks: async () => unwrap(await call(listNotebooks), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
-            unwrap(await session.call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
+            unwrap(await call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
+        getNotebookContent: async (id) =>
+            unwrap(
+                await call((init) => getNotebookContent(id, init)),
+                [200],
+                GetNotebookContentResponse,
+            ),
         createNotebook: async (body) =>
+            unwrap(await call((init) => createNotebook(body, init)), [201], CreateNotebookResponse),
+        addCell: async (id, hash, body) =>
             unwrap(
-                await session.call((init) => createNotebook(body, init)),
+                await call((init) => addNotebookCell(id, body, ifMatch(init, hash))),
                 [201],
-                CreateNotebookResponse,
+                AddNotebookCellResponse,
             ),
-        createCell: async (id, body) =>
+        editCell: async (id, cellId, hash, body) =>
             unwrap(
-                await session.call((init) => createCell(id, body, init)),
-                [201],
-                CreateCellResponse,
+                await call((init) => editNotebookCell(id, cellId, body, ifMatch(init, hash))),
+                [200],
+                EditNotebookCellResponse,
             ),
-        deleteCell: async (id, index) => {
-            unwrap(await session.call((init) => deleteCell(id, index, init)), [204]);
-        },
+        moveCell: async (id, cellId, hash, body) =>
+            unwrap(
+                await call((init) => moveNotebookCell(id, cellId, body, ifMatch(init, hash))),
+                [200],
+                MoveNotebookCellResponse,
+            ),
+        removeCell: async (id, cellId, hash) =>
+            unwrap(
+                await call((init) => removeNotebookCell(id, cellId, ifMatch(init, hash))),
+                [200],
+                RemoveNotebookCellResponse,
+            ),
         // refresh-токен читается в момент вызова: call мог его только что обновить
         logout: async () => {
             unwrap(
-                await session.call((init) =>
+                await call((init) =>
                     logoutUser({ refresh_token: session.refreshToken ?? '' }, init),
                 ),
                 [204],
             );
         },
         logoutAll: async () => {
-            unwrap(await session.call((init) => logoutAllUserSessions(init)), [204]);
+            unwrap(await call((init) => logoutAllUserSessions(init)), [204]);
         },
     };
 }

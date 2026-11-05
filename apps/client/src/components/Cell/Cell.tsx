@@ -1,52 +1,204 @@
+import { useLayoutEffect, type ReactNode } from '@cdd-team/react';
 import type { Cell as CellData } from '@api/trpc';
+import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { clsx } from '@cdd-team/clsx';
 import styles from './Cell.module.css';
 
+// Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
+function fitHeight(element: HTMLElement): void {
+    // Пока высота 'auto', страница не должна укорачиваться: браузер обрезал бы прокрутку, и экран
+    // прыгал бы на каждый ввод
+    const parent = element.parentElement;
+    if (parent) parent.style.minHeight = `${parent.offsetHeight}px`;
+    element.style.height = 'auto';
+    // полоса горизонтальной прокрутки кода не должна закрывать последнюю строку
+    const scrollbar = element.offsetHeight - element.clientHeight;
+    element.style.height = `${element.scrollHeight + scrollbar}px`;
+    if (parent) parent.style.minHeight = '';
+}
+
 /** Свойства {@link Cell}. */
 interface CellProps {
     cell: CellData;
+    /** Текст в редакторе: черновик или подтверждённый source */
+    text: string;
+    /** В ячейке фокус ввода */
+    selected: boolean;
+    /** Исходник больше лимита: не сохраняется */
+    tooLarge: boolean;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    /** Структурные действия недоступны: идёт операция или не разрешён конфликт */
+    locked: boolean;
+    onInput: (text: string, composing: boolean) => void;
+    /** Вставка из буфера обмена: страница может заменить её помещающейся частью */
+    onPaste: (event: ClipboardEvent) => void;
+    /** Выход из редактора или конец IME — сохранить сразу */
+    onCommit: () => void;
+    onFocus: () => void;
+    /** Фокус ушёл из ячейки: клик вне ячеек, Tab или Escape */
+    onLeave: () => void;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
     onDelete: () => void;
+    /** Левая колонка кодовой ячейки: запуск и счётчик */
+    gutter?: ReactNode;
+    /** Под редактором: вывод и ошибки */
+    below?: ReactNode;
 }
 
 /**
- * Ячейка блокнота (Components → Cell). Пустая показывает подсказку.
+ * Ячейка блокнота (Components → Cell): редактор исходника и кнопки перемещения и удаления.
+ * Исходник — обычный текст в textarea: растёт по содержимому, длинная строка кода прокручивается
+ * внутри редактора, Markdown переносится.
  * @param props свойства ячейки
  * @returns ячейка
  */
-export function Cell({ cell, onDelete }: CellProps) {
+export function Cell({
+    cell,
+    text,
+    selected,
+    tooLarge,
+    canMoveUp,
+    canMoveDown,
+    locked,
+    onInput,
+    onPaste,
+    onCommit,
+    onFocus,
+    onLeave,
+    onMoveUp,
+    onMoveDown,
+    onDelete,
+    gutter,
+    below,
+}: CellProps) {
     const isCode = cell.kind === 'code';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
 
+    // наблюдатель ширины — один на ячейку, не на каждый ввод
+    useLayoutEffect(() => {
+        const element = document.getElementById(cellEditorId(cell.id));
+        if (!element) return;
+        // проверка орфографии подчёркивала бы код; атрибута в типах JSX нет
+        element.spellcheck = false;
+        // высоту меняет сам fitHeight: пересчёт нужен только при смене ширины
+        let width = element.clientWidth;
+        const observer = new ResizeObserver(() => {
+            if (element.clientWidth === width) return;
+            width = element.clientWidth;
+            fitHeight(element);
+        });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [cell.id]);
+
+    useLayoutEffect(() => {
+        const element = document.getElementById(cellEditorId(cell.id));
+        if (element) fitHeight(element);
+    }, [text, cell.id]);
+
     return (
-        <div id={cellDomId(cell.id)} className={clsx(styles.cell, isCode && styles.code)}>
-            {cell.source === '' ? (
-                <p key="content" className={clsx(styles.content, styles.empty)}>
-                    {placeholder}
-                </p>
-            ) : (
-                <pre key="content" className={styles.content}>
-                    {cell.source}
-                </pre>
+        // Нажатие на любое место ячейки, кроме кнопок, выбирает её: фокус — в редактор, не уходя из
+        // ячейки. Это удобство для мыши: с клавиатуры редактор и кнопки и так достижимы по Tab
+        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
+        <div
+            className={clsx(
+                styles.cell,
+                isCode && styles.code,
+                selected && styles.selected,
+                tooLarge && styles.tooLarge,
             )}
-            <IconButton
-                key="delete"
-                icon="trash"
-                label="Удалить ячейку"
-                className={styles.delete}
-                onClick={onDelete}
-            />
+            onMouseDown={(event) => {
+                if ((event.target as Element).closest('button:enabled, textarea')) return;
+                event.preventDefault();
+                document.getElementById(cellEditorId(cell.id))?.focus();
+            }}
+            onBlurCapture={(event) => {
+                const next = event.relatedTarget as Node | null;
+                // удалённая ячейка: куда перейти, решает страница
+                if (!(event.target as Node).isConnected) return;
+                if (next && (event.currentTarget as Node).contains(next)) return;
+                onLeave();
+            }}
+        >
+            <div key="gutter" className={styles.gutter}>
+                {isCode ? gutter : <span className={styles.kind}>Aa</span>}
+            </div>
+            <div key="body" className={styles.body}>
+                <textarea
+                    key="editor"
+                    id={cellEditorId(cell.id)}
+                    className={styles.editor}
+                    value={text}
+                    placeholder={placeholder}
+                    rows={1}
+                    wrap={isCode ? 'off' : 'soft'}
+                    aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
+                    aria-invalid={tooLarge}
+                    onFocus={onFocus}
+                    onBlur={onCommit}
+                    onPaste={onPaste}
+                    onInput={(event) =>
+                        onInput(
+                            (event.target as HTMLTextAreaElement).value,
+                            (event as InputEvent).isComposing,
+                        )
+                    }
+                    onCompositionEnd={(event) => {
+                        onInput((event.target as HTMLTextAreaElement).value, false);
+                        onCommit();
+                    }}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') (event.target as HTMLTextAreaElement).blur();
+                    }}
+                />
+                {tooLarge && (
+                    <p key="error" className={styles.error} role="alert">
+                        <Icon key="icon" name="alert" />
+                        Превышен размер ячейки — максимум 64 КиБ
+                    </p>
+                )}
+                {below}
+            </div>
+            <div key="actions" className={styles.actions}>
+                <IconButton
+                    key="up"
+                    icon="up"
+                    label="Переместить ячейку выше"
+                    className={styles.action}
+                    disabled={locked || !canMoveUp}
+                    onClick={onMoveUp}
+                />
+                <IconButton
+                    key="down"
+                    icon="down"
+                    label="Переместить ячейку ниже"
+                    className={styles.action}
+                    disabled={locked || !canMoveDown}
+                    onClick={onMoveDown}
+                />
+                <IconButton
+                    key="delete"
+                    icon="trash"
+                    label="Удалить ячейку"
+                    className={clsx(styles.action, styles.delete)}
+                    disabled={locked}
+                    onClick={onDelete}
+                />
+            </div>
         </div>
     );
 }
 
 /**
- * Id элемента ячейки: по нему страница прокручивает к новой ячейке.
+ * Id редактора ячейки: в него страница переводит фокус после создания.
  * @param id id ячейки внутри блокнота
- * @returns id элемента
+ * @returns id textarea
  */
-export function cellDomId(id: string): string {
-    return `cell-${id}`;
+export function cellEditorId(id: string): string {
+    return `cell-editor-${id}`;
 }
 
 /**

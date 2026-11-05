@@ -26,14 +26,15 @@ bun run build
 
 Все команды запускаются из корня, зависимости ставит один `bun install`
 
-| Команда                                             | Что делает                                                          |
-| --------------------------------------------------- | ------------------------------------------------------------------- |
-| `bun run dev`                                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»       |
-| `bun run dev:pwa`                                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA» |
-| `bun run dev:trust-windows`                         | только WSL: разово доверить CA mkcert в Windows для Chrome          |
-| `bun run build`                                     | сборка всех пакетов, клиент — в `apps/client/dist`                  |
-| `bun run check`                                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`    |
-| `bun run lint`, `bun run typecheck`, `bun run test` | по отдельности, тоже во всех пакетах                                |
+| Команда                                             | Что делает                                                            |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| `bun run dev`                                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
+| `bun run dev:pwa`                                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
+| `bun run dev:prism`                                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
+| `bun run dev:trust-windows`                         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
+| `bun run build`                                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
+| `bun run check`                                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`      |
+| `bun run lint`, `bun run typecheck`, `bun run test` | по отдельности, тоже во всех пакетах                                  |
 
 `build`, `lint`, `typecheck` и `test` идут через `turbo run`: пакет собирается после своих
 зависимостей, а повторный запуск без изменений берёт результат из кеша `.turbo/`
@@ -46,16 +47,17 @@ bun run build
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
 [BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
-| Переменная            | Что это                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `SESSION_KEY`         | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                      |
-| `APP_ORIGIN`          | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                |
-| `GO_API_URL`          | адрес Go с префиксом API (`http://api:8080/api/v1`), обязателен                                            |
-| `PORT`                | порт BFF, по умолчанию `3000`                                                                              |
-| `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                 |
-| `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                         |
-| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run dev:pwa`; на проде они на CDN |
-| `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                       |
+| Переменная            | Что это                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_KEY`         | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                                   |
+| `APP_ORIGIN`          | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                             |
+| `GO_API_URL`          | адрес Go с префиксом API (`http://api:8080/api/v1`), обязателен                                                         |
+| `PORT`                | порт BFF, по умолчанию `3000`                                                                                           |
+| `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                              |
+| `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                                      |
+| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run dev:pwa`; на проде они на CDN              |
+| `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                                    |
+| `MOCK_PREFER`         | `1` — заголовок `X-Mock-Prefer` клиента становится `Prefer` для Prism, задаёт `bun run dev:prism`; на проде не задаётся |
 
 По прямому запросу страницы BFF решает, можно ли её открыть (`apps/bff/src/html.ts`). Список путей
 страниц — `PAGES` в `apps/bff/src/pages.ts` (`@cdd/bff/pages`); из него же берут `path` маршруты

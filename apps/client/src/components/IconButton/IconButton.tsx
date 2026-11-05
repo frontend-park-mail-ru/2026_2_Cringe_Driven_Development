@@ -8,6 +8,8 @@ interface IconButtonProps {
     /** Подпись для скринридера */
     label: string;
     className?: string;
+    /** Действие сейчас недоступно */
+    disabled?: boolean;
     onClick: () => void;
 }
 
@@ -16,12 +18,13 @@ interface IconButtonProps {
  * @param props свойства кнопки
  * @returns элемент button
  */
-export function IconButton({ icon, label, className, onClick }: IconButtonProps) {
+export function IconButton({ icon, label, className, disabled, onClick }: IconButtonProps) {
     return (
         <button
             className={clsx(styles.button, className)}
             type="button"
             aria-label={label}
+            disabled={disabled}
             onClick={onClick}
         >
             <Icon name={icon} />

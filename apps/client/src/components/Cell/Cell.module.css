@@ -1,4 +1,5 @@
 .cell {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 12px;
@@ -7,37 +8,154 @@
     border-radius: 16px;
     background: var(--color-surface);
     box-shadow: inset 0 0 0 1px var(--color-border);
+
+    &.tooLarge {
+        box-shadow: inset 0 0 0 1px var(--color-error);
+    }
 }
 
-.content {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    font: var(--font-body);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+.selected {
+    background: var(--color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--color-focus);
 }
 
-.code .content {
-    font: var(--font-code);
-    color: var(--code-text);
+.gutter {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 40px;
+    padding-top: 4px;
 }
 
-.cell .empty {
+.kind {
+    font: var(--font-caption);
     color: var(--color-text-secondary);
 }
 
-.code .empty {
-    padding: 2px 0;
+.body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding-top: 4px;
 }
 
-.delete {
-    margin: -6px -6px -6px 0;
+/* Высота — по содержимому (из Cell.tsx), прокручивается страница; по горизонтали — только код */
+.editor {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    background: none;
+    font: var(--font-body);
+    color: var(--color-text-primary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    &:focus-visible {
+        /* фокус видно по рамке выбранной ячейки */
+        outline: none;
+    }
+
+    &::placeholder {
+        color: var(--color-text-secondary);
+        opacity: 1;
+    }
+}
+
+.code .editor,
+.selected .editor {
+    font: var(--font-code);
+}
+
+.code .editor {
+    color: var(--code-text);
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+}
+
+/* Полоса под длинной строкой кода (Cell → Long line): 6 px, на 8 px ниже кода */
+@media (pointer: fine) {
+    .code .editor::-webkit-scrollbar {
+        height: 14px;
+    }
+
+    /* Отступ — прозрачная верхняя рамка. Внутренний радиус = внешний минус рамка, поэтому сверху
+       радиус больше на её 8 px: видимая полоса — ровная «таблетка» с радиусом 3 px */
+    .code .editor::-webkit-scrollbar-track,
+    .code .editor::-webkit-scrollbar-thumb {
+        border-top: 8px solid transparent;
+        border-radius: 3px / 11px 11px 3px 3px;
+    }
+
+    .code .editor::-webkit-scrollbar-track {
+        background: var(--color-surface) padding-box;
+    }
+
+    .code .editor::-webkit-scrollbar-thumb {
+        background: var(--color-text-disabled) padding-box;
+    }
+
+    .code .editor::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-text-secondary);
+    }
+
+    .code .editor::-webkit-scrollbar-thumb:active {
+        background-color: var(--color-primary);
+    }
+
+    @supports (-moz-appearance: none) {
+        .code .editor {
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-disabled) var(--color-surface);
+        }
+    }
+}
+
+.error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font: var(--font-caption);
+    color: var(--color-error);
+}
+
+/* Кнопки — плашкой поверх верхней границы выбранной ячейки: место под них не занимает текст */
+.actions {
+    position: absolute;
+    top: -18px;
+    right: 12px;
+    z-index: 1;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 12px;
+    background: var(--color-surface-solid);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    visibility: hidden;
+}
+
+.selected .actions {
+    visibility: visible;
+}
+
+.action {
+    width: 32px;
+    height: 32px;
     background: none;
     box-shadow: none;
 }
 
-.delete:hover {
+.delete:not(:disabled):hover {
     color: var(--color-error);
 }
 

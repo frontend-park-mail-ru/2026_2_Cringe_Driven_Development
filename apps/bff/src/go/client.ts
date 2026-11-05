@@ -178,12 +178,6 @@ export interface RefreshTokenRequest {
  */
 export type NotebookHash = string;
 
-export interface NotebookContent {
-  hash: NotebookHash;
-  /** @maxItems 1000 */
-  cells: Cell[];
-}
-
 export interface NotebookCellChange {
   hash: NotebookHash;
   cell: Cell;
@@ -291,21 +285,496 @@ export interface UserProfileError {
   message: string;
 }
 
-export type BadRequestResponse = Error;
+export type RuntimeSessionLanguage = typeof RuntimeSessionLanguage[keyof typeof RuntimeSessionLanguage];
 
-export type UnauthorizedResponse = Error;
 
-export type ConflictResponse = Error;
+export const RuntimeSessionLanguage = {
+  python: 'python',
+  r: 'r',
+} as const;
 
-export type InternalErrorResponse = Error;
+/**
+ * Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.
+ */
+export type RuntimeSessionState = typeof RuntimeSessionState[keyof typeof RuntimeSessionState];
 
-export type NotFoundResponse = Error;
 
-export type ForbiddenResponse = Error;
+export const RuntimeSessionState = {
+  PROVISIONING: 'PROVISIONING',
+  STARTING: 'STARTING',
+  READY: 'READY',
+  RECONNECTING: 'RECONNECTING',
+  STOPPING: 'STOPPING',
+  STOPPED: 'STOPPED',
+  FAILED: 'FAILED',
+} as const;
+
+/**
+ * Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.
+ */
+export type RuntimeSessionStage = typeof RuntimeSessionStage[keyof typeof RuntimeSessionStage];
+
+
+export const RuntimeSessionStage = {
+  queued: 'queued',
+  creating_vps: 'creating_vps',
+  configuring_agent: 'configuring_agent',
+  verifying_agent: 'verifying_agent',
+  ready: 'ready',
+  reconnecting: 'reconnecting',
+  stopping: 'stopping',
+  deleting_environment: 'deleting_environment',
+  cleanup_pending: 'cleanup_pending',
+  stopped: 'stopped',
+  failed: 'failed',
+} as const;
+
+/**
+ * Публичная сессия владельца и блокнота. Не содержит токена агента, endpoint, приватного IP, ID облачных ресурсов или иных секретов.
+ */
+export interface RuntimeSession {
+  id: string;
+  /** @minimum 1 */
+  notebook_id: number;
+  language: RuntimeSessionLanguage;
+  /** Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя. */
+  state: RuntimeSessionState;
+  /** Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов. */
+  stage: RuntimeSessionStage;
+  /**
+     * Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.
+     * @nullable
+     */
+  reason: string | null;
+  /**
+     * Поколение kernel; null до его появления.
+     * @nullable
+     */
+  generation: string | null;
+  created_at: string;
+  last_activity_at: string;
+  /**
+     * Последний публичный курсор событий #13; отличается от seq агента.
+     * @minimum 0
+     */
+  public_seq: number;
+  /** Часть журнала агента недоступна и не была подтверждённо сохранена. */
+  journal_incomplete: boolean;
+  /**
+     * Безопасный код ошибки очистки; null при её отсутствии.
+     * @nullable
+     */
+  cleanup_error: string | null;
+}
+
+export type RuntimeStartRequestLanguage = typeof RuntimeStartRequestLanguage[keyof typeof RuntimeStartRequestLanguage];
+
+
+export const RuntimeStartRequestLanguage = {
+  python: 'python',
+  r: 'r',
+} as const;
+
+export interface RuntimeStartRequest {
+  /**
+     * Ключ идемпотентности в пределах пользователя. Повтор с теми же параметрами возвращает прежнюю сессию.
+     * @minLength 1
+     * @maxLength 128
+     */
+  request_id: string;
+  language: RuntimeStartRequestLanguage;
+}
+
+export type RuntimeActiveSessionConflictCode = typeof RuntimeActiveSessionConflictCode[keyof typeof RuntimeActiveSessionConflictCode];
+
+
+export const RuntimeActiveSessionConflictCode = {
+  active_session_exists: 'active_session_exists',
+} as const;
+
+export interface RuntimeActiveSessionConflict {
+  code: RuntimeActiveSessionConflictCode;
+  message: string;
+  active_session: RuntimeSession;
+}
+
+export type RuntimeErrorCode = typeof RuntimeErrorCode[keyof typeof RuntimeErrorCode];
+
+
+export const RuntimeErrorCode = {
+  validation_error: 'validation_error',
+  unauthorized: 'unauthorized',
+  s2s_forbidden: 's2s_forbidden',
+  not_found: 'not_found',
+  conflict: 'conflict',
+  queue_full: 'queue_full',
+  runtime_unavailable: 'runtime_unavailable',
+  internal: 'internal',
+} as const;
+
+export interface RuntimeError {
+  code: RuntimeErrorCode;
+  /** Безопасное описание без секретов и сырых ошибок внешних сервисов. */
+  message: string;
+}
+
+/**
+ * Публичные данные события. События кодовой команды содержат body.execution_id — ID для GET executions/{execution_id}; ID стабилен при поздних событиях. События инспекции содержат body.inspection_id и не содержат body.execution_id; результат читается через GET variables/{execution_id}. События сессии могут не иметь обоих полей. Не выводить IDs из parent_msg_id или порядка ячеек. Не содержат токены, endpoint или ID облачных ресурсов.
+ */
+export type RuntimeEventBody = { [key: string]: unknown };
+
+export interface RuntimeEvent {
+  /** @minimum 1 */
+  seq: number;
+  /** @minLength 1 */
+  kind: string;
+  /** Публичные данные события. События кодовой команды содержат body.execution_id — ID для GET executions/{execution_id}; ID стабилен при поздних событиях. События инспекции содержат body.inspection_id и не содержат body.execution_id; результат читается через GET variables/{execution_id}. События сессии могут не иметь обоих полей. Не выводить IDs из parent_msg_id или порядка ячеек. Не содержат токены, endpoint или ID облачных ресурсов. */
+  body: RuntimeEventBody;
+}
+
+export interface RuntimeEventsResponse {
+  /** @maxItems 100 */
+  events: RuntimeEvent[];
+  /**
+     * Последний действительно отданный public seq; при пустой странице равен входному after.
+     * @minimum 0
+     */
+  next_cursor: number;
+  has_more: boolean;
+}
+
+/**
+ * active_session_exists содержит текущую сессию; обычный conflict обозначает несовместимый повтор request_id.
+ */
+export type RuntimeConflictResponse = RuntimeActiveSessionConflict | RuntimeError;
+
+export type RuntimeQueueSnapshotItemsItemState = typeof RuntimeQueueSnapshotItemsItemState[keyof typeof RuntimeQueueSnapshotItemsItemState];
+
+
+export const RuntimeQueueSnapshotItemsItemState = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+} as const;
+
+export type RuntimeQueueSnapshotItemsItem = {
+  execution_id: string;
+  cell_id: string;
+  state: RuntimeQueueSnapshotItemsItemState;
+};
+
+/**
+ * Снимок только незавершённых исполнений code-ячеек. Инспекции переменных не входят в items и отслеживаются через /runtime-sessions/{id}/variables. Пустой items не подтверждает свободу kernel для restart.
+ */
+export interface RuntimeQueueSnapshot {
+  session_id: string;
+  /** Только команды исполнения code-ячеек с настоящим cell_id: RUNNING первым, затем QUEUED в порядке принятия. Инспекции переменных исключены; их состояние и результаты доступны через /variables. Пустая очередь ячеек — []. */
+  items: RuntimeQueueSnapshotItemsItem[];
+}
+
+export type RuntimeBatchExecuteRequestCellsItem = {
+  /**
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  cell_id: string;
+  /**
+     * @minLength 64
+     * @maxLength 64
+     * @pattern ^[0-9a-f]{64}$
+     */
+  source_hash: string;
+};
+
+export interface RuntimeBatchExecuteRequest {
+  /**
+     * Ключ идемпотентности массового запуска в пределах runtime-сессии.
+     * @minLength 1
+     * @maxLength 128
+     */
+  request_id: string;
+  /**
+     * Фиксированный список всех сохранённых code-ячеек в порядке блокнота на момент нажатия. Backend проверяет принадлежность, уникальность cell_id, порядок и SHA-256 source перед атомарным принятием. Позднее добавленные ячейки не включаются.
+     * @minItems 1
+     * @maxItems 1000
+     */
+  cells: RuntimeBatchExecuteRequestCellsItem[];
+  /**
+     * Общий для элементов пакета конечный таймаут одной команды в секундах; не длительность всего пакета.
+     * @minimum 1
+     * @maximum 86400
+     */
+  timeout_seconds?: number;
+}
+
+export interface RuntimeBatchExecution {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  request_id: string;
+  session_id: string;
+  /**
+     * Полный неизменный список IDs всех принятых исполнений в порядке cells запроса, включая уже завершённые. При повторе возвращается тот же список; текущая очередь его не заменяет.
+     * @minItems 1
+     * @maxItems 1000
+     * @items.minLength 1
+     * @items.maxLength 128
+     */
+  execution_ids: string[];
+}
+
+export type RuntimeInspectionState = typeof RuntimeInspectionState[keyof typeof RuntimeInspectionState];
+
+
+export const RuntimeInspectionState = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+  INTERRUPTED: 'INTERRUPTED',
+  TIMED_OUT: 'TIMED_OUT',
+  CANCELLED: 'CANCELLED',
+  UNKNOWN: 'UNKNOWN',
+  REJECTED: 'REJECTED',
+} as const;
+
+export type RuntimeInspectionVariablesItem = {
+  name: string;
+  type: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  preview: string | null;
+};
+
+export interface RuntimeInspection {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  execution_id: string;
+  session_id: string;
+  state: RuntimeInspectionState;
+  /**
+     * Дескрипторы переменных от агента; до успешного результата пустой массив. Не использовать текст preview как HTML или исполняемый код.
+     * @maxItems 200
+     */
+  variables: RuntimeInspectionVariablesItem[];
+  output_truncated: boolean;
+  /**
+     * Безопасный код причины ошибки/недостоверного результата; без raw-ошибок и секретов, null при отсутствии.
+     * @nullable
+     */
+  reason: string | null;
+}
+
+export type NotebookContentCellsItem = {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'markdown';
+  /** Содержимое блока */
+  source: string;
+} | {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'code';
+  /** Содержимое блока */
+  source: string;
+  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
+  outputs: { [key: string]: unknown }[];
+  /**
+     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
+     * @minimum 0
+     * @nullable
+     */
+  execution_count: number | null;
+  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
+  output_truncated: boolean;
+};
+
+/**
+ * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
+ */
+export interface NotebookContent {
+  hash: NotebookHash;
+  /** @maxItems 1000 */
+  cells: NotebookContentCellsItem[];
+}
+
+export type RuntimeExecutionState = typeof RuntimeExecutionState[keyof typeof RuntimeExecutionState];
+
+
+export const RuntimeExecutionState = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+  INTERRUPTED: 'INTERRUPTED',
+  TIMED_OUT: 'TIMED_OUT',
+  CANCELLED: 'CANCELLED',
+  UNKNOWN: 'UNKNOWN',
+  REJECTED: 'REJECTED',
+} as const;
+
+export type RuntimeExecutionOutputsItem = { [key: string]: unknown };
+
+/**
+ * Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения.
+ */
+export type RuntimeExecutionProjection = typeof RuntimeExecutionProjection[keyof typeof RuntimeExecutionProjection];
+
+
+export const RuntimeExecutionProjection = {
+  pending: 'pending',
+  applied: 'applied',
+  conflict: 'conflict',
+} as const;
+
+export interface RuntimeExecution {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  execution_id: string;
+  session_id: string;
+  /** @minLength 1 */
+  cell_id: string;
+  /** @pattern ^[0-9a-f]{64}$ */
+  source_hash: string;
+  /**
+     * @minimum 1
+     * @maximum 86400
+     */
+  timeout_seconds: number;
+  /** @minimum 1 */
+  attempt: number;
+  state: RuntimeExecutionState;
+  /** Выводы ячейки в формате nbformat. MIME/HTML — недоверенные данные, frontend отображает их безопасно. */
+  outputs: RuntimeExecutionOutputsItem[];
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  execution_count: number | null;
+  /** Достигнут лимит вывода; код мог продолжить работу. */
+  output_truncated: boolean;
+  /** Состояние записи результата в актуальную ячейку PostgreSQL: pending — ожидает сохранения; applied — сохранён; conflict — исходник изменён или ячейка удалена. applied не означает успешное исполнение кода. История исполнения доступна независимо от применения. */
+  projection: RuntimeExecutionProjection;
+}
+
+export interface RuntimeExecuteRequest {
+  /**
+     * Ключ идемпотентности в пределах runtime-сессии.
+     * @minLength 1
+     * @maxLength 128
+     */
+  execution_id: string;
+  /**
+     * ID существующей кодовой ячейки этого блокнота.
+     * @minLength 1
+     */
+  cell_id: string;
+  /**
+     * SHA-256 UTF-8 сохранённого source конкретной ячейки. Код читает backend из PostgreSQL; исходный код в запросе не передаётся. Не путать с непрозрачной редакцией всего блокнота.
+     * @minLength 64
+     * @maxLength 64
+     * @pattern ^[0-9a-f]{64}$
+     */
+  source_hash: string;
+  /**
+     * Конечное число секунд. По умолчанию 300, NaN и Infinity недопустимы.
+     * @minimum 1
+     * @maximum 86400
+     */
+  timeout_seconds?: number;
+}
+
+export type BadRequestResponseBody = Error;
+
+export type UnauthorizedResponseBody = Error;
+
+export type ConflictResponseBody = Error;
+
+export type InternalErrorResponseBody = Error;
+
+export type NotFoundResponseBody = Error;
+
+export type ForbiddenResponseBody = Error;
+
+/**
+ * Есть активная сессия пользователя либо несовместимый повтор request_id. active_session_exists возвращает текущую сессию и notebook_id.
+ */
+export type RuntimeSessionConflictResponseBody = RuntimeConflictResponse;
+
+/**
+ * Сессия не готова, изменился source или повтор execution_id содержит другие параметры.
+ */
+export type RuntimeConflictResponseBody = RuntimeError;
+
+/**
+ * Runtime недоступен или создание окружений отключено.
+ */
+export type RuntimeUnavailableResponseBody = RuntimeError;
+
+/**
+ * Очередь исполнения переполнена.
+ */
+export type RuntimeQueueFullResponseBody = RuntimeError;
 
 export type UploadCurrentUserAvatarBody = {
   /** Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 200–4096 пикселей включительно. MIME части обязателен и соответствует содержимому. */
   avatar: Blob | File;
+};
+
+export type InspectRuntimeVariablesBody = {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  execution_id: string;
+};
+
+export type InterruptRuntimeKernel200 = {
+  interrupt_requested: true;
+};
+
+export type RestartRuntimeKernel200 = {
+  generation: string;
+};
+
+export type GetActiveRuntimeSession200 = {
+  /** Единственная активная сессия пользователя; null, если её нет. */
+  active_session: RuntimeSession | null;
+};
+
+export type ListRuntimeEventsParams = {
+/**
+ * @minimum 0
+ * @maximum 9223372036854776000
+ */
+after?: number;
+};
+
+export type TouchRuntimeSession200 = {
+  accepted: true;
+};
+
+export type StopRuntimeSession202 = {
+  accepted: true;
 };
 
 export type updateCurrentUserResponse200 = {
@@ -964,7 +1433,7 @@ export type createCellResponse404 = {
 }
 
 export type createCellResponse409 = {
-  data: Error
+  data: NotebookEditingError
   status: 409
 }
 
@@ -1069,7 +1538,9 @@ export const getGetNotebookContentUrl = (id: number,) => {
 }
 
 /**
- * Редактирование ipynb с проверкой версии всего блокнота. Доступ только владельцу. Возвращает согласованный снимок блоков и хеша. После конфликта перечитать этим запросом. Пример конфликта двух сессий: обе читают h123; первая добавляет блок и получает h456; вторая с If-Match: "h123" получает 409, затем перечитывает содержимое с h456. Хеш проверяется для добавления, редактирования, перемещения и удаления.
+ * Возвращает согласованный снимок hash и всех ячеек блокнота текущего пользователя, включая сохранённые nbformat outputs и execution_count кодовых ячеек. У code без результатов outputs: [], execution_count: null. Markdown содержит id/kind/source. Данные доступны без активной runtime-сессии и после удаления VPS. source — обычный текст, MIME/HTML/SVG результатов недоверенные и требуют безопасного отображения. hash — непрозрачная редакция снимка; ETag содержит её в двойных кавычках. Изменение только outputs, execution_count и output_truncated не меняет hash: он отражает исходники и порядок ячеек. Старый результат не применяется к изменённому source. Чтение не создаёт и не продлевает runtime. Доступ только владельцу.
+ *
+ * Каждая code-ячейка содержит обязательный output_truncated:boolean — сохранённый вместе с outputs и execution_count признак усечения вывода. Он доступен после завершения сессии и удаления VPS. До первого результата false; новый применённый результат заменяет и outputs, и флаг. Значение не накапливается по всем запускам. Результат с конфликтом source не меняет сохранённые outputs и флаг актуальной ячейки.
  * @summary Содержимое блокнота с хешем
  */
 export const getNotebookContent = async (id: number, options?: Parameters<typeof bearerFetch>[1]): Promise<getNotebookContentResponse> => {
@@ -1351,6 +1822,11 @@ export type deleteCellResponse404 = {
   status: 404
 }
 
+export type deleteCellResponse409 = {
+  data: NotebookEditingError
+  status: 409
+}
+
 export type deleteCellResponse500 = {
   data: Error
   status: 500
@@ -1359,7 +1835,7 @@ export type deleteCellResponse500 = {
 export type deleteCellResponseSuccess = (deleteCellResponse204) & {
   headers: Headers;
 };
-export type deleteCellResponseError = (deleteCellResponse400 | deleteCellResponse401 | deleteCellResponse403 | deleteCellResponse404 | deleteCellResponse500) & {
+export type deleteCellResponseError = (deleteCellResponse400 | deleteCellResponse401 | deleteCellResponse403 | deleteCellResponse404 | deleteCellResponse409 | deleteCellResponse500) & {
   headers: Headers;
 };
 
@@ -1660,5 +2136,1114 @@ return bearerFetch<createNotebookResponse>(getCreateNotebookUrl(),
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(createNotebookRequest)
+  }
+);}
+
+
+
+export type getRuntimeQueueResponse200 = {
+  data: RuntimeQueueSnapshot
+  status: 200
+}
+
+export type getRuntimeQueueResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type getRuntimeQueueResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type getRuntimeQueueResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type getRuntimeQueueResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type getRuntimeQueueResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type getRuntimeQueueResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type getRuntimeQueueResponseSuccess = (getRuntimeQueueResponse200) & {
+  headers: Headers;
+};
+export type getRuntimeQueueResponseError = (getRuntimeQueueResponse400 | getRuntimeQueueResponse401 | getRuntimeQueueResponse403 | getRuntimeQueueResponse404 | getRuntimeQueueResponse500 | getRuntimeQueueResponse503) & {
+  headers: Headers;
+};
+
+export type getRuntimeQueueResponse = (getRuntimeQueueResponseSuccess | getRuntimeQueueResponseError)
+
+export const getGetRuntimeQueueUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/queue`
+}
+
+/**
+ * Возвращает снимок незавершённых исполнений сессии текущего пользователя из хранилища backend: выполняемое первым, затем очередь в устойчивом порядке принятия. Принятые, но ещё не переданные агенту команды имеют состояние QUEUED. Завершённые исполнения не включаются. Пустая очередь — items: [], а не null или ошибка. Чтение не продлевает таймаут неактивности и не запускает команды. Ошибка чтения не подменяется пустой очередью. Чужая или отсутствующая сессия — 404. Запрос требует X-BFF-Key и Bearer access-токен пользователя. Токен агента, адрес VPS, код и выводы в ответ не включаются.
+ *
+ * Возвращаются только исполнения code-ячеек. Инспекции переменных в этот снимок не входят и не получают фиктивный cell_id; их состояние и результаты доступны через POST/GET /runtime-sessions/{id}/variables. Пустой items не означает отсутствие инспекции и не заменяет проверку свободного kernel при restart.
+ * @summary Получить очередь выполнения
+ */
+export const getRuntimeQueue = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<getRuntimeQueueResponse> => {
+
+  return bearerFetch<getRuntimeQueueResponse>(getGetRuntimeQueueUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type createRuntimeExecutionBatchResponse202 = {
+  data: RuntimeBatchExecution
+  status: 202
+}
+
+export type createRuntimeExecutionBatchResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type createRuntimeExecutionBatchResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type createRuntimeExecutionBatchResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type createRuntimeExecutionBatchResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type createRuntimeExecutionBatchResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type createRuntimeExecutionBatchResponse429 = {
+  data: RuntimeQueueFullResponseBody
+  status: 429
+}
+
+export type createRuntimeExecutionBatchResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type createRuntimeExecutionBatchResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type createRuntimeExecutionBatchResponseSuccess = (createRuntimeExecutionBatchResponse202) & {
+  headers: Headers;
+};
+export type createRuntimeExecutionBatchResponseError = (createRuntimeExecutionBatchResponse400 | createRuntimeExecutionBatchResponse401 | createRuntimeExecutionBatchResponse403 | createRuntimeExecutionBatchResponse404 | createRuntimeExecutionBatchResponse409 | createRuntimeExecutionBatchResponse429 | createRuntimeExecutionBatchResponse500 | createRuntimeExecutionBatchResponse503) & {
+  headers: Headers;
+};
+
+export type createRuntimeExecutionBatchResponse = (createRuntimeExecutionBatchResponseSuccess | createRuntimeExecutionBatchResponseError)
+
+export const getCreateRuntimeExecutionBatchUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/executions/batch`
+}
+
+/**
+ * Только READY. Один запрос атомарно принимает фиксированный упорядоченный список сохранённых code-ячеек: проверяет владельца, уникальность cell_id, порядок и source_hash, сохраняет исходники и все исполнения до отправки агенту. Клиент фиксирует список при нажатии; добавленные позже ячейки не входят. Изменённый/удалённый source или изменившийся порядок — 409 без частичного принятия. При недостатке места — 429, весь пакет отклонён. Markdown и дубли cell_id — 400. Повтор request_id с тем же телом возвращает исходный полный execution_ids, даже если исполнение уже закончилось или блокнот изменился; другое тело — 409. Дедупликация проверяется до повторной валидации текущего состояния. IDs назначает backend. Команды идут в общей durable FIFO; ошибка одной принятой ячейки не отменяет остальные. UNKNOWN автоматически не перезапускается. Возвращаемый список соответствует cells запроса и не сокращается до текущей очереди. Тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Выполнить все сохранённые кодовые ячейки
+ */
+export const createRuntimeExecutionBatch = async (id: string,
+    runtimeBatchExecuteRequest: RuntimeBatchExecuteRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<createRuntimeExecutionBatchResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<createRuntimeExecutionBatchResponse>(getCreateRuntimeExecutionBatchUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(runtimeBatchExecuteRequest)
+  }
+);}
+
+
+
+export type getRuntimeInspectionResponse200 = {
+  data: RuntimeInspection
+  status: 200
+}
+
+export type getRuntimeInspectionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type getRuntimeInspectionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type getRuntimeInspectionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type getRuntimeInspectionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type getRuntimeInspectionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type getRuntimeInspectionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type getRuntimeInspectionResponseSuccess = (getRuntimeInspectionResponse200) & {
+  headers: Headers;
+};
+export type getRuntimeInspectionResponseError = (getRuntimeInspectionResponse400 | getRuntimeInspectionResponse401 | getRuntimeInspectionResponse403 | getRuntimeInspectionResponse404 | getRuntimeInspectionResponse500 | getRuntimeInspectionResponse503) & {
+  headers: Headers;
+};
+
+export type getRuntimeInspectionResponse = (getRuntimeInspectionResponseSuccess | getRuntimeInspectionResponseError)
+
+export const getGetRuntimeInspectionUrl = (id: string,
+    executionId: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/variables/${executionId}`
+}
+
+/**
+ * Возвращает сохранённое состояние и дескрипторы переменных принятой инспекции текущего пользователя. Доступен после завершения сессии по сохранённой истории. Чтение не вызывает новую инспекцию и не продлевает idle timeout. Чужая/отсутствующая сессия или инспекция — 404. Кодовая команда с этим ID не является инспекцией. Состояние SUCCEEDED с variables: [] — корректный пустой результат. При недостоверном результате — UNKNOWN, автоматический повтор запрещён.
+ * @summary Получить результат инспекции переменных
+ */
+export const getRuntimeInspection = async (id: string,
+    executionId: string, options?: Parameters<typeof bearerFetch>[1]): Promise<getRuntimeInspectionResponse> => {
+
+  return bearerFetch<getRuntimeInspectionResponse>(getGetRuntimeInspectionUrl(id,executionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type inspectRuntimeVariablesResponse202 = {
+  data: RuntimeInspection
+  status: 202
+}
+
+export type inspectRuntimeVariablesResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type inspectRuntimeVariablesResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type inspectRuntimeVariablesResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type inspectRuntimeVariablesResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type inspectRuntimeVariablesResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type inspectRuntimeVariablesResponse429 = {
+  data: RuntimeQueueFullResponseBody
+  status: 429
+}
+
+export type inspectRuntimeVariablesResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type inspectRuntimeVariablesResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type inspectRuntimeVariablesResponseSuccess = (inspectRuntimeVariablesResponse202) & {
+  headers: Headers;
+};
+export type inspectRuntimeVariablesResponseError = (inspectRuntimeVariablesResponse400 | inspectRuntimeVariablesResponse401 | inspectRuntimeVariablesResponse403 | inspectRuntimeVariablesResponse404 | inspectRuntimeVariablesResponse409 | inspectRuntimeVariablesResponse429 | inspectRuntimeVariablesResponse500 | inspectRuntimeVariablesResponse503) & {
+  headers: Headers;
+};
+
+export type inspectRuntimeVariablesResponse = (inspectRuntimeVariablesResponseSuccess | inspectRuntimeVariablesResponseError)
+
+export const getInspectRuntimeVariablesUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/variables`
+}
+
+/**
+ * Только READY. Сохраняет инспекцию до отправки готовому агенту POST /variables. Инспекция выполняется в общей очереди с кодом; таймаут выполнения 5 секунд, ожидание в очереди отдельно. Повтор execution_id с тем же видом команды возвращает исходную инспекцию без повторного выполнения; конфликт с кодовой командой — 409. 202 не означает готовый список переменных; читать GET variables/{execution_id} до терминального state. Инспекция не привязана к cell_id и не записывается в outputs/execution_count ячейки. До успеха variables: []; ошибка отражается в state/reason. Ограничения и безопасные preview совпадают с агентом. Неизвестные поля отклоняются.
+ * @summary Запросить инспекцию переменных
+ */
+export const inspectRuntimeVariables = async (id: string,
+    inspectRuntimeVariablesBody: InspectRuntimeVariablesBody, options?: Parameters<typeof bearerFetch>[1]): Promise<inspectRuntimeVariablesResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<inspectRuntimeVariablesResponse>(getInspectRuntimeVariablesUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(inspectRuntimeVariablesBody)
+  }
+);}
+
+
+
+export type interruptRuntimeKernelResponse200 = {
+  data: InterruptRuntimeKernel200
+  status: 200
+}
+
+export type interruptRuntimeKernelResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type interruptRuntimeKernelResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type interruptRuntimeKernelResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type interruptRuntimeKernelResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type interruptRuntimeKernelResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type interruptRuntimeKernelResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type interruptRuntimeKernelResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type interruptRuntimeKernelResponseSuccess = (interruptRuntimeKernelResponse200) & {
+  headers: Headers;
+};
+export type interruptRuntimeKernelResponseError = (interruptRuntimeKernelResponse400 | interruptRuntimeKernelResponse401 | interruptRuntimeKernelResponse403 | interruptRuntimeKernelResponse404 | interruptRuntimeKernelResponse409 | interruptRuntimeKernelResponse500 | interruptRuntimeKernelResponse503) & {
+  headers: Headers;
+};
+
+export type interruptRuntimeKernelResponse = (interruptRuntimeKernelResponseSuccess | interruptRuntimeKernelResponseError)
+
+export const getInterruptRuntimeKernelUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/kernel/interrupt`
+}
+
+/**
+ * Запрашивает прерывание активного исполнения или инспекции через готового агента. Не завершает runtime-сессию и не удаляет окружение. 200 подтверждает только отправленный запрос прерывания; итог читать из состояния исполнения и событий. Ожидающие команды не отменяются; при отсутствии активной команды — безопасный no-op. Недоступная/не готовая сессия — 409/503. Не повторять автоматически после потери ответа, чтобы не прервать следующую команду; перечитать состояние. Тело отсутствует. Команда управления является пользовательской активностью.
+ * @summary Прервать текущее выполнение kernel
+ */
+export const interruptRuntimeKernel = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<interruptRuntimeKernelResponse> => {
+
+  return bearerFetch<interruptRuntimeKernelResponse>(getInterruptRuntimeKernelUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type restartRuntimeKernelResponse200 = {
+  data: RestartRuntimeKernel200
+  status: 200
+}
+
+export type restartRuntimeKernelResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type restartRuntimeKernelResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type restartRuntimeKernelResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type restartRuntimeKernelResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type restartRuntimeKernelResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type restartRuntimeKernelResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type restartRuntimeKernelResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type restartRuntimeKernelResponseSuccess = (restartRuntimeKernelResponse200) & {
+  headers: Headers;
+};
+export type restartRuntimeKernelResponseError = (restartRuntimeKernelResponse400 | restartRuntimeKernelResponse401 | restartRuntimeKernelResponse403 | restartRuntimeKernelResponse404 | restartRuntimeKernelResponse409 | restartRuntimeKernelResponse500 | restartRuntimeKernelResponse503) & {
+  headers: Headers;
+};
+
+export type restartRuntimeKernelResponse = (restartRuntimeKernelResponseSuccess | restartRuntimeKernelResponseError)
+
+export const getRestartRuntimeKernelUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/kernel/restart`
+}
+
+/**
+ * Только READY и полностью свободная общая очередь: нет активных/ожидающих code-команд и инспекций, включая принятые backend, но ещё не отправленные агенту. Проверка и блокировка приёма команд атомарны относительно restart; иначе 409. Вызывает готовый агент, возвращает новое поколение kernel после успешного перезапуска. Очищает переменные в памяти, но сохраняет outputs/execution_count блокнота и журнал; публичный seq не обнуляется. Поколение обновляется в состоянии сессии. При потере ответа не повторять автоматически: перечитать session/generation; сбой — 503. Сессия/VPS не пересоздаётся. Тело отсутствует; действие продлевает activity.
+ * @summary Перезапустить свободный kernel
+ */
+export const restartRuntimeKernel = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<restartRuntimeKernelResponse> => {
+
+  return bearerFetch<restartRuntimeKernelResponse>(getRestartRuntimeKernelUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type getActiveRuntimeSessionResponse200 = {
+  data: GetActiveRuntimeSession200
+  status: 200
+}
+
+export type getActiveRuntimeSessionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type getActiveRuntimeSessionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type getActiveRuntimeSessionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type getActiveRuntimeSessionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type getActiveRuntimeSessionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type getActiveRuntimeSessionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type getActiveRuntimeSessionResponseSuccess = (getActiveRuntimeSessionResponse200) & {
+  headers: Headers;
+};
+export type getActiveRuntimeSessionResponseError = (getActiveRuntimeSessionResponse400 | getActiveRuntimeSessionResponse401 | getActiveRuntimeSessionResponse403 | getActiveRuntimeSessionResponse404 | getActiveRuntimeSessionResponse500 | getActiveRuntimeSessionResponse503) & {
+  headers: Headers;
+};
+
+export type getActiveRuntimeSessionResponse = (getActiveRuntimeSessionResponseSuccess | getActiveRuntimeSessionResponseError)
+
+export const getGetActiveRuntimeSessionUrl = () => {
+
+
+
+
+  return `/runtime-sessions/active`
+}
+
+/**
+ * Возвращает единственную активную сессию текущего пользователя во всех блокнотах. Если её нет — 200 с active_session: null. STOPPING/cleanup_pending продолжает занимать слот. Другие пользователи и auth-сессии сюда не относятся. Чтение не продлевает activity. Тот же источник состояния используется в backend#65 для has_active_session; успех/ошибка ячейки не является завершением runtime-сессии.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить активную runtime-сессию пользователя
+ */
+export const getActiveRuntimeSession = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<getActiveRuntimeSessionResponse> => {
+
+  return bearerFetch<getActiveRuntimeSessionResponse>(getGetActiveRuntimeSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type startRuntimeSessionResponse202 = {
+  data: RuntimeSession
+  status: 202
+}
+
+export type startRuntimeSessionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type startRuntimeSessionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type startRuntimeSessionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type startRuntimeSessionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type startRuntimeSessionResponse409 = {
+  data: RuntimeSessionConflictResponseBody
+  status: 409
+}
+
+export type startRuntimeSessionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type startRuntimeSessionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type startRuntimeSessionResponseSuccess = (startRuntimeSessionResponse202) & {
+  headers: Headers;
+};
+export type startRuntimeSessionResponseError = (startRuntimeSessionResponse400 | startRuntimeSessionResponse401 | startRuntimeSessionResponse403 | startRuntimeSessionResponse404 | startRuntimeSessionResponse409 | startRuntimeSessionResponse500 | startRuntimeSessionResponse503) & {
+  headers: Headers;
+};
+
+export type startRuntimeSessionResponse = (startRuntimeSessionResponseSuccess | startRuntimeSessionResponseError)
+
+export const getStartRuntimeSessionUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}/runtime-sessions`
+}
+
+/**
+ * Сохраняет намерение создания сессии и возвращает 202 без ожидания VPS. У пользователя может быть только одна активная сессия во всех блокнотах. PROVISIONING/STARTING/READY/RECONNECTING/STOPPING занимают слот до подтверждённой очистки. При новом запуске и занятом слоте — 409 active_session_exists с текущим notebook_id и сессией. Предварительный GET active не требуется и не резервирует слот. Идемпотентный повтор того же request_id/параметров возвращает прежнюю сессию до проверки конфликта; изменённые параметры того же request_id — 409 conflict. Профиль ресурсов выбирается сервером.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Запустить runtime-сессию блокнота
+ */
+export const startRuntimeSession = async (id: number,
+    runtimeStartRequest: RuntimeStartRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<startRuntimeSessionResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<startRuntimeSessionResponse>(getStartRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(runtimeStartRequest)
+  }
+);}
+
+
+
+export type getRuntimeSessionResponse200 = {
+  data: RuntimeSession
+  status: 200
+}
+
+export type getRuntimeSessionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type getRuntimeSessionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type getRuntimeSessionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type getRuntimeSessionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type getRuntimeSessionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type getRuntimeSessionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type getRuntimeSessionResponseSuccess = (getRuntimeSessionResponse200) & {
+  headers: Headers;
+};
+export type getRuntimeSessionResponseError = (getRuntimeSessionResponse400 | getRuntimeSessionResponse401 | getRuntimeSessionResponse403 | getRuntimeSessionResponse404 | getRuntimeSessionResponse500 | getRuntimeSessionResponse503) & {
+  headers: Headers;
+};
+
+export type getRuntimeSessionResponse = (getRuntimeSessionResponseSuccess | getRuntimeSessionResponseError)
+
+export const getGetRuntimeSessionUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}`
+}
+
+/**
+ * Возвращает актуальное состояние, этап, безопасную причину и публичный курсор. Чужая сессия — 404. Чтение не продлевает activity.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить состояние runtime-сессии
+ */
+export const getRuntimeSession = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<getRuntimeSessionResponse> => {
+
+  return bearerFetch<getRuntimeSessionResponse>(getGetRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type createRuntimeExecutionResponse202 = {
+  data: RuntimeExecution
+  status: 202
+}
+
+export type createRuntimeExecutionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type createRuntimeExecutionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type createRuntimeExecutionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type createRuntimeExecutionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type createRuntimeExecutionResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type createRuntimeExecutionResponse429 = {
+  data: RuntimeQueueFullResponseBody
+  status: 429
+}
+
+export type createRuntimeExecutionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type createRuntimeExecutionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type createRuntimeExecutionResponseSuccess = (createRuntimeExecutionResponse202) & {
+  headers: Headers;
+};
+export type createRuntimeExecutionResponseError = (createRuntimeExecutionResponse400 | createRuntimeExecutionResponse401 | createRuntimeExecutionResponse403 | createRuntimeExecutionResponse404 | createRuntimeExecutionResponse409 | createRuntimeExecutionResponse429 | createRuntimeExecutionResponse500 | createRuntimeExecutionResponse503) & {
+  headers: Headers;
+};
+
+export type createRuntimeExecutionResponse = (createRuntimeExecutionResponseSuccess | createRuntimeExecutionResponseError)
+
+export const getCreateRuntimeExecutionUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/executions`
+}
+
+/**
+ * Только READY: сохраняет immutable execution до отправки агенту. Код читается из сохранённой code-ячейки PostgreSQL и проверяется по source_hash. Один execution_id с тем же запросом не запускает код повторно; изменённое содержимое — conflict. Сетевой timeout не создаёт новый ID, UNKNOWN автоматически не повторяется. Нет исполнения после STOPPING. Известный асинхронный отказ агента отражается в состоянии REJECTED уже принятого execution.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Выполнить сохранённую ячейку
+ */
+export const createRuntimeExecution = async (id: string,
+    runtimeExecuteRequest: RuntimeExecuteRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<createRuntimeExecutionResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<createRuntimeExecutionResponse>(getCreateRuntimeExecutionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(runtimeExecuteRequest)
+  }
+);}
+
+
+
+export type getRuntimeExecutionResponse200 = {
+  data: RuntimeExecution
+  status: 200
+}
+
+export type getRuntimeExecutionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type getRuntimeExecutionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type getRuntimeExecutionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type getRuntimeExecutionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type getRuntimeExecutionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type getRuntimeExecutionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type getRuntimeExecutionResponseSuccess = (getRuntimeExecutionResponse200) & {
+  headers: Headers;
+};
+export type getRuntimeExecutionResponseError = (getRuntimeExecutionResponse400 | getRuntimeExecutionResponse401 | getRuntimeExecutionResponse403 | getRuntimeExecutionResponse404 | getRuntimeExecutionResponse500 | getRuntimeExecutionResponse503) & {
+  headers: Headers;
+};
+
+export type getRuntimeExecutionResponse = (getRuntimeExecutionResponseSuccess | getRuntimeExecutionResponseError)
+
+export const getGetRuntimeExecutionUrl = (id: string,
+    executionId: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/executions/${executionId}`
+}
+
+/**
+ * Возвращает состояние попытки, outputs, execution_count, признак усечения и состояние проекции в ipynb. Сохранённый в БД результат доступен и после удаления VPS; projection pending не означает потерю DB archive. Чтение не продлевает activity.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Получить состояние и вывод выполнения
+ */
+export const getRuntimeExecution = async (id: string,
+    executionId: string, options?: Parameters<typeof bearerFetch>[1]): Promise<getRuntimeExecutionResponse> => {
+
+  return bearerFetch<getRuntimeExecutionResponse>(getGetRuntimeExecutionUrl(id,executionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type listRuntimeEventsResponse200 = {
+  data: RuntimeEventsResponse
+  status: 200
+}
+
+export type listRuntimeEventsResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type listRuntimeEventsResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type listRuntimeEventsResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type listRuntimeEventsResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type listRuntimeEventsResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type listRuntimeEventsResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type listRuntimeEventsResponseSuccess = (listRuntimeEventsResponse200) & {
+  headers: Headers;
+};
+export type listRuntimeEventsResponseError = (listRuntimeEventsResponse400 | listRuntimeEventsResponse401 | listRuntimeEventsResponse403 | listRuntimeEventsResponse404 | listRuntimeEventsResponse500 | listRuntimeEventsResponse503) & {
+  headers: Headers;
+};
+
+export type listRuntimeEventsResponse = (listRuntimeEventsResponseSuccess | listRuntimeEventsResponseError)
+
+export const getListRuntimeEventsUrl = (id: string,
+    params?: ListRuntimeEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/runtime-sessions/${id}/events?${stringifiedParams}` : `/runtime-sessions/${id}/events`
+}
+
+/**
+ * HTTP polling по публичному курсору #13, а не agent seq. До 100 записей и target 16 MiB; первая крупная запись не пропускается. next_cursor продвигается только до отданного события, при пустой странице равен after. has_more определяется следующей записью. Чтение и heartbeat не продлевают activity. События хранятся после удаления VPS.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ *
+ * События исполнения ячейки содержат body.execution_id для GET executions/{execution_id}, в том числе поздние события исходной команды. События инспекции имеют body.inspection_id без body.execution_id и читаются через GET variables/{execution_id}; их нельзя загружать как обычное исполнение. События сессии могут не иметь ID команды. Курсор берётся из next_cursor, пустая страница не означает отсутствие активной сессии.
+ * @summary Получить события runtime-сессии
+ */
+export const listRuntimeEvents = async (id: string,
+    params?: ListRuntimeEventsParams, options?: Parameters<typeof bearerFetch>[1]): Promise<listRuntimeEventsResponse> => {
+
+  return bearerFetch<listRuntimeEventsResponse>(getListRuntimeEventsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type touchRuntimeSessionResponse200 = {
+  data: TouchRuntimeSession200
+  status: 200
+}
+
+export type touchRuntimeSessionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type touchRuntimeSessionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type touchRuntimeSessionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type touchRuntimeSessionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type touchRuntimeSessionResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type touchRuntimeSessionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type touchRuntimeSessionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type touchRuntimeSessionResponseSuccess = (touchRuntimeSessionResponse200) & {
+  headers: Headers;
+};
+export type touchRuntimeSessionResponseError = (touchRuntimeSessionResponse400 | touchRuntimeSessionResponse401 | touchRuntimeSessionResponse403 | touchRuntimeSessionResponse404 | touchRuntimeSessionResponse409 | touchRuntimeSessionResponse500 | touchRuntimeSessionResponse503) & {
+  headers: Headers;
+};
+
+export type touchRuntimeSessionResponse = (touchRuntimeSessionResponseSuccess | touchRuntimeSessionResponseError)
+
+export const getTouchRuntimeSessionUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/activity`
+}
+
+/**
+ * Только READY/RECONNECTING: сохраняет activity intent и доставляет агенту. Фронтенд отправляет после реального редактирования не чаще раза в 30 секунд. Открытая вкладка и чтение выводов не считаются активностью. Запрос не создаёт и не возрождает остановленное окружение.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Сообщить о действиях пользователя в редакторе
+ */
+export const touchRuntimeSession = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<touchRuntimeSessionResponse> => {
+
+  return bearerFetch<touchRuntimeSessionResponse>(getTouchRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type stopRuntimeSessionResponse202 = {
+  data: StopRuntimeSession202
+  status: 202
+}
+
+export type stopRuntimeSessionResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type stopRuntimeSessionResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type stopRuntimeSessionResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type stopRuntimeSessionResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type stopRuntimeSessionResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type stopRuntimeSessionResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type stopRuntimeSessionResponseSuccess = (stopRuntimeSessionResponse202) & {
+  headers: Headers;
+};
+export type stopRuntimeSessionResponseError = (stopRuntimeSessionResponse400 | stopRuntimeSessionResponse401 | stopRuntimeSessionResponse403 | stopRuntimeSessionResponse404 | stopRuntimeSessionResponse500 | stopRuntimeSessionResponse503) & {
+  headers: Headers;
+};
+
+export type stopRuntimeSessionResponse = (stopRuntimeSessionResponseSuccess | stopRuntimeSessionResponseError)
+
+export const getStopRuntimeSessionUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/stop`
+}
+
+/**
+ * Идемпотентно сохраняет намерение остановки и возвращает 202 без ожидания cleanup. Новые исполнения запрещаются, доступный финальный журнал сначала архивируется в БД, затем #57 получает запрос удаления VPS/диска/порта. Слот занят до подтверждённого cleanup; ошибка очистки не означает STOPPED. Недоступный хвост журнала помечается journal_incomplete, незавершённые исполнения — UNKNOWN. Успешный logout/logout-all сам по себе не вызывает эту операцию.
+ *
+ * Запрос проходит X-BFF-Key → Bearer JWT → Redis ValidateAccess. owner определяется авторизацией. JSON-тело не более 2 MiB, неизвестные поля отклоняются.
+ * @summary Завершить runtime-сессию
+ */
+export const stopRuntimeSession = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeSessionResponse> => {
+
+  return bearerFetch<stopRuntimeSessionResponse>(getStopRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
   }
 );}

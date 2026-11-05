@@ -11,6 +11,7 @@ import {
 // observable — та же утилита, что внутри самого @trpc/client: так пишутся свои link
 import { observable } from '@trpc/server/observable';
 import { fetchTracked } from '@stores/connection';
+import { takeMockPrefer } from './mockPrefer';
 
 /** Пользователь, как его отдаёт `users.me`. */
 export type User = RouterOutputs['users']['me'];
@@ -18,8 +19,11 @@ export type User = RouterOutputs['users']['me'];
 /** Блокнот в списке. */
 export type NotebookSummary = RouterOutputs['notebooks']['list'][number];
 
-/** Блокнот с ячейками. */
-export type Notebook = RouterOutputs['notebooks']['get'];
+/** Данные страницы блокнота, как их отдаёт `notebooks.get`: `{ notebook }`. */
+export type NotebookPageData = RouterOutputs['notebooks']['get'];
+
+/** Блокнот с hash и ячейками. */
+export type Notebook = NotebookPageData['notebook'];
 
 /** Ячейка блокнота. */
 export type Cell = Notebook['cells'][number];
@@ -112,9 +116,14 @@ const sessionLink: TRPCLink<AppRouter> =
             };
         });
 
+// В bun run dev:prism к запросу добавляются одноразовые статусы мока для его процедур
+const headers = (paths: string[]): Record<string, string> => {
+    const prefer = import.meta.env.VITE_MOCK_PREFER === '1' ? takeMockPrefer(paths) : undefined;
+    return prefer ? { 'X-CSRF': '1', 'X-Mock-Prefer': prefer } : { 'X-CSRF': '1' };
+};
+
 const transport = {
     url: '/api/trpc',
-    headers: { 'X-CSRF': '1' },
     fetch: (url: URL | RequestInfo, init?: RequestInit) =>
         fetchTracked(url, { ...init, credentials: 'same-origin' }),
 };
@@ -129,9 +138,10 @@ export const trpc = createTRPCClient<AppRouter>({
         // FormData (аватар) — отдельным запросом без батча и JSON: tRPC передаёт его как multipart
         splitLink({
             condition: (op) => isNonJsonSerializable(op.input),
-            true: httpLink(transport),
+            true: httpLink({ ...transport, headers: ({ op }) => headers([op.path]) }),
             false: httpBatchLink({
                 ...transport,
+                headers: ({ opList }) => headers(opList.map((op) => op.path)),
                 // длинный батч GET делится, чтобы не упереться в лимит URL прокси
                 maxURLLength: 2000,
             }),
