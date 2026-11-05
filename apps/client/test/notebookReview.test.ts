@@ -160,3 +160,63 @@ test('промис операции в полёте завершается пр�
     expect(await deleted).toBe(false);
     removal.release();
 });
+
+const other = (): NotebookPageData => ({
+    notebook: { id: 2, name: 'Другой', created_at: '', updated_at: '', hash: 'b0', cells: [] },
+});
+const updates = () => rpc.calls.filter((c) => c.path === 'cells.update').map((c) => c.input);
+
+test('черновик больше лимита переживает уход и возвращается при открытии блокнота', async () => {
+    openNotebook(page([md('a', 'X')]));
+    const big = 'a'.repeat(65_537);
+    editSource('a', big, false);
+    leaveNotebook();
+    openNotebook(other());
+    openNotebook(page([md('a', 'X')]));
+    await settle();
+    expect(state().drafts).toEqual({ a: big });
+    expect(state().tooLarge).toEqual({ a: true });
+    expect(state().status).toBe('dirty');
+    expect(updates()).toEqual([]);
+});
+
+test('черновик при ошибке сохранения переживает уход и снова уходит при возвращении', async () => {
+    openNotebook(page([md('a', 'X')]));
+    rpc.on('cells.update', () => 'network', reply('h1'));
+    rpc.on('notebooks.get', () => 'network');
+    editSource('a', 'мой', false);
+    commitSource('a');
+    await settle();
+    expect(state().error).toBe('save');
+    leaveNotebook();
+    openNotebook(other());
+    openNotebook(page([md('a', 'X')]));
+    await settle();
+    const sent = { notebookId: 1, hash: 'h0', cellId: 'a', source: 'мой' };
+    expect(updates()).toEqual([sent, sent]);
+    expect(state().drafts).toEqual({});
+});
+
+test('черновик при конфликте переживает уход; блокнот изменился — снова выбор версии', async () => {
+    openNotebook(page([md('a', 'X')]));
+    rpc.on('cells.update', () => rpcError('CONFLICT', 409, 'notebook_conflict'));
+    rpc.on('notebooks.get', () => ok(page([md('a', 'Y')], 'h1')));
+    editSource('a', 'мой', false);
+    commitSource('a');
+    await settle();
+    expect(state().conflict.phase).toBe('ready');
+    leaveNotebook();
+    openNotebook(other());
+    openNotebook(page([md('a', 'Y')], 'h1'));
+    expect(state().drafts).toEqual({ a: 'мой' });
+    expect(state().confirmed?.hash).toBe('h0');
+    expect(state().conflict.phase).toBe('ready');
+});
+
+test('блокнот без несохранённого при возвращении берётся свежим, без конфликта', () => {
+    openNotebook(page([md('a', 'X')]));
+    openNotebook(other());
+    openNotebook(page([md('a', 'Y')], 'h5'));
+    expect(state().confirmed?.hash).toBe('h5');
+    expect(state().conflict.phase).toBe('none');
+});

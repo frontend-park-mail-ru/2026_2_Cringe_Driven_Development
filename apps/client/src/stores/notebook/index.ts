@@ -168,32 +168,57 @@ export function structureLocked(state: NotebookState): boolean {
     return state.structureBusy || state.conflict.phase !== 'none' || halted(state.error);
 }
 
+type Unsaved = Pick<NotebookState, 'drafts' | 'tooLarge' | 'orphans'> & { confirmed: Snapshot };
+
+// Несохранённое покинутых блокнотов этой вкладки: вернётся при следующем открытии блокнота
+const unsaved = new Map<number, Unsaved>();
+
+const keepUnsaved = (): void => {
+    const { notebookId, confirmed, drafts, tooLarge, orphans } = get();
+    if (notebookId === null || !confirmed) return;
+    if (Object.keys(drafts).length === 0 && orphans.length === 0) return;
+    unsaved.set(notebookId, { confirmed, drafts, tooLarge, orphans });
+};
+
 /**
- * Открывает блокнот: подтверждённый снимок — из bootstrap или `notebooks.get`.
+ * Открывает блокнот: подтверждённый снимок — из bootstrap или `notebooks.get`. Несохранённое с
+ * прошлого открытия возвращается: блокнот не менялся — правки уходят снова, изменился — выбор версии.
  * @param page данные страницы блокнота
  */
 export function openNotebook(page: NotebookPageData): void {
+    keepUnsaved();
     reset();
     const { id, name, created_at, updated_at, hash, cells } = page.notebook;
+    const fresh = { hash, cells };
+    const kept = unsaved.get(id);
+    unsaved.delete(id);
+    const changed = kept !== undefined && kept.confirmed.hash !== hash;
     set({
         ...empty(),
+        ...kept,
         notebookId: id,
         meta: { name, created_at, updated_at },
-        confirmed: { hash, cells },
+        confirmed: changed ? kept.confirmed : fresh,
     });
+    if (!kept) return;
+    if (changed) return enterConflict(fresh);
+    for (const cellId of Object.keys(kept.drafts)) commitSource(cellId);
+    refreshStatus();
 }
 
 /**
  * Уход со страницы блокнота: несохранённые правки отправляются сразу, очередь дорабатывает в фоне.
+ * Что отправить нельзя (больше лимита, конфликт, ошибка), вернётся при открытии блокнота.
  * Ответы не попадут в другой блокнот — его открытие начинает новое поколение.
  */
 export function leaveNotebook(): void {
     for (const cellId of Object.keys(get().drafts)) commitSource(cellId);
 }
 
-/** Закрывает блокнот: ожидающие и поздние ответы больше ничего не меняют. */
+/** Закрывает блокнот и забывает несохранённое: ожидающие и поздние ответы больше ничего не меняют. */
 export function closeNotebook(): void {
     reset();
+    unsaved.clear();
     set(empty());
 }
 
