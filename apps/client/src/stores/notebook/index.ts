@@ -301,14 +301,15 @@ const structural = (op: Op): Promise<string | boolean | undefined> => {
 };
 
 /**
- * Добавляет пустую ячейку в конец. Ячейка появляется только после подтверждения сервером.
+ * Добавляет пустую ячейку. Ячейка появляется только после подтверждения сервером.
  * @param kind вид ячейки
+ * @param index позиция с нуля; без неё — в конец
  * @returns id новой ячейки или `undefined`, если добавить нельзя или не удалось
  */
-export async function addCell(kind: Cell['kind']): Promise<string | undefined> {
+export async function addCell(kind: Cell['kind'], index?: number): Promise<string | undefined> {
     if (!get().confirmed || get().structureBusy || paused()) return undefined;
     if (get().error === 'too_many_cells') set({ error: null });
-    const result = await structural({ type: 'create', kind });
+    const result = await structural({ type: 'create', kind, index });
     return typeof result === 'string' ? result : undefined;
 }
 
@@ -394,6 +395,7 @@ async function send(
                 hash,
                 kind: op.kind,
                 source: '',
+                index: op.index,
             });
             return { hash: res.hash, createdId: res.cell.id };
         }

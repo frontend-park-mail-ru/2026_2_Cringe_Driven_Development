@@ -202,8 +202,8 @@ export function NotebookPage() {
               : (notebook.meta?.name ?? '');
 
     // Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус
-    const handleAdd = (kind: CellKind) => {
-        void addCell(kind).then((created) => {
+    const handleAdd = (kind: CellKind, index?: number) => {
+        void addCell(kind, index).then((created) => {
             if (created) setFocusTarget({ id: created });
         });
     };
@@ -313,6 +313,14 @@ export function NotebookPage() {
                                             onMoveDown={() => void moveCell(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
                                         />
+                                        {row.index < cells.length - 1 && (
+                                            <div key="insert" className={styles.insert}>
+                                                <AddCellChips
+                                                    disabled={locked}
+                                                    onAdd={(kind) => handleAdd(kind, row.index + 1)}
+                                                />
+                                            </div>
+                                        )}
                                     </li>
                                 ),
                             )}

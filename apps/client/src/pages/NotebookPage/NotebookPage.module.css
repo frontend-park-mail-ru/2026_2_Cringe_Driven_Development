@@ -64,7 +64,40 @@
 
 /* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
 .cells > li {
+    position: relative;
     scroll-margin: 160px 0 96px;
+}
+
+/* Вставка между ячейками: зона — промежуток под ячейкой, чипы видны при наведении или фокусе */
+.insert {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.insert::before {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    left: 16px;
+    z-index: -1;
+    height: 1px;
+    background: var(--color-border);
+    content: '';
+}
+
+.insert:hover,
+.insert:focus-within {
+    opacity: 1;
 }
 
 .add {

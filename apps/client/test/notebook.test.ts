@@ -152,6 +152,16 @@ test('addCell: ячейка появляется после ответа, пов
     expect(state().structureBusy).toBe(false);
 });
 
+test('addCell с позицией вставляет ячейку между существующими', async () => {
+    openNotebook(page([code('a'), code('b')]));
+    rpc.on('cells.create', () => ok({ hash: 'h1', cell: { id: 'n1', kind: 'code', source: '' } }));
+    expect(await addCell('code', 1)).toBe('n1');
+    expect(inputs('cells.create')).toEqual([
+        { notebookId: 1, hash: 'h0', kind: 'code', source: '', index: 1 },
+    ]);
+    expect(state().confirmed?.cells.map((c) => c.id)).toEqual(['a', 'n1', 'b']);
+});
+
 test('deleteCell снимает ожидающий update этой ячейки, удаляет черновик после ответа', async () => {
     openNotebook(page([code('a')]));
     rpc.on('cells.delete', () => ok({ hash: 'h1' }));

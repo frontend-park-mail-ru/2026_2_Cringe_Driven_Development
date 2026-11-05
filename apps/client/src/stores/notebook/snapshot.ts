@@ -6,7 +6,7 @@ export type Snapshot = { hash: string; cells: Cell[] };
 /** Операция над ячейками, которую подтверждает сервер. */
 export type Op =
     | { type: 'update'; cellId: string; source: string }
-    | { type: 'create'; kind: Cell['kind'] }
+    | { type: 'create'; kind: Cell['kind']; index?: number }
     | { type: 'move'; cellId: string; index: number }
     | { type: 'delete'; cellId: string };
 
@@ -52,11 +52,12 @@ export function applyUpdate(
 }
 
 /**
- * Подтверждённое создание пустой ячейки в конце блокнота.
+ * Подтверждённое создание пустой ячейки.
  * @param snapshot снимок
  * @param hash hash из ответа
  * @param id id из ответа
  * @param kind вид ячейки
+ * @param index позиция с нуля; без неё — в конец
  * @returns новый снимок
  */
 export function applyCreate(
@@ -64,10 +65,11 @@ export function applyCreate(
     hash: string,
     id: string,
     kind: Cell['kind'],
+    index = snapshot.cells.length,
 ): Snapshot {
     const created: Cell =
         kind === 'code' ? { id, kind, source: '', ...noOutput() } : { id, kind, source: '' };
-    return { hash, cells: [...snapshot.cells, created] };
+    return { hash, cells: snapshot.cells.toSpliced(index, 0, created) };
 }
 
 /**
@@ -114,7 +116,7 @@ export function applyOp(snapshot: Snapshot, hash: string, op: Op, createdId = ''
         case 'update':
             return applyUpdate(snapshot, hash, op.cellId, op.source);
         case 'create':
-            return applyCreate(snapshot, hash, createdId, op.kind);
+            return applyCreate(snapshot, hash, createdId, op.kind, op.index);
         case 'move':
             return applyMove(snapshot, hash, op.cellId, op.index);
         case 'delete':
