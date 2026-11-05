@@ -63,12 +63,12 @@
     margin: 0;
     padding: 0;
     list-style: none;
-}
 
-/* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
-.cells > li {
-    position: relative;
-    scroll-margin: 160px 0 96px;
+    /* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
+    & > li {
+        position: relative;
+        scroll-margin: 160px 0 96px;
+    }
 }
 
 /* Вставка между ячейками: зона — промежуток под ячейкой, чипы видны при наведении или фокусе */
@@ -85,22 +85,22 @@
     height: 24px;
     opacity: 0;
     transition: opacity 0.15s;
-}
 
-.insert::before {
-    position: absolute;
-    top: 50%;
-    right: 16px;
-    left: 16px;
-    z-index: -1;
-    height: 1px;
-    background: var(--color-border);
-    content: '';
-}
+    &::before {
+        position: absolute;
+        top: 50%;
+        right: 16px;
+        left: 16px;
+        z-index: -1;
+        height: 1px;
+        background: var(--color-border);
+        content: '';
+    }
 
-.insert:hover,
-.insert:focus-within {
-    opacity: 1;
+    &:hover,
+    &:focus-within {
+        opacity: 1;
+    }
 }
 
 .add {

@@ -15,14 +15,14 @@
     transition:
         background-color 0.15s,
         color 0.15s;
-}
 
-.button:hover:not(:disabled) {
-    background: var(--color-surface-hover);
-    color: var(--color-text-primary);
-}
+    &:hover:not(:disabled) {
+        background: var(--color-surface-hover);
+        color: var(--color-text-primary);
+    }
 
-.button:disabled {
-    opacity: 0.4;
-    cursor: default;
+    &:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
 }

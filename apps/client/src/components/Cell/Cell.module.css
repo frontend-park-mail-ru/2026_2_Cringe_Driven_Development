@@ -58,6 +58,16 @@
     color: var(--color-text-primary);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+
+    &:focus-visible {
+        /* фокус видно по рамке выбранной ячейки */
+        outline: none;
+    }
+
+    &::placeholder {
+        color: var(--color-text-secondary);
+        opacity: 1;
+    }
 }
 
 .code .editor,
@@ -108,16 +118,6 @@
             scrollbar-color: var(--color-text-disabled) var(--color-surface);
         }
     }
-}
-
-.editor:focus-visible {
-    /* фокус видно по рамке выбранной ячейки */
-    outline: none;
-}
-
-.editor::placeholder {
-    color: var(--color-text-secondary);
-    opacity: 1;
 }
 
 .error {
