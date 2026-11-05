@@ -26,4 +26,6 @@
 .chip:disabled {
     opacity: 0.4;
     cursor: default;
+    /* короткий запрос не должен мигать чипами: тускнеют, только если ждать дольше */
+    transition: opacity 0s 0.2s;
 }

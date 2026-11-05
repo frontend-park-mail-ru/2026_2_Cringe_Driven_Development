@@ -182,7 +182,8 @@ export function NotebookPage() {
         return () => hideSnackbar(shown);
     }, [notebook.error, notebook.failure]);
 
-    useEffect(() => {
+    // До отрисовки: иначе мелькнёт кадр, где ячейка уже есть, а фокус и выделение — ещё на прежней
+    useLayoutEffect(() => {
         if (!focusTarget) return;
         focusCell(focusTarget.id);
         setFocusTarget(null);
@@ -204,7 +205,9 @@ export function NotebookPage() {
     // Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус
     const handleAdd = (kind: CellKind, index?: number) => {
         void addCell(kind, index).then((created) => {
-            if (created) setFocusTarget({ id: created });
+            if (!created) return;
+            setSelected(created);
+            setFocusTarget({ id: created });
         });
     };
     const handleDelete = (cellId: string) => {
@@ -212,7 +215,9 @@ export function NotebookPage() {
         void deleteCell(cellId).then((deleted) => {
             if (!deleted) return;
             const next = useNotebookStore.getState().confirmed?.cells ?? [];
-            setFocusTarget({ id: (next[index] ?? next[index - 1])?.id });
+            const target = (next[index] ?? next[index - 1])?.id;
+            if (target) setSelected(target);
+            setFocusTarget({ id: target });
         });
     };
 
