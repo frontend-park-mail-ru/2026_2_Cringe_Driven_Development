@@ -32,6 +32,8 @@ interface CellProps {
     /** Структурные действия недоступны: идёт операция или не разрешён конфликт */
     locked: boolean;
     onInput: (text: string, composing: boolean) => void;
+    /** Вставка из буфера обмена: страница может заменить её помещающейся частью */
+    onPaste: (event: ClipboardEvent) => void;
     /** Выход из редактора или конец IME — сохранить сразу */
     onCommit: () => void;
     onFocus: () => void;
@@ -62,6 +64,7 @@ export function Cell({
     canMoveDown,
     locked,
     onInput,
+    onPaste,
     onCommit,
     onFocus,
     onLeave,
@@ -136,6 +139,7 @@ export function Cell({
                     aria-invalid={tooLarge}
                     onFocus={onFocus}
                     onBlur={onCommit}
+                    onPaste={onPaste}
                     onInput={(event) =>
                         onInput(
                             (event.target as HTMLTextAreaElement).value,

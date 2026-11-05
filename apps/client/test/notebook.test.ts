@@ -11,6 +11,7 @@ import {
     editSource,
     moveCell,
     openNotebook,
+    pastedPart,
     useNotebookStore,
 } from '@stores/notebook';
 import { fakeRpc, held, ok, settle } from './fakeRpc';
@@ -217,4 +218,13 @@ test('висящий запрос прежнего блокнота не зад�
     expect(inputs('cells.update')[1]).toMatchObject({ notebookId: 2, hash: 'g0' });
     expect(state().confirmed?.hash).toBe('g1');
     late.release();
+});
+
+test('pastedPart: вставка целиком, пока исходник в лимите 64 КиБ, иначе — только помещающееся начало', () => {
+    expect(pastedPart('ab', 1, 1, 'xyz')).toBe('xyz');
+    const full = 'a'.repeat(65_530);
+    expect(pastedPart(full, 0, 0, 'я'.repeat(10))).toBe('я'.repeat(3));
+    // выделенное заменяется: его байты освобождают место
+    expect(pastedPart(full, 0, 10, 'b'.repeat(16))).toBe('b'.repeat(16));
+    expect(pastedPart('a'.repeat(70_000), 0, 0, 'b')).toBe('');
 });

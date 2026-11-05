@@ -20,6 +20,7 @@ import {
     editSource,
     moveCell,
     openNotebook,
+    pastedPart,
     retry,
     structureLocked,
     useNotebookStore,
@@ -67,6 +68,18 @@ const ERRORS = {
     save: 'Не удалось сохранить изменения',
     too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
+};
+
+// Больше лимита не вставляется: такой исходник не сохранить, а огромный редактор Chrome рисует со
+// вспышками. Помещающаяся часть вставляется как обычный ввод — с отменой по Ctrl+Z
+const handlePaste = (event: ClipboardEvent): void => {
+    const editor = event.target as HTMLTextAreaElement;
+    const pasted = event.clipboardData?.getData('text/plain') ?? '';
+    const part = pastedPart(editor.value, editor.selectionStart, editor.selectionEnd, pasted);
+    if (part === pasted) return;
+    event.preventDefault();
+    if (part) document.execCommand('insertText', false, part);
+    showSnackbar('Вставлена только часть текста: в ячейке максимум 64 КиБ');
 };
 
 /** Свойства {@link AddCellChips}. */
@@ -318,6 +331,7 @@ export function NotebookPage() {
                                             onInput={(text, composing) =>
                                                 editSource(row.cell.id, text, composing)
                                             }
+                                            onPaste={handlePaste}
                                             onCommit={() => commitSource(row.cell.id)}
                                             onFocus={() => setSelected(row.cell.id)}
                                             onLeave={() =>

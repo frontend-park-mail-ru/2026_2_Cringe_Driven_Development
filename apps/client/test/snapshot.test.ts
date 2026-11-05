@@ -8,6 +8,7 @@ import {
     applyUpdate,
     sameStructure,
     exceedsBytes,
+    fitBytes,
 } from '@stores/notebook/snapshot';
 
 const code: Cell = {
@@ -20,6 +21,15 @@ const code: Cell = {
 };
 const md: Cell = { id: 'b', kind: 'markdown', source: '# T' };
 const snap = { hash: 'h1', cells: [code, md] };
+
+test('fitBytes оставляет самое длинное начало в лимите байт, не разрезая символы', () => {
+    expect(fitBytes('abc', 5)).toBe('abc');
+    expect(fitBytes('яяя', 5)).toBe('яя');
+    expect(fitBytes('a😀b', 4)).toBe('a');
+    expect(fitBytes('a😀b', 5)).toBe('a😀');
+    expect(fitBytes('abc', 0)).toBe('');
+    expect(fitBytes('abc', -1)).toBe('');
+});
 
 test('exceedsBytes считает байты UTF-8, а не символы', () => {
     expect(exceedsBytes('я'.repeat(32_768), 65_536)).toBe(false);

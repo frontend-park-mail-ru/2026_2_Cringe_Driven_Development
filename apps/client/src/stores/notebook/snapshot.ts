@@ -25,6 +25,18 @@ export function exceedsBytes(text: string, limit: number): boolean {
     return encoder.encode(text).length > limit;
 }
 
+/**
+ * Самое длинное начало текста, которое помещается в лимит байт UTF-8; символы не разрезаются.
+ * @param text текст
+ * @param limit лимит в байтах
+ * @returns начало текста
+ */
+export function fitBytes(text: string, limit: number): string {
+    if (limit <= 0) return '';
+    if (!exceedsBytes(text, limit)) return text;
+    return text.slice(0, encoder.encodeInto(text, new Uint8Array(limit)).read);
+}
+
 // У кода без результата исполнения: до первого запуска и после изменения source
 const noOutput = () => ({ outputs: [], execution_count: null, output_truncated: false });
 
