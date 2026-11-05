@@ -126,11 +126,17 @@
     color: var(--color-error);
 }
 
+/* Кнопки — только у выбранной ячейки; место под них остаётся, чтобы текст не переносился заново */
 .actions {
     display: flex;
     flex: none;
     gap: 2px;
     margin: -6px -6px 0 0;
+    visibility: hidden;
+}
+
+.selected .actions {
+    visibility: visible;
 }
 
 .action {

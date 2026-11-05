@@ -89,6 +89,9 @@ export function Cell({
     }, [text, cell.id]);
 
     return (
+        // Клик по любому месту ячейки, кроме кнопок, выбирает её: фокус — в редактор. Это удобство для
+        // мыши: с клавиатуры редактор и кнопки и так достижимы по Tab
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
             className={clsx(
                 styles.cell,
@@ -96,6 +99,10 @@ export function Cell({
                 selected && styles.selected,
                 tooLarge && styles.tooLarge,
             )}
+            onClick={(event) => {
+                if ((event.target as Element).closest('button, textarea')) return;
+                document.getElementById(cellEditorId(cell.id))?.focus();
+            }}
         >
             <div key="gutter" className={styles.gutter}>
                 {isCode ? gutter : <span className={styles.kind}>Aa</span>}
