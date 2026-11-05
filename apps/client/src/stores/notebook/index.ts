@@ -13,7 +13,7 @@ export const SAVED_VISIBLE_MS = 4000;
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 
 /** Ошибка, о которой нужно сообщить на странице. */
-export type NotebookError = 'save' | 'load' | 'notebook_gone' | 'too_many_cells';
+export type NotebookError = 'save' | 'notebook_gone' | 'too_many_cells';
 
 /** Конфликт сохранения: пока он не разрешён, фронтовая очередь сохранения стоит. */
 export type Conflict =

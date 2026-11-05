@@ -174,7 +174,7 @@ export function NotebookPage() {
 
     // failure растёт при каждой ошибке: после неудачного «Повторить» снекбар появляется снова
     useEffect(() => {
-        if (!notebook.error || notebook.error === 'load') return;
+        if (!notebook.error) return;
         const shown =
             notebook.error === 'save'
                 ? showSnackbar(ERRORS.save, { label: 'Повторить', onClick: () => void retry() })
