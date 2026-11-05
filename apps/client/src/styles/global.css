@@ -49,6 +49,42 @@ a {
     outline-offset: 2px;
 }
 
+/* Полоса прокрутки страницы (Components → Scrollbar); на сенсорных экранах остаётся системная */
+@media (pointer: fine) {
+    html::-webkit-scrollbar {
+        width: 12px;
+    }
+
+    html::-webkit-scrollbar-track {
+        background: var(--color-surface);
+    }
+
+    html::-webkit-scrollbar-thumb {
+        min-height: 40px;
+        border: 3px solid transparent;
+        border-radius: 999px;
+        background: var(--color-text-disabled) padding-box;
+    }
+
+    html::-webkit-scrollbar-thumb:hover {
+        border-width: 2px;
+        background-color: var(--color-text-secondary);
+    }
+
+    html::-webkit-scrollbar-thumb:active {
+        border-width: 2px;
+        background-color: var(--color-primary);
+    }
+
+    /* В Chromium 121+ scrollbar-color отключает ::-webkit-scrollbar: задаём только для Firefox */
+    @supports (-moz-appearance: none) {
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-disabled) var(--color-surface);
+        }
+    }
+}
+
 /* Переходы гасим целиком; вращение спиннера оставляем — без него не видно, что идёт отправка */
 @media (prefers-reduced-motion: reduce) {
     *,

@@ -71,6 +71,42 @@
     overflow-x: auto;
 }
 
+/* Полоса под длинной строкой кода (Cell → Long line): 6 px, на 8 px ниже кода */
+@media (pointer: fine) {
+    .code .editor::-webkit-scrollbar {
+        height: 14px;
+    }
+
+    .code .editor::-webkit-scrollbar-track,
+    .code .editor::-webkit-scrollbar-thumb {
+        border-top: 8px solid transparent;
+        border-radius: 999px;
+    }
+
+    .code .editor::-webkit-scrollbar-track {
+        background: var(--color-surface) padding-box;
+    }
+
+    .code .editor::-webkit-scrollbar-thumb {
+        background: var(--color-text-disabled) padding-box;
+    }
+
+    .code .editor::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-text-secondary);
+    }
+
+    .code .editor::-webkit-scrollbar-thumb:active {
+        background-color: var(--color-primary);
+    }
+
+    @supports (-moz-appearance: none) {
+        .code .editor {
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-disabled) var(--color-surface);
+        }
+    }
+}
+
 .editor:focus-visible {
     /* фокус видно по рамке выбранной ячейки */
     outline: none;
