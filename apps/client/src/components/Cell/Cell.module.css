@@ -77,10 +77,12 @@
         height: 14px;
     }
 
+    /* Отступ — прозрачная верхняя рамка. Внутренний радиус = внешний минус рамка, поэтому сверху
+       радиус больше на её 8 px: видимая полоса — ровная «таблетка» с радиусом 3 px */
     .code .editor::-webkit-scrollbar-track,
     .code .editor::-webkit-scrollbar-thumb {
         border-top: 8px solid transparent;
-        border-radius: 999px;
+        border-radius: 3px / 11px 11px 3px 3px;
     }
 
     .code .editor::-webkit-scrollbar-track {
