@@ -91,6 +91,8 @@ const newSession = (res: Response): string | undefined => {
     return value || undefined;
 };
 const cleared = (res: Response): boolean => /Max-Age=0/.test(sessionSetCookie(res) ?? '');
+const revocation = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
 const errorOf = async (res: Response) =>
     ((await res.json()) as { error: { data: unknown } }).error.data as {
         code: string;
@@ -271,9 +273,6 @@ describe('RPC', () => {
         expect((await rpc('users.me', { cookie: c })).status).toBe(502);
         expect((await rpc('notebooks.list', { cookie: c })).status).toBe(502);
     });
-
-    const revocation = async (res: Response) =>
-        ((await res.json()) as { result: { data: unknown } }).result.data;
 
     test('logout без сессии — not_requested без Go, cookie удаляется', async () => {
         useGo({});
