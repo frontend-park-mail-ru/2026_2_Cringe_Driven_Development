@@ -161,7 +161,9 @@ export function Cell({
             )}
             onMouseDown={(event) => {
                 if (readOnly) return;
-                if ((event.target as Element).closest('button:enabled, textarea, a')) return;
+                // в просмотре мышь выделяет текст, фокус он получает сам
+                const own = `button:enabled, textarea, a, .${styles.preview}`;
+                if ((event.target as Element).closest(own)) return;
                 event.preventDefault();
                 document.getElementById(cellEditorId(cell.id))?.focus();
             }}
@@ -170,7 +172,10 @@ export function Cell({
                 // удалённая ячейка: куда перейти, решает страница
                 if (!(event.target as Node).isConnected) return;
                 if (next && (event.currentTarget as Node).contains(next)) return;
-                if (mode.value === 'edit' && !tooLarge) setMode({ value: 'view', refocus: false });
+                // уход в другое окно или в модалку — не конец ввода: исходник ждёт возвращения фокуса
+                const away = !document.hasFocus() || (next as Element | null)?.closest('dialog');
+                if (mode.value === 'edit' && !tooLarge && !away)
+                    setMode({ value: 'view', refocus: false });
                 onLeave();
             }}
         >

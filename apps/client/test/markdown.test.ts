@@ -169,3 +169,39 @@ test('64 КиБ патологического ввода — быстро и б
         expect(performance.now() - started).toBeLessThan(200);
     }
 });
+
+// Глубина дерева = глубина рекурсии рендера: без предела просмотр падает с переполнением стека
+const depthOf = (nodes: (MdBlock | MdInline)[]): number => {
+    let max = 0;
+    for (const node of nodes) {
+        const inner: (MdBlock | MdInline)[] =
+            'children' in node ? node.children : 'items' in node ? node.items.flat() : [];
+        max = Math.max(max, 1 + depthOf(inner));
+    }
+    return max;
+};
+
+test('вложенное выделение ограничено по глубине', () => {
+    for (const source of [
+        '*'.repeat(8000) + 'a' + '*'.repeat(8000),
+        '*'.repeat(32000) + 'a' + '*'.repeat(32000),
+        '_'.repeat(8000) + 'a' + '_'.repeat(8000),
+        '[*'.repeat(5000) + 'a' + '*](/x)'.repeat(5000),
+    ])
+        expect(depthOf(parseMarkdown(source))).toBeLessThanOrEqual(80);
+    // обычная вложенность не страдает
+    expect(parseMarkdown('***a***')).toEqual([
+        paragraph({ type: 'em', children: [{ type: 'strong', children: [text('a')] }] }),
+    ]);
+});
+
+test('title ссылки без пары — линейно', () => {
+    for (const source of ['[](a ('.repeat(10923), '[a](b ('.repeat(9362), '[](a "'.repeat(10923)]) {
+        const started = performance.now();
+        parseMarkdown(source);
+        expect(performance.now() - started).toBeLessThan(200);
+    }
+    expect(parseMarkdown('[x](/a "t\\"t")')[0]).toMatchObject({
+        children: [{ type: 'link', href: '/a' }],
+    });
+});

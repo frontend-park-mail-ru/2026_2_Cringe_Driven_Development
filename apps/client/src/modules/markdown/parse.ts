@@ -334,8 +334,34 @@ const skipSpaces = (text: string, from: number): number => {
     return i;
 };
 
+// Ближайший неэкранированный символ от позиции: таблица на символ строится один раз — иначе
+// поиск конца title от каждой `[` до конца текста квадратичен
+function closingIndex(text: string): (char: string, from: number) => number {
+    const tables = new Map<string, Int32Array>();
+    let escaped: Uint8Array | null = null;
+    return (char, from) => {
+        let table = tables.get(char);
+        if (!table) {
+            if (!escaped) {
+                escaped = new Uint8Array(text.length);
+                for (let i = 1; i < text.length; i += 1)
+                    if (text[i - 1] === '\\' && !escaped[i - 1]) escaped[i] = 1;
+            }
+            table = new Int32Array(text.length + 1).fill(-1);
+            for (let i = text.length - 1; i >= 0; i -= 1)
+                table[i] = text[i] === char && !escaped[i] ? i : table[i + 1]!;
+            tables.set(char, table);
+        }
+        return table[from] ?? -1;
+    };
+}
+
 // `(адрес "title")` после `]`: адрес и позиция за `)` или null
-function linkTail(text: string, close: number): { destination: string; end: number } | null {
+function linkTail(
+    text: string,
+    close: number,
+    closing: (char: string, from: number) => number,
+): { destination: string; end: number } | null {
     if (close < 0 || text[close + 1] !== '(') return null;
     let i = skipSpaces(text, close + 2);
     let destination: string;
@@ -375,10 +401,8 @@ function linkTail(text: string, close: number): { destination: string; end: numb
     const quote = text[i];
     // title отделён от адреса пробелом; сам он в просмотре не нужен
     if (i > afterDestination && (quote === '"' || quote === "'" || quote === '(')) {
-        const closing = quote === '(' ? ')' : quote;
-        i += 1;
-        while (i < text.length && text[i] !== closing) i += text[i] === '\\' ? 2 : 1;
-        if (text[i] !== closing) return null;
+        i = closing(quote === '(' ? ')' : quote, i + 1);
+        if (i < 0) return null;
         i = skipSpaces(text, i + 1);
     }
     if (text[i] !== ')') return null;
@@ -389,6 +413,7 @@ function parseInline(text: string, depth: number): MdInline[] {
     const runs = backtickRuns(text);
     const cursors = new Map<number, number>();
     const brackets = matchBrackets(text);
+    const closings = closingIndex(text);
     // меняются внутри append: без приведения TypeScript считает их всегда null
     let head = null as ListNode | null;
     let tail = null as ListNode | null;
@@ -447,19 +472,22 @@ function parseInline(text: string, depth: number): MdInline[] {
         const image = char === '!' && text[i + 1] === '[';
         if (char === '[' || image) {
             const open = image ? i + 1 : i;
-            const tailOfLink = depth < MAX_DEPTH ? linkTail(text, brackets[open]!) : null;
+            const tailOfLink = depth < MAX_DEPTH ? linkTail(text, brackets[open]!, closings) : null;
             if (tailOfLink) {
                 // картинок нет в MVP: остаются текстом, как и ссылки с опасным адресом
                 const href = image ? null : safeHref(tailOfLink.destination);
                 if (href === null) buffer += text.slice(i, tailOfLink.end);
                 else {
                     flush();
-                    append({
+                    const children = parseInline(text.slice(open + 1, brackets[open]), depth + 1);
+                    const link: MdInline = {
                         type: 'link',
                         href,
                         external: /^https?:/i.test(href),
-                        children: parseInline(text.slice(open + 1, brackets[open]), depth + 1),
-                    });
+                        children,
+                    };
+                    depths.set(link, 1 + depthOfItems(children));
+                    append(link);
                 }
                 i = tailOfLink.end;
                 continue;
@@ -502,11 +530,20 @@ function parseInline(text: string, depth: number): MdInline[] {
     }
     flush();
 
-    processEmphasis(firstDelimiter);
+    processEmphasis(firstDelimiter, depth);
     const items: (MdInline | Delimiter)[] = [];
     for (let node: ListNode | null = head; node; node = node.next) items.push(node.item);
     return finalize(items);
 }
+
+// Глубина вложенности узлов выделения и ссылок: дерево глубже MAX_DEPTH уронило бы рендер
+const depths = new WeakMap<object, number>();
+
+const depthOfItems = (items: (MdInline | Delimiter)[]): number => {
+    let max = 0;
+    for (const item of items) max = Math.max(max, depths.get(item) ?? 0);
+    return max;
+};
 
 function unlink(delimiter: Delimiter): void {
     if (delimiter.prev) delimiter.prev.next = delimiter.next;
@@ -519,7 +556,7 @@ function removeNode(node: ListNode): void {
 }
 
 // Алгоритм выделения CommonMark: пары разделителей → strong/em, остальное — текст
-function processEmphasis(first: Delimiter | null): void {
+function processEmphasis(first: Delimiter | null, depth: number): void {
     // ниже этой границы открывающего для такого закрывающего уже нет
     const bottoms = new Map<string, Delimiter | null>();
 
@@ -540,7 +577,13 @@ function processEmphasis(first: Delimiter | null): void {
             if (opener.char === closer.char && opener.canOpen && !odd) break;
             opener = opener.prev;
         }
-        if (!opener || opener === bottom) {
+        const children: (MdInline | Delimiter)[] = [];
+        if (opener && opener !== bottom)
+            for (let node = opener.node.next; node && node !== closer.node; node = node.next)
+                children.push(node.item);
+        const nested = depth + depthOfItems(children) + 1;
+        // слишком глубоко — пары нет: разделители остаются текстом
+        if (!opener || opener === bottom || nested > MAX_DEPTH) {
             bottoms.set(key, closer.prev);
             const next: Delimiter | null = closer.next;
             if (!closer.canOpen) unlink(closer);
@@ -554,14 +597,9 @@ function processEmphasis(first: Delimiter | null): void {
         // разделители между парой остаются текстом
         opener.next = closer;
         closer.prev = opener;
-        const children: (MdInline | Delimiter)[] = [];
-        for (let node = opener.node.next; node && node !== closer.node; node = node.next)
-            children.push(node.item);
-        const wrapper: ListNode = {
-            item: { type: used === 2 ? 'strong' : 'em', children: finalize(children) },
-            prev: opener.node,
-            next: closer.node,
-        };
+        const item: MdInline = { type: used === 2 ? 'strong' : 'em', children: finalize(children) };
+        depths.set(item, nested - depth);
+        const wrapper: ListNode = { item, prev: opener.node, next: closer.node };
         opener.node.next = wrapper;
         closer.node.prev = wrapper;
         if (opener.count === 0) {
