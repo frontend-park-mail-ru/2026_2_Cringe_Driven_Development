@@ -150,3 +150,45 @@ test('409 too_many_cells — ошибка добавления без конфл
     await settle();
     expect(state().confirmed?.hash).toBe('h1');
 });
+
+test('постоянный 500 при работающем чтении — один автоповтор, дальше ошибка до «Повторить»', async () => {
+    openNotebook(page([code('a')]));
+    rpc.on('cells.update', () => rpcError('INTERNAL_SERVER_ERROR', 500));
+    rpc.on('notebooks.get', () => ok(page([code('a')], 'h0')));
+    save('a', 'x');
+    await settle();
+    expect(inputs('cells.update')).toHaveLength(2);
+    expect(inputs('notebooks.get')).toHaveLength(2);
+    expect(state().error).toBe('save');
+    expect(state().status).toBe('error');
+    expect(state().drafts).toEqual({ a: 'x' });
+    await retry();
+    await settle();
+    expect(inputs('cells.update')).toHaveLength(3);
+    expect(inputs('notebooks.get')).toHaveLength(4);
+    expect(state().error).toBe('save');
+    expect(state().drafts).toEqual({ a: 'x' });
+});
+
+test('413 и прежний снимок — ошибка и черновик остаются; «Повторить» снова сохраняет', async () => {
+    openNotebook(page([code('a')]));
+    rpc.on(
+        'cells.update',
+        () => rpcError('PAYLOAD_TOO_LARGE', 413, 'payload_too_large'),
+        () => ok({ hash: 'h1', cell: { id: 'a', kind: 'code', source: 'y' } }),
+    );
+    rpc.on('notebooks.get', () => ok(page([code('a')], 'h0')));
+    save('a', 'x');
+    await settle();
+    expect(inputs('cells.update')).toHaveLength(1);
+    expect(state().error).toBe('save');
+    expect(state().status).toBe('error');
+    expect(state().drafts).toEqual({ a: 'x' });
+    editSource('a', 'y', false);
+    await retry();
+    await settle();
+    expect(inputs('cells.update')[1]).toMatchObject({ hash: 'h0', cellId: 'a', source: 'y' });
+    expect(state().error).toBeNull();
+    expect(state().drafts).toEqual({});
+    expect(state().status).toBe('saved');
+});

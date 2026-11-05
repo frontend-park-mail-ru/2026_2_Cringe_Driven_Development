@@ -71,7 +71,8 @@ export const useNotebookStore = create<NotebookState>()(() => empty());
 const get = () => useNotebookStore.getState();
 const set = (patch: Partial<NotebookState>) => useNotebookStore.setState(patch);
 
-type Job = { op: Op; done: (result: string | boolean | undefined) => void };
+// retried — запись уже повторялась: после новой ошибки сама больше не уходит
+type Job = { op: Op; done: (result: string | boolean | undefined) => void; retried?: boolean };
 
 // Поколение меняется при открытии и закрытии блокнота: ответы прежнего в стор не попадают
 let generation = 0;
@@ -88,6 +89,8 @@ let inflight: Job | null = null;
 const deleting = new Set<string>();
 // Идёт сверка после сбоя: «Повторить» в это время не запускает вторую
 let reconciling = false;
+// «Повторить» нажали во время сверки: она завершится как повтор по нажатию
+let retryRequested = false;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -102,6 +105,7 @@ const reset = (): void => {
     inflight?.done(undefined);
     inflight = null;
     reconciling = false;
+    retryRequested = false;
     clearTimers();
     dropQueue();
     resolution?.(false);
@@ -299,13 +303,18 @@ export function editSource(cellId: string, text: string, composing: boolean): vo
  * @param cellId ячейка
  */
 export function commitSource(cellId: string): void {
+    if (enqueueSource(cellId)) void run();
+}
+
+// Правка ячейки в очереди без запуска очереди; false — отправлять нечего
+function enqueueSource(cellId: string): boolean {
     cancelAutosave(cellId);
     const source = get().drafts[cellId];
-    if (source === undefined || get().tooLarge[cellId] || deleting.has(cellId)) return;
+    if (source === undefined || get().tooLarge[cellId] || deleting.has(cellId)) return false;
     const queued = queue.find((job) => job.op.type === 'update' && job.op.cellId === cellId);
     if (queued) queued.op = { type: 'update', cellId, source };
     else queue.push({ op: { type: 'update', cellId, source }, done: () => {} });
-    void run();
+    return true;
 }
 
 const structural = (op: Op): Promise<string | boolean | undefined> => {
@@ -522,14 +531,20 @@ const loadFailed = (result: { error: 'gone' | 'failed' }): void => {
     refreshStatus();
 };
 
-// Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений
-async function reconcile(): Promise<void> {
-    if (reconciling) return;
+// Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений. Не
+// применившаяся запись сама повторяется один раз; дальше ошибка остаётся до «Повторить» (manual)
+async function reconcile(manual = false): Promise<void> {
+    if (reconciling) {
+        retryRequested ||= manual;
+        return;
+    }
     reconciling = true;
     const started = generation;
     const result = await load(() => started === generation);
     reconciling = false;
     if (!result) return;
+    manual ||= retryRequested;
+    retryRequested = false;
     if ('error' in result) return loadFailed(result);
     const server = result.snapshot;
     const confirmed = get().confirmed!;
@@ -540,8 +555,17 @@ async function reconcile(): Promise<void> {
         set({ error: null });
         commit(job, server, expected.createdId);
     } else if (sameStructure(server, confirmed)) {
-        set({ error: null, confirmed: server });
+        set({ confirmed: server });
+        if (!manual && (!job || job.retried)) {
+            // успешное чтение не значит успешное сохранение: ошибка остаётся, черновики целы
+            job?.done(undefined);
+            set({ structureBusy: structureQueued() });
+            return refreshStatus();
+        }
+        set({ error: null });
         if (job) queue.unshift(job);
+        if (manual) for (const cellId of Object.keys(get().drafts)) enqueueSource(cellId);
+        for (const queued of queue) queued.retried = true;
     } else {
         job?.done(undefined);
         set({ error: null });
@@ -553,9 +577,12 @@ async function reconcile(): Promise<void> {
     refreshStatus(true);
 }
 
-/** Повтор после ошибки сохранения или чтения: снова перечитать и сверить, без слепой записи. */
+/**
+ * Повтор после ошибки сохранения или чтения: перечитать и сверить, без слепой записи. Если на сервере
+ * ничего не изменилось, несохранённые правки отправляются один раз.
+ */
 export async function retry(): Promise<void> {
-    if (get().error === 'save') await reconcile();
+    if (get().error === 'save') await reconcile(true);
 }
 
 // Конфликт с уже полученным снимком: диалог выбора версии открывается сразу
