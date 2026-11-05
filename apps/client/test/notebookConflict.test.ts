@@ -1,4 +1,4 @@
-// Стор блокнота: конфликт сохранения, выбор версии, ожидание сохранения перед запуском (#51).
+// Стор блокнота: конфликт сохранения, выбор версии, ожидание сохранения перед запуском.
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import type { Cell, NotebookPageData } from '@api/trpc';
 import {

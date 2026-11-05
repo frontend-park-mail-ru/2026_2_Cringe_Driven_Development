@@ -3,7 +3,7 @@ import type { NotebookContent } from './go/client.ts';
 
 /**
  * Данные страницы блокнота: результат `notebooks.get` и поле `notebookPage` bootstrap. Обёртка
- * `{ notebook }` — по frontend#37: рядом #51 добавит сессию и очередь исполнения.
+ * `{ notebook }` — чтобы рядом можно было добавить сессию и очередь исполнения.
  */
 export type NotebookPage = {
     notebook: {

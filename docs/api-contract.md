@@ -70,7 +70,7 @@ Cloud Mock отвечает фиксированно и не доказывае�
 
 Cloud Mock отвечает `412` (HTML прокси, не JSON мока) на `PATCH`/`DELETE`/`POST …/move`
 ячеек с `If-Match`, который требует контракт: изменения ячеек через него руками не проверить.
-Для этого есть `bun run dev:prism` (frontend#37): клиент и BFF как в `bun run dev`, а Go —
+Для этого есть `bun run dev:prism`: клиент и BFF как в `bun run dev`, а Go —
 [Prism](https://github.com/stoplightio/prism) на `http://127.0.0.1:4010` по `spec/openapi.json`.
 BFF получает `BFF_KEY=local-prism`, если ключ не задан: контракт требует `X-BFF-Key`, Prism
 проверяет только его наличие.
