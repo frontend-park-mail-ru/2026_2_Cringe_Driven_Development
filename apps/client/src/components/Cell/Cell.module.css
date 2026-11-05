@@ -120,6 +120,21 @@
     }
 }
 
+/* Код только для чтения (тач): без поля ввода, длинная строка прокручивается внутри */
+.static {
+    min-width: 0;
+    margin: 0;
+    font: var(--font-code);
+    color: var(--code-text);
+    white-space: pre;
+    tab-size: 4;
+    overflow-x: auto;
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
 /* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
 .preview {
     min-width: 0;

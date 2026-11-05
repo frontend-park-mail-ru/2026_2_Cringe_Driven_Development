@@ -45,6 +45,8 @@ interface CellProps {
     locked: boolean;
     /** Ячейка только что создана: Markdown сразу открывается для ввода */
     startEditing?: boolean;
+    /** Тач-устройство: только просмотр, без редактирования и структурных действий */
+    readOnly?: boolean;
     onInput: (text: string, composing: boolean) => void;
     /** Вставка из буфера обмена: страница может заменить её помещающейся частью */
     onPaste: (event: ClipboardEvent) => void;
@@ -79,6 +81,7 @@ export function Cell({
     canMoveDown,
     locked,
     startEditing = false,
+    readOnly = false,
     onInput,
     onPaste,
     onCommit,
@@ -97,12 +100,17 @@ export function Cell({
         refocus: startEditing,
     });
     // Больше лимита исходник не прячется за просмотром
-    const editing = isCode || mode.value === 'edit' || tooLarge;
+    const editing = !readOnly && (isCode || mode.value === 'edit' || tooLarge);
     const hintId = `${cellEditorId(cell.id)}-hint`;
 
     useLayoutEffect(() => {
         if (startEditing) setMode({ value: 'edit', refocus: true });
     }, [startEditing]);
+
+    // Устройство стало тачем посреди ввода: черновик сохраняет страница, ячейка — в просмотр
+    useLayoutEffect(() => {
+        if (readOnly) setMode({ value: 'view', refocus: false });
+    }, [readOnly]);
 
     useLayoutEffect(() => {
         if (!mode.refocus) return;
@@ -135,7 +143,9 @@ export function Cell({
         if (element) fitHeight(element);
     }, [text, cell.id, editing]);
 
-    const edit = () => setMode({ value: 'edit', refocus: true });
+    const edit = () => {
+        if (!readOnly) setMode({ value: 'edit', refocus: true });
+    };
 
     return (
         // Нажатие на любое место ячейки, кроме кнопок и ссылок, выбирает её: фокус — в редактор
@@ -150,6 +160,7 @@ export function Cell({
                 tooLarge && styles.tooLarge,
             )}
             onMouseDown={(event) => {
+                if (readOnly) return;
                 if ((event.target as Element).closest('button:enabled, textarea, a')) return;
                 event.preventDefault();
                 document.getElementById(cellEditorId(cell.id))?.focus();
@@ -167,7 +178,23 @@ export function Cell({
                 {isCode ? gutter : <span className={styles.kind}>Aa</span>}
             </div>
             <div key="body" className={styles.body}>
-                {editing ? (
+                {readOnly && isCode ? (
+                    <pre
+                        key="static"
+                        id={cellEditorId(cell.id)}
+                        className={styles.static}
+                        // прокручивается по горизонтали — с клавиатуры тоже
+                        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                        tabIndex={0}
+                        aria-label="Код ячейки"
+                    >
+                        {text || (
+                            <span key="empty" className={styles.empty}>
+                                {placeholder}
+                            </span>
+                        )}
+                    </pre>
+                ) : editing ? (
                     <textarea
                         key="editor"
                         id={cellEditorId(cell.id)}
@@ -225,7 +252,7 @@ export function Cell({
                         aria-readonly="true"
                         aria-multiline="true"
                         aria-label="Текст ячейки"
-                        aria-describedby={hintId}
+                        aria-describedby={readOnly ? undefined : hintId}
                         onFocus={onFocus}
                         onDoubleClick={edit}
                         onKeyDown={(event) => {
@@ -246,7 +273,7 @@ export function Cell({
                         )}
                     </div>
                 )}
-                {!isCode && (
+                {!isCode && !readOnly && (
                     <span key="hint" id={hintId} className={styles.hint}>
                         {editing
                             ? 'Shift+Enter или Esc — показать результат'
@@ -261,32 +288,34 @@ export function Cell({
                 )}
                 {below}
             </div>
-            <div key="actions" className={styles.actions}>
-                <IconButton
-                    key="up"
-                    icon="up"
-                    label="Переместить ячейку выше"
-                    className={styles.action}
-                    disabled={locked || !canMoveUp}
-                    onClick={onMoveUp}
-                />
-                <IconButton
-                    key="down"
-                    icon="down"
-                    label="Переместить ячейку ниже"
-                    className={styles.action}
-                    disabled={locked || !canMoveDown}
-                    onClick={onMoveDown}
-                />
-                <IconButton
-                    key="delete"
-                    icon="trash"
-                    label="Удалить ячейку"
-                    className={clsx(styles.action, styles.delete)}
-                    disabled={locked}
-                    onClick={onDelete}
-                />
-            </div>
+            {!readOnly && (
+                <div key="actions" className={styles.actions}>
+                    <IconButton
+                        key="up"
+                        icon="up"
+                        label="Переместить ячейку выше"
+                        className={styles.action}
+                        disabled={locked || !canMoveUp}
+                        onClick={onMoveUp}
+                    />
+                    <IconButton
+                        key="down"
+                        icon="down"
+                        label="Переместить ячейку ниже"
+                        className={styles.action}
+                        disabled={locked || !canMoveDown}
+                        onClick={onMoveDown}
+                    />
+                    <IconButton
+                        key="delete"
+                        icon="trash"
+                        label="Удалить ячейку"
+                        className={clsx(styles.action, styles.delete)}
+                        disabled={locked}
+                        onClick={onDelete}
+                    />
+                </div>
+            )}
         </div>
     );
 }
