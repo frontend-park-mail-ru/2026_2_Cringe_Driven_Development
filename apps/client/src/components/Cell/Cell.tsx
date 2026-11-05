@@ -7,10 +7,15 @@ import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
 function fitHeight(element: HTMLElement): void {
+    // Пока высота 'auto', страница не должна укорачиваться: браузер обрезал бы прокрутку, и экран
+    // прыгал бы на каждый ввод
+    const parent = element.parentElement;
+    if (parent) parent.style.minHeight = `${parent.offsetHeight}px`;
     element.style.height = 'auto';
     // полоса горизонтальной прокрутки кода не должна закрывать последнюю строку
     const scrollbar = element.offsetHeight - element.clientHeight;
     element.style.height = `${element.scrollHeight + scrollbar}px`;
+    if (parent) parent.style.minHeight = '';
 }
 
 /** Свойства {@link Cell}. */
