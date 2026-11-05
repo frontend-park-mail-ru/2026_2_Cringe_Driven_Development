@@ -35,6 +35,8 @@ interface CellProps {
     /** Выход из редактора или конец IME — сохранить сразу */
     onCommit: () => void;
     onFocus: () => void;
+    /** Фокус ушёл из ячейки: клик вне ячеек, Tab или Escape */
+    onLeave: () => void;
     onMoveUp: () => void;
     onMoveDown: () => void;
     onDelete: () => void;
@@ -62,6 +64,7 @@ export function Cell({
     onInput,
     onCommit,
     onFocus,
+    onLeave,
     onMoveUp,
     onMoveDown,
     onDelete,
@@ -94,9 +97,9 @@ export function Cell({
     }, [text, cell.id]);
 
     return (
-        // Клик по любому месту ячейки, кроме кнопок, выбирает её: фокус — в редактор. Это удобство для
-        // мыши: с клавиатуры редактор и кнопки и так достижимы по Tab
-        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        // Нажатие на любое место ячейки, кроме кнопок, выбирает её: фокус — в редактор, не уходя из
+        // ячейки. Это удобство для мыши: с клавиатуры редактор и кнопки и так достижимы по Tab
+        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
             className={clsx(
                 styles.cell,
@@ -104,9 +107,17 @@ export function Cell({
                 selected && styles.selected,
                 tooLarge && styles.tooLarge,
             )}
-            onClick={(event) => {
-                if ((event.target as Element).closest('button, textarea')) return;
+            onMouseDown={(event) => {
+                if ((event.target as Element).closest('button:enabled, textarea')) return;
+                event.preventDefault();
                 document.getElementById(cellEditorId(cell.id))?.focus();
+            }}
+            onBlurCapture={(event) => {
+                const next = event.relatedTarget as Node | null;
+                // удалённая ячейка: куда перейти, решает страница
+                if (!(event.target as Node).isConnected) return;
+                if (next && (event.currentTarget as Node).contains(next)) return;
+                onLeave();
             }}
         >
             <div key="gutter" className={styles.gutter}>

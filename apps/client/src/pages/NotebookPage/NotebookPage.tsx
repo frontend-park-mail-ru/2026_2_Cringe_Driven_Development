@@ -210,6 +210,12 @@ export function NotebookPage() {
             setFocusTarget({ id: created });
         });
     };
+    // На время запроса кнопки неактивны и фокус с нажатой молча уходит на body: возвращаем его в ячейку
+    const handleMove = (cellId: string, direction: -1 | 1) => {
+        void moveCell(cellId, direction).then(() => {
+            if (document.activeElement === document.body) setFocusTarget({ id: cellId });
+        });
+    };
     const handleDelete = (cellId: string) => {
         const index = cells.findIndex((cell) => cell.id === cellId);
         void deleteCell(cellId).then((deleted) => {
@@ -314,8 +320,13 @@ export function NotebookPage() {
                                             }
                                             onCommit={() => commitSource(row.cell.id)}
                                             onFocus={() => setSelected(row.cell.id)}
-                                            onMoveUp={() => void moveCell(row.cell.id, -1)}
-                                            onMoveDown={() => void moveCell(row.cell.id, 1)}
+                                            onLeave={() =>
+                                                setSelected((current) =>
+                                                    current === row.cell.id ? undefined : current,
+                                                )
+                                            }
+                                            onMoveUp={() => handleMove(row.cell.id, -1)}
+                                            onMoveDown={() => handleMove(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
                                         />
                                         {row.index < cells.length - 1 && (
