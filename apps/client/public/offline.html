@@ -4,13 +4,53 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="dark" />
-        <title>Нет сети — Cellestial</title>
+        <title>Нет подключения — Cellestial</title>
         <link rel="stylesheet" href="/offline.css" />
     </head>
     <body>
-        <h1>Нет сети или сервер недоступен</h1>
-        <p>Блокноты и личные данные без соединения недоступны.</p>
-        <!-- пустой href — исходный адрес: страница работает без скриптов -->
-        <a href="">Повторить</a>
+        <div class="space" aria-hidden="true">
+            <div class="stars"></div>
+            <div class="planet"></div>
+        </div>
+        <header class="header">
+            <span class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4.2" fill="#B9A4FF" />
+                    <ellipse
+                        cx="12"
+                        cy="12"
+                        rx="10.5"
+                        ry="4.2"
+                        transform="rotate(-24 12 12)"
+                        stroke="#8B6CFF"
+                        stroke-width="1.4"
+                    />
+                    <circle cx="20.9" cy="7.6" r="1.5" fill="#ECE9FF" />
+                </svg>
+                cellestial
+            </span>
+        </header>
+        <main class="block">
+            <svg
+                class="icon"
+                width="32"
+                height="32"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+            >
+                <circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3" />
+                <path
+                    d="M8 4.9v3.6M8 11v.1"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                />
+            </svg>
+            <h1>Нет подключения к интернету</h1>
+            <p>Проверьте подключение и попробуйте снова</p>
+            <!-- пустой href — исходный адрес: страница работает без скриптов -->
+            <a class="button" href="">Повторить</a>
+        </main>
     </body>
 </html>

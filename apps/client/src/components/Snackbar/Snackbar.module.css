@@ -2,10 +2,23 @@
     position: fixed;
     z-index: 10;
     left: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     width: max-content;
     max-width: calc(100vw - 32px);
     bottom: 24px;
     transform: translateX(-50%);
+
+    @media (max-width: 767px) {
+        left: 16px;
+        right: 16px;
+        align-items: stretch;
+        width: auto;
+        max-width: none;
+        transform: none;
+    }
 }
 
 .snackbar {
@@ -22,10 +35,13 @@
 }
 
 .icon {
+    flex: none;
     color: var(--color-error);
 }
 
 .text {
+    margin: 0;
+    overflow-wrap: anywhere;
     font: var(--font-caption);
     color: var(--color-text-primary);
 }
