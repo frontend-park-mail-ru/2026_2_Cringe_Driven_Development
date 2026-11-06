@@ -92,15 +92,23 @@ interface ListMarker {
     content: string;
 }
 
+// Ширина промежутка после маркера в колонках: табуляция — до следующей позиции, кратной 4
+function gapWidth(gap: string, from: number): number {
+    let width = from;
+    for (const char of gap) width += char === '\t' ? 4 - (width % 4) : 1;
+    return width - from;
+}
+
 function listMarker(line: string): ListMarker | null {
     const match = /^( {0,3})([-*+]|(\d{1,9})([.)]))([ \t]+|$)(.*)$/.exec(line);
     if (!match) return null;
     const [, lead = '', bullet = '', number, delimiter, gap = '', content = ''] = match;
+    const column = lead.length + bullet.length;
     return {
         ordered: number !== undefined,
         marker: delimiter ?? bullet,
         start: number === undefined ? 1 : Number(number),
-        indent: lead.length + bullet.length + Math.max(1, gap.length),
+        indent: column + Math.max(1, gapWidth(gap, column)),
         content,
     };
 }
@@ -480,14 +488,23 @@ function parseInline(text: string, depth: number): MdInline[] {
                 else {
                     flush();
                     const children = parseInline(text.slice(open + 1, brackets[open]), depth + 1);
-                    const link: MdInline = {
-                        type: 'link',
-                        href,
-                        external: /^https?:/i.test(href),
-                        children,
-                    };
-                    depths.set(link, 1 + depthOfItems(children));
-                    append(link);
+                    if (containsLink(children)) {
+                        // ссылка внутри ссылки недопустима: внутренняя остаётся ссылкой,
+                        // внешняя — текстом, как у markdown-it
+                        buffer += '[';
+                        flush();
+                        for (const child of children) append(child);
+                        buffer += text.slice(brackets[open], tailOfLink.end);
+                    } else {
+                        const link: MdInline = {
+                            type: 'link',
+                            href,
+                            external: /^https?:/i.test(href),
+                            children,
+                        };
+                        depths.set(link, 1 + depthOfItems(children));
+                        append(link);
+                    }
                 }
                 i = tailOfLink.end;
                 continue;
@@ -535,6 +552,13 @@ function parseInline(text: string, depth: number): MdInline[] {
     for (let node: ListNode | null = head; node; node = node.next) items.push(node.item);
     return finalize(items);
 }
+
+const containsLink = (nodes: MdInline[]): boolean =>
+    nodes.some(
+        (node) =>
+            node.type === 'link' ||
+            ((node.type === 'strong' || node.type === 'em') && containsLink(node.children)),
+    );
 
 // Глубина вложенности узлов выделения и ссылок: по ней дерево удерживается в пределах MAX_DEPTH
 const depths = new WeakMap<object, number>();

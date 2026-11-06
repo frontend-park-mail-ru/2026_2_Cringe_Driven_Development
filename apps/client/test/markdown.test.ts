@@ -4,6 +4,12 @@ import { parseMarkdown, safeHref, type MdBlock, type MdInline } from '@modules/m
 
 const text = (value: string): MdInline => ({ type: 'text', text: value });
 const paragraph = (...children: MdInline[]): MdBlock => ({ type: 'paragraph', children });
+const link = (href: string, label: string): MdInline => ({
+    type: 'link',
+    href,
+    external: false,
+    children: [text(label)],
+});
 
 test('заголовки и абзацы', () => {
     expect(parseMarkdown('# Лаба 3\nРеализуем спуск\nдальше\n\n## Функция')).toEqual([
@@ -37,6 +43,36 @@ test('списки', () => {
     expect(parseMarkdown('3. a\n4. b')[0]).toMatchObject({ type: 'list', ordered: true, start: 3 });
     expect(parseMarkdown('2) a')[0]).toMatchObject({ type: 'list', ordered: true, start: 2 });
     expect(parseMarkdown('* a\n+ b')[0]).toMatchObject({ type: 'list', ordered: false });
+});
+
+test('табуляция после маркера считается по колонкам', () => {
+    // содержимое начинается с колонки 4: два пробела — ещё не вложенность
+    expect(parseMarkdown('-\titem\n  - next')).toEqual([
+        {
+            type: 'list',
+            ordered: false,
+            start: 1,
+            items: [[paragraph(text('item'))], [paragraph(text('next'))]],
+        },
+    ]);
+    expect(parseMarkdown('-\titem\n    - nested')).toEqual([
+        {
+            type: 'list',
+            ordered: false,
+            start: 1,
+            items: [
+                [
+                    paragraph(text('item')),
+                    {
+                        type: 'list',
+                        ordered: false,
+                        start: 1,
+                        items: [[paragraph(text('nested'))]],
+                    },
+                ],
+            ],
+        },
+    ]);
 });
 
 test('цитаты и блоки кода', () => {
@@ -97,6 +133,15 @@ test('ссылки', () => {
             external: false,
             children: [{ type: 'strong', children: [text('ж')] }],
         }),
+    ]);
+});
+
+test('ссылка внутри ссылки: внешняя остаётся текстом', () => {
+    expect(parseMarkdown('[outer [inner](/x)](/y)')).toEqual([
+        paragraph(text('[outer '), link('/x', 'inner'), text('](/y)')),
+    ]);
+    expect(parseMarkdown('[a *[b](/x)*](/y)')).toEqual([
+        paragraph(text('[a '), { type: 'em', children: [link('/x', 'b')] }, text('](/y)')),
     ]);
 });
 
