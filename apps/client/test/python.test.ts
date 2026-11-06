@@ -102,6 +102,13 @@ test('спецификатор и комментарии в поле f-стро�
     expect(pick(`f"{x:"\ny = 1`, 'string')).toEqual([`f"{x:"`]);
     // комментарий в многострочном поле тройной f-строки (Python 3.12+)
     expect(pick(`f"""{x # it's\n}""" + 1`, 'string')).toEqual([`f"""{x # it's\n}"""`]);
+    // кавычки в комментарии — не начало вложенной строки
+    expect(tokenizePython('s = f"""{value # """ in comment\n}"""\nx = 1')).toEqual([
+        { type: 'text', text: 's = ' },
+        { type: 'string', text: 'f"""{value # """ in comment\n}"""' },
+        { type: 'text', text: '\nx = ' },
+        { type: 'number', text: '1' },
+    ]);
 });
 
 test('глубокая вложенность f-строк не переполняет стек', () => {
@@ -109,6 +116,8 @@ test('глубокая вложенность f-строк не переполн
         'f"{'.repeat(30_000),
         `f"{x:{`.repeat(20_000),
         'f\'{f"{'.repeat(15_000),
+        // закрытая вложенность в пределах лимита ячейки: 65 001 байт
+        'f"{'.repeat(13_000) + 'x' + '}"'.repeat(13_000),
     ]) {
         const tokens = tokenizePython(source);
         expect(join(tokens)).toBe(source);
