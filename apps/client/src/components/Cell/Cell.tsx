@@ -62,6 +62,8 @@ interface CellProps {
     gutter?: ReactNode;
     /** Под редактором: вывод и ошибки */
     below?: ReactNode;
+    /** Исполнение кодовой ячейки: выполняется сейчас или завершилось ошибкой — своя рамка */
+    run?: 'running' | 'failed';
 }
 
 /**
@@ -92,6 +94,7 @@ export function Cell({
     onDelete,
     gutter,
     below,
+    run,
 }: CellProps) {
     const isCode = cell.kind === 'code';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
@@ -156,6 +159,7 @@ export function Cell({
             className={clsx(
                 styles.cell,
                 isCode && styles.code,
+                run && styles[run],
                 selected && styles.selected,
                 tooLarge && styles.tooLarge,
             )}

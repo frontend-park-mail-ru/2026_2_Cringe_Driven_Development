@@ -145,6 +145,11 @@ vite берёт их оттуда.
 - `pages/` — страницы. `routes/` — маршруты и дерево `routeTree.ts`. `path` маршрута берётся из
   `PAGES` (`@cdd/bff/pages`): по этому списку BFF решает, куда вести прямой запрос страницы,
   поэтому новая страница добавляется сначала в `PAGES`.
+  `pages/NotebookPage/`: `Runtime.tsx` — баннер, кнопки окружения и колонка ▶ у ячейки; `status.ts` —
+  чистые функции, что показать по состоянию `runtime` и сохранения (тесты — `test/notebookStatus.test.ts`);
+  `Output.tsx` — вывод исполнения: текст — текстовыми узлами, PNG/SVG — через `<img>`, HTML — только в
+  `<iframe sandbox="">` через `srcdoc`. iframe наследует CSP страницы: встроенные стили HTML-вывода на проде
+  блокируются.
 - `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap; `notebook` — ячейки и сохранение; `runtime` — окружение, исполнение и единая цепочка опроса `runtime.updates`.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.

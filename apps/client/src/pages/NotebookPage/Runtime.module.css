@@ -1,11 +1,23 @@
 .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-left: auto;
+
+    /* Телефон: кнопки слева и переносятся, как в макете 360/430 */
+    @media (max-width: 860px) {
+        margin-left: 0;
+    }
 }
 
 .button {
     flex: none;
+}
+
+/* В панели шапки кнопки 36 px, как поиск и чипы (Header → Toolbar) */
+.actions > .button {
+    height: 36px;
+    padding: 0 16px 0 12px;
 }
 
 .banner {
@@ -14,7 +26,7 @@
     gap: 12px;
     padding: 16px 20px;
     border-radius: 16px;
-    background: var(--color-surface);
+    background: var(--color-surface-hover);
     box-shadow: inset 0 0 0 1px var(--color-border);
 
     &.error {
@@ -24,12 +36,17 @@
 }
 
 .icon {
+    flex: none;
     align-self: flex-start;
     margin-top: 4px;
     color: var(--color-primary-text);
 
     .error & {
         color: var(--color-error);
+    }
+
+    .muted & {
+        color: var(--color-text-secondary);
     }
 }
 
@@ -51,26 +68,29 @@
     color: var(--color-text-secondary);
 }
 
-/* ▶ и индикаторы очереди — круг 24 px в левой колонке ячейки */
+/* ▶ и индикаторы очереди — круг 28 px в левой колонке ячейки */
 .run,
 .indicator {
     display: flex;
+    flex: none;
     justify-content: center;
     align-items: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: var(--color-surface-hover);
-    color: var(--color-text-primary);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 .run {
     cursor: pointer;
 
     &:hover:not(:disabled) {
-        background: var(--color-surface-pressed);
+        background: var(--color-surface-hover);
+        color: var(--color-text-primary);
     }
 
     &:focus-visible {
@@ -85,14 +105,14 @@
 }
 
 .running {
+    background: var(--color-surface-hover);
     color: var(--color-primary-text);
-    box-shadow: inset 0 0 0 1px var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-focus);
 }
 
 .queued {
     background: none;
-    color: var(--color-text-secondary);
-    box-shadow: inset 0 0 0 1px var(--color-border-control);
+    box-shadow: none;
     outline: 1px dashed var(--color-border-control);
     outline-offset: -1px;
 }
@@ -111,19 +131,34 @@
     color: var(--color-error);
 }
 
+.unknown {
+    color: var(--color-warning);
+}
+
 .state {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 0;
     padding: 12px;
     border-radius: 8px;
     background: var(--color-code-bg);
     font: var(--font-caption);
     color: var(--color-text-secondary);
+
+    /* итог без вывода об ошибке: цвет строки — по итогу */
+    &.failed {
+        color: var(--color-error);
+    }
+
+    &.unknown {
+        color: var(--color-warning);
+    }
 }
 
-.stateError {
-    color: var(--color-error);
+/* Иконка «Выполняется» — цвета акцента, текст строки — вторичный */
+.state > .spin {
+    color: var(--color-primary-text);
 }
 
 .spin {

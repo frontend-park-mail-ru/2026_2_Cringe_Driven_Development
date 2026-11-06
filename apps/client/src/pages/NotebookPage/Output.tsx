@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from '@cdd-team/react';
+import { Icon } from '@components/Icon/Icon';
 import styles from './Output.module.css';
 
 /** Вывод ячейки в формате nbformat: недоверенные данные. */
@@ -103,6 +104,7 @@ function OutputView({ shown }: { shown: Shown }) {
             return (
                 <div className={styles.error}>
                     <p key="title" className={styles.errorTitle}>
+                        <Icon key="icon" name="alert" />
                         Ошибка выполнения
                     </p>
                     <pre key="traceback" className={styles.traceback}>
@@ -117,6 +119,7 @@ function OutputView({ shown }: { shown: Shown }) {
         case 'unsupported':
             return (
                 <p className={styles.unsupported}>
+                    <Icon key="icon" name="alert" />
                     Формат вывода не поддерживается
                     {shown.mimes.length > 0 && (
                         <code key="mime" className={styles.mime}>

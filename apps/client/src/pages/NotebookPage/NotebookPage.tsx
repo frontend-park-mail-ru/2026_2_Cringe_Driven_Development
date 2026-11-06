@@ -7,7 +7,7 @@ import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
-import { SaveStatus, type SaveStatusTone } from '@components/SaveStatus/SaveStatus';
+import { SaveStatus } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
@@ -25,7 +25,6 @@ import {
     structureLocked,
     useNotebookStore,
     type Orphan,
-    type SaveStatus as SaveState,
 } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import {
@@ -41,14 +40,8 @@ import { plural } from '@utils/plural';
 import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
-import {
-    RunGutter,
-    RunState,
-    RuntimeActions,
-    RuntimeBanner,
-    runningCell,
-    runtimeStatus,
-} from './Runtime';
+import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
+import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -70,14 +63,6 @@ async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | 
         return code === 'NOT_FOUND' || code === 'BAD_REQUEST' ? 'missing' : undefined;
     }
 }
-
-const STATUS: Partial<Record<SaveState, { tone: SaveStatusTone; text: string }>> = {
-    dirty: { tone: 'error', text: 'Изменения не сохранены' },
-    saving: { tone: 'progress', text: 'Сохраняем…' },
-    saved: { tone: 'success', text: 'Сохранено' },
-    error: { tone: 'error', text: 'Не удалось сохранить изменения' },
-    conflict: { tone: 'error', text: 'Конфликт сохранения: файл изменён в другой вкладке' },
-};
 
 // «+ Код» в шапке: есть всегда, в том числе в пустом блокноте
 const ADD_CODE_ID = 'add-code';
@@ -141,6 +126,42 @@ function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
                 Текст
             </Chip>
         </>
+    );
+}
+
+type CellProps = Parameters<typeof Cell>[0];
+
+// Ячейка с исполнением: у кодовой — ▶ и счётчик слева, состояние и выводы под кодом
+function CodeOrText({
+    run,
+    ...props
+}: Omit<CellProps, 'gutter' | 'below' | 'run'> & { run?: CellRun }) {
+    const { cell } = props;
+    if (cell.kind !== 'code' || !run) return <Cell {...props} />;
+    return (
+        <Cell
+            {...props}
+            run={
+                run.indicator === 'running'
+                    ? 'running'
+                    : run.result === 'failed'
+                      ? 'failed'
+                      : undefined
+            }
+            gutter={<RunGutter cellId={cell.id} executionCount={cell.execution_count} run={run} />}
+            below={
+                <>
+                    <RunState key="state" run={run} />
+                    {run.outputs && (
+                        <Outputs
+                            key="outputs"
+                            outputs={cell.outputs as NbOutput[]}
+                            truncated={cell.output_truncated}
+                        />
+                    )}
+                </>
+            }
+        />
     );
 }
 
@@ -279,10 +300,9 @@ export function NotebookPage() {
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error' && !touch;
     const execution = ready ? runtimeStatus(runtime) : undefined;
-    // «Сохранено» не перекрывает выполнение и его итог; проблемы сохранения видны рядом
-    const status =
-        ready && !(execution && notebook.status === 'saved') ? STATUS[notebook.status] : undefined;
-    const runningId = execution?.text === 'Выполняется' ? runningCell(runtime) : undefined;
+    // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
+    const status = ready ? saveStatus(notebook.status, runtime) : undefined;
+    const runningId = execution?.cell;
     const hasCode = cells.some((cell) => cell.kind === 'code');
     const title =
         load === 'loading'
@@ -421,8 +441,18 @@ export function NotebookPage() {
                                     </li>
                                 ) : (
                                     <li key={row.cell.id}>
-                                        <Cell
+                                        <CodeOrText
+                                            key="cell"
                                             cell={row.cell}
+                                            run={
+                                                row.cell.kind === 'code'
+                                                    ? cellRun(runtime, {
+                                                          id: row.cell.id,
+                                                          executionCount: row.cell.execution_count,
+                                                          outputs: row.cell.outputs,
+                                                      })
+                                                    : undefined
+                                            }
                                             text={notebook.drafts[row.cell.id] ?? row.cell.source}
                                             selected={selected === row.cell.id}
                                             tooLarge={notebook.tooLarge[row.cell.id] === true}
@@ -445,29 +475,6 @@ export function NotebookPage() {
                                             onMoveUp={() => handleMove(row.cell.id, -1)}
                                             onMoveDown={() => handleMove(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
-                                            gutter={
-                                                row.cell.kind === 'code' && (
-                                                    <RunGutter
-                                                        cellId={row.cell.id}
-                                                        executionCount={row.cell.execution_count}
-                                                    />
-                                                )
-                                            }
-                                            below={
-                                                row.cell.kind === 'code' && (
-                                                    <>
-                                                        <RunState
-                                                            key="state"
-                                                            cellId={row.cell.id}
-                                                        />
-                                                        <Outputs
-                                                            key="outputs"
-                                                            outputs={row.cell.outputs as NbOutput[]}
-                                                            truncated={row.cell.output_truncated}
-                                                        />
-                                                    </>
-                                                )
-                                            }
                                         />
                                         {!touch && row.index < cells.length - 1 && (
                                             <div key="insert" className={styles.insert}>

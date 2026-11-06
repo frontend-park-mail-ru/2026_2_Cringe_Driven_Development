@@ -7,12 +7,16 @@ import DotIcon from '@assets/icons/dot.svg?react';
 import DownIcon from '@assets/icons/down.svg?react';
 import EyeIcon from '@assets/icons/eye.svg?react';
 import EyeSlashIcon from '@assets/icons/eye-slash.svg?react';
+import FileIcon from '@assets/icons/file.svg?react';
+import HelpIcon from '@assets/icons/help.svg?react';
 import InfoIcon from '@assets/icons/info.svg?react';
 import LogoutIcon from '@assets/icons/logout.svg?react';
+import OrbitIcon from '@assets/icons/orbit.svg?react';
 import PencilIcon from '@assets/icons/pencil.svg?react';
 import PlayIcon from '@assets/icons/play.svg?react';
 import PlusIcon from '@assets/icons/plus.svg?react';
 import SpinnerIcon from '@assets/icons/spinner.svg?react';
+import SquareIcon from '@assets/icons/square.svg?react';
 import StopIcon from '@assets/icons/stop.svg?react';
 import TrashIcon from '@assets/icons/trash.svg?react';
 import UpIcon from '@assets/icons/up.svg?react';
@@ -38,6 +42,10 @@ const ICONS = {
     down: DownIcon,
     play: PlayIcon,
     stop: StopIcon,
+    orbit: OrbitIcon,
+    help: HelpIcon,
+    square: SquareIcon,
+    file: FileIcon,
 };
 
 /** Имя иконки из макета. */
