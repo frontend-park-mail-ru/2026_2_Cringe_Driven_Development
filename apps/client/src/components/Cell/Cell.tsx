@@ -3,6 +3,7 @@ import type { Cell as CellData } from '@api/trpc';
 import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
+import { Python } from '@modules/python/Python';
 import { clsx } from '@cdd-team/clsx';
 import styles from './Cell.module.css';
 
@@ -17,6 +18,12 @@ function fitHeight(element: HTMLElement): void {
     const scrollbar = element.offsetHeight - element.clientHeight;
     element.style.height = `${element.scrollHeight + scrollbar}px`;
     if (parent) parent.style.minHeight = '';
+}
+
+// Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой
+function syncHighlight(editor: HTMLTextAreaElement): void {
+    const highlight = editor.previousElementSibling;
+    if (highlight instanceof HTMLElement) highlight.style.translate = `${-editor.scrollLeft}px 0`;
 }
 
 const editorOf = (id: string): HTMLTextAreaElement | null => {
@@ -67,7 +74,8 @@ interface CellProps {
 /**
  * Ячейка блокнота (Components → Cell): редактор исходника и кнопки перемещения и удаления.
  * Исходник — обычный текст в textarea: растёт по содержимому, длинная строка кода прокручивается
- * внутри редактора, Markdown переносится. Markdown-ячейка вне редактирования показывает просмотр:
+ * внутри редактора, Markdown переносится. Код подсвечен: под прозрачным текстом textarea лежит
+ * {@link Python} с тем же исходником, на тач-устройствах он же — без поля ввода. Markdown-ячейка вне редактирования показывает просмотр:
  * двойной клик или Enter открывают исходник, Shift+Enter, Esc и уход фокуса возвращают просмотр.
  * @param props свойства ячейки
  * @returns ячейка
@@ -140,12 +148,61 @@ export function Cell({
 
     useLayoutEffect(() => {
         const element = editorOf(cell.id);
-        if (element) fitHeight(element);
-    }, [text, cell.id, editing]);
+        if (!element) return;
+        fitHeight(element);
+        if (isCode) syncHighlight(element);
+    }, [text, cell.id, editing, isCode]);
 
     const edit = () => {
         if (!readOnly) setMode({ value: 'edit', refocus: true });
     };
+
+    const editor = (
+        <textarea
+            key="editor"
+            id={cellEditorId(cell.id)}
+            className={styles.editor}
+            value={text}
+            placeholder={placeholder}
+            rows={1}
+            wrap={isCode ? 'off' : 'soft'}
+            aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
+            aria-describedby={isCode ? undefined : hintId}
+            aria-invalid={tooLarge}
+            onFocus={() => {
+                // исходник больше лимита виден и без режима: фокус в нём — редактирование
+                if (!isCode && mode.value !== 'edit') setMode({ value: 'edit', refocus: false });
+                onFocus();
+            }}
+            onBlur={onCommit}
+            onPaste={onPaste}
+            onScroll={(event) => {
+                if (isCode) syncHighlight(event.target as HTMLTextAreaElement);
+            }}
+            onInput={(event) =>
+                onInput(
+                    (event.target as HTMLTextAreaElement).value,
+                    (event as InputEvent).isComposing,
+                )
+            }
+            onCompositionEnd={(event) => {
+                onInput((event.target as HTMLTextAreaElement).value, false);
+                onCommit();
+            }}
+            onKeyDown={(event) => {
+                if (isCode) {
+                    if (event.key === 'Escape') (event.target as HTMLTextAreaElement).blur();
+                    return;
+                }
+                if (event.isComposing) return;
+                const leave = event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey);
+                if (!leave) return;
+                event.preventDefault();
+                onCommit();
+                if (!tooLarge) setMode({ value: 'view', refocus: true });
+            }}
+        />
+    );
 
     return (
         // Нажатие на любое место ячейки, кроме кнопок и ссылок, выбирает её: фокус — в редактор
@@ -196,57 +253,24 @@ export function Cell({
                         aria-label="Код ячейки"
                         onFocus={onFocus}
                     >
-                        {text || (
+                        {text ? (
+                            <Python key="code" source={text} />
+                        ) : (
                             <span key="empty" className={styles.empty}>
                                 {placeholder}
                             </span>
                         )}
                     </pre>
+                ) : editing && isCode ? (
+                    // Ввод — в той же textarea, её текст прозрачный: виден подсвеченный исходник под ней
+                    <div key="code" className={styles.codeEditor}>
+                        <pre key="highlight" className={styles.highlight} aria-hidden="true">
+                            <Python key="code" source={text} />
+                        </pre>
+                        {editor}
+                    </div>
                 ) : editing ? (
-                    <textarea
-                        key="editor"
-                        id={cellEditorId(cell.id)}
-                        className={styles.editor}
-                        value={text}
-                        placeholder={placeholder}
-                        rows={1}
-                        wrap={isCode ? 'off' : 'soft'}
-                        aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
-                        aria-describedby={isCode ? undefined : hintId}
-                        aria-invalid={tooLarge}
-                        onFocus={() => {
-                            // исходник больше лимита виден и без режима: фокус в нём — редактирование
-                            if (!isCode && mode.value !== 'edit')
-                                setMode({ value: 'edit', refocus: false });
-                            onFocus();
-                        }}
-                        onBlur={onCommit}
-                        onPaste={onPaste}
-                        onInput={(event) =>
-                            onInput(
-                                (event.target as HTMLTextAreaElement).value,
-                                (event as InputEvent).isComposing,
-                            )
-                        }
-                        onCompositionEnd={(event) => {
-                            onInput((event.target as HTMLTextAreaElement).value, false);
-                            onCommit();
-                        }}
-                        onKeyDown={(event) => {
-                            if (isCode) {
-                                if (event.key === 'Escape')
-                                    (event.target as HTMLTextAreaElement).blur();
-                                return;
-                            }
-                            if (event.isComposing) return;
-                            const leave =
-                                event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey);
-                            if (!leave) return;
-                            event.preventDefault();
-                            onCommit();
-                            if (!tooLarge) setMode({ value: 'view', refocus: true });
-                        }}
-                    />
+                    editor
                 ) : (
                     <div
                         key="preview"

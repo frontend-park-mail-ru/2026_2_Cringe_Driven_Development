@@ -1,6 +1,7 @@
 import type { NotebookSummary } from '@api/trpc';
 import { clsx } from '@cdd-team/clsx';
 import { Link } from '@cdd-team/router';
+import { Python } from '@modules/python/Python';
 import { timeAgo } from '@utils/date';
 import { plural } from '@utils/plural';
 import styles from './NotebookCard.module.css';
@@ -19,9 +20,6 @@ const PREVIEW_CODE = `def step(w, grad, lr=0.01):
 
 for epoch in range(200):
     w = step(w, loss_grad(w, X, y))`;
-
-/** Части превью. */
-const PREVIEW_PARTS = PREVIEW_CODE.split(/\b(def|return|for|in|\d+(?:\.\d+)?)\b/);
 
 /**
  * Свечение под курсором: координаты уходят в CSS-переменные карточки.
@@ -52,18 +50,7 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
         >
             <div key="peek" className={styles.peek} aria-hidden="true">
                 <pre className={styles.code}>
-                    {PREVIEW_PARTS.map((part, index) =>
-                        index % 2 === 0 ? (
-                            part
-                        ) : (
-                            <span
-                                key={index}
-                                className={/\d/.test(part) ? styles.number : styles.keyword}
-                            >
-                                {part}
-                            </span>
-                        ),
-                    )}
+                    <Python key="code" source={PREVIEW_CODE} />
                 </pre>
             </div>
             <div key="body" className={styles.body}>

@@ -76,10 +76,39 @@
 }
 
 .code .editor {
-    color: var(--code-text);
+    position: relative;
+    /* Текст рисует подсветка под полем: от textarea видны курсор, выделение и placeholder */
+    color: transparent;
+    caret-color: var(--code-text);
     white-space: pre;
+    tab-size: 4;
     overflow-wrap: normal;
     overflow-x: auto;
+
+    &::selection {
+        color: transparent;
+        background: color-mix(in srgb, var(--color-focus) 30%, transparent);
+    }
+}
+
+/* Поле кода и подсветка под ним: метрики текста совпадают, иначе курсор разойдётся с символами */
+.codeEditor {
+    position: relative;
+    overflow: clip;
+}
+
+/* Сдвиг по горизонтальной прокрутке поля задаёт Cell.tsx */
+.highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    min-width: 100%;
+    margin: 0;
+    font: var(--font-code);
+    color: var(--code-text);
+    white-space: pre;
+    tab-size: 4;
+    pointer-events: none;
 }
 
 /* Полоса под длинной строкой кода (Cell → Long line): 6 px, на 8 px ниже кода */
