@@ -19,6 +19,19 @@
         padding-left: 24px;
     }
 
+    /* просмотр лежит в списке ячеек: без явного типа верхний список получил бы маркер вложенного */
+    & ul {
+        list-style-type: disc;
+    }
+
+    & ol {
+        list-style-type: decimal;
+    }
+
+    & li ul {
+        list-style-type: circle;
+    }
+
     /* li остаётся list-item: у flex-пункта пропал бы маркер */
     & li > * + * {
         margin-top: 8px;
@@ -31,6 +44,7 @@
 
 .h1 {
     font: var(--font-title);
+    letter-spacing: var(--tracking-title);
 }
 
 .h2 {
@@ -64,6 +78,45 @@
 
     & > code {
         font: inherit;
+    }
+}
+
+/* Полоса длинной строки — как у редактора кода: 6 px, на 6 px выше нижнего края блока */
+@media (pointer: fine) {
+    .code::-webkit-scrollbar {
+        height: 12px;
+    }
+
+    /* Отступ — прозрачная нижняя рамка: внизу радиус больше на её 6 px, видимая полоса — ровная
+       «таблетка» с радиусом 3 px */
+    .code::-webkit-scrollbar-track,
+    .code::-webkit-scrollbar-thumb {
+        border-bottom: 6px solid transparent;
+        border-radius: 3px / 3px 3px 9px 9px;
+    }
+
+    .code::-webkit-scrollbar-track {
+        margin-inline: 12px;
+        background: var(--color-surface) padding-box;
+    }
+
+    .code::-webkit-scrollbar-thumb {
+        background: var(--color-text-disabled) padding-box;
+    }
+
+    .code::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-text-secondary);
+    }
+
+    .code::-webkit-scrollbar-thumb:active {
+        background-color: var(--color-primary);
+    }
+
+    @supports (-moz-appearance: none) {
+        .code {
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-disabled) var(--color-surface);
+        }
     }
 }
 
