@@ -10,8 +10,10 @@ import EyeSlashIcon from '@assets/icons/eye-slash.svg?react';
 import InfoIcon from '@assets/icons/info.svg?react';
 import LogoutIcon from '@assets/icons/logout.svg?react';
 import PencilIcon from '@assets/icons/pencil.svg?react';
+import PlayIcon from '@assets/icons/play.svg?react';
 import PlusIcon from '@assets/icons/plus.svg?react';
 import SpinnerIcon from '@assets/icons/spinner.svg?react';
+import StopIcon from '@assets/icons/stop.svg?react';
 import TrashIcon from '@assets/icons/trash.svg?react';
 import UpIcon from '@assets/icons/up.svg?react';
 import UserIcon from '@assets/icons/user.svg?react';
@@ -34,6 +36,8 @@ const ICONS = {
     spinner: SpinnerIcon,
     up: UpIcon,
     down: DownIcon,
+    play: PlayIcon,
+    stop: StopIcon,
 };
 
 /** Имя иконки из макета. */

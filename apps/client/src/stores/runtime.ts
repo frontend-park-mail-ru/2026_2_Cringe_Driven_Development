@@ -73,6 +73,8 @@ interface RuntimeState {
     /** Команда, чьё принятие ещё не разрешилось: второе нажатие не создаёт второй запуск */
     busy: 'start' | 'execute' | 'stop' | null;
     error: RuntimeError | null;
+    /** Окружение не запустилось: отказ Go, а не сбой связи */
+    startFailed: boolean;
     /** Растёт при каждой ошибке команды: страница снова показывает сообщение */
     failure: number;
     /** Последний вызов runtime.updates не удался: экран прежний, опрос повторяется */
@@ -91,6 +93,7 @@ const empty = (): RuntimeState => ({
     outcome: null,
     busy: null,
     error: null,
+    startFailed: false,
     failure: 0,
     linkLost: false,
     ready: 0,
@@ -406,7 +409,7 @@ export async function startRuntime(): Promise<void> {
     if (notebookId === null || busy !== null || sessionActive(session)) return;
     startRequest ??= crypto.randomUUID();
     const started = generation;
-    set({ busy: 'start', error: null });
+    set({ busy: 'start', error: null, startFailed: false });
     try {
         const created = await trpc.runtime.start.mutate({ notebookId, requestId: startRequest });
         if (started !== generation) return;
@@ -421,7 +424,7 @@ export async function startRuntime(): Promise<void> {
         const current = isRpcError(error) ? error.data?.activeSession : undefined;
         // состояние могло измениться после первоначальной загрузки: показываем занятую сессию
         if (current) return observe(current);
-        fail(errorOf(error));
+        set({ startFailed: true });
     }
 }
 

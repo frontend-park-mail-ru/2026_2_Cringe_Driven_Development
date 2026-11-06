@@ -1,0 +1,85 @@
+.outputs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Длинная строка вывода прокручивается внутри блока, страница и редактор на месте */
+.text,
+.stderr {
+    margin: 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--color-code-bg);
+    font: var(--font-code);
+    color: var(--code-text);
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.stderr {
+    color: var(--color-warning);
+}
+
+.error {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--color-code-bg);
+    box-shadow: inset 0 0 0 1px var(--color-error);
+}
+
+.errorTitle {
+    font: var(--font-caption);
+    color: var(--color-error);
+}
+
+.traceback {
+    margin: 0;
+    font: var(--font-code);
+    color: var(--color-error);
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    background: var(--color-text-primary);
+}
+
+.html {
+    display: block;
+    width: 100%;
+    height: 240px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--color-text-primary);
+}
+
+.unsupported {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--color-border-hover);
+}
+
+.mime {
+    font: var(--font-code);
+    color: var(--color-text-disabled);
+}
+
+.note {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}

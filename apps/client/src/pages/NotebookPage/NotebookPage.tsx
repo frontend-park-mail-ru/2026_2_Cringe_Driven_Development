@@ -28,10 +28,27 @@ import {
     type SaveStatus as SaveState,
 } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
+import {
+    closeRuntime,
+    openRuntime,
+    retryCommand,
+    useRuntimeStore,
+    type RuntimeError,
+} from '@stores/runtime';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
+import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
 import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
+import { Outputs, type NbOutput } from './Output';
+import {
+    RunGutter,
+    RunState,
+    RuntimeActions,
+    RuntimeBanner,
+    runningCell,
+    runtimeStatus,
+} from './Runtime';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -69,6 +86,15 @@ const ERRORS = {
     save: 'Не удалось сохранить изменения',
     too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
+};
+
+const RUNTIME_ERRORS: Record<RuntimeError, string> = {
+    network: 'Не удалось отправить команду окружению',
+    queue_full: 'Очередь исполнения переполнена — повторите позже',
+    unavailable: 'Окружение сейчас недоступно',
+    conflict: 'Код ячейки изменился — проверьте его и запустите снова',
+    too_large: 'Превышен размер ячейки — максимум 64 КиБ',
+    failed: 'Не удалось выполнить команду окружения',
 };
 
 const PASTE_NOTICE_MS = 4000;
@@ -150,6 +176,7 @@ export function NotebookPage() {
     // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
     const touch = useTouchDevice();
     const notebook = useNotebookStore();
+    const runtime = useRuntimeStore();
 
     // до первой отрисовки: блокнот из bootstrap открывается в сторе без мигания скелетона
     useLayoutEffect(() => {
@@ -157,6 +184,7 @@ export function NotebookPage() {
         const first = takePreloadedNotebook(id);
         if (first) {
             openNotebook(first);
+            openRuntime(first);
             setLoad('ready');
             return () => {
                 alive = false;
@@ -172,6 +200,7 @@ export function NotebookPage() {
             }
             if (page) {
                 openNotebook(page);
+                openRuntime(page);
                 setLoad('ready');
                 return;
             }
@@ -188,7 +217,14 @@ export function NotebookPage() {
     }, [id, attempt, navigate]);
 
     // уход со страницы: несохранённое отправляется сразу, очередь дорабатывает в фоне
-    useEffect(() => () => leaveNotebook(), [id]);
+    // окружение при уходе не останавливается: прекращается только опрос этой страницы
+    useEffect(
+        () => () => {
+            leaveNotebook();
+            closeRuntime();
+        },
+        [id],
+    );
     // стал тачем посреди ввода: редакторы пропадают, черновики отправляются сразу
     useLayoutEffect(() => {
         if (touch) leaveNotebook();
@@ -213,6 +249,23 @@ export function NotebookPage() {
         return () => hideSnackbar(shown);
     }, [notebook.error, notebook.failure]);
 
+    useEffect(() => {
+        if (!runtime.error) return;
+        const shown =
+            runtime.error === 'network'
+                ? showSnackbar(RUNTIME_ERRORS.network, {
+                      label: 'Повторить',
+                      onClick: () => void retryCommand(),
+                  })
+                : showSnackbar(RUNTIME_ERRORS[runtime.error]);
+        return () => hideSnackbar(shown);
+    }, [runtime.error, runtime.failure]);
+
+    // готовность окружения — отдельным уведомлением, не статусом сохранения
+    useEffect(() => {
+        if (runtime.ready > 0) showToast('Окружение готово');
+    }, [runtime.ready]);
+
     // До отрисовки: иначе мелькнёт кадр, где ячейка уже есть, а фокус и выделение — ещё на прежней
     useLayoutEffect(() => {
         if (!focusTarget) return;
@@ -225,7 +278,12 @@ export function NotebookPage() {
     const locked = structureLocked(notebook);
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error' && !touch;
-    const status = ready ? STATUS[notebook.status] : undefined;
+    const execution = ready ? runtimeStatus(runtime) : undefined;
+    // «Сохранено» не перекрывает выполнение и его итог; проблемы сохранения видны рядом
+    const status =
+        ready && !(execution && notebook.status === 'saved') ? STATUS[notebook.status] : undefined;
+    const runningId = execution?.text === 'Выполняется' ? runningCell(runtime) : undefined;
+    const hasCode = cells.some((cell) => cell.kind === 'code');
     const title =
         load === 'loading'
             ? 'Загрузка блокнота…'
@@ -272,12 +330,18 @@ export function NotebookPage() {
                 <Header
                     key="header"
                     toolbar={
-                        hasToolbar && (
-                            <AddCellChips
-                                codeId={ADD_CODE_ID}
-                                disabled={!ready || locked}
-                                onAdd={handleAdd}
-                            />
+                        load !== 'error' && (
+                            <>
+                                {hasToolbar && (
+                                    <AddCellChips
+                                        key="chips"
+                                        codeId={ADD_CODE_ID}
+                                        disabled={!ready || locked}
+                                        onAdd={handleAdd}
+                                    />
+                                )}
+                                {ready && <RuntimeActions key="runtime" hasCode={hasCode} />}
+                            </>
                         )
                     }
                 >
@@ -303,6 +367,23 @@ export function NotebookPage() {
                                 <span key="count">
                                     {plural(cells.length, 'ячейка', 'ячейки', 'ячеек')}
                                 </span>
+                                {execution && (
+                                    <SaveStatus
+                                        key="run"
+                                        tone={execution.tone}
+                                        text={execution.text}
+                                    />
+                                )}
+                                {runningId && (
+                                    <button
+                                        key="goto"
+                                        type="button"
+                                        className={styles.goto}
+                                        onClick={() => focusCell(runningId)}
+                                    >
+                                        Перейти к ячейке
+                                    </button>
+                                )}
                                 {status && (
                                     <SaveStatus
                                         key="status"
@@ -328,6 +409,7 @@ export function NotebookPage() {
                         ))}
                     </ul>
                 )}
+                {ready && <RuntimeBanner key="runtime" className={styles.column} />}
                 {ready && <ConflictBanner key="conflict" className={styles.column} />}
                 {ready && !isEmpty && (
                     <div key="body" className={clsx(styles.body, styles.column)}>
@@ -363,6 +445,29 @@ export function NotebookPage() {
                                             onMoveUp={() => handleMove(row.cell.id, -1)}
                                             onMoveDown={() => handleMove(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
+                                            gutter={
+                                                row.cell.kind === 'code' && (
+                                                    <RunGutter
+                                                        cellId={row.cell.id}
+                                                        executionCount={row.cell.execution_count}
+                                                    />
+                                                )
+                                            }
+                                            below={
+                                                row.cell.kind === 'code' && (
+                                                    <>
+                                                        <RunState
+                                                            key="state"
+                                                            cellId={row.cell.id}
+                                                        />
+                                                        <Outputs
+                                                            key="outputs"
+                                                            outputs={row.cell.outputs as NbOutput[]}
+                                                            truncated={row.cell.output_truncated}
+                                                        />
+                                                    </>
+                                                )
+                                            }
                                         />
                                         {!touch && row.index < cells.length - 1 && (
                                             <div key="insert" className={styles.insert}>
