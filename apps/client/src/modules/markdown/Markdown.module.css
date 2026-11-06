@@ -1,0 +1,139 @@
+/* Просмотр Markdown-ячейки (04. Блокнот / Markdown: просмотр): блоки через 8 px, текст переносится */
+.markdown {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    font: var(--font-body);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+
+    & :is(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre) {
+        margin: 0;
+    }
+
+    & :is(ul, ol) {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-left: 24px;
+    }
+
+    /* просмотр лежит в списке ячеек: без явного типа верхний список получил бы маркер вложенного */
+    & ul {
+        list-style-type: disc;
+    }
+
+    & ol {
+        list-style-type: decimal;
+    }
+
+    & li ul {
+        list-style-type: circle;
+    }
+
+    /* li остаётся list-item: у flex-пункта пропал бы маркер */
+    & li > * + * {
+        margin-top: 8px;
+    }
+
+    & li::marker {
+        color: var(--color-text-secondary);
+    }
+}
+
+.h1 {
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+}
+
+.h2 {
+    font: 600 20px / 28px var(--font-sans);
+}
+
+.minor {
+    font: var(--font-body-accent);
+}
+
+.quote {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+/* Длинная строка прокручивается внутри блока, страница по ширине не растёт */
+.code {
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--color-code-bg);
+    font: var(--font-code);
+    color: var(--code-text);
+    white-space: pre;
+    tab-size: 4;
+    overflow-x: auto;
+    overflow-wrap: normal;
+
+    & > code {
+        font: inherit;
+    }
+}
+
+/* Полоса длинной строки — как у редактора кода: 6 px, на 6 px выше нижнего края блока */
+@media (pointer: fine) {
+    .code::-webkit-scrollbar {
+        height: 12px;
+    }
+
+    /* Отступ — прозрачная нижняя рамка: внизу радиус больше на её 6 px, видимая полоса — ровная
+       «таблетка» с радиусом 3 px */
+    .code::-webkit-scrollbar-track,
+    .code::-webkit-scrollbar-thumb {
+        border-bottom: 6px solid transparent;
+        border-radius: 3px / 3px 3px 9px 9px;
+    }
+
+    .code::-webkit-scrollbar-track {
+        margin-inline: 12px;
+        background: var(--color-surface) padding-box;
+    }
+
+    .code::-webkit-scrollbar-thumb {
+        background: var(--color-text-disabled) padding-box;
+    }
+
+    .code::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-text-secondary);
+    }
+
+    .code::-webkit-scrollbar-thumb:active {
+        background-color: var(--color-primary);
+    }
+
+    @supports (-moz-appearance: none) {
+        .code {
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-disabled) var(--color-surface);
+        }
+    }
+}
+
+.inlineCode {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--color-code-bg);
+    font: var(--font-code);
+    color: var(--code-text);
+}
+
+.link {
+    color: var(--color-primary-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--color-focus);
+    }
+}

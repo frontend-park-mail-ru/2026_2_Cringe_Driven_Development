@@ -23,6 +23,7 @@
             "@assets/*": ["./src/assets/*"],
             "@components/*": ["./src/components/*"],
             "@layouts/*": ["./src/layouts/*"],
+            "@modules/*": ["./src/modules/*"],
             "@pages/*": ["./src/pages/*"],
             "@stores/*": ["./src/stores/*"],
             "@utils/*": ["./src/utils/*"]
