@@ -15,16 +15,29 @@ export interface SnackbarMessage {
 interface SnackbarProps {
     /** Что показать; null — снекбара нет */
     snackbar: SnackbarMessage | null;
+    /** Нет соединения: снекбар «Нет подключения к интернету» без действия и таймера */
+    offline?: boolean;
 }
 
 /**
- * Ошибка отправки формы внизу по центру экрана (Components → Snackbar, Type=Error).
+ * Ошибка внизу по центру экрана (Components → Snackbar, Type=Error); над ней — предупреждение о сети.
  * @param props свойства снекбара
  * @returns область снекбара
  */
-export function Snackbar({ snackbar }: SnackbarProps) {
+export function Snackbar({ snackbar, offline = false }: SnackbarProps) {
     return (
         <div className={styles.region}>
+            {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role */}
+            <div key="offline" role="status" aria-live="polite">
+                {offline && (
+                    <div className={styles.snackbar}>
+                        <Icon key="icon" name="alert" className={styles.icon} />
+                        <p key="text" className={styles.text}>
+                            Нет подключения к интернету
+                        </p>
+                    </div>
+                )}
+            </div>
             {snackbar && (
                 <div key={snackbar.id} className={styles.snackbar} role="alert">
                     <Icon key="icon" name="alert" className={styles.icon} />
