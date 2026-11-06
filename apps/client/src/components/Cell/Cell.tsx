@@ -184,6 +184,8 @@ export function Cell({
             </div>
             <div key="body" className={styles.body}>
                 {readOnly && isCode ? (
+                    // фокус выбирает ячейку: её рамка показывает, какой блок прокручивать клавишами
+                    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                     <pre
                         key="static"
                         id={cellEditorId(cell.id)}
@@ -192,6 +194,7 @@ export function Cell({
                         // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                         tabIndex={0}
                         aria-label="Код ячейки"
+                        onFocus={onFocus}
                     >
                         {text || (
                             <span key="empty" className={styles.empty}>
