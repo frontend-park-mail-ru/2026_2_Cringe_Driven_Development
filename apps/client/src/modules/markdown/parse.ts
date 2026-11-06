@@ -16,7 +16,7 @@ export type MdBlock =
     | { type: 'quote'; children: MdBlock[] }
     | { type: 'code'; text: string };
 
-// Глубже — текстом: вложенные списки и цитаты не переполняют стек
+// Предел вложенности, чтобы рекурсия разбора и рендера не росла без границ. Глубже — текстом
 const MAX_DEPTH = 32;
 // Вложенность скобок в адресе ссылки, как у markdown-it
 const MAX_PAREN_DEPTH = 32;
@@ -536,7 +536,7 @@ function parseInline(text: string, depth: number): MdInline[] {
     return finalize(items);
 }
 
-// Глубина вложенности узлов выделения и ссылок: дерево глубже MAX_DEPTH уронило бы рендер
+// Глубина вложенности узлов выделения и ссылок: по ней дерево удерживается в пределах MAX_DEPTH
 const depths = new WeakMap<object, number>();
 
 const depthOfItems = (items: (MdInline | Delimiter)[]): number => {
