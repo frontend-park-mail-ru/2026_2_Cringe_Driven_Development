@@ -20,10 +20,10 @@ function fitHeight(element: HTMLElement): void {
     if (parent) parent.style.minHeight = '';
 }
 
-// Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой
+// Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой:
+// сдвиг — переменная общей обёртки (.codeEditor), её читает .highlight
 function syncHighlight(editor: HTMLTextAreaElement): void {
-    const highlight = editor.previousElementSibling;
-    if (highlight instanceof HTMLElement) highlight.style.translate = `${-editor.scrollLeft}px 0`;
+    editor.parentElement?.style.setProperty('--scroll-x', `${editor.scrollLeft}px`);
 }
 
 const editorOf = (id: string): HTMLTextAreaElement | null => {

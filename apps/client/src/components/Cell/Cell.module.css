@@ -97,7 +97,7 @@
     overflow: clip;
 }
 
-/* Сдвиг по горизонтальной прокрутке поля задаёт Cell.tsx */
+/* Сдвиг по горизонтальной прокрутке поля (--scroll-x) задаёт Cell.tsx */
 .highlight {
     position: absolute;
     top: 0;
@@ -108,7 +108,24 @@
     color: var(--code-text);
     white-space: pre;
     tab-size: 4;
+    translate: calc(-1 * var(--scroll-x, 0px)) 0;
     pointer-events: none;
+}
+
+/* Системные цвета перекрашивают и прозрачный текст: подсветка дублировала бы его */
+@media (forced-colors: active) {
+    .highlight {
+        display: none;
+    }
+
+    .code .editor {
+        color: CanvasText;
+
+        &::selection {
+            color: HighlightText;
+            background: Highlight;
+        }
+    }
 }
 
 /* Полоса под длинной строкой кода (Cell → Long line): 6 px, на 8 px ниже кода */

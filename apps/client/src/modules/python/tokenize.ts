@@ -60,15 +60,18 @@ const matchAt = (pattern: RegExp, source: string, at: number): string | null => 
 
 const isQuote = (char: string | undefined): boolean => char === '"' || char === "'";
 
+// Глубже вложенные f-строки и поля разбираются как обычный текст строки: рекурсия не переполнит стек
+const MAX_NESTING = 32;
+
 /**
  * Конец строкового литерала, открытого в `at` (сразу после префикса). Незакрытая однострочная
  * строка кончается на переводе строки, тройная — в конце исходника.
  */
-function stringEnd(source: string, at: number, formatted: boolean): number {
+function stringEnd(source: string, at: number, formatted: boolean, nesting = 0): number {
     const quote = source.startsWith(source[at]!.repeat(3), at)
         ? source[at]!.repeat(3)
         : source[at]!;
-    const single = quote.length === 1;
+    const fields = formatted && nesting < MAX_NESTING;
     let i = at + quote.length;
     while (i < source.length) {
         const char = source[i]!;
@@ -76,14 +79,14 @@ function stringEnd(source: string, at: number, formatted: boolean): number {
             i += 2;
             continue;
         }
-        if (single && char === '\n') return i;
+        if (quote.length === 1 && char === '\n') return i;
         if (source.startsWith(quote, i)) return i + quote.length;
-        if (formatted && char === '{') {
+        if (fields && char === '{') {
             if (source[i + 1] === '{') {
                 i += 2;
                 continue;
             }
-            i = fieldEnd(source, i + 1, single);
+            i = fieldEnd(source, i + 1, quote, nesting + 1);
             continue;
         }
         i++;
@@ -92,18 +95,36 @@ function stringEnd(source: string, at: number, formatted: boolean): number {
 }
 
 /**
- * Конец поля замены f-строки после `{`: в выражении бывают вложенные скобки и строки с теми же
- * кавычками (Python 3.12+). Для однострочной f-строки перевод строки обрывает поле — незаконченный
- * ввод не окрашивает строкой весь код ниже.
+ * Конец поля замены f-строки после `{`. В выражении бывают вложенные скобки, комментарии и строки
+ * с теми же кавычками (Python 3.12+); после `:` верхнего уровня — спецификатор, где кавычки — просто
+ * символы, а `{}` — вложенные поля. Для однострочной f-строки перевод строки обрывает поле —
+ * незаконченный ввод не окрашивает строкой весь код ниже.
  */
-function fieldEnd(source: string, at: number, single: boolean): number {
+function fieldEnd(source: string, at: number, quote: string, nesting: number): number {
+    const single = quote.length === 1;
     let depth = 1;
+    let spec = false;
     let i = at;
     while (i < source.length) {
         const char = source[i]!;
         if (single && char === '\n') return i;
+        if (spec) {
+            // кавычка внешней строки закрывает её и посреди спецификатора
+            if (source.startsWith(quote, i) || char === '}') return char === '}' ? i + 1 : i;
+            if (char === '{' && nesting < MAX_NESTING) {
+                i = fieldEnd(source, i + 1, quote, nesting + 1);
+                continue;
+            }
+            i++;
+            continue;
+        }
         if (isQuote(char)) {
             i = stringEnd(source, i, false);
+            continue;
+        }
+        if (char === '#' && !single) {
+            const end = source.indexOf('\n', i);
+            i = end < 0 ? source.length : end;
             continue;
         }
         const name = matchAt(IDENTIFIER, source, i);
@@ -111,10 +132,11 @@ function fieldEnd(source: string, at: number, single: boolean): number {
             const end = i + name.length;
             // вложенная строка с префиксом: f"{f'{x}'}"
             const prefixed = STRING_PREFIXES.has(name.toLowerCase()) && isQuote(source[end]);
-            i = prefixed ? stringEnd(source, end, isFormatPrefix(name)) : end;
+            i = prefixed ? stringEnd(source, end, isFormatPrefix(name), nesting) : end;
             continue;
         }
-        if (char === '{' || char === '[' || char === '(') depth++;
+        if (char === ':' && depth === 1) spec = true;
+        else if (char === '{' || char === '[' || char === '(') depth++;
         else if (char === '}' || char === ']' || char === ')') {
             depth--;
             if (depth === 0) return i + 1;

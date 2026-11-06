@@ -88,6 +88,33 @@ test('f-строка — один токен строки целиком', () =>
     expect(pick('f"""итог\n{loss:.3f}\n""" + 1', 'string')).toEqual(['f"""итог\n{loss:.3f}\n"""']);
 });
 
+test('спецификатор и комментарии в поле f-строки', () => {
+    // кавычка-заполнитель в спецификаторе — символ, не начало строки
+    expect(tokenizePython(`f"{x:'^10}" + y\nz = 1`)).toEqual([
+        { type: 'string', text: `f"{x:'^10}"` },
+        { type: 'text', text: ' + y\nz = ' },
+        { type: 'number', text: '1' },
+    ]);
+    expect(pick(`f"{x!r:>{w}}" + 1`, 'string')).toEqual([`f"{x!r:>{w}}"`]);
+    // двоеточие внутри скобок выражения — не спецификатор
+    expect(pick(`f"{a[1:'x']}" + 1`, 'string')).toEqual([`f"{a[1:'x']}"`]);
+    // кавычка внешней строки закрывает её и посреди спецификатора
+    expect(pick(`f"{x:"\ny = 1`, 'string')).toEqual([`f"{x:"`]);
+    // комментарий в многострочном поле тройной f-строки (Python 3.12+)
+    expect(pick(`f"""{x # it's\n}""" + 1`, 'string')).toEqual([`f"""{x # it's\n}"""`]);
+});
+
+test('глубокая вложенность f-строк не переполняет стек', () => {
+    for (const source of [
+        'f"{'.repeat(30_000),
+        `f"{x:{`.repeat(20_000),
+        'f\'{f"{'.repeat(15_000),
+    ]) {
+        const tokens = tokenizePython(source);
+        expect(join(tokens)).toBe(source);
+    }
+});
+
 test('незавершённый ввод не теряет текст и не красит строкой весь код ниже', () => {
     expect(tokenizePython('s = "открыта\nx = 1')).toEqual([
         { type: 'text', text: 's = ' },

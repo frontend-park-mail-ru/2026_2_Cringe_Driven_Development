@@ -18,27 +18,23 @@ const TOKEN_CLASS: Record<PyTokenType, string | undefined> = {
 };
 
 /**
- * Подсвеченный код Python: токены из {@link tokenizePython} — текстовыми узлами в `<span>`,
- * обычный текст — без обёртки. HTML из исходника не создаётся, текст узлов совпадает с исходником.
+ * Подсвеченный код Python: токены из {@link tokenizePython} — текстовыми узлами в `<span>`.
+ * HTML из исходника не создаётся, текст узлов совпадает с исходником.
  * Обёртку (`<pre>`) и цвет обычного текста задаёт место использования.
  * @param props исходник
  * @returns токены исходника
  */
 export function Python({ source }: PythonProps) {
     const tokens = useMemo(() => tokenizePython(source), [source]);
-    // список перестраивается целиком на каждый ввод: ключ — позиция токена
+    // Каждый токен — <span>, и обычный текст тоже: при сдвиге токенов от ввода узлы на тех же
+    // позициях обновляются, а не пересоздаются из-за смены текста на элемент
     return (
         <>
-            {tokens.map((token, index) => {
-                const className = TOKEN_CLASS[token.type];
-                return className ? (
-                    <span key={index} className={className}>
-                        {token.text}
-                    </span>
-                ) : (
-                    token.text
-                );
-            })}
+            {tokens.map((token, index) => (
+                <span key={index} className={TOKEN_CLASS[token.type]}>
+                    {token.text}
+                </span>
+            ))}
         </>
     );
 }
