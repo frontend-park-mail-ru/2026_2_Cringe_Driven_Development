@@ -1,4 +1,7 @@
+import { GetRuntimeSessionResponse } from '@cdd/schemas';
 import type { z } from 'zod';
+
+import type { RuntimeSession } from './client.ts';
 
 /** Вид сбоя обращения к Go. */
 export type GoErrorKind = 'http' | 'network' | 'timeout' | 'unexpected';
@@ -11,6 +14,8 @@ export class GoError extends Error {
     readonly kind: GoErrorKind;
     readonly status?: number;
     readonly code?: string;
+    /** Занятая сессия из `409 active_session_exists`: её блокнот показывается пользователю. */
+    readonly activeSession?: RuntimeSession;
 
     /**
      * @param kind вид сбоя
@@ -20,13 +25,14 @@ export class GoError extends Error {
     constructor(
         kind: GoErrorKind,
         message: string,
-        details: { status?: number; code?: string } = {},
+        details: { status?: number; code?: string; activeSession?: RuntimeSession } = {},
     ) {
         super(message);
         this.name = 'GoError';
         this.kind = kind;
         this.status = details.status;
         this.code = details.code;
+        this.activeSession = details.activeSession;
     }
 }
 
@@ -51,7 +57,16 @@ export function unwrap<T = undefined>(
     if (!ok.includes(res.status)) {
         const code =
             isObject(res.data) && typeof res.data.code === 'string' ? res.data.code : undefined;
-        throw new GoError('http', `Go ответил ${res.status}`, { status: res.status, code });
+        // данные конфликта проверяются схемой: в клиент уходят только публичные поля сессии
+        const active =
+            code === 'active_session_exists' && isObject(res.data)
+                ? GetRuntimeSessionResponse.safeParse(res.data.active_session)
+                : undefined;
+        throw new GoError('http', `Go ответил ${res.status}`, {
+            status: res.status,
+            code,
+            activeSession: active?.success ? active.data : undefined,
+        });
     }
     if (!schema) return undefined as T;
     const parsed = schema.safeParse(res.data);

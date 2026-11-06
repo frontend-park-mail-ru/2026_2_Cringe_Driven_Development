@@ -19,6 +19,8 @@ import { fakeRpc, held, ok, rpcError, settle } from './fakeRpc';
 const md = (id: string, source = ''): Cell => ({ id, kind: 'markdown', source });
 const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
     notebook: { id: 1, name: 'Блокнот', created_at: '', updated_at: '', hash, cells },
+    active_session: null,
+    runtime_queue: null,
 });
 
 let rpc: ReturnType<typeof fakeRpc>;
@@ -163,6 +165,8 @@ test('промис операции в полёте завершается пр�
 
 const other = (): NotebookPageData => ({
     notebook: { id: 2, name: 'Другой', created_at: '', updated_at: '', hash: 'b0', cells: [] },
+    active_session: null,
+    runtime_queue: null,
 });
 const updates = () => rpc.calls.filter((c) => c.path === 'cells.update').map((c) => c.input);
 

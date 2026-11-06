@@ -1,19 +1,23 @@
 import { TRPCError } from '@trpc/server';
 
+import type { RuntimeSession } from './go/client.ts';
 import { GoError } from './go/errors.ts';
 import { SessionEnded } from './session/refresh.ts';
 
 /** Причина ошибки tRPC с машинным кодом для клиента — уходит в `data.appCode`. */
 export class AppCodeError extends Error {
     readonly appCode: string;
+    readonly activeSession?: RuntimeSession;
 
     /**
      * @param appCode машинный код: `csrf_invalid` или `code` из ответа Go
+     * @param [activeSession] занятая сессия из `409 active_session_exists`
      */
-    constructor(appCode: string) {
+    constructor(appCode: string, activeSession?: RuntimeSession) {
         super(appCode);
         this.name = 'AppCodeError';
         this.appCode = appCode;
+        this.activeSession = activeSession;
     }
 }
 
@@ -27,6 +31,7 @@ const HTTP_CODES: Record<number, Code> = {
     409: 'CONFLICT',
     413: 'PAYLOAD_TOO_LARGE',
     415: 'UNSUPPORTED_MEDIA_TYPE',
+    429: 'TOO_MANY_REQUESTS',
 };
 
 const fromGo = (err: GoError): TRPCError => {
@@ -38,13 +43,13 @@ const fromGo = (err: GoError): TRPCError => {
     return new TRPCError({
         code: mapped ?? 'BAD_GATEWAY',
         message: mapped ? err.message : 'Go недоступен или ответил с ошибкой',
-        cause: err.code ? new AppCodeError(err.code) : undefined,
+        cause: err.code ? new AppCodeError(err.code, err.activeSession) : undefined,
     });
 };
 
 /**
  * Переводит ошибку процедуры в ответ tRPC: `SessionEnded` — `UNAUTHORIZED`, `GoError` — по статусу
- * Go (400, 401, 403, 404, 409, 413, 415), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
+ * Go (400, 401, 403, 404, 409, 413, 415, 429), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
  * `BAD_GATEWAY`. Прочие ошибки tRPC остаются как есть.
  * @param e ошибка процедуры или её обёртка tRPC
  * @returns ошибка tRPC
@@ -65,4 +70,13 @@ export function toTrpcError(e: unknown): TRPCError {
  */
 export function appCodeOf(error: TRPCError): string | undefined {
     return error.cause instanceof AppCodeError ? error.cause.appCode : undefined;
+}
+
+/**
+ * Занятая сессия для `data.activeSession` при `active_session_exists`.
+ * @param error ошибка tRPC
+ * @returns сессия или `undefined`
+ */
+export function activeSessionOf(error: TRPCError): RuntimeSession | undefined {
+    return error.cause instanceof AppCodeError ? error.cause.activeSession : undefined;
 }

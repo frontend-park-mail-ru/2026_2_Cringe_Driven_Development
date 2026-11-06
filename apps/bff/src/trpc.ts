@@ -2,7 +2,7 @@ import { TRPCError, initTRPC } from '@trpc/server';
 import { z } from 'zod';
 
 import type { Context } from './context.ts';
-import { appCodeOf, toTrpcError } from './errors.ts';
+import { activeSessionOf, appCodeOf, toTrpcError } from './errors.ts';
 import { createGo } from './go/api.ts';
 import { mockPreferHeader } from './mockPrefer.ts';
 
@@ -18,6 +18,7 @@ const t = initTRPC.context<Context>().create({
             data: {
                 ...data,
                 appCode: appCodeOf(error),
+                activeSession: activeSessionOf(error),
                 zodError:
                     error.cause instanceof z.ZodError ? z.flattenError(error.cause) : undefined,
             },
