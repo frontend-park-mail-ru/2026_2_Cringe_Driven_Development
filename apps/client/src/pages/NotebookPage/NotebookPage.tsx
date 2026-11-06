@@ -30,6 +30,7 @@ import {
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
+import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import styles from './NotebookPage.module.css';
 
@@ -144,6 +145,10 @@ export function NotebookPage() {
     const [selected, setSelected] = useState<string | undefined>(undefined);
     // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
+    // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
+    const [fresh, setFresh] = useState<string | undefined>(undefined);
+    // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
+    const touch = useTouchDevice();
     const notebook = useNotebookStore();
 
     // до первой отрисовки: блокнот из bootstrap открывается в сторе без мигания скелетона
@@ -184,6 +189,10 @@ export function NotebookPage() {
 
     // уход со страницы: несохранённое отправляется сразу, очередь дорабатывает в фоне
     useEffect(() => () => leaveNotebook(), [id]);
+    // стал тачем посреди ввода: редакторы пропадают, черновики отправляются сразу
+    useLayoutEffect(() => {
+        if (touch) leaveNotebook();
+    }, [touch]);
 
     // Несохранённый текст: браузер предупредит перед уходом и перезагрузкой
     const unsaved = notebook.status !== 'idle' && notebook.status !== 'saved';
@@ -215,7 +224,7 @@ export function NotebookPage() {
     const cells = ready ? notebook.confirmed!.cells : [];
     const locked = structureLocked(notebook);
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
-    const hasToolbar = load !== 'error';
+    const hasToolbar = load !== 'error' && !touch;
     const status = ready ? STATUS[notebook.status] : undefined;
     const title =
         load === 'loading'
@@ -229,6 +238,7 @@ export function NotebookPage() {
         void addCell(kind, index).then((created) => {
             if (!created) return;
             setSelected(created);
+            setFresh(created);
             setFocusTarget({ id: created });
         });
     };
@@ -337,6 +347,8 @@ export function NotebookPage() {
                                             canMoveUp={row.index > 0}
                                             canMoveDown={row.index < cells.length - 1}
                                             locked={locked}
+                                            startEditing={fresh === row.cell.id}
+                                            readOnly={touch}
                                             onInput={(text, composing) =>
                                                 editSource(row.cell.id, text, composing)
                                             }
@@ -352,7 +364,7 @@ export function NotebookPage() {
                                             onMoveDown={() => handleMove(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
                                         />
-                                        {row.index < cells.length - 1 && (
+                                        {!touch && row.index < cells.length - 1 && (
                                             <div key="insert" className={styles.insert}>
                                                 <AddCellChips
                                                     disabled={locked}
@@ -364,12 +376,21 @@ export function NotebookPage() {
                                 ),
                             )}
                         </ul>
-                        <div key="add" className={styles.add}>
-                            <AddCellChips disabled={locked} onAdd={handleAdd} />
-                        </div>
+                        {!touch && (
+                            <div key="add" className={styles.add}>
+                                <AddCellChips disabled={locked} onAdd={handleAdd} />
+                            </div>
+                        )}
                     </div>
                 )}
-                {isEmpty && (
+                {isEmpty && touch && (
+                    <StateBlock
+                        key="empty-touch"
+                        title="В блокноте пусто"
+                        description="Добавлять ячейки можно на компьютере"
+                    />
+                )}
+                {isEmpty && !touch && (
                     <StateBlock
                         key="empty"
                         title="В блокноте пусто"

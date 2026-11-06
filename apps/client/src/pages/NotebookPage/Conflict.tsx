@@ -47,7 +47,16 @@ export function ConflictBanner({ className }: ConflictBannerProps) {
     if (conflict.phase === 'none' || conflict.phase === 'resolving') return null;
     const banner = BANNER[conflict.phase];
     return (
-        <div className={clsx(styles.banner, className)} role="alert">
+        // Нажатие мышью на кнопку не забирает фокус у редактора: открытый ею диалог вернёт его
+        // туда же, Markdown-ячейка остаётся в редактировании с прежним курсором
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+        <div
+            className={clsx(styles.banner, className)}
+            role="alert"
+            onMouseDown={(event) => {
+                if ((event.target as Element).closest('button')) event.preventDefault();
+            }}
+        >
             <Icon key="icon" name="alert" className={styles.alert} />
             <div key="text" className={styles.text}>
                 <p key="title" className={styles.title}>
