@@ -5,6 +5,7 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
 import { clsx } from '@cdd-team/clsx';
+import { backspace, indent, newline, outdent, type TextEdit } from './indent';
 import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
@@ -24,6 +25,30 @@ function fitHeight(element: HTMLElement): void {
 // сдвиг — переменная общей обёртки (.codeEditor), её читает .highlight
 function syncHighlight(editor: HTMLTextAreaElement): void {
     editor.parentElement?.style.setProperty('--scroll-x', `${editor.scrollLeft}px`);
+}
+
+// Правка через execCommand: попадает в историю отмены и приходит обычным событием input
+function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
+    editor.setSelectionRange(edit.from, edit.to);
+    const done = edit.text
+        ? document.execCommand('insertText', false, edit.text)
+        : document.execCommand('delete');
+    if (!done) {
+        editor.setRangeText(edit.text, edit.from, edit.to);
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    }
+    editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
+}
+
+// Клавиши отступов кода; undefined — клавиша не наша
+function codeEdit(event: KeyboardEvent, editor: HTMLTextAreaElement): TextEdit | null | undefined {
+    const { value, selectionStart: start, selectionEnd: end } = editor;
+    if (event.key === 'Tab')
+        return event.shiftKey ? outdent(value, start, end) : indent(value, start, end);
+    if (event.shiftKey) return undefined;
+    if (event.key === 'Enter') return newline(value, start, end);
+    if (event.key === 'Backspace') return backspace(value, start, end) ?? undefined;
+    return undefined;
 }
 
 const editorOf = (id: string): HTMLTextAreaElement | null => {
@@ -167,7 +192,7 @@ export function Cell({
             rows={1}
             wrap={isCode ? 'off' : 'soft'}
             aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
-            aria-describedby={isCode ? undefined : hintId}
+            aria-describedby={hintId}
             aria-invalid={tooLarge}
             onFocus={() => {
                 // исходник больше лимита виден и без режима: фокус в нём — редактирование
@@ -191,7 +216,14 @@ export function Cell({
             }}
             onKeyDown={(event) => {
                 if (isCode) {
-                    if (event.key === 'Escape') (event.target as HTMLTextAreaElement).blur();
+                    const target = event.target as HTMLTextAreaElement;
+                    if (event.key === 'Escape') target.blur();
+                    if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+                    const change = codeEdit(event, target);
+                    if (change === undefined) return;
+                    // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc
+                    event.preventDefault();
+                    if (change) applyEdit(target, change);
                     return;
                 }
                 if (event.isComposing) return;
@@ -305,11 +337,13 @@ export function Cell({
                         )}
                     </div>
                 )}
-                {!isCode && !readOnly && (
+                {!readOnly && (
                     <span key="hint" id={hintId} className={styles.hint}>
-                        {editing
-                            ? 'Shift+Enter или Esc — показать результат'
-                            : 'Enter или двойной клик — редактировать'}
+                        {isCode
+                            ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc — выйти из поля'
+                            : editing
+                              ? 'Shift+Enter или Esc — показать результат'
+                              : 'Enter или двойной клик — редактировать'}
                     </span>
                 )}
                 {tooLarge && (
