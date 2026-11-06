@@ -19,8 +19,11 @@ const now = (): number => Math.floor(Date.now() / 1000);
 export interface Session {
     /** Есть ли действующая сессия. */
     readonly active: boolean;
-    /** Текущий refresh-токен — для тела `POST /auth/logout`. */
-    readonly refreshToken: string | undefined;
+    /**
+     * Заголовки и refresh-токен для `POST /auth/logout` без refresh: undefined, если access уже
+     * истёк или пары токенов нет.
+     */
+    revocation(): { init: RequestInit; refresh: string } | undefined;
     /** `X-Request-ID` запроса: из входящего заголовка или новый. */
     readonly requestId: string;
     /** Новая сессия после login или register. */
@@ -57,8 +60,10 @@ class RequestSession implements Session {
         return this.data !== null;
     }
 
-    get refreshToken(): string | undefined {
-        return this.data?.refresh;
+    revocation(): { init: RequestInit; refresh: string } | undefined {
+        const d = this.data;
+        if (!d?.access || !d.refresh || d.accessExp <= now()) return undefined;
+        return { init: this.init(), refresh: d.refresh };
     }
 
     async start(tokens: TokenPair): Promise<void> {

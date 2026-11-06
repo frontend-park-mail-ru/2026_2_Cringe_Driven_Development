@@ -91,6 +91,8 @@ const newSession = (res: Response): string | undefined => {
     return value || undefined;
 };
 const cleared = (res: Response): boolean => /Max-Age=0/.test(sessionSetCookie(res) ?? '');
+const revocation = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
 const errorOf = async (res: Response) =>
     ((await res.json()) as { error: { data: unknown } }).error.data as {
         code: string;
@@ -272,17 +274,85 @@ describe('RPC', () => {
         expect((await rpc('notebooks.list', { cookie: c })).status).toBe(502);
     });
 
-    test('logout без сессии — успех без Go; при сбое Go — всё равно успех и удаление cookie', async () => {
-        useGo({ 'POST /auth/logout': () => goError(500, 'internal') });
-        const guest = await rpc('auth.logout', { body: {} });
-        expect(guest.status).toBe(200);
+    test('logout без сессии — not_requested без Go, cookie удаляется', async () => {
+        useGo({});
+        const res = await rpc('auth.logout', { body: {} });
+        expect(res.status).toBe(200);
+        expect(await revocation(res)).toEqual({
+            browserSession: 'ended',
+            serverRevocation: 'not_requested',
+        });
         expect(go?.calls).toHaveLength(0);
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('logout: итог Go — serverRevocation, один вызов без refresh, cookie удаляется', async () => {
+        for (const [answer, expected] of [
+            [() => new Response(null, { status: 204 }), 'confirmed'],
+            [() => goError(401, 'unauthorized'), 'unconfirmed'],
+            [() => goError(400, 'validation_error'), 'unconfirmed'],
+            [() => goError(500, 'internal'), 'unknown'],
+            [() => Response.json({}), 'unknown'],
+            [() => Promise.reject(new TypeError('fetch failed')), 'unknown'],
+        ] as const) {
+            useGo({ 'POST /auth/logout': answer });
+            const tokens = goTokens().issue();
+            // access истекает через 10 с: обычный вызов сделал бы refresh заранее, logout — нет
+            const res = await rpc('auth.logout', {
+                body: {},
+                cookie: await cookie(tokens, now() + 10),
+            });
+            expect(res.status).toBe(200);
+            expect(await revocation(res)).toEqual({
+                browserSession: 'ended',
+                serverRevocation: expected,
+            });
+            expect(go?.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /auth/logout']);
+            const [call] = go?.calls ?? [];
+            expect(call?.headers.get('Authorization')).toBe(`Bearer ${tokens.access_token}`);
+            expect(call?.body).toEqual({ refresh_token: tokens.refresh_token });
+            expect(cleared(res)).toBe(true);
+            expect(
+                res.headers.getSetCookie().filter((c) => c.startsWith(`${SESSION_COOKIE}=`)),
+            ).toHaveLength(1);
+            go?.restore();
+        }
+    });
+
+    test('logout с истёкшим access — unconfirmed без Go и без refresh', async () => {
+        useGo({});
+        const res = await rpc('auth.logout', {
+            body: {},
+            cookie: await cookie(goTokens().issue(), now() - 1),
+        });
+        expect(await revocation(res)).toEqual({
+            browserSession: 'ended',
+            serverRevocation: 'unconfirmed',
+        });
+        expect(go?.calls).toHaveLength(0);
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('logout: Go не ответил за 5 с — unknown', async () => {
+        useGo({ 'POST /auth/logout': hang });
         const res = await rpc('auth.logout', {
             body: {},
             cookie: await cookie(goTokens().issue()),
         });
-        expect(res.status).toBe(200);
+        expect((await revocation(res)) as object).toMatchObject({ serverRevocation: 'unknown' });
         expect(cleared(res)).toBe(true);
+    }, 10_000);
+
+    test('logout без X-CSRF — отказ, Go не вызывается, cookie остаётся', async () => {
+        useGo({ 'POST /auth/logout': () => new Response(null, { status: 204 }) });
+        const res = await rpc('auth.logout', {
+            body: {},
+            cookie: await cookie(goTokens().issue()),
+            headers: { 'X-CSRF': '' },
+        });
+        expect(res.status).toBe(403);
+        expect(go?.calls).toHaveLength(0);
+        expect(sessionSetCookie(res)).toBeUndefined();
     });
 
     test('Go не ответил за 5 с — BAD_GATEWAY', async () => {
