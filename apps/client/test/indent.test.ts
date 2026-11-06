@@ -1,6 +1,13 @@
 // Отступы в ячейке кода: Tab, Shift+Tab, Enter и Backspace. «|» — курсор, «[» и «]» — выделение.
 import { expect, test } from 'bun:test';
-import { backspace, indent, newline, outdent, type TextEdit } from '@components/Cell/indent';
+import {
+    backspace,
+    indent,
+    inPythonFence,
+    newline,
+    outdent,
+    type TextEdit,
+} from '@components/Cell/indent';
 
 type Command = (value: string, start: number, end: number) => TextEdit | null;
 
@@ -52,6 +59,24 @@ test('Enter сохраняет отступ и углубляет после д�
     // перенос посреди строки: отступ — от начала строки до курсора
     expect(run(newline, '    a|b')).toBe('    a\n    |b');
     expect(run(newline, '  [sel]ected')).toBe('  \n  |ected');
+});
+
+// Enter в исходнике Markdown-ячейки, как в Cell
+const markdown = (marked: string) =>
+    run((value, start, end) => newline(value, start, end, inPythonFence(value, start)), marked);
+
+test('Markdown: Enter углубляет отступ только в блоке Python', () => {
+    expect(markdown('Пример:|')).toBe('Пример:\n|');
+    expect(markdown('  - пункт|')).toBe('  - пункт\n  |');
+    expect(markdown('```python\ndef f():|')).toBe('```python\ndef f():\n    |');
+    expect(markdown('~~~ Py\nif x:|')).toBe('~~~ Py\nif x:\n    |');
+    // другой язык, блок без языка и после закрытия — без углубления
+    expect(markdown('```js\nif (x) {:|')).toBe('```js\nif (x) {:\n|');
+    expect(markdown('```\nx:|')).toBe('```\nx:\n|');
+    expect(markdown('```python\nx\n```\nИтог:|')).toBe('```python\nx\n```\nИтог:\n|');
+    // закрывает только такой же маркер не короче открывающего
+    expect(inPythonFence('````python\n```\nx', 16)).toBe(true);
+    expect(inPythonFence('```python\n~~~\nx', 14)).toBe(true);
 });
 
 test('Backspace в начальных пробелах — до позиции, кратной 4', () => {

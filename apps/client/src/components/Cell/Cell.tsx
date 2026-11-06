@@ -5,7 +5,7 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
 import { clsx } from '@cdd-team/clsx';
-import { backspace, indent, newline, outdent, type TextEdit } from './indent';
+import { backspace, indent, inPythonFence, newline, outdent, type TextEdit } from './indent';
 import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
@@ -40,13 +40,19 @@ function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
     editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
 }
 
-// Клавиши отступов кода; undefined — клавиша не наша
-function codeEdit(event: KeyboardEvent, editor: HTMLTextAreaElement): TextEdit | null | undefined {
+// Клавиши отступов; undefined — клавиша не наша. В Markdown Enter углубляет отступ после `:`
+// только внутри блока ```python
+function indentEdit(
+    event: KeyboardEvent,
+    editor: HTMLTextAreaElement,
+    isCode: boolean,
+): TextEdit | null | undefined {
     const { value, selectionStart: start, selectionEnd: end } = editor;
     if (event.key === 'Tab')
         return event.shiftKey ? outdent(value, start, end) : indent(value, start, end);
     if (event.shiftKey) return undefined;
-    if (event.key === 'Enter') return newline(value, start, end);
+    if (event.key === 'Enter')
+        return newline(value, start, end, isCode || inPythonFence(value, start));
     if (event.key === 'Backspace') return backspace(value, start, end) ?? undefined;
     return undefined;
 }
@@ -215,23 +221,27 @@ export function Cell({
                 onCommit();
             }}
             onKeyDown={(event) => {
-                if (isCode) {
-                    const target = event.target as HTMLTextAreaElement;
-                    if (event.key === 'Escape') target.blur();
-                    if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
-                    const change = codeEdit(event, target);
-                    if (change === undefined) return;
-                    // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc
-                    event.preventDefault();
-                    if (change) applyEdit(target, change);
+                const target = event.target as HTMLTextAreaElement;
+                if (isCode && event.key === 'Escape') {
+                    target.blur();
                     return;
                 }
                 if (event.isComposing) return;
-                const leave = event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey);
-                if (!leave) return;
+                if (
+                    !isCode &&
+                    (event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey))
+                ) {
+                    event.preventDefault();
+                    onCommit();
+                    if (!tooLarge) setMode({ value: 'view', refocus: true });
+                    return;
+                }
+                if (event.ctrlKey || event.altKey || event.metaKey) return;
+                const change = indentEdit(event, target, isCode);
+                if (change === undefined) return;
+                // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc
                 event.preventDefault();
-                onCommit();
-                if (!tooLarge) setMode({ value: 'view', refocus: true });
+                if (change) applyEdit(target, change);
             }}
         />
     );
@@ -342,7 +352,7 @@ export function Cell({
                         {isCode
                             ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc — выйти из поля'
                             : editing
-                              ? 'Shift+Enter или Esc — показать результат'
+                              ? 'Tab — отступ, Shift+Enter или Esc — показать результат'
                               : 'Enter или двойной клик — редактировать'}
                     </span>
                 )}

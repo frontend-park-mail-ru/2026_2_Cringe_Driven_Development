@@ -14,7 +14,8 @@ export type MdBlock =
     | { type: 'paragraph'; children: MdInline[] }
     | { type: 'list'; ordered: boolean; start: number; items: MdBlock[][] }
     | { type: 'quote'; children: MdBlock[] }
-    | { type: 'code'; text: string };
+    /** lang — первое слово строки после ``` (` ```python ` → `python`), если оно есть */
+    | { type: 'code'; text: string; lang?: string };
 
 // Предел вложенности, чтобы рекурсия разбора и рендера не росла без границ. Глубже — текстом
 const MAX_DEPTH = 32;
@@ -136,7 +137,8 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
 
         const fence = fenceOf(line);
         if (fence) {
-            const [, lead = '', marker = ''] = fence;
+            const [whole, lead = '', marker = ''] = fence;
+            const lang = /^[ \t]*([^\s`]+)/.exec(line.slice(whole.length))?.[1];
             const closing = new RegExp(
                 `^ {0,3}${marker[0] === '`' ? '`' : '~'}{${marker.length},}[ \\t]*$`,
             );
@@ -147,7 +149,11 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
                 i += 1;
             }
             i += 1;
-            blocks.push({ type: 'code', text: code.join('\n') });
+            blocks.push(
+                lang
+                    ? { type: 'code', text: code.join('\n'), lang }
+                    : { type: 'code', text: code.join('\n') },
+            );
             continue;
         }
 

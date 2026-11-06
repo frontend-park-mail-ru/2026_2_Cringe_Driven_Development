@@ -80,8 +80,13 @@ test('цитаты и блоки кода', () => {
         { type: 'quote', children: [paragraph(text('цитата\nдальше'))] },
     ]);
     expect(parseMarkdown('```py\n<svg onload=x>\n```')).toEqual([
-        { type: 'code', text: '<svg onload=x>' },
+        { type: 'code', text: '<svg onload=x>', lang: 'py' },
     ]);
+    expect(parseMarkdown('~~~ Python3 {.x}\nx\n~~~')[0]).toEqual({
+        type: 'code',
+        text: 'x',
+        lang: 'Python3',
+    });
     expect(parseMarkdown('~~~\nне закрыт')).toEqual([{ type: 'code', text: 'не закрыт' }]);
     expect(parseMarkdown('```\n  отступ\n\nпусто\n```')).toEqual([
         { type: 'code', text: '  отступ\n\nпусто' },

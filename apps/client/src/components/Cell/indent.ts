@@ -1,4 +1,4 @@
-import { tokenizePython } from '@modules/python/tokenize';
+import { isPythonLang, tokenizePython } from '@modules/python/tokenize';
 
 /** Отступ Python по PEP 8 */
 const INDENT = '    ';
@@ -110,22 +110,47 @@ export function outdent(value: string, start: number, end: number): TextEdit | n
 }
 
 /**
- * Enter: перевод строки с отступом текущей строки, после строки на `:` — на отступ глубже.
- * Двоеточие в строке или комментарии не считается.
+ * Enter: перевод строки с отступом текущей строки. В коде Python после строки на `:` — на отступ
+ * глубже; двоеточие в строке или комментарии не считается.
  * @param value текст поля
  * @param start начало выделения
  * @param end конец выделения
+ * @param python текст у курсора — код Python
  * @returns правка поля
  */
-export function newline(value: string, start: number, end: number): TextEdit {
+export function newline(value: string, start: number, end: number, python = true): TextEdit {
     const before = value.slice(lineStart(value, start), start);
     let indentation = /^[ \t]*/.exec(before)![0];
-    const code = tokenizePython(before).filter((token) => token.type !== 'comment');
+    const code = python ? tokenizePython(before).filter((token) => token.type !== 'comment') : [];
     const last = code.at(-1);
     if (last?.type === 'text' && last.text.trimEnd().endsWith(':')) indentation += INDENT;
     const text = `\n${indentation}`;
     const caret = start + text.length;
     return { from: start, to: end, text, selectionStart: caret, selectionEnd: caret };
+}
+
+/**
+ * Курсор Markdown-исходника — внутри блока ```python (```py, ~~~python3): там Enter ведёт себя
+ * как в ячейке кода. Ограждения — по тем же правилам, что у разбора Markdown.
+ * @param value исходник Markdown
+ * @param at позиция курсора
+ * @returns курсор внутри незакрытого до него блока кода Python
+ */
+export function inPythonFence(value: string, at: number): boolean {
+    let open: { marker: string; lang: string | undefined } | null = null;
+    for (const line of value.slice(0, lineStart(value, at)).split('\n')) {
+        const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (!fence) continue;
+        const [, marker = '', rest = ''] = fence;
+        if (!open) open = { marker, lang: /^[ \t]*([^\s`]+)/.exec(rest)?.[1] };
+        else if (
+            marker[0] === open.marker[0] &&
+            marker.length >= open.marker.length &&
+            !rest.trim()
+        )
+            open = null;
+    }
+    return open !== null && isPythonLang(open.lang);
 }
 
 /**

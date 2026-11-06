@@ -1,6 +1,15 @@
 /** Категория токена Python: цвет из макета (`code/*`) */
 export type PyTokenType = 'text' | 'keyword' | 'string' | 'number' | 'comment' | 'function';
 
+/**
+ * Язык блока кода в Markdown — Python. Подсветка — только при явно названном языке, как в Jupyter.
+ * @param lang первое слово после открывающих ``` или undefined
+ * @returns `python`, `python3` или `py` в любом регистре
+ */
+export function isPythonLang(lang: string | undefined): boolean {
+    return lang !== undefined && /^(?:python3?|py)$/i.test(lang);
+}
+
 /** Отрезок исходника одной категории. */
 export interface PyToken {
     type: PyTokenType;
