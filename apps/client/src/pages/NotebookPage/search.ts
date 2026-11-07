@@ -8,6 +8,7 @@ import {
     type SearchRange,
 } from '@modules/search/find';
 import type { SourceMark } from '@modules/search/marks';
+import { CURRENT_SELECTOR } from '@modules/search/Marked';
 
 /** id кнопки «Поиск»: на неё возвращается фокус после закрытия панели. */
 export const SEARCH_BUTTON_ID = 'notebook-search-button';
@@ -109,4 +110,29 @@ export function useNotebookSearch(
         next: () => step(1),
         prev: () => step(-1),
     };
+}
+
+// Запас до края поля кода, чтобы совпадение не прилипало к границе
+const EDGE = 32;
+
+/**
+ * Прокручивает к активному вхождению. В длинной строке кода сдвигается само поле по горизонтали,
+ * а не страница; по вертикали — страница, с отступом под прилипшую шапку (`--search-margin`).
+ * @param root где искать активное вхождение
+ */
+export function scrollToCurrent(root: ParentNode): void {
+    const mark = root.querySelector<HTMLElement>(CURRENT_SELECTOR);
+    if (!mark) return;
+    // слой подсветки кода — <pre> под полем: координаты метки — те же, что у текста поля
+    const editor = mark.closest('pre')?.nextElementSibling;
+    if (editor instanceof HTMLTextAreaElement && editor.scrollWidth > editor.clientWidth) {
+        const left = mark.offsetLeft;
+        const right = left + mark.offsetWidth;
+        if (left < editor.scrollLeft + EDGE) editor.scrollLeft = Math.max(0, left - EDGE);
+        else if (right > editor.scrollLeft + editor.clientWidth - EDGE)
+            editor.scrollLeft = right - editor.clientWidth + EDGE;
+        // подсветка сдвигается по событию scroll поля: сразу, до прокрутки страницы
+        editor.dispatchEvent(new Event('scroll'));
+    }
+    mark.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }

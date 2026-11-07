@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from '@cdd-team/react';
+import { useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 
 import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
 import LogoMark from '@assets/logo-mark.svg?react';
@@ -44,7 +44,7 @@ import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
 import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
 import runtimeStyles from './Runtime.module.css';
-import { SEARCH_BUTTON_ID, useNotebookSearch } from './search';
+import { SEARCH_BUTTON_ID, scrollToCurrent, useNotebookSearch } from './search';
 import { SearchBar, SEARCH_INPUT_ID, SEARCH_PANEL_ID } from './SearchBar';
 import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
@@ -339,6 +339,22 @@ export function NotebookPage() {
     useLayoutEffect(() => {
         if (buttonFocus > 0) document.getElementById(SEARCH_BUTTON_ID)?.focus();
     }, [buttonFocus]);
+    // К активному вхождению — только после перехода или нового запроса, не после правки ячеек
+    useLayoutEffect(() => {
+        if (search.jump > 0) scrollToCurrent(document);
+    }, [search.jump]);
+    // Прокрутка к совпадению не прячет его под шапкой: высота шапки с панелью + её top и запас
+    const pageRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const page = pageRef.current;
+        const header = page?.querySelector('header');
+        if (!page || !header || !search.open) return;
+        const observer = new ResizeObserver(() =>
+            page.style.setProperty('--search-margin', `${header.offsetHeight + 12 + 16}px`),
+        );
+        observer.observe(header);
+        return () => observer.disconnect();
+    }, [search.open]);
     const closeSearch = () => {
         search.close();
         setButtonFocus((count) => count + 1);
@@ -386,7 +402,7 @@ export function NotebookPage() {
     ].toSorted((a, b) => a.at - b.at);
 
     return (
-        <div className={styles.page}>
+        <div ref={pageRef} className={styles.page}>
             <Space key="space" variant="plain" />
             <div key="content" className={styles.content}>
                 <Header
