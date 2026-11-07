@@ -302,7 +302,6 @@ export function NotebookPage() {
     const execution = ready ? runtimeStatus(runtime) : undefined;
     // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
-    const runningId = execution?.cell;
     const hasCode = cells.some((cell) => cell.kind === 'code');
     const title =
         load === 'loading'
@@ -393,16 +392,6 @@ export function NotebookPage() {
                                         tone={execution.tone}
                                         text={execution.text}
                                     />
-                                )}
-                                {runningId && (
-                                    <button
-                                        key="goto"
-                                        type="button"
-                                        className={styles.goto}
-                                        onClick={() => focusCell(runningId)}
-                                    >
-                                        Перейти к ячейке
-                                    </button>
                                 )}
                                 {status && (
                                     <SaveStatus

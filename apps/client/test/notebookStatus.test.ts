@@ -83,7 +83,7 @@ const cell = (
 test('шапка: выполнение со ссылкой на ячейку, очередь, подготовка и итоги', () => {
     expect(
         runtimeStatus(state({ queue: queue(['e1', 'a', 'RUNNING'], ['e2', 'c', 'QUEUED']) })),
-    ).toEqual({ tone: 'progress', text: 'Выполняется', cell: 'a' });
+    ).toEqual({ tone: 'progress', text: 'Выполняется' });
     expect(runtimeStatus(state({ queue: queue(['e2', 'c', 'QUEUED']) }))?.text).toBe('Выполняется');
     expect(runtimeStatus(state({ session: session({ state: 'PROVISIONING' }) }))?.text).toBe(
         'Подготавливаем окружение…',

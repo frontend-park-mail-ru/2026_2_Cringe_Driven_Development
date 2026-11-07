@@ -64,6 +64,8 @@ interface RuntimeState {
     queue: QueueItem[];
     /** Снимки исполнений этой страницы по execution_id */
     executions: Record<string, RuntimeExecution>;
+    /** Когда эта страница впервые увидела исполнение в RUNNING: для таймера «Выполняется… N с» */
+    startedAt: Record<string, number>;
     /** Последнее исполнение ячейки по cell_id: его результат и состояние показываются у ячейки */
     latest: Record<string, string>;
     /** Полный состав наблюдаемого запуска: одна ячейка или весь Run all */
@@ -90,6 +92,7 @@ const empty = (): RuntimeState => ({
     session: null,
     queue: [],
     executions: {},
+    startedAt: {},
     latest: {},
     run: null,
     outcome: null,
@@ -172,7 +175,7 @@ export function openRuntime(page: NotebookPageData): void {
     if (!own()) return;
     replayUntil = page.active_session?.public_seq ?? 0;
     track(queue);
-    set({ queue });
+    set({ queue, startedAt: runningSince(queue) });
     kick();
 }
 
@@ -182,6 +185,18 @@ export function closeRuntime(): void {
     startRequest = undefined;
     lastActivity = Number.NEGATIVE_INFINITY;
     set(empty());
+}
+
+// Время начала выполнения по очереди. Go его не отдаёт: отсчёт — с первого наблюдения RUNNING на
+// этой странице, после перезагрузки начнётся заново
+function runningSince(items: QueueItem[]): Record<string, number> {
+    const known = get().startedAt;
+    const next: Record<string, number> = {};
+    for (const item of items) {
+        if (item.state === 'RUNNING')
+            next[item.execution_id] = known[item.execution_id] ?? Date.now();
+    }
+    return next;
 }
 
 // Новые живые исполнения: порядок появления — порядок свежести для ячейки
@@ -328,6 +343,7 @@ function apply(res: Updates): void {
     set({
         session: res.session,
         queue: res.runtime_queue.items,
+        startedAt: runningSince(res.runtime_queue.items),
         executions,
         ready: !wasReady && res.session.state === 'READY' ? before.ready + 1 : before.ready,
     });

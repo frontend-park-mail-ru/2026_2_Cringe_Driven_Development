@@ -1,3 +1,4 @@
+import { useEffect, useState } from '@cdd-team/react';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
@@ -277,7 +278,19 @@ export function RunState({ run }: { run: CellRun }) {
                 }
                 className={clsx(run.indicator === 'running' && styles.spin)}
             />
-            {run.message}
+            {run.since === undefined ? run.message : <Elapsed since={run.since} />}
         </p>
     );
+}
+
+// «Выполняется… N с»: секунды с начала выполнения, обновляются раз в секунду
+function Elapsed({ since }: { since: number }) {
+    const [now, setNow] = useState(since);
+    useEffect(() => {
+        const tick = () => setNow(Date.now());
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, []);
+    return <>{`Выполняется… ${Math.max(0, Math.floor((now - since) / 1000))} с`}</>;
 }

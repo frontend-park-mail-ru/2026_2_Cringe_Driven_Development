@@ -12,8 +12,8 @@ import {
 
 type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 
-/** Подпись статуса в шапке: вид и текст; у «Выполняется» — ячейка для «Перейти к ячейке». */
-export type Label = { tone: SaveStatusTone; text: string; cell?: string };
+/** Подпись статуса в шапке: вид и текст. */
+export type Label = { tone: SaveStatusTone; text: string };
 
 // Безопасный код причины завершения по простою (backend#13)
 const IDLE_REASON = 'idle_timeout';
@@ -48,9 +48,7 @@ export function runtimeStatus(runtime: Runtime): Label | undefined {
         return { tone: 'progress', text: 'Завершаем окружение…' };
     }
     const run = runStatus(runtime);
-    if (run !== 'running') return run ? RUN[run] : undefined;
-    const cell = runtime.queue.find((item) => item.state === 'RUNNING')?.cell_id;
-    return { ...RUN.running, cell };
+    return run ? RUN[run] : undefined;
 }
 
 const SAVE: Partial<Record<SaveStatus, Label>> = {
@@ -144,6 +142,8 @@ export interface CellRun {
     message: string | null;
     /** Показывать выводы: в очереди прежние уже не относятся к запуску */
     outputs: boolean;
+    /** Начало выполнения, мс: для таймера «Выполняется… N с» */
+    since?: number;
 }
 
 /**
@@ -171,6 +171,7 @@ export function cellRun(
             message: 'Выполняется…',
             // вывод текущей попытки, а не прежний
             outputs: execution?.execution_id === queued.execution_id,
+            since: runtime.startedAt[queued.execution_id],
         };
     }
     // в очереди — только индикатор слева, без строки состояния под кодом
