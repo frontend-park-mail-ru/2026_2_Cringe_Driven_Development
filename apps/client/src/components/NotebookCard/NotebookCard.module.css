@@ -66,14 +66,6 @@ a.card:hover::before {
     white-space: pre;
 }
 
-.keyword {
-    color: var(--code-keyword);
-}
-
-.number {
-    color: var(--code-number);
-}
-
 .body {
     display: flex;
     flex: 1;

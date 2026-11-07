@@ -1,4 +1,6 @@
 import { useMemo, type ReactNode } from '@cdd-team/react';
+import { Python } from '@modules/python/Python';
+import { isPythonLang } from '@modules/python/tokenize';
 import { parseMarkdown, type MdBlock, type MdInline } from './parse';
 import styles from './Markdown.module.css';
 
@@ -67,7 +69,13 @@ function renderBlock(block: MdBlock, key: string): ReactNode {
         case 'code':
             return (
                 <pre key={key} className={styles.code}>
-                    <code key="code">{block.text}</code>
+                    <code key="code">
+                        {isPythonLang(block.lang) ? (
+                            <Python key="python" source={block.text} />
+                        ) : (
+                            block.text
+                        )}
+                    </code>
                 </pre>
             );
     }

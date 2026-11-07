@@ -3,7 +3,16 @@ import type { Cell as CellData } from '@api/trpc';
 import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
+import { Python } from '@modules/python/Python';
 import { clsx } from '@cdd-team/clsx';
+import {
+    backspace,
+    indentLines,
+    newline,
+    outdentLines,
+    pythonBefore,
+    type TextEdit,
+} from './indentation';
 import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
@@ -17,6 +26,52 @@ function fitHeight(element: HTMLElement): void {
     const scrollbar = element.offsetHeight - element.clientHeight;
     element.style.height = `${element.scrollHeight + scrollbar}px`;
     if (parent) parent.style.minHeight = '';
+}
+
+// Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой:
+// сдвиг — переменная общей обёртки (.codeEditor), её читает .highlight
+function syncHighlight(editor: HTMLTextAreaElement): void {
+    editor.parentElement?.style.setProperty('--scroll-x', `${editor.scrollLeft}px`);
+}
+
+// execCommand в lib.dom помечен устаревшим, но замены с историей отмены нет: свой тип без пометки
+interface Editing {
+    execCommand(command: string, showUI?: boolean, value?: string): boolean;
+}
+
+// Поля кода, где нажат Esc: следующий Tab или Shift+Tab переводит фокус, как обычно, — к кнопкам
+// ячейки или запуску, не выходя из неё
+const tabReleased = new WeakSet<HTMLTextAreaElement>();
+
+// Правка через execCommand: попадает в историю отмены и приходит обычным событием input
+function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
+    editor.setSelectionRange(edit.from, edit.to);
+    const editing: Editing = document;
+    const done = edit.text
+        ? editing.execCommand('insertText', false, edit.text)
+        : editing.execCommand('delete');
+    if (!done) {
+        editor.setRangeText(edit.text, edit.from, edit.to);
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    }
+    editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
+}
+
+// Клавиши отступов; undefined — клавиша не наша. В Markdown Enter углубляет отступ после `:`
+// только внутри блока ```python
+function indentEdit(
+    event: KeyboardEvent,
+    editor: HTMLTextAreaElement,
+    isCode: boolean,
+): TextEdit | null | undefined {
+    const { value, selectionStart: start, selectionEnd: end } = editor;
+    if (event.key === 'Tab')
+        return event.shiftKey ? outdentLines(value, start, end) : indentLines(value, start, end);
+    if (event.shiftKey) return undefined;
+    if (event.key === 'Enter')
+        return newline(value, start, end, pythonBefore(value, start, !isCode));
+    if (event.key === 'Backspace') return backspace(value, start, end) ?? undefined;
+    return undefined;
 }
 
 const editorOf = (id: string): HTMLTextAreaElement | null => {
@@ -69,7 +124,8 @@ interface CellProps {
 /**
  * Ячейка блокнота (Components → Cell): редактор исходника и кнопки перемещения и удаления.
  * Исходник — обычный текст в textarea: растёт по содержимому, длинная строка кода прокручивается
- * внутри редактора, Markdown переносится. Markdown-ячейка вне редактирования показывает просмотр:
+ * внутри редактора, Markdown переносится. Код подсвечен: под прозрачным текстом textarea лежит
+ * {@link Python} с тем же исходником, на тач-устройствах он же — без поля ввода. Markdown-ячейка вне редактирования показывает просмотр:
  * двойной клик или Enter открывают исходник, Shift+Enter, Esc и уход фокуса возвращают просмотр.
  * @param props свойства ячейки
  * @returns ячейка
@@ -143,12 +199,80 @@ export function Cell({
 
     useLayoutEffect(() => {
         const element = editorOf(cell.id);
-        if (element) fitHeight(element);
-    }, [text, cell.id, editing]);
+        if (!element) return;
+        fitHeight(element);
+        if (isCode) syncHighlight(element);
+    }, [text, cell.id, editing, isCode]);
 
     const edit = () => {
         if (!readOnly) setMode({ value: 'edit', refocus: true });
     };
+
+    const editor = (
+        <textarea
+            key="editor"
+            id={cellEditorId(cell.id)}
+            className={styles.editor}
+            value={text}
+            placeholder={placeholder}
+            rows={1}
+            wrap={isCode ? 'off' : 'soft'}
+            aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
+            aria-describedby={hintId}
+            aria-invalid={tooLarge}
+            onFocus={() => {
+                // исходник больше лимита виден и без режима: фокус в нём — редактирование
+                if (!isCode && mode.value !== 'edit') setMode({ value: 'edit', refocus: false });
+                onFocus();
+            }}
+            onBlur={(event) => {
+                tabReleased.delete(event.target as HTMLTextAreaElement);
+                onCommit();
+            }}
+            onMouseDown={(event) => {
+                tabReleased.delete(event.target as HTMLTextAreaElement);
+            }}
+            onPaste={onPaste}
+            onScroll={(event) => {
+                if (isCode) syncHighlight(event.target as HTMLTextAreaElement);
+            }}
+            onInput={(event) =>
+                onInput(
+                    (event.target as HTMLTextAreaElement).value,
+                    (event as InputEvent).isComposing,
+                )
+            }
+            onCompositionEnd={(event) => {
+                onInput((event.target as HTMLTextAreaElement).value, false);
+                onCommit();
+            }}
+            onKeyDown={(event) => {
+                const target = event.target as HTMLTextAreaElement;
+                if (event.isComposing) return;
+                // нажатие самого Shift перед Shift+Tab не сбрасывает отпущенный Tab
+                if (event.key === 'Shift') return;
+                if (tabReleased.delete(target) && event.key === 'Tab') return;
+                // Esc отпускает Tab и в Markdown: исходник больше лимита не уходит в просмотр
+                if (event.key === 'Escape') tabReleased.add(target);
+                if (isCode && event.key === 'Escape') return;
+                if (
+                    !isCode &&
+                    (event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey))
+                ) {
+                    event.preventDefault();
+                    onCommit();
+                    if (!tooLarge) setMode({ value: 'view', refocus: true });
+                    return;
+                }
+                if (event.ctrlKey || event.altKey || event.metaKey) return;
+                const change = indentEdit(event, target, isCode);
+                if (change === undefined) return;
+                // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc, затем Tab
+                event.preventDefault();
+                if (change) applyEdit(target, change);
+            }}
+        />
+    );
 
     return (
         // Нажатие на любое место ячейки, кроме кнопок и ссылок, выбирает её: фокус — в редактор
@@ -200,57 +324,24 @@ export function Cell({
                         aria-label="Код ячейки"
                         onFocus={onFocus}
                     >
-                        {text || (
+                        {text ? (
+                            <Python key="code" source={text} />
+                        ) : (
                             <span key="empty" className={styles.empty}>
                                 {placeholder}
                             </span>
                         )}
                     </pre>
+                ) : editing && isCode ? (
+                    // Ввод — в той же textarea, её текст прозрачный: виден подсвеченный исходник под ней
+                    <div key="code" className={styles.codeEditor}>
+                        <pre key="highlight" className={styles.highlight} aria-hidden="true">
+                            <Python key="code" source={text} />
+                        </pre>
+                        {editor}
+                    </div>
                 ) : editing ? (
-                    <textarea
-                        key="editor"
-                        id={cellEditorId(cell.id)}
-                        className={styles.editor}
-                        value={text}
-                        placeholder={placeholder}
-                        rows={1}
-                        wrap={isCode ? 'off' : 'soft'}
-                        aria-label={isCode ? 'Код ячейки' : 'Текст ячейки'}
-                        aria-describedby={isCode ? undefined : hintId}
-                        aria-invalid={tooLarge}
-                        onFocus={() => {
-                            // исходник больше лимита виден и без режима: фокус в нём — редактирование
-                            if (!isCode && mode.value !== 'edit')
-                                setMode({ value: 'edit', refocus: false });
-                            onFocus();
-                        }}
-                        onBlur={onCommit}
-                        onPaste={onPaste}
-                        onInput={(event) =>
-                            onInput(
-                                (event.target as HTMLTextAreaElement).value,
-                                (event as InputEvent).isComposing,
-                            )
-                        }
-                        onCompositionEnd={(event) => {
-                            onInput((event.target as HTMLTextAreaElement).value, false);
-                            onCommit();
-                        }}
-                        onKeyDown={(event) => {
-                            if (isCode) {
-                                if (event.key === 'Escape')
-                                    (event.target as HTMLTextAreaElement).blur();
-                                return;
-                            }
-                            if (event.isComposing) return;
-                            const leave =
-                                event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey);
-                            if (!leave) return;
-                            event.preventDefault();
-                            onCommit();
-                            if (!tooLarge) setMode({ value: 'view', refocus: true });
-                        }}
-                    />
+                    editor
                 ) : (
                     <div
                         key="preview"
@@ -285,11 +376,15 @@ export function Cell({
                         )}
                     </div>
                 )}
-                {!isCode && !readOnly && (
+                {!readOnly && (
                     <span key="hint" id={hintId} className={styles.hint}>
-                        {editing
-                            ? 'Shift+Enter или Esc — показать результат'
-                            : 'Enter или двойной клик — редактировать'}
+                        {isCode
+                            ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc и затем Tab — выйти из поля'
+                            : tooLarge
+                              ? 'Tab — отступ, Esc и затем Tab — выйти из поля'
+                              : editing
+                                ? 'Tab — отступ, Shift+Enter или Esc — показать результат'
+                                : 'Enter или двойной клик — редактировать'}
                     </span>
                 )}
                 {tooLarge && (

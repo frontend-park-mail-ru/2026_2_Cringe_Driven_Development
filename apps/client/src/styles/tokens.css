@@ -41,6 +41,9 @@
     --code-text: #cfc8f2;
     --code-keyword: #b79bff;
     --code-number: #ffc98a;
+    --code-string: #8fe3c0;
+    --code-comment: #8c86ae;
+    --code-function: var(--color-text-primary);
 
     /* «Луна»: светлая поверхность, тёмный текст */
     --color-on-light: #1a1330;

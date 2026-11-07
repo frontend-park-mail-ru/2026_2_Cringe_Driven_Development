@@ -80,11 +80,55 @@ test('цитаты и блоки кода', () => {
         { type: 'quote', children: [paragraph(text('цитата\nдальше'))] },
     ]);
     expect(parseMarkdown('```py\n<svg onload=x>\n```')).toEqual([
-        { type: 'code', text: '<svg onload=x>' },
+        { type: 'code', text: '<svg onload=x>', lang: 'py' },
     ]);
+    expect(parseMarkdown('~~~ Python3 {.x}\nx\n~~~')[0]).toEqual({
+        type: 'code',
+        text: 'x',
+        lang: 'Python3',
+    });
     expect(parseMarkdown('~~~\nне закрыт')).toEqual([{ type: 'code', text: 'не закрыт' }]);
     expect(parseMarkdown('```\n  отступ\n\nпусто\n```')).toEqual([
         { type: 'code', text: '  отступ\n\nпусто' },
+    ]);
+});
+
+test('обратные кавычки после ``` — inline-code, не блок кода', () => {
+    expect(parseMarkdown('```code```')).toEqual([paragraph({ type: 'code', text: 'code' })]);
+    expect(parseMarkdown('```code```\nplain')).toEqual([
+        paragraph({ type: 'code', text: 'code' }, text('\nplain')),
+    ]);
+    // и абзац не прерывает
+    expect(parseMarkdown('текст\n```x```')).toEqual([
+        paragraph(text('текст\n'), { type: 'code', text: 'x' }),
+    ]);
+    // у ~~~ обратные кавычки в info string допустимы
+    expect(parseMarkdown('~~~ a`b\nx\n~~~')[0]).toMatchObject({ type: 'code', text: 'x' });
+});
+
+test('без `>` или отступа продолжается только абзац', () => {
+    const outside = paragraph(text('Outside'));
+    expect(parseMarkdown('> текст\nдальше')).toEqual([
+        { type: 'quote', children: [paragraph(text('текст\nдальше'))] },
+    ]);
+    expect(parseMarkdown('> # Heading\nOutside')).toEqual([
+        { type: 'quote', children: [{ type: 'heading', level: 1, children: [text('Heading')] }] },
+        outside,
+    ]);
+    expect(parseMarkdown('> ```\n> inside\n> ```\nOutside')).toEqual([
+        { type: 'quote', children: [{ type: 'code', text: 'inside' }] },
+        outside,
+    ]);
+    // во вложенной цитате — так же
+    expect(parseMarkdown('> > # H\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('> > a\nb')).toEqual([
+        { type: 'quote', children: [{ type: 'quote', children: [paragraph(text('a\nb'))] }] },
+    ]);
+    // и в пункте списка
+    expect(parseMarkdown('- # H\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('- ```\n  x\n  ```\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('- a\nb')).toEqual([
+        { type: 'list', ordered: false, start: 1, items: [[paragraph(text('a\nb'))]] },
     ]);
 });
 
@@ -133,6 +177,30 @@ test('ссылки', () => {
             external: false,
             children: [{ type: 'strong', children: [text('ж')] }],
         }),
+    ]);
+});
+
+test('скобки внутри inline-code не участвуют в разборе ссылки', () => {
+    expect(parseMarkdown('[`a]b`](https://example.com)')).toEqual([
+        paragraph({
+            type: 'link',
+            href: 'https://example.com',
+            external: true,
+            children: [{ type: 'code', text: 'a]b' }],
+        }),
+    ]);
+    expect(parseMarkdown('[not a `link](/foo`)')).toEqual([
+        paragraph(text('[not a '), { type: 'code', text: 'link](/foo' }, text(')')),
+    ]);
+    // незакрытая серия обратных кавычек — текст, скобки за ней работают
+    expect(parseMarkdown('[a`b](/x)')).toEqual([paragraph(link('/x', 'a`b'))]);
+    // кавычка в адресе или title ссылки — часть ссылки, inline-code не открывает
+    const code = { type: 'code', text: 'code' } as const;
+    expect(parseMarkdown('[a](/a`b) [b](/b) `code`')).toEqual([
+        paragraph(link('/a`b', 'a'), text(' '), link('/b', 'b'), text(' '), code),
+    ]);
+    expect(parseMarkdown('[a](/a "t`t") [b](/b) `code`')).toEqual([
+        paragraph(link('/a', 'a'), text(' '), link('/b', 'b'), text(' '), code),
     ]);
 });
 
