@@ -10,8 +10,11 @@ import {
     useNotebookStore,
 } from '@stores/notebook';
 import {
+    POLL_INTERVAL_MS,
+    canExecute,
     closeRuntime,
     openRuntime,
+    resultsPending,
     retryCommand,
     runAll,
     runCell,
@@ -98,6 +101,16 @@ const updates = (
         next_cursor: patch.next_cursor ?? 0,
         has_more: patch.has_more ?? false,
     });
+
+const event = (seq: number, id: string) => ({
+    seq,
+    kind: 'execution.finished',
+    body: { execution_id: id },
+});
+const outputs = () => {
+    const cell = useNotebookStore.getState().confirmed?.cells[0];
+    return cell?.kind === 'code' ? cell.outputs : undefined;
+};
 
 let rpc: ReturnType<typeof fakeRpc>;
 const state = () => useRuntimeStore.getState();
@@ -455,4 +468,98 @@ test('активность: только ввод, не чаще раза в 30 
     editSource('a', 'xy', false);
     await settle();
     expect(inputs('runtime.activity')).toEqual([{ sessionId: SID }]);
+});
+
+test('неизвестный результат ▶: новые запуски заблокированы до повтора той же команды', async () => {
+    const result = await exec('x', 'a', '1');
+    rpc.on(
+        'runtime.execute',
+        () => 'network',
+        (input) =>
+            ok({ ...result, execution_id: (input as { execution_id: string }).execution_id }),
+    );
+    rpc.on('runtime.updates', () => updates());
+    open(page([code('a', '1'), code('b', '2')]));
+    await runCell('a');
+    expect(state().awaitingRetry).toBe(true);
+    expect(canExecute(state())).toBe(false);
+    await runCell('b');
+    await runAll();
+    expect(inputs('runtime.execute')).toHaveLength(1);
+    expect(inputs('runtime.executeAll')).toEqual([]);
+    await retryCommand();
+    expect(inputs('runtime.execute')).toHaveLength(2);
+    expect(state().awaitingRetry).toBe(false);
+    expect(canExecute(state())).toBe(true);
+    await settle();
+});
+
+test('сбой сети на stop: «Повторить» снова отправляет stop', async () => {
+    rpc.on(
+        'runtime.stop',
+        () => 'network',
+        () => ok({ accepted: true }),
+    );
+    rpc.on('runtime.updates', () => updates());
+    open(page([code('a')]));
+    await settle();
+    await stopRuntime();
+    expect(state().error).toBe('network');
+    await retryCommand();
+    expect(inputs('runtime.stop')).toHaveLength(2);
+    expect(state().session?.state).toBe('STOPPING');
+    await settle();
+});
+
+test('сессия завершилась, результат ещё сохраняется — опрос дочитывает проекцию', async () => {
+    const stopped = session({ state: 'STOPPED', stage: 'stopped' });
+    const pending = await exec('e1', 'a', 'x', { projection: 'pending' });
+    rpc.on(
+        'runtime.updates',
+        () => updates([pending], { session: stopped }),
+        () => updates([{ ...pending, projection: 'applied' }], { session: stopped }),
+    );
+    open(
+        page([code('a', 'x')], session(), [{ execution_id: 'e1', cell_id: 'a', state: 'RUNNING' }]),
+    );
+    await settle();
+    expect(resultsPending(state())).toBe(true);
+    await Bun.sleep(POLL_INTERVAL_MS + 100);
+    await settle();
+    expect(inputs('runtime.updates')).toHaveLength(2);
+    expect(resultsPending(state())).toBe(false);
+});
+
+test('исполнение из другой вкладки, завершённое между опросами, обновляет ячейку; replay — нет', async () => {
+    const old = await exec('e-old', 'a', 'x', {
+        outputs: [{ output_type: 'stream', text: 'старое' }],
+    });
+    const fresh = await exec('e-new', 'a', 'x', {
+        outputs: [{ output_type: 'stream', text: 'новое' }],
+    });
+    rpc.on(
+        'runtime.updates',
+        () =>
+            ok({
+                ...(updates([old]) as { data: object }).data,
+                events: [event(3, 'e-old')],
+                next_cursor: 3,
+            }),
+        () =>
+            ok({
+                ...(updates([fresh]) as { data: object }).data,
+                events: [event(6, 'e-new')],
+                next_cursor: 6,
+            }),
+    );
+    const saved: Cell = {
+        ...code('a', 'x'),
+        outputs: [{ output_type: 'stream', text: 'сохранённое' }],
+    } as Cell;
+    open(page([saved], session({ public_seq: 5 })));
+    await settle();
+    expect(outputs()).toEqual([{ output_type: 'stream', text: 'сохранённое' }]);
+    await Bun.sleep(POLL_INTERVAL_MS + 100);
+    await settle();
+    expect(outputs()).toEqual([{ output_type: 'stream', text: 'новое' }]);
 });

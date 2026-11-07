@@ -73,6 +73,8 @@ interface RuntimeState {
     /** Команда, чьё принятие ещё не разрешилось: второе нажатие не создаёт второй запуск */
     busy: 'start' | 'execute' | 'stop' | null;
     error: RuntimeError | null;
+    /** Команда исполнения с неизвестным результатом ждёт повтора: новые запуски недоступны */
+    awaitingRetry: boolean;
     /** Окружение не запустилось: отказ Go, а не сбой связи */
     startFailed: boolean;
     /** Растёт при каждой ошибке команды: страница снова показывает сообщение */
@@ -93,6 +95,7 @@ const empty = (): RuntimeState => ({
     outcome: null,
     busy: null,
     error: null,
+    awaitingRetry: false,
     startFailed: false,
     failure: 0,
     linkLost: false,
@@ -124,6 +127,11 @@ const live = new Set<string>();
 let startRequest: string | undefined;
 // Команда исполнения, чей результат неизвестен после сбоя: повтор — с теми же ID и телом
 let unsent: Command | null = null;
+// stop с неизвестным результатом: «Повторить» отправляет его снова, stop идемпотентен
+let stopUnsure = false;
+// Последний seq журнала на момент открытия: исполнения из событий до него — история, после — новые,
+// в том числе завершённые в другой вкладке между опросами
+let replayUntil = 0;
 let lastActivity = Number.NEGATIVE_INFINITY;
 
 type Command =
@@ -147,6 +155,8 @@ const resetTracking = (): void => {
     clearTimeout(successTimer);
     live.clear();
     unsent = null;
+    stopUnsure = false;
+    replayUntil = 0;
 };
 
 /**
@@ -160,6 +170,7 @@ export function openRuntime(page: NotebookPageData): void {
     const queue = page.runtime_queue?.items ?? [];
     set({ ...empty(), notebookId: page.notebook.id, session: page.active_session });
     if (!own()) return;
+    replayUntil = page.active_session?.public_seq ?? 0;
     track(queue);
     set({ queue });
     kick();
@@ -217,10 +228,10 @@ export function runStatus(state: RuntimeState): RunOutcome | null {
 /**
  * Может ли окружение исполнять код этого блокнота сейчас.
  * @param state состояние стора
- * @returns true, если своя сессия READY и команда не ждёт принятия
+ * @returns true, если своя сессия READY, команда не ждёт принятия и нет команды, ждущей повтора
  */
 export function canExecute(state: RuntimeState): boolean {
-    return own(state)?.state === 'READY' && state.busy === null;
+    return own(state)?.state === 'READY' && state.busy === null && !state.awaitingRetry;
 }
 
 /**
@@ -282,6 +293,8 @@ async function poll(): Promise<void> {
 function finished(): boolean {
     const session = own();
     if (session && !ENDED.has(session.state)) return false;
+    // результат уже исполненного кода ещё сохраняется: дочитать, иначе «Сохраняем результаты…» навсегда
+    if (resultsPending(get())) return false;
     const { run, outcome, executions } = get();
     const open = (id: string) => {
         const state = executions[id]?.state;
@@ -297,9 +310,13 @@ function apply(res: Updates): void {
     track(res.runtime_queue.items);
     const executions = { ...before.executions };
     let stored = false;
+    const recent = new Set<unknown>(
+        res.events.filter((e) => e.seq > replayUntil).map((e) => e.body.execution_id),
+    );
     for (const execution of res.executions) {
         const id = execution.execution_id;
-        const fresh = !TERMINAL.has(execution.state) || execution.projection === 'pending';
+        const fresh =
+            !TERMINAL.has(execution.state) || execution.projection === 'pending' || recent.has(id);
         if (!live.has(id) && !fresh) continue;
         track([execution]);
         if (executions[id]?.projection === 'pending' && execution.projection === 'applied') {
@@ -393,7 +410,14 @@ const errorOf = (error: unknown): RuntimeError => {
 function observe(session: RuntimeSession): void {
     if (get().session?.id !== session.id) {
         resetTracking();
-        set({ queue: [], executions: {}, latest: {}, run: null, outcome: null });
+        set({
+            queue: [],
+            executions: {},
+            latest: {},
+            run: null,
+            outcome: null,
+            awaitingRetry: false,
+        });
     }
     const wasReady = get().session?.state === 'READY';
     set({ session, ready: !wasReady && session.state === 'READY' ? get().ready + 1 : get().ready });
@@ -479,6 +503,7 @@ export async function runAll(): Promise<void> {
 /** Повтор команды, чей результат неизвестен после сбоя: те же ID и тело, без нового запуска. */
 export async function retryCommand(): Promise<void> {
     if (unsent) return send(unsent);
+    if (stopUnsure) return stopRuntime();
     if (startRequest) return startRuntime();
 }
 
@@ -538,6 +563,7 @@ async function send(command: Command): Promise<void> {
                   ).execution_ids;
         if (started !== generation) return;
         unsent = null;
+        set({ awaitingRetry: false });
         const cells =
             command.kind === 'execute'
                 ? [command.body.cell_id]
@@ -550,6 +576,7 @@ async function send(command: Command): Promise<void> {
         if (started !== generation) return;
         set({ busy: null });
         unsent = uncertain(error) ? command : null;
+        set({ awaitingRetry: unsent !== null });
         const reason = errorOf(error);
         fail(reason);
         // исходник на сервере другой: свежий снимок или выбор версии; код без нового нажатия не идёт
@@ -566,11 +593,13 @@ export async function stopRuntime(): Promise<void> {
     try {
         await trpc.runtime.stop.mutate({ sessionId: session.id });
         if (started !== generation) return;
+        stopUnsure = false;
         set({ busy: null, session: { ...get().session!, state: 'STOPPING', stage: 'stopping' } });
         kick();
     } catch (error) {
         if (started !== generation) return;
         set({ busy: null });
+        stopUnsure = uncertain(error);
         fail(errorOf(error));
     }
 }

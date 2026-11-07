@@ -13,6 +13,8 @@ import {
 import { bannerKind, runtimeButtons, type BannerKind, type CellRun } from './status';
 import styles from './Runtime.module.css';
 
+type Runtime = ReturnType<typeof useRuntimeStore.getState>;
+
 /** Свойства {@link RuntimeActions}. */
 interface RuntimeActionsProps {
     /** В блокноте есть кодовые ячейки */
@@ -96,6 +98,45 @@ const BANNER: Record<
     },
 };
 
+type BannerAction = { label: string; onClick: () => void; loading?: boolean; primary?: true };
+
+// Действие баннера: у «нет связи» его нет, запуск окружения — главное действие
+function bannerAction(
+    kind: BannerKind,
+    runtime: Runtime,
+    openNotebook: (notebookId: number) => void,
+): BannerAction | undefined {
+    const starting = runtime.busy === 'start';
+    switch (kind) {
+        case 'busy': {
+            const notebookId = runtime.session!.notebook_id;
+            return { label: 'Перейти к блокноту', onClick: () => openNotebook(notebookId) };
+        }
+        case 'cleanup':
+            return {
+                label: 'Повторить завершение',
+                onClick: () => void stopRuntime(),
+                loading: runtime.busy === 'stop',
+            };
+        case 'startFailed':
+            return {
+                label: 'Повторить запуск',
+                onClick: () => void startRuntime(),
+                loading: starting,
+            };
+        case 'idle':
+        case 'notStarted':
+            return {
+                label: 'Запустить окружение',
+                onClick: () => void startRuntime(),
+                loading: starting,
+                primary: true,
+            };
+        case 'linkLost':
+            return undefined;
+    }
+}
+
 /** Свойства {@link RuntimeBanner}. */
 interface RuntimeBannerProps {
     className?: string;
@@ -113,33 +154,9 @@ export function RuntimeBanner({ className }: RuntimeBannerProps) {
     const kind = bannerKind(runtime);
     if (!kind) return null;
     const shown = BANNER[kind];
-    const start = runtime.busy === 'start';
-    const action =
-        kind === 'busy'
-            ? {
-                  label: 'Перейти к блокноту',
-                  onClick: () =>
-                      navigate({
-                          to: '/notebooks/$notebookId',
-                          params: { notebookId: String(runtime.session!.notebook_id) },
-                      }),
-              }
-            : kind === 'cleanup'
-              ? {
-                    label: 'Повторить завершение',
-                    onClick: () => void stopRuntime(),
-                    loading: runtime.busy === 'stop',
-                }
-              : kind === 'startFailed'
-                ? { label: 'Повторить запуск', onClick: () => void startRuntime(), loading: start }
-                : kind === 'idle' || kind === 'notStarted'
-                  ? {
-                        label: 'Запустить окружение',
-                        onClick: () => void startRuntime(),
-                        loading: start,
-                        primary: true,
-                    }
-                  : undefined;
+    const action = bannerAction(kind, runtime, (notebookId) =>
+        navigate({ to: '/notebooks/$notebookId', params: { notebookId: String(notebookId) } }),
+    );
     return (
         <div
             className={clsx(styles.banner, shown.tone && styles[shown.tone], className)}
@@ -157,7 +174,7 @@ export function RuntimeBanner({ className }: RuntimeBannerProps) {
             {action && (
                 <Button
                     key="action"
-                    variant={'primary' in action ? 'primary' : 'secondary'}
+                    variant={action.primary ? 'primary' : 'secondary'}
                     className={styles.button}
                     loading={action.loading}
                     onClick={action.onClick}
