@@ -39,6 +39,12 @@ interface Editing {
     execCommand(command: string, showUI?: boolean, value?: string): boolean;
 }
 
+const MODIFIERS = new Set(['Shift', 'Control', 'Alt', 'Meta']);
+
+// Поля кода, где нажат Esc: следующий Tab или Shift+Tab переводит фокус, как обычно, — к кнопкам
+// ячейки или запуску, не выходя из неё
+const tabReleased = new WeakSet<HTMLTextAreaElement>();
+
 // Правка через execCommand: попадает в историю отмены и приходит обычным событием input
 function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
     editor.setSelectionRange(edit.from, edit.to);
@@ -221,7 +227,13 @@ export function Cell({
                 if (!isCode && mode.value !== 'edit') setMode({ value: 'edit', refocus: false });
                 onFocus();
             }}
-            onBlur={onCommit}
+            onBlur={(event) => {
+                tabReleased.delete(event.target as HTMLTextAreaElement);
+                onCommit();
+            }}
+            onMouseDown={(event) => {
+                tabReleased.delete(event.target as HTMLTextAreaElement);
+            }}
             onPaste={onPaste}
             onScroll={(event) => {
                 if (isCode) syncHighlight(event.target as HTMLTextAreaElement);
@@ -238,11 +250,15 @@ export function Cell({
             }}
             onKeyDown={(event) => {
                 const target = event.target as HTMLTextAreaElement;
+                if (event.isComposing) return;
+                // нажатие самого Shift перед Shift+Tab не сбрасывает отпущенный Tab
+                if (MODIFIERS.has(event.key)) return;
+                const released = tabReleased.delete(target);
                 if (isCode && event.key === 'Escape') {
-                    target.blur();
+                    tabReleased.add(target);
                     return;
                 }
-                if (event.isComposing) return;
+                if (released && event.key === 'Tab') return;
                 if (
                     !isCode &&
                     (event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey))
@@ -255,7 +271,7 @@ export function Cell({
                 if (event.ctrlKey || event.altKey || event.metaKey) return;
                 const change = indentEdit(event, target, isCode);
                 if (change === undefined) return;
-                // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc
+                // Tab остаётся в поле, даже если снимать нечего; выйти из поля — Esc, затем Tab
                 event.preventDefault();
                 if (change) applyEdit(target, change);
             }}
@@ -367,7 +383,7 @@ export function Cell({
                 {!readOnly && (
                     <span key="hint" id={hintId} className={styles.hint}>
                         {isCode
-                            ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc — выйти из поля'
+                            ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc и затем Tab — выйти из поля'
                             : editing
                               ? 'Tab — отступ, Shift+Enter или Esc — показать результат'
                               : 'Enter или двойной клик — редактировать'}
