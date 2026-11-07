@@ -201,7 +201,7 @@ test('409 active_session_exists: показана занятая сессия д
     expect(inputs('runtime.updates')).toEqual([]);
 });
 
-test('▶: ждёт сохранения, шлёт SHA-256 сохранённого исходника, результат — в ячейку', async () => {
+test('запуск ячейки: ждёт сохранения, шлёт SHA-256 сохранённого исходника, результат — в ячейку', async () => {
     const result = await exec('x', 'a', 'print(42)');
     rpc.on('cells.update', () => ok({ hash: 'h1', cell: { id: 'a', kind: 'code', source: '' } }));
     rpc.on('runtime.execute', (input) =>
@@ -231,7 +231,7 @@ test('▶: ждёт сохранения, шлёт SHA-256 сохранённо�
     expect(useNotebookStore.getState().confirmed?.hash).toBe('h1');
 });
 
-test('известный конфликт: ▶ и «Выполнить всё» открывают диалог, команды не уходят', async () => {
+test('известный конфликт: запуск ячейки и «Выполнить всё» открывают диалог, команды не уходят', async () => {
     rpc.on('cells.update', () => rpcError('CONFLICT', 409, 'notebook_conflict'));
     rpc.on('notebooks.get', () => ok(page([code('a', 'чужое')])));
     rpc.on('runtime.updates', () => updates());
@@ -246,7 +246,7 @@ test('известный конфликт: ▶ и «Выполнить всё» 
     expect(inputs('runtime.executeAll')).toEqual([]);
 });
 
-test('сбой сети на ▶: повтор с тем же execution_id и телом', async () => {
+test('сбой сети при запуске ячейки: повтор с тем же execution_id и телом', async () => {
     const result = await exec('x', 'a', '1');
     rpc.on(
         'runtime.execute',
@@ -470,7 +470,7 @@ test('активность: только ввод, не чаще раза в 30 
     expect(inputs('runtime.activity')).toEqual([{ sessionId: SID }]);
 });
 
-test('неизвестный результат ▶: новые запуски заблокированы до повтора той же команды', async () => {
+test('неизвестный результат запуска ячейки: новые запуски заблокированы до повтора той же команды', async () => {
     const result = await exec('x', 'a', '1');
     rpc.on(
         'runtime.execute',

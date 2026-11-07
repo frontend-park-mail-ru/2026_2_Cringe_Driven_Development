@@ -507,7 +507,7 @@ export async function retryCommand(): Promise<void> {
     if (startRequest) return startRuntime();
 }
 
-// Известный конфликт сохранения: ▶ и «Выполнить всё» открывают диалог, команда не уходит
+// Известный конфликт сохранения: запуск ячейки и «Выполнить всё» открывают диалог, команда не уходит
 function conflictFirst(): boolean {
     if (useNotebookStore.getState().conflict.phase === 'none') return false;
     openConflictDialog();

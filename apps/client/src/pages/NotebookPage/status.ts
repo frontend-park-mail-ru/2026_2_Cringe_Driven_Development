@@ -137,7 +137,7 @@ const MESSAGE: Partial<Record<RuntimeExecution['state'], string>> = {
 
 /** Исполнение у кодовой ячейки: что показать в левой колонке и под кодом. */
 export interface CellRun {
-    /** ▶, «Выполняется» или «В очереди» */
+    /** Кнопка запуска, «Выполняется» или «В очереди» */
     indicator: 'run' | 'running' | 'queued';
     /** Значок итога под счётчиком */
     result: 'succeeded' | 'failed' | 'unknown' | null;

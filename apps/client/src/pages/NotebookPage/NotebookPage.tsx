@@ -131,7 +131,7 @@ function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
 
 type CellProps = Parameters<typeof Cell>[0];
 
-// Ячейка с исполнением: у кодовой — ▶ и счётчик слева, состояние и выводы под кодом
+// Ячейка с исполнением: у кодовой — кнопка запуска и счётчик слева, состояние и выводы под кодом
 function CodeOrText({
     run,
     ...props
