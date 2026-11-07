@@ -211,7 +211,7 @@ interface Track {
 }
 
 // Строки вложенного блока — те же строки исходника: одна строка контейнера даёт одну строку блока
-const nested = (track: Track | null, rows: number[]): Track | null =>
+const nestedTrack = (track: Track | null, rows: number[]): Track | null =>
     track && { rows, fences: track.fences };
 
 function parseBlocks(lines: string[], depth: number, track: Track | null = null): MdBlock[] {
@@ -277,7 +277,7 @@ function parseBlocks(lines: string[], depth: number, track: Track | null = null)
             }
             blocks.push({
                 type: 'quote',
-                children: parseBlocks(inner, depth + 1, nested(track, innerRows)),
+                children: parseBlocks(inner, depth + 1, nestedTrack(track, innerRows)),
             });
             continue;
         }
@@ -349,7 +349,7 @@ function parseList(
             if (track) contentRows.push(track.rows[i]!);
             i += 1;
         }
-        items.push(parseBlocks(content, depth + 1, nested(track, contentRows)));
+        items.push(parseBlocks(content, depth + 1, nestedTrack(track, contentRows)));
         // пустые строки между пунктами одного списка
         const filled = nextFilled(lines, i);
         if (filled < lines.length && same(listMarker(lines[filled]!))) i = filled;
