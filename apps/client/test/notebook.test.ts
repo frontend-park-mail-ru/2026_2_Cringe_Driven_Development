@@ -26,6 +26,8 @@ const code = (id: string, source = ''): Cell => ({
 });
 const page = (cells: Cell[], id = 1, hash = 'h0'): NotebookPageData => ({
     notebook: { id, name: 'Блокнот', created_at: '', updated_at: '', hash, cells },
+    active_session: null,
+    runtime_queue: null,
 });
 
 let rpc: ReturnType<typeof fakeRpc>;

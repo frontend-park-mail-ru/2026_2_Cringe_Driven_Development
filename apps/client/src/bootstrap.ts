@@ -53,6 +53,13 @@ export function readBootstrap(): BootstrapData {
         ) {
             throw new BootstrapError('notebookPage — не блокнот');
         }
+        const { active_session: active, runtime_queue: queue } = page as Record<string, unknown>;
+        if (active !== null && !(isObject(active) && typeof active.id === 'string')) {
+            throw new BootstrapError('active_session — не сессия и не null');
+        }
+        if (queue !== null && !(isObject(queue) && Array.isArray(queue.items))) {
+            throw new BootstrapError('runtime_queue — не очередь и не null');
+        }
     }
     return data as BootstrapData;
 }

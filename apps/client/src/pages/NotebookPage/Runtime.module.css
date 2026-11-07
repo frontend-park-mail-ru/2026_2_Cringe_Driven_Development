@@ -1,0 +1,192 @@
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+
+    /* Телефон: кнопки слева и переносятся, как в макете 360/430 */
+    @media (max-width: 860px) {
+        margin-left: 0;
+    }
+}
+
+.button {
+    flex: none;
+}
+
+/* В панели шапки кнопки 36 px, как поиск и чипы (Header → Toolbar) */
+.actions > .button {
+    height: 36px;
+    padding: 0 16px 0 12px;
+}
+
+.banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: var(--color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+
+    &.error {
+        background: var(--color-error-soft);
+        box-shadow: none;
+    }
+}
+
+.icon {
+    flex: none;
+    align-self: flex-start;
+    margin-top: 4px;
+    color: var(--color-primary-text);
+
+    .error & {
+        color: var(--color-error);
+    }
+
+    .muted & {
+        color: var(--color-text-secondary);
+    }
+}
+
+.text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.title {
+    font: var(--font-body-accent);
+    color: var(--color-text-primary);
+}
+
+.body {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+/* Кнопка запуска и индикаторы очереди — круг 28 px в левой колонке ячейки */
+.run,
+.indicator {
+    display: flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.run {
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: var(--color-surface-hover);
+        color: var(--color-text-primary);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--color-focus);
+        outline-offset: 2px;
+    }
+
+    &:disabled {
+        color: var(--color-text-disabled);
+        cursor: default;
+    }
+}
+
+.running {
+    background: var(--color-surface-hover);
+    color: var(--color-primary-text);
+    box-shadow: inset 0 0 0 1px var(--color-focus);
+}
+
+.queued {
+    background: none;
+    box-shadow: none;
+    outline: 1px dashed var(--color-border-control);
+    outline-offset: -1px;
+}
+
+.count {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    white-space: pre;
+}
+
+.done {
+    color: var(--color-success);
+}
+
+.failed {
+    color: var(--color-error);
+}
+
+.unknown {
+    color: var(--color-warning);
+}
+
+.state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--color-code-bg);
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+
+    /* итог без вывода об ошибке: цвет строки — по итогу */
+    &.failed {
+        color: var(--color-error);
+    }
+
+    &.unknown {
+        color: var(--color-warning);
+    }
+}
+
+/* Иконка «Выполняется» — цвета акцента, текст строки — вторичный */
+.state > .spin {
+    color: var(--color-primary-text);
+}
+
+.spin {
+    animation: spin 1.2s linear infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 860px) {
+    .banner {
+        flex-wrap: wrap;
+    }
+}
+
+/* Подпись индикатора для чтения с экрана */
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}

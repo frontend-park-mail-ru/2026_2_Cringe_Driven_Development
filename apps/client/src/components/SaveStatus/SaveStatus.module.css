@@ -4,7 +4,6 @@
     gap: 4px;
     min-width: 0;
     font: var(--font-caption);
-    white-space: nowrap;
 }
 
 .progress {
@@ -17,6 +16,14 @@
 
 .success {
     color: var(--color-success);
+}
+
+.warning {
+    color: var(--color-warning);
+}
+
+.neutral {
+    color: var(--color-text-secondary);
 }
 
 .spin {
