@@ -7,21 +7,22 @@ import {
     stepActive,
     type SearchRange,
 } from '@modules/search/find';
-import type { SourceMark } from '@modules/search/marks';
+import { NO_MARKS, type SourceMark } from '@modules/search/marks';
 import { CURRENT_SELECTOR } from '@modules/search/Marked';
 
 /** id кнопки «Поиск»: на неё возвращается фокус после закрытия панели. */
 export const SEARCH_BUTTON_ID = 'notebook-search-button';
 
 const NO_MATCHES: SearchRange[] = [];
-const NO_MARKS: readonly SourceMark[] = [];
 
 /** Состояние поиска по блокноту и действия с ним. */
 export interface NotebookSearch {
     open: boolean;
     query: string;
-    matches: SearchRange[];
-    active: SearchRange | null;
+    /** Номер активного вхождения с 1; 0 — активного нет */
+    current: number;
+    /** Сколько всего вхождений */
+    total: number;
     /** Растёт, когда нужно прокрутить к активному вхождению: при переходе и новом запросе */
     jump: number;
     /** Вхождения в ячейке для подсветки; пусто без совпадений и при закрытом поиске */
@@ -96,8 +97,8 @@ export function useNotebookSearch(
     return {
         open,
         query,
-        matches,
-        active,
+        current: active ? matches.indexOf(active) + 1 : 0,
+        total: matches.length,
         jump,
         marksOf: (cellId) => marks.get(cellId) ?? NO_MARKS,
         show: useCallback(() => setOpen(true), []),

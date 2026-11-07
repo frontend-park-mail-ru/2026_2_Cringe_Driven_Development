@@ -67,7 +67,7 @@
     /* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
     & > li {
         position: relative;
-        scroll-margin: 160px 0 96px;
+        scroll-margin: var(--search-margin, 160px) 0 96px;
     }
 }
 

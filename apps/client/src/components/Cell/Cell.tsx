@@ -4,7 +4,7 @@ import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
-import type { SourceMark } from '@modules/search/marks';
+import { NO_MARKS, type SourceMark } from '@modules/search/marks';
 import { Marked } from '@modules/search/Marked';
 import { clsx } from '@cdd-team/clsx';
 import {
@@ -75,8 +75,6 @@ function indentEdit(
     if (event.key === 'Backspace') return backspace(value, start, end) ?? undefined;
     return undefined;
 }
-
-const NO_MARKS: readonly SourceMark[] = [];
 
 const editorOf = (id: string): HTMLTextAreaElement | null => {
     const element = document.getElementById(cellEditorId(id));

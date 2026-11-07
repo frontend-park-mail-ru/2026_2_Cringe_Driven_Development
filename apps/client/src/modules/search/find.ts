@@ -12,13 +12,14 @@ export interface SearchRange {
 }
 
 // Строчная копия текста и для каждого её индекса — начало исходного символа. Строка целиком
-// в нижнем регистре может стать длиннее ('İ' → 'i̇'): позиции копии не совпали бы с исходником
+// в нижнем регистре может стать длиннее ('İ' → 'i̇'): позиции копии не совпали бы с исходником.
+// Конечная сигма — как обычная: по одному символу 'Σ' всегда 'σ', а целая строка даёт и 'ς'
 function lowered(text: string): { lower: string; starts: number[] } {
     let lower = '';
     const starts: number[] = [];
     let at = 0;
     for (const char of text) {
-        const folded = char.toLowerCase();
+        const folded = char === 'ς' ? 'σ' : char.toLowerCase();
         for (let index = 0; index < folded.length; index++) starts.push(at);
         lower += folded;
         at += char.length;
@@ -40,7 +41,7 @@ const splits = (starts: number[], index: number): boolean =>
  */
 export function findMatches(cells: readonly SearchCell[], query: string): SearchRange[] {
     if (!query) return [];
-    const needle = query.toLowerCase();
+    const needle = lowered(query).lower;
     const ranges: SearchRange[] = [];
     for (const cell of cells) {
         const { lower, starts } = lowered(cell.text);

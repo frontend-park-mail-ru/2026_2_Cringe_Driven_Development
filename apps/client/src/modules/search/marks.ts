@@ -5,6 +5,9 @@ export interface SourceMark {
     current: boolean;
 }
 
+/** Пустой список вхождений: один на все ячейки, мемоизация по нему не сбрасывается. */
+export const NO_MARKS: readonly SourceMark[] = [];
+
 /** Кусок текста: данные исходного отрезка и метка поиска, если кусок внутри вхождения. */
 export interface Piece<T> {
     text: string;

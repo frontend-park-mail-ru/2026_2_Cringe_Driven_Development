@@ -39,6 +39,12 @@ test('позиции — в исходнике, Unicode их не сдвигае
     expect(at('<b>', '<b>x</b>')).toEqual([['c0', 0, 3]]);
 });
 
+test('конечная сигма: запрос и текст сворачиваются одинаково', () => {
+    expect(at('ΟΔΟΣ', 'ΟΔΟΣ')).toEqual([['c0', 0, 4]]);
+    expect(at('οδος', 'ΟΔΟΣ')).toEqual([['c0', 0, 4]]);
+    expect(at('ΟΔΟΣ', 'οδος')).toEqual([['c0', 0, 4]]);
+});
+
 test('активное совпадение сохраняется, переходы — по кругу', () => {
     const matches = findMatches(cells('a a', 'a'), 'a');
     expect(matches).toHaveLength(3);

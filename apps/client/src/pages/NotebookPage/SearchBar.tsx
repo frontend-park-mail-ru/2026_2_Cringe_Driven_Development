@@ -1,3 +1,4 @@
+import { useEffect, useRef } from '@cdd-team/react';
 import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { domProps } from '@utils/dom-props';
@@ -17,7 +18,6 @@ interface SearchBarProps {
     /** Сколько всего вхождений */
     total: number;
     onQuery: (query: string) => void;
-    onClear: () => void;
     onNext: () => void;
     onPrev: () => void;
     onClose: () => void;
@@ -28,7 +28,7 @@ const focusInput = (): void => document.getElementById(SEARCH_INPUT_ID)?.focus()
 
 /**
  * Панель поиска по блокноту (Components → SearchBar): поле со счётчиком и очисткой, переходы и
- * закрытие. Enter и Shift+Enter в поле — следующее и предыдущее совпадение, Esc закрывает.
+ * закрытие. Enter и Shift+Enter в поле — следующее и предыдущее совпадение, Esc в панели закрывает.
  * @param props запрос, счётчик и действия
  * @returns панель
  */
@@ -37,14 +37,26 @@ export function SearchBar({
     current,
     total,
     onQuery,
-    onClear,
     onNext,
     onPrev,
     onClose,
 }: SearchBarProps) {
+    // Esc закрывает панель из поля и с её кнопок
+    const barRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        const bar = barRef.current;
+        if (!bar) return;
+        const handleKey = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || event.isComposing) return;
+            event.preventDefault();
+            onClose();
+        };
+        bar.addEventListener('keydown', handleKey);
+        return () => bar.removeEventListener('keydown', handleKey);
+    }, [onClose]);
     const status = !query ? '' : total > 0 ? `${current} из ${total}` : 'Ничего не найдено';
     return (
-        <search id={SEARCH_PANEL_ID} className={styles.bar}>
+        <search ref={barRef} id={SEARCH_PANEL_ID} className={styles.bar}>
             <div key="field" className={styles.field}>
                 <Icon key="icon" name="search" className={styles.icon} />
                 <input
@@ -58,15 +70,12 @@ export function SearchBar({
                     {...domProps({ autocomplete: 'off', spellcheck: false })}
                     onInput={(event) => onQuery((event.target as HTMLInputElement).value)}
                     onKeyDown={(event) => {
-                        if (event.isComposing) return;
-                        if (event.key === 'Enter') {
-                            event.preventDefault();
-                            if (event.shiftKey) onPrev();
-                            else onNext();
-                        } else if (event.key === 'Escape') {
-                            event.preventDefault();
-                            onClose();
-                        }
+                        // Enter подтверждает ввод IME; Safari отдаёт его с keyCode 229
+                        if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229)
+                            return;
+                        event.preventDefault();
+                        if (event.shiftKey) onPrev();
+                        else onNext();
                     }}
                 />
                 <span key="status" className={styles.count} aria-live="polite">
@@ -79,7 +88,7 @@ export function SearchBar({
                         type="button"
                         aria-label="Очистить запрос"
                         onClick={() => {
-                            onClear();
+                            onQuery('');
                             focusInput();
                         }}
                     >

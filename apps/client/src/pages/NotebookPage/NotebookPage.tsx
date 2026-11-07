@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 
 import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
 import LogoMark from '@assets/logo-mark.svg?react';
-import { Button } from '@components/Button/Button';
 import { Cell, CellSkeleton, cellEditorId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
@@ -43,9 +42,8 @@ import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
 import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
-import runtimeStyles from './Runtime.module.css';
 import { SEARCH_BUTTON_ID, scrollToCurrent, useNotebookSearch } from './search';
-import { SearchBar, SEARCH_INPUT_ID, SEARCH_PANEL_ID } from './SearchBar';
+import { SearchBar, SEARCH_INPUT_ID } from './SearchBar';
 import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
@@ -88,6 +86,12 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
 };
 
 const PASTE_NOTICE_MS = 4000;
+
+// Поиск открывает Cmd+F на Mac и Ctrl+F на остальных системах
+const IS_MAC = navigator.userAgent.includes('Mac');
+
+// Запас между прилипшей шапкой и совпадением, к которому прокрутили
+const SEARCH_GAP = 16;
 
 // Лимит — в байтах, но человеку понятнее, сколько символов вошло: «37 090»
 const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
@@ -309,8 +313,8 @@ export function NotebookPage() {
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
     // поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера
-    const search = useNotebookSearch(cells, notebook.drafts, ready && !touch);
-    const { show: showSearch } = search;
+    const searchEnabled = ready && !touch;
+    const search = useNotebookSearch(cells, notebook.drafts, searchEnabled);
     // Перевести фокус в поле поиска после отрисовки панели
     const [searchFocus, setSearchFocus] = useState(0);
     useLayoutEffect(() => {
@@ -321,47 +325,51 @@ export function NotebookPage() {
             input.select();
         }
     }, [searchFocus]);
-    const searchEnabled = ready && !touch;
+    const { show: showSearch } = search;
+    const openSearch = useCallback(() => {
+        showSearch();
+        setSearchFocus((count) => count + 1);
+    }, [showSearch]);
     useEffect(() => {
         if (!searchEnabled) return;
         const handleKey = (event: KeyboardEvent) => {
-            if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
-            if (event.key.toLowerCase() !== 'f') return;
+            // по коду клавиши: в русской раскладке key — «а»; на Mac Ctrl+F — курсор вперёд
+            const modifier = IS_MAC ? event.metaKey : event.ctrlKey;
+            if (!modifier || event.code !== 'KeyF' || event.altKey || event.shiftKey) return;
             event.preventDefault();
-            showSearch();
-            setSearchFocus((count) => count + 1);
+            openSearch();
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [searchEnabled, showSearch]);
-    // После закрытия панели фокус — на «Поиск», когда шапка уже перерисована
-    const [buttonFocus, setButtonFocus] = useState(0);
-    useLayoutEffect(() => {
-        if (buttonFocus > 0) document.getElementById(SEARCH_BUTTON_ID)?.focus();
-    }, [buttonFocus]);
+    }, [searchEnabled, openSearch]);
     // К активному вхождению — только после перехода или нового запроса, не после правки ячеек
     useLayoutEffect(() => {
         if (search.jump > 0) scrollToCurrent(document);
     }, [search.jump]);
-    // Прокрутка к совпадению не прячет его под шапкой: высота шапки с панелью + её top и запас
+    // Прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
     const pageRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         const page = pageRef.current;
         const header = page?.querySelector('header');
         if (!page || !header || !search.open) return;
-        const observer = new ResizeObserver(() =>
-            page.style.setProperty('--search-margin', `${header.offsetHeight + 12 + 16}px`),
-        );
+        const observer = new ResizeObserver(() => {
+            const top = parseFloat(getComputedStyle(header).top) || 0;
+            page.style.setProperty(
+                '--search-margin',
+                `${top + header.offsetHeight + SEARCH_GAP}px`,
+            );
+        });
         observer.observe(header);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            page.style.removeProperty('--search-margin');
+        };
     }, [search.open]);
     const closeSearch = () => {
+        // кнопка «Поиск» остаётся в шапке: фокус на неё до того, как исчезнет поле
+        document.getElementById(SEARCH_BUTTON_ID)?.focus();
         search.close();
-        setButtonFocus((count) => count + 1);
     };
-    const activeIndex = search.active
-        ? search.matches.findIndex((range) => range === search.active) + 1
-        : 0;
     const title =
         load === 'loading'
             ? 'Загрузка блокнота…'
@@ -412,10 +420,9 @@ export function NotebookPage() {
                             <SearchBar
                                 key="search"
                                 query={search.query}
-                                current={activeIndex}
-                                total={search.matches.length}
+                                current={search.current}
+                                total={search.total}
                                 onQuery={search.setQuery}
-                                onClear={() => search.setQuery('')}
                                 onNext={search.next}
                                 onPrev={search.prev}
                                 onClose={closeSearch}
@@ -434,28 +441,15 @@ export function NotebookPage() {
                                     />
                                 )}
                                 {ready && (
-                                    <RuntimeActions key="runtime" hasCode={hasCode}>
-                                        {searchEnabled && (
-                                            <Button
-                                                key="search"
-                                                id={SEARCH_BUTTON_ID}
-                                                variant="secondary"
-                                                icon="search"
-                                                className={clsx(
-                                                    runtimeStyles.button,
-                                                    search.open && runtimeStyles.active,
-                                                )}
-                                                expanded={search.open}
-                                                controls={SEARCH_PANEL_ID}
-                                                onClick={() => {
-                                                    showSearch();
-                                                    setSearchFocus((count) => count + 1);
-                                                }}
-                                            >
-                                                Поиск
-                                            </Button>
-                                        )}
-                                    </RuntimeActions>
+                                    <RuntimeActions
+                                        key="runtime"
+                                        hasCode={hasCode}
+                                        search={
+                                            searchEnabled
+                                                ? { open: search.open, onOpen: openSearch }
+                                                : undefined
+                                        }
+                                    />
                                 )}
                             </>
                         )

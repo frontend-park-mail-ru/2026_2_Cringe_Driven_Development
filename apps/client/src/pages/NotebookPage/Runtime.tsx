@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from '@cdd-team/react';
+import { useEffect, useState } from '@cdd-team/react';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
@@ -11,6 +11,8 @@ import {
     stopRuntime,
     useRuntimeStore,
 } from '@stores/runtime';
+import { SEARCH_BUTTON_ID } from './search';
+import { SEARCH_PANEL_ID } from './SearchBar';
 import { bannerKind, runtimeButtons, type BannerKind, type CellRun } from './status';
 import styles from './Runtime.module.css';
 
@@ -20,21 +22,38 @@ type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 interface RuntimeActionsProps {
     /** В блокноте есть кодовые ячейки */
     hasCode: boolean;
-    /** Кнопки перед кнопками окружения, например «Поиск» */
-    children?: ReactNode;
+    /** Кнопка «Поиск»: нет — кнопки нет (тач) */
+    search?: {
+        /** Панель поиска открыта */
+        open: boolean;
+        onOpen: () => void;
+    };
 }
 
 /**
- * «Завершить окружение» и «Запустить всё» справа в панели шапки, перед ними — переданные кнопки.
+ * «Поиск», «Завершить окружение» и «Запустить всё» справа в панели шапки.
  * @param props свойства кнопок
  * @returns кнопки
  */
-export function RuntimeActions({ hasCode, children }: RuntimeActionsProps) {
+export function RuntimeActions({ hasCode, search }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
     const { stop, runAll: all } = runtimeButtons(runtime, hasCode);
     return (
         <div className={styles.actions}>
-            {children}
+            {search && (
+                <Button
+                    key="search"
+                    id={SEARCH_BUTTON_ID}
+                    variant="secondary"
+                    icon="search"
+                    className={clsx(styles.button, search.open && styles.active)}
+                    expanded={search.open}
+                    controls={search.open ? SEARCH_PANEL_ID : undefined}
+                    onClick={search.onOpen}
+                >
+                    Поиск
+                </Button>
+            )}
             {stop && (
                 <Button
                     key="stop"
