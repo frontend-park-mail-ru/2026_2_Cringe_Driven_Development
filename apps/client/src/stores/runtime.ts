@@ -24,7 +24,7 @@ export type RuntimeExecution = Updates['executions'][number];
 export type QueueItem = Updates['runtime_queue']['items'][number];
 
 /** Итог наблюдаемого запуска для шапки. */
-export type RunOutcome = 'running' | 'queued' | 'succeeded' | 'failed' | 'unknown' | 'stopped';
+export type RunOutcome = 'running' | 'succeeded' | 'failed' | 'unknown' | 'stopped';
 
 /** Почему команда не выполнена. */
 export type RuntimeError =
@@ -220,8 +220,8 @@ export function resultsPending(state: RuntimeState): boolean {
  */
 export function runStatus(state: RuntimeState): RunOutcome | null {
     if (!own(state)) return state.outcome;
-    if (state.queue.some((item) => item.state === 'RUNNING')) return 'running';
-    if (state.queue.length > 0) return 'queued';
+    // запуск идёт, пока в очереди что-то есть — даже между ячейками, когда ни одна ещё не взята
+    if (state.queue.length > 0) return 'running';
     return state.outcome;
 }
 

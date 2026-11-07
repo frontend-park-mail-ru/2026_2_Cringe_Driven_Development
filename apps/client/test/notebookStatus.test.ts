@@ -84,7 +84,7 @@ test('шапка: выполнение со ссылкой на ячейку, о
     expect(
         runtimeStatus(state({ queue: queue(['e1', 'a', 'RUNNING'], ['e2', 'c', 'QUEUED']) })),
     ).toEqual({ tone: 'progress', text: 'Выполняется', cell: 'a' });
-    expect(runtimeStatus(state({ queue: queue(['e2', 'c', 'QUEUED']) }))?.text).toBe('В очереди');
+    expect(runtimeStatus(state({ queue: queue(['e2', 'c', 'QUEUED']) }))?.text).toBe('Выполняется');
     expect(runtimeStatus(state({ session: session({ state: 'PROVISIONING' }) }))?.text).toBe(
         'Подготавливаем окружение…',
     );

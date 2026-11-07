@@ -23,7 +23,6 @@ const own = (runtime: Runtime) =>
 
 const RUN: Record<RunOutcome, Label> = {
     running: { tone: 'progress', text: 'Выполняется' },
-    queued: { tone: 'progress', text: 'В очереди' },
     succeeded: { tone: 'success', text: 'Выполнено' },
     failed: { tone: 'error', text: 'Ошибка выполнения' },
     unknown: { tone: 'warning', text: 'Результат неизвестен' },
