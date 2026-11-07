@@ -7,6 +7,7 @@ import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
+import { ScrollTop } from '@components/ScrollTop/ScrollTop';
 import { SaveStatus } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
@@ -503,6 +504,7 @@ export function NotebookPage() {
                 )}
             </div>
             {ready && <ConflictDialog key="dialog" />}
+            <ScrollTop key="scroll-top" />
         </div>
     );
 }

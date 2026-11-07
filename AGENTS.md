@@ -137,7 +137,7 @@ vite берёт их оттуда.
 
 - `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
-  `Snackbar`, `Toast`, `Space`. Каждый компонент — папка с `.tsx` и `.module.css`.
+  `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`). Каждый компонент — папка с `.tsx` и `.module.css`.
 - `serviceWorker.ts` — регистрация service worker; его кеш настроен в `vite.config.prod.ts`, офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`: всё в precache, без CDN.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `router.ts` — экземпляр роутера `@cdd-team/router` (API как у TanStack Router) и регистрация его
