@@ -303,14 +303,32 @@ function backtickRuns(text: string): Map<number, number[]> {
     return runs;
 }
 
-// Пара `]` для каждой `[` одним проходом; без пары — -1
-function matchBrackets(text: string): Int32Array {
+// Ближайшая серия той же длины после from; позиция запросов только растёт, поэтому курсор — тоже
+function closingRuns(runs: Map<number, number[]>): (length: number, from: number) => number {
+    const cursors = new Map<number, number>();
+    return (length, from) => {
+        const list = runs.get(length) ?? [];
+        let cursor = cursors.get(length) ?? 0;
+        while (cursor < list.length && list[cursor]! < from) cursor += 1;
+        cursors.set(length, cursor);
+        return list[cursor] ?? -1;
+    };
+}
+
+// Пара `]` для каждой `[` одним проходом; без пары — -1. Скобки внутри inline-code не считаются
+function matchBrackets(text: string, runs: Map<number, number[]>): Int32Array {
     const match = new Int32Array(text.length).fill(-1);
     const stack: number[] = [];
+    const closingRun = closingRuns(runs);
     for (let i = 0; i < text.length; i += 1) {
         const char = text[i];
         if (char === '\\') i += 1;
-        else if (char === '[') stack.push(i);
+        else if (char === '`') {
+            let length = 0;
+            while (text[i + length] === '`') length += 1;
+            const close = closingRun(length, i + length);
+            i = (close < 0 ? i + length : close + length) - 1;
+        } else if (char === '[') stack.push(i);
         else if (char === ']') {
             const open = stack.pop();
             if (open !== undefined) match[open] = i;
@@ -430,8 +448,8 @@ function linkTail(
 
 function parseInline(text: string, depth: number): MdInline[] {
     const runs = backtickRuns(text);
-    const cursors = new Map<number, number>();
-    const brackets = matchBrackets(text);
+    const closingRun = closingRuns(runs);
+    const brackets = matchBrackets(text, runs);
     const closings = closingIndex(text);
     // меняются внутри append: без приведения TypeScript считает их всегда null
     let head = null as ListNode | null;
@@ -451,15 +469,6 @@ function parseInline(text: string, depth: number): MdInline[] {
         if (buffer) append({ type: 'text', text: buffer });
         buffer = '';
     };
-    // ближайшая серия той же длины после from: курсор только растёт, как и позиция разбора
-    const closingRun = (length: number, from: number): number => {
-        const list = runs.get(length) ?? [];
-        let cursor = cursors.get(length) ?? 0;
-        while (cursor < list.length && list[cursor]! < from) cursor += 1;
-        cursors.set(length, cursor);
-        return list[cursor] ?? -1;
-    };
-
     let i = 0;
     while (i < text.length) {
         const char = text[i]!;

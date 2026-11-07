@@ -154,6 +154,22 @@ test('ссылки', () => {
     ]);
 });
 
+test('скобки внутри inline-code не участвуют в разборе ссылки', () => {
+    expect(parseMarkdown('[`a]b`](https://example.com)')).toEqual([
+        paragraph({
+            type: 'link',
+            href: 'https://example.com',
+            external: true,
+            children: [{ type: 'code', text: 'a]b' }],
+        }),
+    ]);
+    expect(parseMarkdown('[not a `link](/foo`)')).toEqual([
+        paragraph(text('[not a '), { type: 'code', text: 'link](/foo' }, text(')')),
+    ]);
+    // незакрытая серия обратных кавычек — текст, скобки за ней работают
+    expect(parseMarkdown('[a`b](/x)')).toEqual([paragraph(link('/x', 'a`b'))]);
+});
+
 test('ссылка внутри ссылки: внешняя остаётся текстом', () => {
     expect(parseMarkdown('[outer [inner](/x)](/y)')).toEqual([
         paragraph(text('[outer '), link('/x', 'inner'), text('](/y)')),
