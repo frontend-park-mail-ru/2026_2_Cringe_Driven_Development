@@ -1,3 +1,4 @@
+import { codeBlockAt } from '@modules/markdown/parse';
 import { isPythonLang, tokenizePython } from '@modules/python/tokenize';
 
 /** Отступ Python по PEP 8 */
@@ -109,51 +110,69 @@ export function outdentLines(value: string, start: number, end: number): TextEdi
     };
 }
 
+/** Python-код перед курсором: префикс строки до кода и код от его начала до курсора. */
+export interface PythonBefore {
+    /** Префиксы цитат и отступ пункта списка Markdown; в ячейке кода — пусто */
+    prefix: string;
+    code: string;
+}
+
+/**
+ * Python-код перед курсором. В Markdown — только внутри блока ```python (```py, ~~~python3), в том
+ * числе в цитате и пункте списка: блоки — по правилам parseMarkdown.
+ * @param value текст поля
+ * @param at позиция курсора
+ * @param markdown поле — исходник Markdown
+ * @returns код перед курсором или null, если курсор не в коде Python
+ */
+export function pythonBefore(value: string, at: number, markdown: boolean): PythonBefore | null {
+    if (!markdown) return { prefix: '', code: value.slice(0, at) };
+    const block = codeBlockAt(value, at);
+    return block && isPythonLang(block.lang) ? { prefix: block.prefix, code: block.before } : null;
+}
+
 /**
  * Enter: перевод строки с отступом текущей строки. В коде Python после строки на `:` — на отступ
- * глубже; двоеточие в строке или комментарии не считается.
+ * глубже. Код токенизируется от начала, поэтому двоеточие в строке (и многострочной) или
+ * комментарии не считается.
  * @param value текст поля
  * @param start начало выделения
  * @param end конец выделения
- * @param python текст у курсора — код Python
+ * @param python код Python перед курсором или null — курсор не в коде
  * @returns правка поля
  */
-export function newline(value: string, start: number, end: number, python = true): TextEdit {
-    const before = value.slice(lineStart(value, start), start);
-    let indentation = /^[ \t]*/.exec(before)![0];
-    const code = python ? tokenizePython(before).filter((token) => token.type !== 'comment') : [];
-    const last = code.at(-1);
-    if (last?.type === 'text' && last.text.trimEnd().endsWith(':')) indentation += INDENT;
+export function newline(
+    value: string,
+    start: number,
+    end: number,
+    python: PythonBefore | null,
+): TextEdit {
+    let indentation: string;
+    if (python) {
+        const { prefix, code } = python;
+        const from = code.lastIndexOf('\n') + 1;
+        indentation = prefix + /^[ \t]*/.exec(code.slice(from))![0];
+        if (endsWithColon(code, from)) indentation += INDENT;
+    } else indentation = /^[ \t]*/.exec(value.slice(lineStart(value, start), start))![0];
     const text = `\n${indentation}`;
     const caret = start + text.length;
     return { from: start, to: end, text, selectionStart: caret, selectionEnd: caret };
 }
 
-/**
- * Курсор Markdown-исходника — внутри блока ```python (```py, ~~~python3): там Enter ведёт себя
- * как в ячейке кода. Ограждения — по тем же правилам, что у разбора Markdown.
- * @param value исходник Markdown
- * @param at позиция курсора
- * @returns курсор внутри незакрытого до него блока кода Python
- */
-export function inPythonFence(value: string, at: number): boolean {
-    let open: { marker: string; lang: string | undefined } | null = null;
-    for (const line of value.slice(0, lineStart(value, at)).split('\n')) {
-        const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-        if (!fence) continue;
-        const [, marker = '', rest = ''] = fence;
-        if (!open) {
-            // «```code```» — inline-code, не ограждение
-            if (!marker.startsWith('`') || !rest.includes('`'))
-                open = { marker, lang: /^[ \t]*([^\s`]+)/.exec(rest)?.[1] };
-        } else if (
-            marker[0] === open.marker[0] &&
-            marker.length >= open.marker.length &&
-            !rest.trim()
-        )
-            open = null;
+// Последний значимый символ кода — `:` вне строк и комментариев, и стоит он не раньше from
+function endsWithColon(code: string, from: number): boolean {
+    let colon = false;
+    let offset = 0;
+    for (const token of tokenizePython(code)) {
+        const significant = token.text.trimEnd();
+        if (token.type !== 'comment' && significant.trim())
+            colon =
+                token.type === 'text' &&
+                significant.endsWith(':') &&
+                offset + significant.length > from;
+        offset += token.text.length;
     }
-    return open !== null && isPythonLang(open.lang);
+    return colon;
 }
 
 /**

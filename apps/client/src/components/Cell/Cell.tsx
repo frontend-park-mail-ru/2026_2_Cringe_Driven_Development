@@ -8,9 +8,9 @@ import { clsx } from '@cdd-team/clsx';
 import {
     backspace,
     indentLines,
-    inPythonFence,
     newline,
     outdentLines,
+    pythonBefore,
     type TextEdit,
 } from './indentation';
 import styles from './Cell.module.css';
@@ -65,7 +65,7 @@ function indentEdit(
         return event.shiftKey ? outdentLines(value, start, end) : indentLines(value, start, end);
     if (event.shiftKey) return undefined;
     if (event.key === 'Enter')
-        return newline(value, start, end, isCode || inPythonFence(value, start));
+        return newline(value, start, end, pythonBefore(value, start, !isCode));
     if (event.key === 'Backspace') return backspace(value, start, end) ?? undefined;
     return undefined;
 }

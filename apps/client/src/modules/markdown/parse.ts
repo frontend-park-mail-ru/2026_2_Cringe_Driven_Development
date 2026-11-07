@@ -54,6 +54,46 @@ export function safeHref(raw: string): string | null {
     return href;
 }
 
+/** Блок кода у позиции курсора в исходнике Markdown. */
+export interface CodeAt {
+    /** Первое слово после ```, если есть */
+    lang: string | undefined;
+    /** Начало строки курсора до кода: префиксы цитат и отступ пункта списка */
+    prefix: string;
+    /** Код блока от первой строки до курсора, без префиксов */
+    before: string;
+}
+
+/**
+ * Блок кода, внутри которого стоит курсор, — по тем же правилам, что у parseMarkdown: в цитатах
+ * и пунктах списка тоже.
+ * @param source исходник Markdown
+ * @param at позиция курсора
+ * @returns блок кода у курсора или null, если курсор не в коде
+ */
+export function codeBlockAt(source: string, at: number): CodeAt | null {
+    const lines = source.split('\n');
+    const row = source.slice(0, at).split('\n').length - 1;
+    const track: Track = { rows: lines.map((_, index) => index), fences: [] };
+    parseBlocks(lines, 0, track);
+    for (const fence of track.fences) {
+        const index = fence.rows.indexOf(row);
+        if (index < 0) continue;
+        const line = lines[row]!;
+        const code = fence.lines[index]!;
+        // строка кода — конец строки исходника: всё до него — префиксы контейнеров
+        const prefix = line.slice(0, Math.max(0, line.length - code.length));
+        const column = at - (source.lastIndexOf('\n', at - 1) + 1) - prefix.length;
+        if (column < 0) return null;
+        return {
+            lang: fence.lang,
+            prefix,
+            before: [...fence.lines.slice(0, index), code.slice(0, column)].join('\n'),
+        };
+    }
+    return null;
+}
+
 // ——— Блоки ———
 
 const isBlank = (line: string): boolean => /^[ \t]*$/.test(line);
@@ -164,7 +204,17 @@ function paragraphState(): { push: (line: string) => void; open: () => boolean }
     };
 }
 
-function parseBlocks(lines: string[], depth: number): MdBlock[] {
+// Строки исходника для строк блока и найденные блоки кода: нужно только codeBlockAt
+interface Track {
+    rows: number[];
+    fences: { lang: string | undefined; rows: number[]; lines: string[] }[];
+}
+
+// Строки вложенного блока — те же строки исходника: одна строка контейнера даёт одну строку блока
+const nested = (track: Track | null, rows: number[]): Track | null =>
+    track && { rows, fences: track.fences };
+
+function parseBlocks(lines: string[], depth: number, track: Track | null = null): MdBlock[] {
     const blocks: MdBlock[] = [];
     let i = 0;
     while (i < lines.length) {
@@ -181,11 +231,13 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
             const closing = closingFence(marker);
             const code: string[] = [];
             i += 1;
+            const from = i;
             while (i < lines.length && !closing.test(lines[i]!)) {
                 code.push(dropIndent(lines[i]!, Math.min(lead.length, indentOf(lines[i]!))));
                 i += 1;
             }
             i += 1;
+            track?.fences.push({ lang, rows: track.rows.slice(from, i - 1), lines: code });
             blocks.push(
                 lang
                     ? { type: 'code', text: code.join('\n'), lang }
@@ -210,6 +262,7 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
 
         if (depth < MAX_DEPTH && isQuote(line)) {
             const inner: string[] = [];
+            const innerRows: number[] = [];
             const paragraph = paragraphState();
             while (i < lines.length) {
                 const current = lines[i]!;
@@ -219,15 +272,19 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
                     inner.push(current);
                 else break;
                 paragraph.push(inner.at(-1)!);
+                if (track) innerRows.push(track.rows[i]!);
                 i += 1;
             }
-            blocks.push({ type: 'quote', children: parseBlocks(inner, depth + 1) });
+            blocks.push({
+                type: 'quote',
+                children: parseBlocks(inner, depth + 1, nested(track, innerRows)),
+            });
             continue;
         }
 
         const first = listMarker(line);
         if (depth < MAX_DEPTH && first) {
-            i = parseList(lines, i, first, depth, blocks);
+            i = parseList(lines, i, first, depth, blocks, track);
             continue;
         }
 
@@ -255,6 +312,7 @@ function parseList(
     first: ListMarker,
     depth: number,
     blocks: MdBlock[],
+    track: Track | null,
 ): number {
     const items: MdBlock[][] = [];
     const same = (item: ListMarker | null): item is ListMarker =>
@@ -264,6 +322,7 @@ function parseList(
         const item = listMarker(lines[i]!);
         if (!same(item)) break;
         const content = [item.content];
+        const contentRows = track ? [track.rows[i]!] : [];
         const paragraph = paragraphState();
         paragraph.push(item.content);
         i += 1;
@@ -275,6 +334,7 @@ function parseList(
                 if (filled >= lines.length || indentOf(lines[filled]!) < item.indent) break;
                 while (i < filled) {
                     content.push('');
+                    if (track) contentRows.push(track.rows[i]!);
                     i += 1;
                 }
                 paragraph.push('');
@@ -286,9 +346,10 @@ function parseList(
                 content.push(current);
             else break;
             paragraph.push(content.at(-1)!);
+            if (track) contentRows.push(track.rows[i]!);
             i += 1;
         }
-        items.push(parseBlocks(content, depth + 1));
+        items.push(parseBlocks(content, depth + 1, nested(track, contentRows)));
         // пустые строки между пунктами одного списка
         const filled = nextFilled(lines, i);
         if (filled < lines.length && same(listMarker(lines[filled]!))) i = filled;

@@ -3,9 +3,9 @@ import { expect, test } from 'bun:test';
 import {
     backspace,
     indentLines,
-    inPythonFence,
     newline,
     outdentLines,
+    pythonBefore,
     type TextEdit,
 } from '@components/Cell/indentation';
 
@@ -52,35 +52,68 @@ test('Shift+Tab снимает один отступ', () => {
     expect(run(outdentLines, 'x|')).toBeNull();
 });
 
+// Enter, как в Cell: в ячейке кода и в исходнике Markdown-ячейки
+const code = (marked: string) =>
+    run(
+        (value, start, end) => newline(value, start, end, pythonBefore(value, start, false)),
+        marked,
+    );
+const markdown = (marked: string) =>
+    run(
+        (value, start, end) => newline(value, start, end, pythonBefore(value, start, true)),
+        marked,
+    );
+
 test('Enter сохраняет отступ и углубляет после двоеточия', () => {
-    expect(run(newline, '    x = 1|')).toBe('    x = 1\n    |');
-    expect(run(newline, 'def f():|')).toBe('def f():\n    |');
-    expect(run(newline, '    if a:  # условие|')).toBe('    if a:  # условие\n        |');
+    expect(code('    x = 1|')).toBe('    x = 1\n    |');
+    expect(code('def f():|')).toBe('def f():\n    |');
+    expect(code('    if a:  # условие|')).toBe('    if a:  # условие\n        |');
     // двоеточие внутри строки не углубляет
-    expect(run(newline, 's = "a:"|')).toBe('s = "a:"\n|');
+    expect(code('s = "a:"|')).toBe('s = "a:"\n|');
     // перенос посреди строки: отступ — от начала строки до курсора
-    expect(run(newline, '    a|b')).toBe('    a\n    |b');
-    expect(run(newline, '  [sel]ected')).toBe('  \n  |ected');
+    expect(code('    a|b')).toBe('    a\n    |b');
+    expect(code('  [sel]ected')).toBe('  \n  |ected');
+    // двоеточие предыдущей строки не углубляет пустую
+    expect(code('if a:\n|')).toBe('if a:\n\n|');
 });
 
-// Enter в исходнике Markdown-ячейки, как в Cell
-const markdown = (marked: string) =>
-    run((value, start, end) => newline(value, start, end, inPythonFence(value, start)), marked);
+test('Enter: двоеточие в многострочной строке — не код', () => {
+    expect(code('x = """text:\ninside:|')).toBe('x = """text:\ninside:\n|');
+    expect(code('x = """a\n  b""" if c else {\n  1:|')).toBe(
+        'x = """a\n  b""" if c else {\n  1:\n      |',
+    );
+    expect(code("f'''{x}\n:'''|")).toBe("f'''{x}\n:'''\n|");
+});
 
 test('Markdown: Enter углубляет отступ только в блоке Python', () => {
     expect(markdown('Пример:|')).toBe('Пример:\n|');
     expect(markdown('  - пункт|')).toBe('  - пункт\n  |');
     expect(markdown('```python\ndef f():|')).toBe('```python\ndef f():\n    |');
     expect(markdown('~~~ Py\nif x:|')).toBe('~~~ Py\nif x:\n    |');
+    expect(markdown('```python\ns = """a\nb:|')).toBe('```python\ns = """a\nb:\n|');
     // другой язык, блок без языка и после закрытия — без углубления
     expect(markdown('```js\nif (x) {:|')).toBe('```js\nif (x) {:\n|');
     expect(markdown('```\nx:|')).toBe('```\nx:\n|');
     expect(markdown('```python\nx\n```\nИтог:|')).toBe('```python\nx\n```\nИтог:\n|');
     // закрывает только такой же маркер не короче открывающего
-    expect(inPythonFence('````python\n```\nx', 16)).toBe(true);
-    expect(inPythonFence('```python\n~~~\nx', 14)).toBe(true);
+    expect(markdown('````python\n```\nif x:|')).toBe('````python\n```\nif x:\n    |');
+    expect(markdown('```python\n~~~\nif x:|')).toBe('```python\n~~~\nif x:\n    |');
     // «```python```» — inline-code, блок не открывает
-    expect(inPythonFence('```python```\nx', 13)).toBe(false);
+    expect(markdown('```python```\nif x:|')).toBe('```python```\nif x:\n|');
+});
+
+test('Markdown: блок Python в цитате и пункте списка', () => {
+    // префикс цитаты переносится, иначе строка выйдет из цитаты
+    expect(markdown('> ```python\n> if x:|')).toBe('> ```python\n> if x:\n>     |');
+    expect(markdown('> ```python\n>     y = 1|')).toBe('> ```python\n>     y = 1\n>     |');
+    expect(markdown('10. item\n    ```python\n    if x:|')).toBe(
+        '10. item\n    ```python\n    if x:\n        |',
+    );
+    expect(markdown('- ```python\n  for i in a:|')).toBe('- ```python\n  for i in a:\n      |');
+    // блок в цитате закрыт — дальше не код
+    expect(markdown('> ```python\n> x\n> ```\n> Итог:|')).toBe(
+        '> ```python\n> x\n> ```\n> Итог:\n|',
+    );
 });
 
 test('Backspace в начальных пробелах — до позиции, кратной 4', () => {
