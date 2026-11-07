@@ -58,9 +58,12 @@ export function safeHref(raw: string): string | null {
 export interface CodeAt {
     /** Первое слово после ```, если есть */
     lang: string | undefined;
-    /** Начало строки курсора до кода: префиксы цитат и отступ пункта списка */
+    /** Начало строки курсора в исходнике до кода: префиксы цитат и отступ пункта списка */
     prefix: string;
-    /** Код блока от первой строки до курсора, без префиксов */
+    /**
+     * Код блока от первой строки до курсора без префиксов. Строка курсора — из исходника после
+     * prefix: раскрытая при снятии отступа часть табуляции остаётся в prefix
+     */
     before: string;
 }
 
@@ -80,19 +83,28 @@ export function codeBlockAt(source: string, at: number): CodeAt | null {
         const index = fence.rows.indexOf(row);
         if (index < 0) continue;
         const line = lines[row]!;
-        const code = fence.lines[index]!;
-        // строка кода — конец строки исходника: всё до него — префиксы контейнеров
-        const prefix = line.slice(0, Math.max(0, line.length - code.length));
-        const start = at > 0 ? source.lastIndexOf('\n', at - 1) + 1 : 0;
-        const column = at - start - prefix.length;
-        if (column < 0) return null;
+        const from = codeStart(line, fence.lines[index]!);
+        const column = at - (at > 0 ? source.lastIndexOf('\n', at - 1) + 1 : 0);
+        if (column < from) return null;
         return {
             lang: fence.lang,
-            prefix,
-            before: [...fence.lines.slice(0, index), code.slice(0, column)].join('\n'),
+            prefix: line.slice(0, from),
+            before: [...fence.lines.slice(0, index), line.slice(from, column)].join('\n'),
         };
     }
     return null;
+}
+
+// Позиция в строке исходника, с которой идёт строка кода. Снятие префиксов и отступов оставляет
+// конец строки и, если табуляция раскрылась частично, пробелы перед ним: code = пробелы + line.slice(from)
+function codeStart(line: string, code: string): number {
+    const lead = /^ */.exec(code)![0].length;
+    for (let from = Math.max(0, line.length - code.length); from <= line.length; from += 1) {
+        const padding = code.length - (line.length - from);
+        if (padding > lead) break;
+        if (code.slice(padding) === line.slice(from)) return from;
+    }
+    return Math.max(0, line.length - code.length);
 }
 
 // ——— Блоки ———

@@ -116,6 +116,12 @@ test('Markdown: блок Python в цитате и пункте списка', (
         '10. item\n    ```python\n    if x:\n        |',
     );
     expect(markdown('- ```python\n  for i in a:|')).toBe('- ```python\n  for i in a:\n      |');
+    // табуляция раскрыта частично: её остаток — отступ кода, сама табуляция переносится как есть
+    expect(markdown('- ```python\n\tif x:|')).toBe('- ```python\n\tif x:\n\t    |');
+    expect(markdown('- ```python\n\t    y = 1|')).toBe('- ```python\n\t    y = 1\n\t    |');
+    expect(markdown('> ```python\n>\tif x:|')).toBe('> ```python\n>\tif x:\n>\t    |');
+    // курсор в отступе пункта, до кода
+    expect(markdown('- ```python\n |  x:')).toBe('- ```python\n \n |  x:');
     // блок в цитате закрыт — дальше не код
     expect(markdown('> ```python\n> x\n> ```\n> Итог:|')).toBe(
         '> ```python\n> x\n> ```\n> Итог:\n|',
