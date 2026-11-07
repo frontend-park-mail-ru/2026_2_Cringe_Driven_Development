@@ -93,6 +93,19 @@ test('цитаты и блоки кода', () => {
     ]);
 });
 
+test('обратные кавычки после ``` — inline-code, не блок кода', () => {
+    expect(parseMarkdown('```code```')).toEqual([paragraph({ type: 'code', text: 'code' })]);
+    expect(parseMarkdown('```code```\nplain')).toEqual([
+        paragraph({ type: 'code', text: 'code' }, text('\nplain')),
+    ]);
+    // и абзац не прерывает
+    expect(parseMarkdown('текст\n```x```')).toEqual([
+        paragraph(text('текст\n'), { type: 'code', text: 'x' }),
+    ]);
+    // у ~~~ обратные кавычки в info string допустимы
+    expect(parseMarkdown('~~~ a`b\nx\n~~~')[0]).toMatchObject({ type: 'code', text: 'x' });
+});
+
 test('выделение, inline-code и экранирование', () => {
     expect(parseMarkdown('**ж** *к* __ж__ _к_ `<b>` \\*нет\\*')).toEqual([
         paragraph(

@@ -114,7 +114,12 @@ function listMarker(line: string): ListMarker | null {
     };
 }
 
-const fenceOf = (line: string) => /^( {0,3})(`{3,}|~{3,})/.exec(line);
+// После ``` обратных кавычек быть не может: «```code```» — inline-code (CommonMark)
+function fenceOf(line: string): RegExpExecArray | null {
+    const fence = /^( {0,3})(`{3,}|~{3,})/.exec(line);
+    if (fence?.[2]?.startsWith('`') && line.includes('`', fence[0].length)) return null;
+    return fence;
+}
 const isHeading = (line: string): boolean => /^ {0,3}#{1,6}(?:[ \t]|$)/.test(line);
 const isQuote = (line: string): boolean => /^ {0,3}>/.test(line);
 

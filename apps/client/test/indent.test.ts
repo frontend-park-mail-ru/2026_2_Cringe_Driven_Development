@@ -77,6 +77,8 @@ test('Markdown: Enter углубляет отступ только в блоке
     // закрывает только такой же маркер не короче открывающего
     expect(inPythonFence('````python\n```\nx', 16)).toBe(true);
     expect(inPythonFence('```python\n~~~\nx', 14)).toBe(true);
+    // «```python```» — inline-code, блок не открывает
+    expect(inPythonFence('```python```\nx', 13)).toBe(false);
 });
 
 test('Backspace в начальных пробелах — до позиции, кратной 4', () => {

@@ -142,8 +142,11 @@ export function inPythonFence(value: string, at: number): boolean {
         const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
         if (!fence) continue;
         const [, marker = '', rest = ''] = fence;
-        if (!open) open = { marker, lang: /^[ \t]*([^\s`]+)/.exec(rest)?.[1] };
-        else if (
+        if (!open) {
+            // «```code```» — inline-code, не ограждение
+            if (!marker.startsWith('`') || !rest.includes('`'))
+                open = { marker, lang: /^[ \t]*([^\s`]+)/.exec(rest)?.[1] };
+        } else if (
             marker[0] === open.marker[0] &&
             marker.length >= open.marker.length &&
             !rest.trim()
