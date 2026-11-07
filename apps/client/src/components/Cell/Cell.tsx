@@ -5,7 +5,14 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
 import { clsx } from '@cdd-team/clsx';
-import { backspace, indent, inPythonFence, newline, outdent, type TextEdit } from './indent';
+import {
+    backspace,
+    indentLines,
+    inPythonFence,
+    newline,
+    outdentLines,
+    type TextEdit,
+} from './indentation';
 import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
@@ -49,7 +56,7 @@ function indentEdit(
 ): TextEdit | null | undefined {
     const { value, selectionStart: start, selectionEnd: end } = editor;
     if (event.key === 'Tab')
-        return event.shiftKey ? outdent(value, start, end) : indent(value, start, end);
+        return event.shiftKey ? outdentLines(value, start, end) : indentLines(value, start, end);
     if (event.shiftKey) return undefined;
     if (event.key === 'Enter')
         return newline(value, start, end, isCode || inPythonFence(value, start));

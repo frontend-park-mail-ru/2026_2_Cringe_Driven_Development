@@ -2,12 +2,12 @@
 import { expect, test } from 'bun:test';
 import {
     backspace,
-    indent,
+    indentLines,
     inPythonFence,
     newline,
-    outdent,
+    outdentLines,
     type TextEdit,
-} from '@components/Cell/indent';
+} from '@components/Cell/indentation';
 
 type Command = (value: string, start: number, end: number) => TextEdit | null;
 
@@ -26,28 +26,30 @@ function run(command: Command, marked: string): string | null {
 }
 
 test('Tab — пробелы до позиции, кратной 4', () => {
-    expect(run(indent, '|x')).toBe('    |x');
-    expect(run(indent, 'ab|c')).toBe('ab  |c');
-    expect(run(indent, '    |')).toBe('        |');
+    expect(run(indentLines, '|x')).toBe('    |x');
+    expect(run(indentLines, 'ab|c')).toBe('ab  |c');
+    expect(run(indentLines, '    |')).toBe('        |');
     // выделение в одной строке заменяется отступом
-    expect(run(indent, 'a[bc]d')).toBe('a   |d');
+    expect(run(indentLines, 'a[bc]d')).toBe('a   |d');
 });
 
 test('Tab с выделением нескольких строк сдвигает их', () => {
-    expect(run(indent, 'de[f f():\n    retu]rn 1\nx')).toBe('    de[f f():\n        retu]rn 1\nx');
+    expect(run(indentLines, 'de[f f():\n    retu]rn 1\nx')).toBe(
+        '    de[f f():\n        retu]rn 1\nx',
+    );
     // пустые строки не получают отступ; конец в начале строки её не захватывает
-    expect(run(indent, '[a\n\nb\n]c')).toBe('[    a\n\n    b\n]c');
+    expect(run(indentLines, '[a\n\nb\n]c')).toBe('[    a\n\n    b\n]c');
 });
 
 test('Shift+Tab снимает один отступ', () => {
-    expect(run(outdent, '        re|turn')).toBe('    re|turn');
-    expect(run(outdent, '  |x')).toBe('|x');
-    expect(run(outdent, '\tx|')).toBe('x|');
+    expect(run(outdentLines, '        re|turn')).toBe('    re|turn');
+    expect(run(outdentLines, '  |x')).toBe('|x');
+    expect(run(outdentLines, '\tx|')).toBe('x|');
     // курсор внутри снимаемого отступа остаётся в начале строки
-    expect(run(outdent, '  |  x')).toBe('|x');
-    expect(run(outdent, '[    a\n        b]')).toBe('[a\n    b]');
+    expect(run(outdentLines, '  |  x')).toBe('|x');
+    expect(run(outdentLines, '[    a\n        b]')).toBe('[a\n    b]');
     // снимать нечего — правки нет, но Tab всё равно не уводит фокус (Cell)
-    expect(run(outdent, 'x|')).toBeNull();
+    expect(run(outdentLines, 'x|')).toBeNull();
 });
 
 test('Enter сохраняет отступ и углубляет после двоеточия', () => {

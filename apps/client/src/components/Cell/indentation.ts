@@ -62,7 +62,7 @@ function mapPosition(position: number, shifts: [number, number][]): number {
  * @param end конец выделения
  * @returns правка поля
  */
-export function indent(value: string, start: number, end: number): TextEdit {
+export function indentLines(value: string, start: number, end: number): TextEdit {
     if (!value.slice(start, end).includes('\n')) {
         const column = start - lineStart(value, start);
         const text = ' '.repeat(INDENT.length - (column % INDENT.length));
@@ -92,7 +92,7 @@ export function indent(value: string, start: number, end: number): TextEdit {
  * @param end конец выделения
  * @returns правка поля или null, если снимать нечего
  */
-export function outdent(value: string, start: number, end: number): TextEdit | null {
+export function outdentLines(value: string, start: number, end: number): TextEdit | null {
     const lines = selectedLines(value, start, end);
     const shifts: [number, number][] = [];
     const text = mapLines(value, lines, (line, at) => {
