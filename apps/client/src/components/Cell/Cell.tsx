@@ -34,7 +34,9 @@ function syncHighlight(editor: HTMLTextAreaElement): void {
     editor.parentElement?.style.setProperty('--scroll-x', `${editor.scrollLeft}px`);
 }
 
-// Правка через execCommand: попадает в историю отмены и приходит обычным событием input
+// Правка через execCommand: попадает в историю отмены и приходит обычным событием input.
+// Он помечен устаревшим, но замены с историей отмены нет
+// noinspection JSDeprecatedSymbols
 function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
     editor.setSelectionRange(edit.from, edit.to);
     const done = edit.text
