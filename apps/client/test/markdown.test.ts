@@ -106,6 +106,32 @@ test('обратные кавычки после ``` — inline-code, не бл�
     expect(parseMarkdown('~~~ a`b\nx\n~~~')[0]).toMatchObject({ type: 'code', text: 'x' });
 });
 
+test('без `>` или отступа продолжается только абзац', () => {
+    const outside = paragraph(text('Outside'));
+    expect(parseMarkdown('> текст\nдальше')).toEqual([
+        { type: 'quote', children: [paragraph(text('текст\nдальше'))] },
+    ]);
+    expect(parseMarkdown('> # Heading\nOutside')).toEqual([
+        { type: 'quote', children: [{ type: 'heading', level: 1, children: [text('Heading')] }] },
+        outside,
+    ]);
+    expect(parseMarkdown('> ```\n> inside\n> ```\nOutside')).toEqual([
+        { type: 'quote', children: [{ type: 'code', text: 'inside' }] },
+        outside,
+    ]);
+    // во вложенной цитате — так же
+    expect(parseMarkdown('> > # H\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('> > a\nb')).toEqual([
+        { type: 'quote', children: [{ type: 'quote', children: [paragraph(text('a\nb'))] }] },
+    ]);
+    // и в пункте списка
+    expect(parseMarkdown('- # H\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('- ```\n  x\n  ```\nOutside')[1]).toEqual(outside);
+    expect(parseMarkdown('- a\nb')).toEqual([
+        { type: 'list', ordered: false, start: 1, items: [[paragraph(text('a\nb'))]] },
+    ]);
+});
+
 test('выделение, inline-code и экранирование', () => {
     expect(parseMarkdown('**ж** *к* __ж__ _к_ `<b>` \\*нет\\*')).toEqual([
         paragraph(

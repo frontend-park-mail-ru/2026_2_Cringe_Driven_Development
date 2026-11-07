@@ -130,6 +130,40 @@ function interrupts(line: string): boolean {
     return item !== null && item.content.trim() !== '' && (!item.ordered || item.start === 1);
 }
 
+const closingFence = (marker: string): RegExp =>
+    new RegExp(`^ {0,3}${marker[0] === '`' ? '`' : '~'}{${marker.length},}[ \\t]*$`);
+
+// Открыт ли абзац после строк цитаты или пункта: только его можно продолжить лениво (CommonMark)
+function paragraphState(): { push: (line: string) => void; open: () => boolean } {
+    let fence: RegExp | null = null;
+    let open = false;
+    return {
+        push(line) {
+            let rest = line;
+            // во вложенной цитате или пункте важен блок внутри них; глубже MAX_DEPTH разбор не вкладывает
+            for (let level = 0; level < MAX_DEPTH; level += 1) {
+                if (isQuote(rest)) rest = rest.replace(/^ {0,3}> ?/, '');
+                else {
+                    const item = fence ? null : listMarker(rest);
+                    if (!item) break;
+                    rest = item.content;
+                }
+            }
+            if (fence) {
+                if (fence.test(rest)) fence = null;
+                open = false;
+                return;
+            }
+            const marker = fenceOf(rest)?.[2];
+            if (marker) {
+                fence = closingFence(marker);
+                open = false;
+            } else open = !isBlank(rest) && !isHeading(rest);
+        },
+        open: () => open,
+    };
+}
+
 function parseBlocks(lines: string[], depth: number): MdBlock[] {
     const blocks: MdBlock[] = [];
     let i = 0;
@@ -144,9 +178,7 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
         if (fence) {
             const [whole, lead = '', marker = ''] = fence;
             const lang = /^[ \t]*([^\s`]+)/.exec(line.slice(whole.length))?.[1];
-            const closing = new RegExp(
-                `^ {0,3}${marker[0] === '`' ? '`' : '~'}{${marker.length},}[ \\t]*$`,
-            );
+            const closing = closingFence(marker);
             const code: string[] = [];
             i += 1;
             while (i < lines.length && !closing.test(lines[i]!)) {
@@ -178,13 +210,15 @@ function parseBlocks(lines: string[], depth: number): MdBlock[] {
 
         if (depth < MAX_DEPTH && isQuote(line)) {
             const inner: string[] = [];
+            const paragraph = paragraphState();
             while (i < lines.length) {
                 const current = lines[i]!;
                 if (isQuote(current)) inner.push(current.replace(/^ {0,3}> ?/, ''));
                 // ленивое продолжение абзаца внутри цитаты
-                else if (!isBlank(current) && !interrupts(current) && !isBlank(inner.at(-1) ?? ''))
+                else if (!isBlank(current) && !interrupts(current) && paragraph.open())
                     inner.push(current);
                 else break;
+                paragraph.push(inner.at(-1)!);
                 i += 1;
             }
             blocks.push({ type: 'quote', children: parseBlocks(inner, depth + 1) });
@@ -230,6 +264,8 @@ function parseList(
         const item = listMarker(lines[i]!);
         if (!same(item)) break;
         const content = [item.content];
+        const paragraph = paragraphState();
+        paragraph.push(item.content);
         i += 1;
         while (i < lines.length) {
             const current = lines[i]!;
@@ -241,13 +277,15 @@ function parseList(
                     content.push('');
                     i += 1;
                 }
+                paragraph.push('');
                 continue;
             }
             if (indentOf(current) >= item.indent) content.push(dropIndent(current, item.indent));
             // ленивое продолжение абзаца пункта
-            else if (!interrupts(current) && !listMarker(current) && !isBlank(content.at(-1) ?? ''))
+            else if (!interrupts(current) && !listMarker(current) && paragraph.open())
                 content.push(current);
             else break;
+            paragraph.push(content.at(-1)!);
             i += 1;
         }
         items.push(parseBlocks(content, depth + 1));
