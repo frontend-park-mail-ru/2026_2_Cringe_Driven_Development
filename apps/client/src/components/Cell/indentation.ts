@@ -13,7 +13,16 @@ export interface TextEdit {
     selectionEnd: number;
 }
 
-const lineStart = (value: string, at: number): number => value.lastIndexOf('\n', at - 1) + 1;
+// lastIndexOf с отрицательной позицией ищет с 0: «\n» в начале поля дало бы начало строки 1
+const lineStart = (value: string, at: number): number =>
+    at > 0 ? value.lastIndexOf('\n', at - 1) + 1 : 0;
+
+// Визуальная ширина начала строки при tab-size: 4 — табуляция доходит до позиции, кратной 4
+function columnOf(text: string): number {
+    let column = 0;
+    for (const char of text) column = char === '\t' ? column + 4 - (column % 4) : column + 1;
+    return column;
+}
 
 const lineEnd = (value: string, at: number): number => {
     const end = value.indexOf('\n', at);
@@ -65,7 +74,7 @@ function mapPosition(position: number, shifts: [number, number][]): number {
  */
 export function indentLines(value: string, start: number, end: number): TextEdit {
     if (!value.slice(start, end).includes('\n')) {
-        const column = start - lineStart(value, start);
+        const column = columnOf(value.slice(lineStart(value, start), start));
         const text = ' '.repeat(INDENT.length - (column % INDENT.length));
         const caret = start + text.length;
         return { from: start, to: end, text, selectionStart: caret, selectionEnd: caret };

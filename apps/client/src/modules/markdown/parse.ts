@@ -83,7 +83,8 @@ export function codeBlockAt(source: string, at: number): CodeAt | null {
         const code = fence.lines[index]!;
         // строка кода — конец строки исходника: всё до него — префиксы контейнеров
         const prefix = line.slice(0, Math.max(0, line.length - code.length));
-        const column = at - (source.lastIndexOf('\n', at - 1) + 1) - prefix.length;
+        const start = at > 0 ? source.lastIndexOf('\n', at - 1) + 1 : 0;
+        const column = at - start - prefix.length;
         if (column < 0) return null;
         return {
             lang: fence.lang,

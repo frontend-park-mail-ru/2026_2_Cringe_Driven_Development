@@ -29,6 +29,12 @@ test('Tab — пробелы до позиции, кратной 4', () => {
     expect(run(indentLines, '|x')).toBe('    |x');
     expect(run(indentLines, 'ab|c')).toBe('ab  |c');
     expect(run(indentLines, '    |')).toBe('        |');
+    // колонка — визуальная: табуляция шириной до позиции, кратной 4
+    expect(run(indentLines, '\t|print(1)')).toBe('\t    |print(1)');
+    expect(run(indentLines, '\t  |x')).toBe('\t    |x');
+    expect(run(indentLines, 'ab\t|x')).toBe('ab\t    |x');
+    // начало поля, за которым пустая строка
+    expect(run(indentLines, '|\nprint(1)')).toBe('    |\nprint(1)');
     // выделение в одной строке заменяется отступом
     expect(run(indentLines, 'a[bc]d')).toBe('a   |d');
 });
