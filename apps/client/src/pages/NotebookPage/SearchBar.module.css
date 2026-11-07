@@ -1,0 +1,70 @@
+/* Components → SearchBar: поле на всю ширину, справа ↑ ↓ ✕ */
+.bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.field {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+
+    &:focus-within {
+        box-shadow: inset 0 0 0 1px var(--color-focus);
+    }
+}
+
+.icon {
+    color: var(--color-text-secondary);
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    font: var(--font-body);
+    color: var(--color-text-primary);
+
+    &::placeholder {
+        color: var(--color-text-secondary);
+        opacity: 0.7;
+    }
+}
+
+.count {
+    flex: none;
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.clear {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-text-primary);
+    }
+}
