@@ -1,0 +1,19 @@
+/* Совпадение поиска — только фон: метрики текста те же, что у соседних символов */
+.match,
+.current {
+    padding: 0;
+    border-radius: 4px;
+    font: inherit;
+    /* шапка прилипает к верху: прокрутка к совпадению не прячет его под ней (--search-margin — у страницы) */
+    scroll-margin: var(--search-margin, 220px) 0 96px;
+}
+
+.match {
+    background: var(--color-highlight);
+    color: inherit;
+}
+
+.current {
+    background: var(--color-highlight-current);
+    color: var(--color-on-light);
+}

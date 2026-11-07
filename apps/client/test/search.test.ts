@@ -1,6 +1,7 @@
 // Поиск по блокноту: буквальная подстрока без учёта регистра, позиции — в исходнике ячейки.
 import { expect, test } from 'bun:test';
 import { findMatches, keepActive, stepActive } from '@modules/search/find';
+import { splitByMarks } from '@modules/search/marks';
 
 const cells = (...texts: string[]) => texts.map((text, index) => ({ id: `c${index}`, text }));
 const at = (query: string, ...texts: string[]) =>
@@ -48,4 +49,32 @@ test('активное совпадение сохраняется, перехо
     expect(stepActive(matches, matches[0]!, -1)).toEqual(matches[2]!);
     expect(stepActive(matches, null, -1)).toEqual(matches[2]!);
     expect(stepActive([], null, 1)).toBeNull();
+});
+
+test('разрезание по токенам и меткам: вхождение на стыке токенов — несколько кусков', () => {
+    const segments = [
+        { text: 'loss_', data: 'function' },
+        { text: 'grad(', data: 'text' },
+    ];
+    const pieces = splitByMarks(segments, [{ from: 3, to: 7, current: true }]);
+    expect(pieces.map((piece) => [piece.text, piece.data, piece.mark])).toEqual([
+        ['los', 'function', undefined],
+        ['s_', 'function', 'current'],
+        ['gr', 'text', 'current'],
+        ['ad(', 'text', undefined],
+    ]);
+    expect(pieces.map((piece) => piece.text).join('')).toBe('loss_grad(');
+    expect(splitByMarks(segments, [])).toEqual([
+        { text: 'loss_', data: 'function', mark: undefined },
+        { text: 'grad(', data: 'text', mark: undefined },
+    ]);
+    expect(
+        splitByMarks(
+            [{ text: 'a a a', data: 0 }],
+            [
+                { from: 0, to: 1, current: false },
+                { from: 4, to: 5, current: true },
+            ],
+        ).map((piece) => piece.mark),
+    ).toEqual(['match', undefined, 'current']);
 });
