@@ -415,8 +415,13 @@ function closingRuns(runs: Map<number, number[]>): (length: number, from: number
     };
 }
 
-// Пара `]` для каждой `[` одним проходом; без пары — -1. Скобки внутри inline-code не считаются
-function matchBrackets(text: string, runs: Map<number, number[]>): Int32Array {
+// Пара `]` для каждой `[` одним проходом; без пары — -1. Скобки внутри inline-code не считаются, а
+// адрес и title ссылки после `]` пропускаются, как в основном разборе: их кавычки — не inline-code
+function matchBrackets(
+    text: string,
+    runs: Map<number, number[]>,
+    closing: (char: string, from: number) => number,
+): Int32Array {
     const match = new Int32Array(text.length).fill(-1);
     const stack: number[] = [];
     const closingRun = closingRuns(runs);
@@ -431,7 +436,10 @@ function matchBrackets(text: string, runs: Map<number, number[]>): Int32Array {
         } else if (char === '[') stack.push(i);
         else if (char === ']') {
             const open = stack.pop();
-            if (open !== undefined) match[open] = i;
+            if (open === undefined) continue;
+            match[open] = i;
+            const tail = linkTail(text, i, closing);
+            if (tail) i = tail.end - 1;
         }
     }
     return match;
@@ -549,8 +557,8 @@ function linkTail(
 function parseInline(text: string, depth: number): MdInline[] {
     const runs = backtickRuns(text);
     const closingRun = closingRuns(runs);
-    const brackets = matchBrackets(text, runs);
     const closings = closingIndex(text);
+    const brackets = matchBrackets(text, runs, closings);
     // меняются внутри append: без приведения TypeScript считает их всегда null
     let head = null as ListNode | null;
     let tail = null as ListNode | null;

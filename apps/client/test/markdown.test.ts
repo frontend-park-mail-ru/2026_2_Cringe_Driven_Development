@@ -194,6 +194,14 @@ test('скобки внутри inline-code не участвуют в разб�
     ]);
     // незакрытая серия обратных кавычек — текст, скобки за ней работают
     expect(parseMarkdown('[a`b](/x)')).toEqual([paragraph(link('/x', 'a`b'))]);
+    // кавычка в адресе или title ссылки — часть ссылки, inline-code не открывает
+    const code = { type: 'code', text: 'code' } as const;
+    expect(parseMarkdown('[a](/a`b) [b](/b) `code`')).toEqual([
+        paragraph(link('/a`b', 'a'), text(' '), link('/b', 'b'), text(' '), code),
+    ]);
+    expect(parseMarkdown('[a](/a "t`t") [b](/b) `code`')).toEqual([
+        paragraph(link('/a', 'a'), text(' '), link('/b', 'b'), text(' '), code),
+    ]);
 });
 
 test('ссылка внутри ссылки: внешняя остаётся текстом', () => {
