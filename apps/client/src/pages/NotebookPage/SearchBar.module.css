@@ -37,6 +37,11 @@
     font: var(--font-body);
     color: var(--color-text-primary);
 
+    /* фокус видно по рамке поля */
+    &:focus-visible {
+        outline: none;
+    }
+
     &::placeholder {
         color: var(--color-text-secondary);
         opacity: 0.7;

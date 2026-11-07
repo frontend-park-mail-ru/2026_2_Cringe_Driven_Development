@@ -1,4 +1,4 @@
-import { useEffect, useState } from '@cdd-team/react';
+import { useEffect, useState, type ReactNode } from '@cdd-team/react';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
@@ -20,18 +20,21 @@ type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 interface RuntimeActionsProps {
     /** В блокноте есть кодовые ячейки */
     hasCode: boolean;
+    /** Кнопки перед кнопками окружения, например «Поиск» */
+    children?: ReactNode;
 }
 
 /**
- * «Завершить окружение» и «Запустить всё» справа в панели шапки.
+ * «Завершить окружение» и «Запустить всё» справа в панели шапки, перед ними — переданные кнопки.
  * @param props свойства кнопок
  * @returns кнопки
  */
-export function RuntimeActions({ hasCode }: RuntimeActionsProps) {
+export function RuntimeActions({ hasCode, children }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
     const { stop, runAll: all } = runtimeButtons(runtime, hasCode);
     return (
         <div className={styles.actions}>
+            {children}
             {stop && (
                 <Button
                     key="stop"

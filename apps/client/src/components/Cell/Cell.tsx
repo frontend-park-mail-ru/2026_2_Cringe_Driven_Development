@@ -4,6 +4,7 @@ import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
+import type { SourceMark } from '@modules/search/marks';
 import { clsx } from '@cdd-team/clsx';
 import {
     backspace,
@@ -119,6 +120,8 @@ interface CellProps {
     below?: ReactNode;
     /** Исполнение кодовой ячейки: выполняется сейчас или завершилось ошибкой — своя рамка */
     run?: 'running' | 'failed';
+    /** Совпадения поиска по блокноту в исходнике ячейки */
+    marks?: readonly SourceMark[];
 }
 
 /**
