@@ -251,12 +251,10 @@ export function Cell({
                 if (event.isComposing) return;
                 // нажатие самого Shift перед Shift+Tab не сбрасывает отпущенный Tab
                 if (event.key === 'Shift') return;
-                const released = tabReleased.delete(target);
-                if (isCode && event.key === 'Escape') {
-                    tabReleased.add(target);
-                    return;
-                }
-                if (released && event.key === 'Tab') return;
+                if (tabReleased.delete(target) && event.key === 'Tab') return;
+                // Esc отпускает Tab и в Markdown: исходник больше лимита не уходит в просмотр
+                if (event.key === 'Escape') tabReleased.add(target);
+                if (isCode && event.key === 'Escape') return;
                 if (
                     !isCode &&
                     (event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey))
@@ -382,9 +380,11 @@ export function Cell({
                     <span key="hint" id={hintId} className={styles.hint}>
                         {isCode
                             ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc и затем Tab — выйти из поля'
-                            : editing
-                              ? 'Tab — отступ, Shift+Enter или Esc — показать результат'
-                              : 'Enter или двойной клик — редактировать'}
+                            : tooLarge
+                              ? 'Tab — отступ, Esc и затем Tab — выйти из поля'
+                              : editing
+                                ? 'Tab — отступ, Shift+Enter или Esc — показать результат'
+                                : 'Enter или двойной клик — редактировать'}
                     </span>
                 )}
                 {tooLarge && (
