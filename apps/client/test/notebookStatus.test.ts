@@ -176,7 +176,7 @@ test('ячейка: очередь скрывает прежний вывод, �
     expect(cellRun(state({ queue: q }), cell('c', [], 3))).toEqual({
         indicator: 'queued',
         result: null,
-        message: 'В очереди',
+        message: null,
         outputs: false,
     });
     expect(cellRun(state({ queue: q }), cell('a'))).toMatchObject({

@@ -174,7 +174,8 @@ export function cellRun(
             outputs: execution?.execution_id === queued.execution_id,
         };
     }
-    if (queued) return { indicator: 'queued', result: null, message: 'В очереди', outputs: false };
+    // в очереди — только индикатор слева, без строки состояния под кодом
+    if (queued) return { indicator: 'queued', result: null, message: null, outputs: false };
     if (execution && execution.state !== 'QUEUED' && execution.state !== 'RUNNING') {
         return {
             indicator: 'run',
