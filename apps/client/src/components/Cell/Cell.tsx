@@ -39,8 +39,6 @@ interface Editing {
     execCommand(command: string, showUI?: boolean, value?: string): boolean;
 }
 
-const MODIFIERS = new Set(['Shift', 'Control', 'Alt', 'Meta']);
-
 // Поля кода, где нажат Esc: следующий Tab или Shift+Tab переводит фокус, как обычно, — к кнопкам
 // ячейки или запуску, не выходя из неё
 const tabReleased = new WeakSet<HTMLTextAreaElement>();
@@ -252,7 +250,7 @@ export function Cell({
                 const target = event.target as HTMLTextAreaElement;
                 if (event.isComposing) return;
                 // нажатие самого Shift перед Shift+Tab не сбрасывает отпущенный Tab
-                if (MODIFIERS.has(event.key)) return;
+                if (event.key === 'Shift') return;
                 const released = tabReleased.delete(target);
                 if (isCode && event.key === 'Escape') {
                     tabReleased.add(target);
