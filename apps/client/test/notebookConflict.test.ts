@@ -25,6 +25,8 @@ import { fakeRpc, held, ok, rpcError, settle } from './fakeRpc';
 const md = (id: string, source = ''): Cell => ({ id, kind: 'markdown', source });
 const page = (cells: Cell[], hash = 'h0'): NotebookPageData => ({
     notebook: { id: 1, name: 'Блокнот', created_at: '', updated_at: '', hash, cells },
+    active_session: null,
+    runtime_queue: null,
 });
 
 let rpc: ReturnType<typeof fakeRpc>;

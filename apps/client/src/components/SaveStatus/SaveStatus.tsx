@@ -3,7 +3,7 @@ import { Icon, type IconName } from '@components/Icon/Icon';
 import styles from './SaveStatus.module.css';
 
 /** Вид подписи статуса (Components → SaveStatus). */
-export type SaveStatusTone = 'progress' | 'error' | 'success';
+export type SaveStatusTone = 'progress' | 'error' | 'success' | 'warning' | 'neutral';
 
 /** Свойства {@link SaveStatus}. */
 interface SaveStatusProps {
@@ -12,13 +12,16 @@ interface SaveStatusProps {
 }
 
 const ICON: Record<SaveStatusTone, IconName> = {
-    progress: 'spinner',
+    progress: 'orbit',
     error: 'alert',
     success: 'check',
+    warning: 'help',
+    neutral: 'square',
 };
 
 /**
- * Подпись статуса в шапке блокнота: «Сохраняем…», «Изменения не сохранены», «Сохранено».
+ * Подпись статуса в шапке блокнота: сохранение («Сохраняем…», «Сохранено») и выполнение
+ * («Выполняется», «Результат неизвестен», «Выполнение остановлено»).
  * Объявляется скринридеру при смене.
  * @param props свойства подписи
  * @returns подпись с иконкой

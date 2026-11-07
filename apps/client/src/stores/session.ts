@@ -1,6 +1,7 @@
-import type { RouterInputs } from '@cdd/bff';
+import type { RouterInputs, RouterOutputs } from '@cdd/bff';
 import { create } from '@cdd-team/zustand';
 import { isRpcError, switchSession, trpc, type User } from '@api/trpc';
+import { showSnackbar } from '@stores/snackbar';
 
 /** guest — не вошёл, authed — вошёл. Известен с первого рендера: его задаёт первый HTML. */
 export type SessionStatus = 'guest' | 'authed';
@@ -107,20 +108,33 @@ export async function changePassword(
     useSessionStore.setState(GUEST);
 }
 
+/** Итог выхода: serverRevocation от BFF или failed — BFF не ответил, выход не подтверждён. */
+export type LogoutResult = RouterOutputs['auth']['logout']['serverRevocation'] | 'failed';
+
+const REVOCATION_WARNINGS: Partial<Record<LogoutResult, string>> = {
+    unconfirmed: 'Вы вышли в этом браузере. Отзыв сессии на сервере не подтверждён',
+    unknown: 'Вы вышли в этом браузере. Не удалось подтвердить отзыв сессии на сервере',
+};
+
 /**
  * Выход. Сначала отвечают уже отправленные запросы сессии, новые не стартуют (`switchSession`).
- * BFF отвечает успехом и без сессии; сбой сети — не выход, если только сессия не закончилась, пока
- * ждали отправленные запросы (тогда `switchSession` уже перевёл в гостя).
- * @returns true, если пользователь больше не вошёл
+ * Любой ответ BFF — выход в этом браузере: пользователь — гость, а если Go не подтвердил отзыв,
+ * об этом сообщает снекбар. Сбой сети или CSRF — не выход: снекбар с ошибкой, сессию гостем
+ * делает только `onSessionLost`, если она закончилась, пока ждали отправленные запросы.
+ * @returns итог выхода
  */
-export async function logout(): Promise<boolean> {
+export async function logout(): Promise<LogoutResult> {
+    let result: LogoutResult;
     try {
-        await switchSession(() => trpc.auth.logout.mutate());
+        ({ serverRevocation: result } = await switchSession(() => trpc.auth.logout.mutate()));
     } catch {
-        return useSessionStore.getState().status === 'guest';
+        showSnackbar('Не удалось выйти. Проверьте подключение и попробуйте снова');
+        return 'failed';
     }
     useSessionStore.setState(GUEST);
-    return true;
+    const warning = REVOCATION_WARNINGS[result];
+    if (warning) showSnackbar(warning);
+    return result;
 }
 
 /** Итог выхода со всех устройств: ok — Go подтвердил, lost — сессия потеряна без подтверждения. */

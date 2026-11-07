@@ -137,7 +137,7 @@ vite берёт их оттуда.
 
 - `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
-  `Snackbar`, `Toast`, `Space`. Каждый компонент — папка с `.tsx` и `.module.css`.
+  `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`). Каждый компонент — папка с `.tsx` и `.module.css`.
 - `serviceWorker.ts` — регистрация service worker; его кеш настроен в `vite.config.prod.ts`, офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`: всё в precache, без CDN.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `router.ts` — экземпляр роутера `@cdd-team/router` (API как у TanStack Router) и регистрация его
@@ -145,7 +145,12 @@ vite берёт их оттуда.
 - `pages/` — страницы. `routes/` — маршруты и дерево `routeTree.ts`. `path` маршрута берётся из
   `PAGES` (`@cdd/bff/pages`): по этому списку BFF решает, куда вести прямой запрос страницы,
   поэтому новая страница добавляется сначала в `PAGES`.
-- `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap.
+  `pages/NotebookPage/`: `Runtime.tsx` — баннер, кнопки окружения и колонка запуска у ячейки; `status.ts` —
+  чистые функции, что показать по состоянию `runtime` и сохранения (тесты — `test/notebookStatus.test.ts`);
+  `Output.tsx` — вывод исполнения: текст — текстовыми узлами, PNG/SVG — через `<img>`, HTML — только в
+  `<iframe sandbox="">` через `srcdoc`. iframe наследует CSP страницы: встроенные стили HTML-вывода на проде
+  блокируются.
+- `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap; `notebook` — ячейки и сохранение; `runtime` — окружение, исполнение и единая цепочка опроса `runtime.updates`.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
 - `assets/` — SVG (знак логотипа, иконки) и favicon: Vite встраивает их в бандл.
@@ -194,3 +199,9 @@ vite берёт их оттуда.
   смена не удалась, сессия всё равно считается потерянной (`onSessionLost`). Смены сессии идут по
   очереди: вызов во время другой смены начинается после её завершения. Эти последовательности
   проверяют тесты `apps/client/test/` на настоящем клиенте tRPC с управляемым `fetch`.
+- Выход (`auth.logout`) идёт мимо `session.call`: без refresh и повторов. Действующий access — один
+  `POST /auth/logout`; истёкший — Go не вызывается. Cookie удаляется при любом итоге, ответ —
+  `{ browserSession: 'ended', serverRevocation }`: `confirmed` (Go 204), `unconfirmed` (access истёк
+  или Go 4xx), `unknown` (Go 5xx, сеть, таймаут, неожиданный ответ), `not_requested` (сессии не было).
+  При `unconfirmed`/`unknown` клиент показывает снекбар; сбой сети и CSRF-отказ — не выход.
+  Гонки выхода с другими вкладками и параллельными HTML/RPC-запросами не защищены — это frontend#142.

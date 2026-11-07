@@ -478,8 +478,8 @@ async function run(): Promise<void> {
     refreshStatus(!paused());
 }
 
-// Категории ошибок, после которых запись могла состояться
-const UNKNOWN_RESULT = new Set([
+/** Категории ошибок tRPC, после которых запись могла состояться: результат неизвестен. */
+export const UNKNOWN_RESULT = new Set([
     'BAD_GATEWAY',
     'INTERNAL_SERVER_ERROR',
     'TIMEOUT',
@@ -701,6 +701,52 @@ export function resolveConflict(choice: 'server' | 'mine'): Promise<boolean> {
  */
 export function dismissOrphan(cellId: string): void {
     set({ orphans: get().orphans.filter((o) => o.cellId !== cellId) });
+}
+
+/** Результат исполнения кодовой ячейки, как его хранит content. */
+export type CellResult = Pick<
+    Extract<Cell, { kind: 'code' }>,
+    'outputs' | 'execution_count' | 'output_truncated'
+>;
+
+/**
+ * Результат исполнения в подтверждённую ячейку — только если её исходник всё ещё тот, что
+ * исполнялся. Hash редактирования не меняется: результаты он не защищает.
+ * @param cellId ячейка
+ * @param source исполненный исходник
+ * @param result результат
+ */
+export function applyResult(cellId: string, source: string, result: CellResult): void {
+    const { confirmed } = get();
+    const cell = confirmed?.cells.find((c) => c.id === cellId);
+    if (!confirmed || cell?.kind !== 'code' || cell.source !== source) return;
+    set({
+        confirmed: {
+            ...confirmed,
+            cells: confirmed.cells.map((c) => (c === cell ? { ...cell, ...result } : c)),
+        },
+    });
+}
+
+/** Результаты исполнения сохранены сервером: краткое «Сохранено», если сохранять больше нечего. */
+export function resultsSaved(): void {
+    if (get().notebookId !== null && !paused() && get().conflict.phase === 'none') {
+        refreshStatus(true);
+    }
+}
+
+/**
+ * Сервер отказал в исполнении из-за исходника: перечитать блокнот. Изменился — выбор версии, как при
+ * конфликте сохранения; нет — снимок обновляется молча.
+ */
+export async function recheck(): Promise<void> {
+    if (get().conflict.phase !== 'none' || reconciling || active === generation) return;
+    if (queue.length > 0 || pending) return;
+    const started = generation;
+    const result = await load(() => started === generation);
+    if (!result || 'error' in result || active === generation || queue.length > 0) return;
+    if (sameStructure(result.snapshot, get().confirmed!)) set({ confirmed: result.snapshot });
+    else enterConflict(result.snapshot);
 }
 
 /**

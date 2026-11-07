@@ -91,6 +91,8 @@ const newSession = (res: Response): string | undefined => {
     return value || undefined;
 };
 const cleared = (res: Response): boolean => /Max-Age=0/.test(sessionSetCookie(res) ?? '');
+const revocation = async (res: Response) =>
+    ((await res.json()) as { result: { data: unknown } }).result.data;
 const errorOf = async (res: Response) =>
     ((await res.json()) as { error: { data: unknown } }).error.data as {
         code: string;
@@ -272,17 +274,85 @@ describe('RPC', () => {
         expect((await rpc('notebooks.list', { cookie: c })).status).toBe(502);
     });
 
-    test('logout без сессии — успех без Go; при сбое Go — всё равно успех и удаление cookie', async () => {
-        useGo({ 'POST /auth/logout': () => goError(500, 'internal') });
-        const guest = await rpc('auth.logout', { body: {} });
-        expect(guest.status).toBe(200);
+    test('logout без сессии — not_requested без Go, cookie удаляется', async () => {
+        useGo({});
+        const res = await rpc('auth.logout', { body: {} });
+        expect(res.status).toBe(200);
+        expect(await revocation(res)).toEqual({
+            browserSession: 'ended',
+            serverRevocation: 'not_requested',
+        });
         expect(go?.calls).toHaveLength(0);
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('logout: итог Go — serverRevocation, один вызов без refresh, cookie удаляется', async () => {
+        for (const [answer, expected] of [
+            [() => new Response(null, { status: 204 }), 'confirmed'],
+            [() => goError(401, 'unauthorized'), 'unconfirmed'],
+            [() => goError(400, 'validation_error'), 'unconfirmed'],
+            [() => goError(500, 'internal'), 'unknown'],
+            [() => Response.json({}), 'unknown'],
+            [() => Promise.reject(new TypeError('fetch failed')), 'unknown'],
+        ] as const) {
+            useGo({ 'POST /auth/logout': answer });
+            const tokens = goTokens().issue();
+            // access истекает через 10 с: обычный вызов сделал бы refresh заранее, logout — нет
+            const res = await rpc('auth.logout', {
+                body: {},
+                cookie: await cookie(tokens, now() + 10),
+            });
+            expect(res.status).toBe(200);
+            expect(await revocation(res)).toEqual({
+                browserSession: 'ended',
+                serverRevocation: expected,
+            });
+            expect(go?.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /auth/logout']);
+            const [call] = go?.calls ?? [];
+            expect(call?.headers.get('Authorization')).toBe(`Bearer ${tokens.access_token}`);
+            expect(call?.body).toEqual({ refresh_token: tokens.refresh_token });
+            expect(cleared(res)).toBe(true);
+            expect(
+                res.headers.getSetCookie().filter((c) => c.startsWith(`${SESSION_COOKIE}=`)),
+            ).toHaveLength(1);
+            go?.restore();
+        }
+    });
+
+    test('logout с истёкшим access — unconfirmed без Go и без refresh', async () => {
+        useGo({});
+        const res = await rpc('auth.logout', {
+            body: {},
+            cookie: await cookie(goTokens().issue(), now() - 1),
+        });
+        expect(await revocation(res)).toEqual({
+            browserSession: 'ended',
+            serverRevocation: 'unconfirmed',
+        });
+        expect(go?.calls).toHaveLength(0);
+        expect(cleared(res)).toBe(true);
+    });
+
+    test('logout: Go не ответил за 5 с — unknown', async () => {
+        useGo({ 'POST /auth/logout': hang });
         const res = await rpc('auth.logout', {
             body: {},
             cookie: await cookie(goTokens().issue()),
         });
-        expect(res.status).toBe(200);
+        expect((await revocation(res)) as object).toMatchObject({ serverRevocation: 'unknown' });
         expect(cleared(res)).toBe(true);
+    }, 10_000);
+
+    test('logout без X-CSRF — отказ, Go не вызывается, cookie остаётся', async () => {
+        useGo({ 'POST /auth/logout': () => new Response(null, { status: 204 }) });
+        const res = await rpc('auth.logout', {
+            body: {},
+            cookie: await cookie(goTokens().issue()),
+            headers: { 'X-CSRF': '' },
+        });
+        expect(res.status).toBe(403);
+        expect(go?.calls).toHaveLength(0);
+        expect(sessionSetCookie(res)).toBeUndefined();
     });
 
     test('Go не ответил за 5 с — BAD_GATEWAY', async () => {
@@ -343,6 +413,12 @@ describe('HTML', () => {
             updated_at: '2026-10-02T10:00:00Z',
             ...CONTENT,
         },
+        active_session: null,
+        runtime_queue: null,
+    };
+    // активной сессии нет: очередь не читается
+    const NO_RUNTIME = {
+        'GET /runtime-sessions/active': () => Response.json({ active_session: null }),
     };
 
     test('гость — { user: null }, Go не вызывается, private no-store', async () => {
@@ -399,6 +475,7 @@ describe('HTML', () => {
 
     test('вошедший, свой блокнот — 200 и блокнот с hash в bootstrap без лишних полей Go', async () => {
         useGo({
+            ...NO_RUNTIME,
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
             'GET /notebooks/:id/content': () => Response.json(CONTENT),
@@ -416,6 +493,7 @@ describe('HTML', () => {
 
     test('notebooks.get — метаданные и content одним объектом, ячейки из content', async () => {
         useGo({
+            ...NO_RUNTIME,
             'GET /notebooks/:id': () => Response.json({ ...NOTEBOOK, owner_id: 1 }),
             'GET /notebooks/:id/content': () => Response.json(CONTENT),
         });
@@ -435,6 +513,7 @@ describe('HTML', () => {
             [500, 502],
         ] as const) {
             useGo({
+                ...NO_RUNTIME,
                 'GET /users/me': () => Response.json(USER),
                 'GET /notebooks/:id': () => Response.json(NOTEBOOK),
                 'GET /notebooks/:id/content': () => goError(status, 'x'),
@@ -450,6 +529,7 @@ describe('HTML', () => {
     test('вошедший, отсутствующий и чужой блокнот — одинаковый 302 на /404 без данных', async () => {
         // Go ищет блокнот по ID и владельцу (backend#1): на оба отвечает 404
         useGo({
+            ...NO_RUNTIME,
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => goError(404, 'not_found'),
         });
@@ -472,6 +552,7 @@ describe('HTML', () => {
 
     test('сбой Go на блокноте — 503, не 404', async () => {
         useGo({
+            ...NO_RUNTIME,
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => goError(500, 'internal'),
         });
@@ -482,6 +563,7 @@ describe('HTML', () => {
 
     test('сессия закончилась на запросе блокнота — 302 на /login и удаление cookie', async () => {
         useGo({
+            ...NO_RUNTIME,
             'GET /users/me': () => Response.json(USER),
             'GET /notebooks/:id': () => goError(401, 'unauthorized'),
             'GET /notebooks/:id/content': () => goError(401, 'unauthorized'),
@@ -913,5 +995,319 @@ describe('X-Mock-Prefer для локального мока', () => {
             expect(preferOf('/notebooks/1/content/cells/c1'), value).toBeNull();
             go?.restore();
         }
+    });
+});
+
+const getNotebook = async () =>
+    rpc(`notebooks.get?input=${encodeURIComponent('{"id":1}')}`, {
+        cookie: await cookie(goTokens().issue()),
+    });
+const updates = async (input: unknown) =>
+    rpc(`runtime.updates?input=${encodeURIComponent(JSON.stringify(input))}`, {
+        cookie: await cookie(goTokens().issue()),
+    });
+const errorData = async (res: Response) =>
+    (
+        (await res.json()) as {
+            error: { data: { code: string; appCode?: string; activeSession?: unknown } };
+        }
+    ).error.data;
+
+describe('runtime', () => {
+    const SID = '11111111-1111-4111-8111-111111111111';
+    const SESSION = {
+        id: SID,
+        notebook_id: 1,
+        language: 'python',
+        state: 'READY',
+        stage: 'ready',
+        reason: null,
+        generation: null,
+        created_at: '2026-11-01T10:00:00Z',
+        last_activity_at: '2026-11-01T10:00:00Z',
+        public_seq: 3,
+        journal_incomplete: false,
+        cleanup_error: null,
+    };
+    const QUEUE = {
+        session_id: SID,
+        items: [
+            { execution_id: 'e1', cell_id: 'c1', state: 'RUNNING' },
+            { execution_id: 'e2', cell_id: 'c3', state: 'QUEUED' },
+        ],
+    };
+    const execution = (id: string, state = 'SUCCEEDED') => ({
+        execution_id: id,
+        session_id: SID,
+        cell_id: 'c1',
+        source_hash: 'a'.repeat(64),
+        timeout_seconds: 300,
+        attempt: 1,
+        state,
+        outputs: [],
+        execution_count: 1,
+        output_truncated: false,
+        projection: 'applied',
+    });
+    const NOTEBOOK_ROUTES = {
+        'GET /notebooks/:id/content': () => Response.json({ hash: 'h1', cells: [] }),
+        'GET /notebooks/:id': () =>
+            Response.json({
+                id: 1,
+                name: 'Б',
+                cells: [],
+                created_at: SESSION.created_at,
+                updated_at: SESSION.created_at,
+            }),
+    };
+    test('загрузчик: три чтения стартуют до ответа любого, очередь — после active своей сессии', async () => {
+        const started: string[] = [];
+        const gate = Promise.withResolvers<void>();
+        const held = (body: unknown) => async (call: { path: string }) => {
+            started.push(call.path);
+            await gate.promise;
+            return Response.json(body);
+        };
+        useGo({
+            'GET /runtime-sessions/active': held({ active_session: SESSION }),
+            'GET /runtime-sessions/:id/queue': () => Response.json(QUEUE),
+            'GET /notebooks/:id/content': held({ hash: 'h1', cells: [] }),
+            'GET /notebooks/:id': held({
+                id: 1,
+                name: 'Б',
+                cells: [],
+                created_at: SESSION.created_at,
+                updated_at: SESSION.created_at,
+            }),
+        });
+        const pending = getNotebook();
+        await Bun.sleep(10);
+        expect(started.toSorted()).toEqual([
+            '/notebooks/1',
+            '/notebooks/1/content',
+            '/runtime-sessions/active',
+        ]);
+        gate.resolve();
+        const res = await pending;
+        expect(res.status).toBe(200);
+        expect(await dataOf(res)).toMatchObject({ active_session: SESSION, runtime_queue: QUEUE });
+        expect(goPaths().at(-1)).toBe(`GET /runtime-sessions/${SID}/queue`);
+    });
+
+    test('загрузчик: в HTML-bootstrap та же агрегация', async () => {
+        useGo({
+            'GET /users/me': () => Response.json(USER),
+            'GET /runtime-sessions/active': () => Response.json({ active_session: SESSION }),
+            'GET /runtime-sessions/:id/queue': () => Response.json(QUEUE),
+            ...NOTEBOOK_ROUTES,
+        });
+        const res = await page(await cookie(goTokens().issue()), '/notebooks/1');
+        expect((await bootstrap(res)).notebookPage).toMatchObject({
+            active_session: SESSION,
+            runtime_queue: QUEUE,
+        });
+    });
+
+    test('загрузчик: сессия другого блокнота — возвращается, очередь не читается', async () => {
+        useGo({
+            'GET /runtime-sessions/active': () =>
+                Response.json({ active_session: { ...SESSION, notebook_id: 7 } }),
+            ...NOTEBOOK_ROUTES,
+        });
+        const res = await getNotebook();
+        expect(await dataOf(res)).toMatchObject({
+            active_session: { notebook_id: 7 },
+            runtime_queue: null,
+        });
+        expect(goPaths().some((p) => p.endsWith('/queue'))).toBe(false);
+    });
+
+    test('загрузчик: сбой active или очереди — BAD_GATEWAY, а не пустые данные', async () => {
+        for (const routes of <Record<string, GoRoute>[]>[
+            { 'GET /runtime-sessions/active': () => goError(500, 'internal') },
+            {
+                'GET /runtime-sessions/active': () => Response.json({ active_session: SESSION }),
+                'GET /runtime-sessions/:id/queue': () => goError(503, 'runtime_unavailable'),
+            },
+        ]) {
+            useGo({ ...routes, ...NOTEBOOK_ROUTES });
+            expect((await getNotebook()).status).toBe(502);
+            go?.restore();
+        }
+    });
+
+    test('start: Python, request_id; 409 active_session_exists — CONFLICT с занятой сессией', async () => {
+        useGo({
+            'POST /notebooks/:id/runtime-sessions': () => Response.json(SESSION, { status: 202 }),
+        });
+        const ok = await rpc('runtime.start', {
+            body: { notebookId: 1, requestId: 'r1' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(await dataOf(ok)).toEqual(SESSION);
+        expect(go?.calls[0]?.body).toEqual({ request_id: 'r1', language: 'python' });
+        go?.restore();
+
+        useGo({
+            'POST /notebooks/:id/runtime-sessions': () =>
+                Response.json(
+                    {
+                        code: 'active_session_exists',
+                        message: 'busy',
+                        active_session: { ...SESSION, notebook_id: 7, agent_token: 'secret' },
+                    },
+                    { status: 409 },
+                ),
+        });
+        const conflict = await rpc('runtime.start', {
+            body: { notebookId: 1, requestId: 'r2' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(conflict.status).toBe(409);
+        const data = await errorData(conflict);
+        expect(data.code).toBe('CONFLICT');
+        expect(data.appCode).toBe('active_session_exists');
+        // лишние поля Go (agent_token) схема отбрасывает
+        expect(data.activeSession).toEqual({ ...SESSION, notebook_id: 7 });
+    });
+
+    test('execute, executeAll, stop, activity — один вызов Go с тем же телом; 429 — TOO_MANY_REQUESTS', async () => {
+        const hash = 'b'.repeat(64);
+        useGo({
+            'POST /runtime-sessions/:id/executions/batch': () =>
+                Response.json(
+                    { request_id: 'b1', session_id: SID, execution_ids: ['e1', 'e2'] },
+                    { status: 202 },
+                ),
+            'POST /runtime-sessions/:id/executions': () =>
+                Response.json(
+                    { ...execution('e1', 'QUEUED'), projection: 'pending' },
+                    { status: 202 },
+                ),
+            'POST /runtime-sessions/:id/stop': () =>
+                Response.json({ accepted: true }, { status: 202 }),
+            'POST /runtime-sessions/:id/activity': () => Response.json({ accepted: true }),
+        });
+        const c = await cookie(goTokens().issue());
+        const one = { sessionId: SID, execution_id: 'e1', cell_id: 'c1', source_hash: hash };
+        expect((await rpc('runtime.execute', { body: one, cookie: c })).status).toBe(200);
+        const all = {
+            sessionId: SID,
+            request_id: 'b1',
+            cells: [
+                { cell_id: 'c1', source_hash: hash },
+                { cell_id: 'c3', source_hash: hash },
+            ],
+        };
+        const batch = await rpc('runtime.executeAll', { body: all, cookie: c });
+        expect(await dataOf(batch)).toEqual({
+            request_id: 'b1',
+            session_id: SID,
+            execution_ids: ['e1', 'e2'],
+        });
+        expect((await rpc('runtime.stop', { body: { sessionId: SID }, cookie: c })).status).toBe(
+            200,
+        );
+        expect(
+            (await rpc('runtime.activity', { body: { sessionId: SID }, cookie: c })).status,
+        ).toBe(200);
+        expect(goPaths()).toEqual([
+            `POST /runtime-sessions/${SID}/executions`,
+            `POST /runtime-sessions/${SID}/executions/batch`,
+            `POST /runtime-sessions/${SID}/stop`,
+            `POST /runtime-sessions/${SID}/activity`,
+        ]);
+        expect(go?.calls[1]?.body).toEqual({
+            request_id: 'b1',
+            cells: all.cells,
+            timeout_seconds: 300,
+        });
+        go?.restore();
+
+        useGo({ 'POST /runtime-sessions/:id/executions/batch': () => goError(429, 'queue_full') });
+        const full = await rpc('runtime.executeAll', { body: all, cookie: c });
+        expect(full.status).toBe(429);
+        expect(await errorData(full)).toMatchObject({
+            code: 'TOO_MANY_REQUESTS',
+            appCode: 'queue_full',
+        });
+    });
+
+    test('updates: одна страница событий, по одному GET на исполнение, инспекции не читаются', async () => {
+        useGo({
+            'GET /runtime-sessions/:id/queue': () => Response.json(QUEUE),
+            'GET /runtime-sessions/:id/events': () =>
+                Response.json({
+                    events: [
+                        { seq: 4, kind: 'execution_state', body: { execution_id: 'e1' } },
+                        { seq: 5, kind: 'output', body: { execution_id: 'e1' } },
+                        { seq: 6, kind: 'inspection_state', body: { inspection_id: 'i1' } },
+                        { seq: 7, kind: 'session_state', body: {} },
+                    ],
+                    next_cursor: 7,
+                    has_more: true,
+                }),
+            'GET /runtime-sessions/:id/executions/:eid': (call) =>
+                Response.json(execution(call.path.split('/').at(-1) ?? '')),
+            'GET /runtime-sessions/:id': () => Response.json(SESSION),
+        });
+        const res = await updates({ sessionId: SID, after: 3, executionIds: ['e1', 'e9'] });
+        expect(res.status).toBe(200);
+        const data = (await dataOf(res)) as { executions: { execution_id: string }[] };
+        expect(data).toMatchObject({
+            session: SESSION,
+            runtime_queue: QUEUE,
+            next_cursor: 7,
+            has_more: true,
+        });
+        expect(data.executions.map((e) => e.execution_id).toSorted()).toEqual(['e1', 'e9']);
+        const paths = goPaths();
+        expect(paths.filter((p) => p.includes('/events'))).toEqual([
+            `GET /runtime-sessions/${SID}/events`,
+        ]);
+        expect(go?.calls.find((c) => c.path.endsWith('/events'))?.search).toBe('?after=3');
+        expect(paths.filter((p) => p.includes('/executions/'))).toHaveLength(2);
+        expect(paths.some((p) => p.includes('i1'))).toBe(false);
+    });
+
+    test('updates: сбой любого чтения — ошибка без частичного ответа; неверный вход — 400 без Go', async () => {
+        const ok = {
+            'GET /runtime-sessions/:id/queue': () => Response.json(QUEUE),
+            'GET /runtime-sessions/:id/events': () =>
+                Response.json({ events: [], next_cursor: 0, has_more: false }),
+            'GET /runtime-sessions/:id/executions/:eid': () => Response.json(execution('e1')),
+            'GET /runtime-sessions/:id': () => Response.json(SESSION),
+        };
+        for (const broken of [
+            'GET /runtime-sessions/:id/queue',
+            'GET /runtime-sessions/:id/events',
+            'GET /runtime-sessions/:id/executions/:eid',
+            'GET /runtime-sessions/:id',
+        ]) {
+            useGo({ ...ok, [broken]: () => goError(500, 'internal') });
+            const res = await updates({ sessionId: SID, after: 0, executionIds: ['e1'] });
+            expect(res.status, broken).toBe(502);
+            go?.restore();
+        }
+        useGo({});
+        for (const input of [
+            { sessionId: 'nope', after: 0 },
+            { sessionId: SID, after: -1 },
+            { sessionId: SID, after: 1.5 },
+            {
+                sessionId: SID,
+                after: 0,
+                executionIds: Array.from({ length: 101 }, (_, i) => `e${i}`),
+            },
+            { sessionId: SID, after: 0, executionIds: [''] },
+        ]) {
+            expect((await updates(input)).status, JSON.stringify(input).slice(0, 60)).toBe(400);
+        }
+        expect(go?.calls).toHaveLength(0);
+    });
+
+    test('updates: чужая сессия — NOT_FOUND от Go', async () => {
+        useGo({});
+        expect((await updates({ sessionId: SID, after: 0 })).status).toBe(404);
     });
 });

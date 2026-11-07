@@ -1,5 +1,15 @@
 import {
     AddNotebookCellResponse,
+    CreateRuntimeExecutionBatchResponse,
+    CreateRuntimeExecutionResponse,
+    GetActiveRuntimeSessionResponse,
+    GetRuntimeExecutionResponse,
+    GetRuntimeQueueResponse,
+    GetRuntimeSessionResponse,
+    ListRuntimeEventsResponse,
+    StartRuntimeSessionResponse,
+    StopRuntimeSessionResponse,
+    TouchRuntimeSessionResponse,
     EditNotebookCellResponse,
     MoveNotebookCellResponse,
     RemoveNotebookCellResponse,
@@ -19,6 +29,16 @@ import {
     addNotebookCell,
     changeCurrentUserPassword,
     createNotebook,
+    createRuntimeExecution,
+    createRuntimeExecutionBatch,
+    getActiveRuntimeSession,
+    getRuntimeExecution,
+    getRuntimeQueue,
+    getRuntimeSession,
+    listRuntimeEvents,
+    startRuntimeSession,
+    stopRuntimeSession,
+    touchRuntimeSession,
     editNotebookCell,
     getCurrentUser,
     getNotebook,
@@ -43,6 +63,14 @@ import {
     type NotebookContent,
     type NotebookContentChange,
     type NotebookSummary,
+    type RuntimeBatchExecuteRequest,
+    type RuntimeBatchExecution,
+    type RuntimeEventsResponse,
+    type RuntimeExecuteRequest,
+    type RuntimeExecution,
+    type RuntimeQueueSnapshot,
+    type RuntimeSession,
+    type RuntimeStartRequest,
     type TokenPair,
     type UpdateCurrentUserRequest,
     type User,
@@ -58,6 +86,9 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
 // hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
 const ifMatch = (init: RequestInit, hash: string): RequestInit =>
     withHeader(init, 'If-Match', `"${hash}"`);
+
+/** Итог отзыва сессии в Go при выходе. */
+export type ServerRevocation = 'confirmed' | 'unconfirmed' | 'unknown';
 
 /** Вызовы Go от имени сессии. */
 export type Go = {
@@ -83,12 +114,25 @@ export type Go = {
         body: MoveNotebookCellRequest,
     ): Promise<NotebookContentChange>;
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
-    logout(): Promise<void>;
+    logout(): Promise<ServerRevocation>;
     logoutAll(): Promise<void>;
+    getActiveRuntimeSession(): Promise<RuntimeSession | null>;
+    getRuntimeSession(id: string): Promise<RuntimeSession>;
+    getRuntimeQueue(id: string): Promise<RuntimeQueueSnapshot>;
+    listRuntimeEvents(id: string, after: number): Promise<RuntimeEventsResponse>;
+    getRuntimeExecution(id: string, executionId: string): Promise<RuntimeExecution>;
+    startRuntimeSession(notebookId: number, body: RuntimeStartRequest): Promise<RuntimeSession>;
+    createRuntimeExecution(id: string, body: RuntimeExecuteRequest): Promise<RuntimeExecution>;
+    createRuntimeExecutionBatch(
+        id: string,
+        body: RuntimeBatchExecuteRequest,
+    ): Promise<RuntimeBatchExecution>;
+    stopRuntimeSession(id: string): Promise<{ accepted: true }>;
+    touchRuntimeSession(id: string): Promise<{ accepted: true }>;
 };
 
 /**
- * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`. Заголовки
+ * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`; кроме `logout`. Заголовки
  * браузера в Go не уходят: `init` собирает сессия.
  * @param session сессия запроса
  * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
@@ -150,18 +194,76 @@ export function createGo(session: Session, prefer?: string): Go {
                 [200],
                 RemoveNotebookCellResponse,
             ),
-        // refresh-токен читается в момент вызова: call мог его только что обновить
+        // мимо call: выход не обновляет токены и не повторяет запрос
         logout: async () => {
-            unwrap(
-                await call((init) =>
-                    logoutUser({ refresh_token: session.refreshToken ?? '' }, init),
-                ),
-                [204],
-            );
+            const pair = session.revocation();
+            if (!pair) return 'unconfirmed';
+            const init = prefer ? withHeader(pair.init, 'Prefer', prefer) : pair.init;
+            let status: number;
+            try {
+                ({ status } = await logoutUser({ refresh_token: pair.refresh }, init));
+            } catch {
+                return 'unknown';
+            }
+            if (status === 204) return 'confirmed';
+            return status >= 400 && status < 500 ? 'unconfirmed' : 'unknown';
         },
         logoutAll: async () => {
             unwrap(await call((init) => logoutAllUserSessions(init)), [204]);
         },
+        getActiveRuntimeSession: async () =>
+            unwrap(await call(getActiveRuntimeSession), [200], GetActiveRuntimeSessionResponse)
+                .active_session,
+        getRuntimeSession: async (id) =>
+            unwrap(
+                await call((init) => getRuntimeSession(id, init)),
+                [200],
+                GetRuntimeSessionResponse,
+            ),
+        getRuntimeQueue: async (id) =>
+            unwrap(await call((init) => getRuntimeQueue(id, init)), [200], GetRuntimeQueueResponse),
+        listRuntimeEvents: async (id, after) =>
+            unwrap(
+                await call((init) => listRuntimeEvents(id, { after }, init)),
+                [200],
+                ListRuntimeEventsResponse,
+            ),
+        getRuntimeExecution: async (id, executionId) =>
+            unwrap(
+                await call((init) => getRuntimeExecution(id, executionId, init)),
+                [200],
+                GetRuntimeExecutionResponse,
+            ),
+        startRuntimeSession: async (notebookId, body) =>
+            unwrap(
+                await call((init) => startRuntimeSession(notebookId, body, init)),
+                [202],
+                StartRuntimeSessionResponse,
+            ),
+        createRuntimeExecution: async (id, body) =>
+            unwrap(
+                await call((init) => createRuntimeExecution(id, body, init)),
+                [202],
+                CreateRuntimeExecutionResponse,
+            ),
+        createRuntimeExecutionBatch: async (id, body) =>
+            unwrap(
+                await call((init) => createRuntimeExecutionBatch(id, body, init)),
+                [202],
+                CreateRuntimeExecutionBatchResponse,
+            ),
+        stopRuntimeSession: async (id) =>
+            unwrap(
+                await call((init) => stopRuntimeSession(id, init)),
+                [202],
+                StopRuntimeSessionResponse,
+            ),
+        touchRuntimeSession: async (id) =>
+            unwrap(
+                await call((init) => touchRuntimeSession(id, init)),
+                [200],
+                TouchRuntimeSessionResponse,
+            ),
     };
 }
 

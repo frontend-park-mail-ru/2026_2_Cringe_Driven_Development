@@ -7,7 +7,8 @@ import { Chip } from '@components/Chip/Chip';
 import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
-import { SaveStatus, type SaveStatusTone } from '@components/SaveStatus/SaveStatus';
+import { ScrollTop } from '@components/ScrollTop/ScrollTop';
+import { SaveStatus } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
@@ -25,13 +26,23 @@ import {
     structureLocked,
     useNotebookStore,
     type Orphan,
-    type SaveStatus as SaveState,
 } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
+import {
+    closeRuntime,
+    openRuntime,
+    retryCommand,
+    useRuntimeStore,
+    type RuntimeError,
+} from '@stores/runtime';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
+import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
 import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
+import { Outputs, type NbOutput } from './Output';
+import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
+import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -54,14 +65,6 @@ async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | 
     }
 }
 
-const STATUS: Partial<Record<SaveState, { tone: SaveStatusTone; text: string }>> = {
-    dirty: { tone: 'error', text: 'Изменения не сохранены' },
-    saving: { tone: 'progress', text: 'Сохраняем…' },
-    saved: { tone: 'success', text: 'Сохранено' },
-    error: { tone: 'error', text: 'Не удалось сохранить изменения' },
-    conflict: { tone: 'error', text: 'Конфликт сохранения: файл изменён в другой вкладке' },
-};
-
 // «+ Код» в шапке: есть всегда, в том числе в пустом блокноте
 const ADD_CODE_ID = 'add-code';
 
@@ -69,6 +72,15 @@ const ERRORS = {
     save: 'Не удалось сохранить изменения',
     too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
+};
+
+const RUNTIME_ERRORS: Record<RuntimeError, string> = {
+    network: 'Не удалось отправить команду окружению',
+    queue_full: 'Очередь исполнения переполнена — повторите позже',
+    unavailable: 'Окружение сейчас недоступно',
+    conflict: 'Код ячейки изменился — проверьте его и запустите снова',
+    too_large: 'Превышен размер ячейки — максимум 64 КиБ',
+    failed: 'Не удалось выполнить команду окружения',
 };
 
 const PASTE_NOTICE_MS = 4000;
@@ -118,6 +130,42 @@ function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
     );
 }
 
+type CellProps = Parameters<typeof Cell>[0];
+
+// Ячейка с исполнением: у кодовой — кнопка запуска и счётчик слева, состояние и выводы под кодом
+function CodeOrText({
+    run,
+    ...props
+}: Omit<CellProps, 'gutter' | 'below' | 'run'> & { run?: CellRun }) {
+    const { cell } = props;
+    if (cell.kind !== 'code' || !run) return <Cell {...props} />;
+    return (
+        <Cell
+            {...props}
+            run={
+                run.indicator === 'running'
+                    ? 'running'
+                    : run.result === 'failed'
+                      ? 'failed'
+                      : undefined
+            }
+            gutter={<RunGutter cellId={cell.id} executionCount={cell.execution_count} run={run} />}
+            below={
+                <>
+                    <RunState key="state" run={run} />
+                    {run.outputs && (
+                        <Outputs
+                            key="outputs"
+                            outputs={cell.outputs as NbOutput[]}
+                            truncated={cell.output_truncated}
+                        />
+                    )}
+                </>
+            }
+        />
+    );
+}
+
 // Фокус в редактор ячейки; без ячейки — на первый чип «+ Код»
 const focusCell = (id: string | undefined): void => {
     const target = id ? document.getElementById(cellEditorId(id)) : null;
@@ -150,6 +198,7 @@ export function NotebookPage() {
     // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
     const touch = useTouchDevice();
     const notebook = useNotebookStore();
+    const runtime = useRuntimeStore();
 
     // до первой отрисовки: блокнот из bootstrap открывается в сторе без мигания скелетона
     useLayoutEffect(() => {
@@ -157,6 +206,7 @@ export function NotebookPage() {
         const first = takePreloadedNotebook(id);
         if (first) {
             openNotebook(first);
+            openRuntime(first);
             setLoad('ready');
             return () => {
                 alive = false;
@@ -172,6 +222,7 @@ export function NotebookPage() {
             }
             if (page) {
                 openNotebook(page);
+                openRuntime(page);
                 setLoad('ready');
                 return;
             }
@@ -188,7 +239,14 @@ export function NotebookPage() {
     }, [id, attempt, navigate]);
 
     // уход со страницы: несохранённое отправляется сразу, очередь дорабатывает в фоне
-    useEffect(() => () => leaveNotebook(), [id]);
+    // окружение при уходе не останавливается: прекращается только опрос этой страницы
+    useEffect(
+        () => () => {
+            leaveNotebook();
+            closeRuntime();
+        },
+        [id],
+    );
     // стал тачем посреди ввода: редакторы пропадают, черновики отправляются сразу
     useLayoutEffect(() => {
         if (touch) leaveNotebook();
@@ -213,6 +271,23 @@ export function NotebookPage() {
         return () => hideSnackbar(shown);
     }, [notebook.error, notebook.failure]);
 
+    useEffect(() => {
+        if (!runtime.error) return;
+        const shown =
+            runtime.error === 'network'
+                ? showSnackbar(RUNTIME_ERRORS.network, {
+                      label: 'Повторить',
+                      onClick: () => void retryCommand(),
+                  })
+                : showSnackbar(RUNTIME_ERRORS[runtime.error]);
+        return () => hideSnackbar(shown);
+    }, [runtime.error, runtime.failure]);
+
+    // готовность окружения — отдельным уведомлением, не статусом сохранения
+    useEffect(() => {
+        if (runtime.ready > 0) showToast('Окружение готово');
+    }, [runtime.ready]);
+
     // До отрисовки: иначе мелькнёт кадр, где ячейка уже есть, а фокус и выделение — ещё на прежней
     useLayoutEffect(() => {
         if (!focusTarget) return;
@@ -225,7 +300,10 @@ export function NotebookPage() {
     const locked = structureLocked(notebook);
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error' && !touch;
-    const status = ready ? STATUS[notebook.status] : undefined;
+    const execution = ready ? runtimeStatus(runtime) : undefined;
+    // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
+    const status = ready ? saveStatus(notebook.status, runtime) : undefined;
+    const hasCode = cells.some((cell) => cell.kind === 'code');
     const title =
         load === 'loading'
             ? 'Загрузка блокнота…'
@@ -272,12 +350,18 @@ export function NotebookPage() {
                 <Header
                     key="header"
                     toolbar={
-                        hasToolbar && (
-                            <AddCellChips
-                                codeId={ADD_CODE_ID}
-                                disabled={!ready || locked}
-                                onAdd={handleAdd}
-                            />
+                        load !== 'error' && (
+                            <>
+                                {hasToolbar && (
+                                    <AddCellChips
+                                        key="chips"
+                                        codeId={ADD_CODE_ID}
+                                        disabled={!ready || locked}
+                                        onAdd={handleAdd}
+                                    />
+                                )}
+                                {ready && <RuntimeActions key="runtime" hasCode={hasCode} />}
+                            </>
                         )
                     }
                 >
@@ -303,6 +387,13 @@ export function NotebookPage() {
                                 <span key="count">
                                     {plural(cells.length, 'ячейка', 'ячейки', 'ячеек')}
                                 </span>
+                                {execution && (
+                                    <SaveStatus
+                                        key="run"
+                                        tone={execution.tone}
+                                        text={execution.text}
+                                    />
+                                )}
                                 {status && (
                                     <SaveStatus
                                         key="status"
@@ -328,6 +419,7 @@ export function NotebookPage() {
                         ))}
                     </ul>
                 )}
+                {ready && <RuntimeBanner key="runtime" className={styles.column} />}
                 {ready && <ConflictBanner key="conflict" className={styles.column} />}
                 {ready && !isEmpty && (
                     <div key="body" className={clsx(styles.body, styles.column)}>
@@ -339,8 +431,18 @@ export function NotebookPage() {
                                     </li>
                                 ) : (
                                     <li key={row.cell.id}>
-                                        <Cell
+                                        <CodeOrText
+                                            key="cell"
                                             cell={row.cell}
+                                            run={
+                                                row.cell.kind === 'code'
+                                                    ? cellRun(runtime, {
+                                                          id: row.cell.id,
+                                                          executionCount: row.cell.execution_count,
+                                                          outputs: row.cell.outputs,
+                                                      })
+                                                    : undefined
+                                            }
                                             text={notebook.drafts[row.cell.id] ?? row.cell.source}
                                             selected={selected === row.cell.id}
                                             tooLarge={notebook.tooLarge[row.cell.id] === true}
@@ -402,6 +504,7 @@ export function NotebookPage() {
                 )}
             </div>
             {ready && <ConflictDialog key="dialog" />}
+            <ScrollTop key="scroll-top" />
         </div>
     );
 }

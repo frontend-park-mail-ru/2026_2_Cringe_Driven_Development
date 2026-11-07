@@ -2,7 +2,13 @@
 import { spyOn } from 'bun:test';
 
 /** Один вызов Go: что пришло от BFF. */
-export type GoCall = { method: string; path: string; headers: Headers; body: unknown };
+export type GoCall = {
+    method: string;
+    path: string;
+    search: string;
+    headers: Headers;
+    body: unknown;
+};
 
 /** Обработчик маршрута фейкового Go. */
 export type GoRoute = (call: GoCall, signal?: AbortSignal | null) => Response | Promise<Response>;
@@ -31,6 +37,7 @@ export function fakeGo(routes: Record<string, GoRoute>): { calls: GoCall[]; rest
         const call = {
             method,
             path,
+            search: url.search,
             headers: new Headers(init?.headers),
             body: form ?? (text ? JSON.parse(text) : undefined),
         };
