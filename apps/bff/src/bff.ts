@@ -29,6 +29,11 @@ export function createBff(
                 router: appRouter,
                 createContext,
                 onError: logTrpcError,
+                // ответ с ключом настройки 2FA не кэшируется
+                responseMeta: ({ paths }) =>
+                    paths?.includes('twoFactor.setup')
+                        ? { headers: { 'Cache-Control': 'no-store' } }
+                        : {},
             }),
     });
     return (req) =>

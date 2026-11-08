@@ -17,7 +17,7 @@ const RPC = {
     'Sec-Fetch-Site': 'same-origin',
     'Content-Type': 'application/json',
 };
-const USER = { id: 1, login: 'denis', avatar_url: null };
+const USER = { id: 1, login: 'denis', avatar_url: null, has_2fa: false };
 const template = await loadTemplate(process.env.HTML_TEMPLATE ?? '');
 const bff = createBff(template, new Map());
 
@@ -619,6 +619,7 @@ describe('HTML', () => {
             id: 7,
             login: '</script><script>alert(1)</script><!-- "\'&Привет ',
             avatar_url: null,
+            has_2fa: false,
         };
         const html = await renderBootstrap(template, { user }, new Headers()).text();
         let scripts = 0;
@@ -691,7 +692,7 @@ describe('robots.txt', () => {
 describe('смена логина и пароля', () => {
     test('updateLogin шлёт PATCH /users/me и возвращает пользователя', async () => {
         const tokens = goTokens();
-        const renamed = { id: 1, login: 'orbit', avatar_url: null };
+        const renamed = { ...USER, login: 'orbit' };
         useGo({ 'PATCH /users/me': () => Response.json(renamed) });
         const res = await rpc('users.updateLogin', {
             body: { login: 'orbit' },
@@ -1309,5 +1310,117 @@ describe('runtime', () => {
     test('updates: чужая сессия — NOT_FOUND от Go', async () => {
         useGo({});
         expect((await updates({ sessionId: SID, after: 0 })).status).toBe(404);
+    });
+});
+
+const ok200 = () => new Response(null, { status: 200 });
+
+describe('2FA', () => {
+    const SETUP = { qr_code: 'data:image/png;base64,iVBORw0KGgo=', secret: 'MZXW6YTBOI4GS3TP' };
+
+    test('login без кода при 2FA — PRECONDITION_FAILED two_factor_required, сессии нет', async () => {
+        useGo({ 'POST /auth/login': () => goError(412, 'two_factor_required') });
+        const res = await rpc('auth.login', { body: { login: 'denis', password: 'password123' } });
+        expect(await errorOf(res)).toMatchObject({
+            code: 'PRECONDITION_FAILED',
+            appCode: 'two_factor_required',
+        });
+        expect(newSession(res)).toBeUndefined();
+    });
+
+    test('login передаёт user_code строкой с ведущим нулём; неверный код — BAD_REQUEST', async () => {
+        useGo({ 'POST /auth/login': () => goError(401, 'invalid_totp') });
+        const body = { login: 'denis', password: 'password123', user_code: '012345' };
+        const res = await rpc('auth.login', { body });
+        expect(go?.calls[0]?.body).toEqual(body);
+        expect(await errorOf(res)).toMatchObject({ code: 'BAD_REQUEST', appCode: 'invalid_totp' });
+    });
+
+    test('setup отдаёт qr_code и secret без кэширования', async () => {
+        useGo({ 'POST /auth/enable2fa': () => Response.json(SETUP) });
+        const res = await rpc('twoFactor.setup', {
+            body: {},
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(res.headers.get('Cache-Control')).toBe('no-store');
+        expect(((await res.json()) as { result: { data: unknown } }).result.data).toEqual(SETUP);
+        expect(go?.calls[0]?.headers.get('Authorization')).toStartWith('Bearer ');
+    });
+
+    test('confirm передаёт код строкой', async () => {
+        useGo({ 'POST /auth/confirm2fa': ok200 });
+        const res = await rpc('twoFactor.confirm', {
+            body: { user_code: '012345' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(go?.calls[0]?.body).toEqual({ user_code: '012345' });
+    });
+
+    test('confirm: неверный код — BAD_REQUEST без refresh, сессия остаётся', async () => {
+        const tokens = goTokens();
+        useGo({ ...tokens.routes, 'POST /auth/confirm2fa': () => goError(401, 'invalid_totp') });
+        const res = await rpc('twoFactor.confirm', {
+            body: { user_code: '123456' },
+            cookie: await cookie(tokens.issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({ code: 'BAD_REQUEST', appCode: 'invalid_totp' });
+        expect(go?.calls.map((c) => c.path)).toEqual(['/auth/confirm2fa']);
+        expect(cleared(res)).toBe(false);
+    });
+
+    test('confirm: 401 до refresh, после refresh неверный код — BAD_REQUEST, сессия остаётся', async () => {
+        const tokens = goTokens();
+        let calls = 0;
+        useGo({
+            ...tokens.routes,
+            'POST /auth/confirm2fa': () =>
+                ++calls === 1 ? goError(401, 'unauthorized') : goError(401, 'invalid_totp'),
+        });
+        const res = await rpc('twoFactor.confirm', {
+            body: { user_code: '123456' },
+            cookie: await cookie(tokens.issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({ code: 'BAD_REQUEST', appCode: 'invalid_totp' });
+        expect(go?.calls.map((c) => c.path)).toEqual([
+            '/auth/confirm2fa',
+            '/auth/refresh',
+            '/auth/confirm2fa',
+        ]);
+        expect(cleared(res)).toBe(false);
+    });
+
+    test('confirm: код не из шести цифр не доходит до Go', async () => {
+        useGo({});
+        const res = await rpc('twoFactor.confirm', {
+            body: { user_code: '12345a' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(400);
+        expect(go?.calls).toHaveLength(0);
+    });
+
+    test('disable: неверный пароль — FORBIDDEN invalid_current_password, сессия остаётся', async () => {
+        useGo({ 'POST /auth/disable2fa': () => goError(403, 'invalid_current_password') });
+        const res = await rpc('twoFactor.disable', {
+            body: { password: 'wrong-password' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({
+            code: 'FORBIDDEN',
+            appCode: 'invalid_current_password',
+        });
+        expect(cleared(res)).toBe(false);
+    });
+
+    test('disable передаёт пароль', async () => {
+        useGo({ 'POST /auth/disable2fa': ok200 });
+        const res = await rpc('twoFactor.disable', {
+            body: { password: 'password123' },
+            cookie: await cookie(goTokens().issue()),
+        });
+        expect(res.status).toBe(200);
+        expect(go?.calls[0]?.body).toEqual({ password: 'password123' });
     });
 });

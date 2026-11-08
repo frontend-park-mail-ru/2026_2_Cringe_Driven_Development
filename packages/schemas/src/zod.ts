@@ -34,7 +34,8 @@ export const UpdateCurrentUserBody = zod.object({
 export const UpdateCurrentUserResponse = zod.object({
   "id": zod.int().min(1).describe('ID'),
   "login": zod.string(),
-  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.'),
+  "has_2fa": zod.boolean().describe('true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false.')
 })
 
 
@@ -55,7 +56,8 @@ export const GetCurrentUserHeader = zod.object({
 export const GetCurrentUserResponse = zod.object({
   "id": zod.int().min(1).describe('ID'),
   "login": zod.string(),
-  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.'),
+  "has_2fa": zod.boolean().describe('true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false.')
 })
 
 
@@ -107,7 +109,8 @@ export const UploadCurrentUserAvatarBody = zod.object({
 export const UploadCurrentUserAvatarResponse = zod.object({
   "id": zod.int().min(1).describe('ID'),
   "login": zod.string(),
-  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.'),
+  "has_2fa": zod.boolean().describe('true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false.')
 })
 
 
@@ -170,7 +173,62 @@ export const RegisterUserResponse = zod.object({
   "user": zod.object({
   "id": zod.int().min(1).describe('ID'),
   "login": zod.string(),
-  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.'),
+  "has_2fa": zod.boolean().describe('true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false.')
+}),
+  "tokens": zod.object({
+  "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
+  "access_expires_in": zod.int().min(1).describe('Срок действия выданного access-токена в секундах'),
+  "refresh_token": zod.string().min(1).describe('Refresh-токен; при обновлении заменяется новым'),
+  "refresh_expires_in": zod.int().min(1).describe('Срок действия выданного refresh-токена в секундах')
+})
+})
+
+
+/**
+ * Проверяет логин и пароль перед вторым фактором. Неверные credentials — 400 invalid_credentials независимо от user_code. При выключенной 2FA, включая неподтверждённую настройку, user_code не требуется и игнорируется; вход возвращает 200 с user.has_2fa=false.
+ *
+ * При верных credentials и включённой 2FA: отсутствие user_code — 412 two_factor_required; переданная строка с неверным форматом, неверный или уже использованный TOTP — 401 invalid_totp. Пустая строка считается переданным кодом неверного формата, а не отсутствием поля. Корректный неиспользованный код — 200 с user.has_2fa=true. TOTP: SHA-1, 6 ASCII-цифр, 30 секунд, окно ±1 шаг. Код подтверждения подключения нельзя повторно принять в его временном шаге.
+ *
+ * До успешной проверки второго фактора полноценная авторизованная сессия и токены не создаются. Ответ 200 сохраняет структуру {user,tokens}; Cookie не устанавливаются. Проверки пароля и TOTP защищены от перебора: превышение лимита — 429 rate_limited. Пароли, введённые коды и токены не журналируются. Обязательный X-BFF-Key проверяется раньше credentials и тела.
+ * @summary Вход
+ */
+
+
+
+export const LoginUserHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const loginUserBodyLoginMin = 3;
+export const loginUserBodyLoginMax = 32;
+
+
+export const loginUserBodyLoginRegExp = new RegExp('^[a-zA-Z0-9_]+$');
+export const loginUserBodyPasswordMin = 8;
+export const loginUserBodyPasswordMax = 72;
+
+
+
+export const LoginUserBody = zod.object({
+  "login": zod.string().min(loginUserBodyLoginMin).max(loginUserBodyLoginMax).regex(loginUserBodyLoginRegExp),
+  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax),
+  "user_code": zod.string().optional().describe('TOTP-код: ровно 6 ASCII-цифр (0–9), ведущие нули сохраняются. Обязателен только после подтверждения 2FA. Формат проверяется после логина и пароля и только при включённой 2FA; неверный формат — 401, отсутствие поля — 412. При выключенной 2FA поле игнорируется. Общий pattern здесь намеренно отсутствует, чтобы валидатор не возвращал 400 вместо условного 401.')
+})
+
+
+
+
+
+
+
+
+export const LoginUserResponse = zod.object({
+  "user": zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "login": zod.string(),
+  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.'),
+  "has_2fa": zod.boolean().describe('true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false.')
 }),
   "tokens": zod.object({
   "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
@@ -235,51 +293,81 @@ export const LogoutUserResponse = zod.void()
 
 
 /**
- * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
- * @summary Вход
+ * Подготавливает настройку, но не включает 2FA: has_2fa остаётся false, вход без TOTP продолжает работать. Первый запрос создаёт неподтверждённый секрет; все повторные запросы до подтверждения возвращают тот же secret и QR для этого секрета, включая конкурентные запросы. QR и ручной ввод ключа на том же телефоне настраивают один аккаунт. Закрытие окна, показ или копирование ключа не включают 2FA.
+ *
+ * Только успешный POST /auth/confirm2fa включает 2FA. Если она уже включена, ответ 400 validation_error без выдачи QR/секрета и без замены активного секрета. После отключения следующая настройка создаёт новый секрет. Число повторных получений данных не ограничено числом попыток настройки; обычное ограничение частоты сохраняется. Ответ с данными настройки: Cache-Control: no-store.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Получить данные настройки 2FA
  */
 
 
 
-export const LoginUserHeader = zod.object({
+export const EnableTwoFactorAuthHeader = zod.object({
   "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
-export const loginUserBodyLoginMin = 3;
-export const loginUserBodyLoginMax = 32;
+export const enableTwoFactorAuthResponseQrCodeRegExp = new RegExp('^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$');
+export const enableTwoFactorAuthResponseSecretRegExp = new RegExp('^[A-Z2-7]+$');
 
 
-export const loginUserBodyLoginRegExp = new RegExp('^[a-zA-Z0-9_]+$');
-export const loginUserBodyPasswordMin = 8;
-export const loginUserBodyPasswordMax = 72;
-
-
-
-export const LoginUserBody = zod.object({
-  "login": zod.string().min(loginUserBodyLoginMin).max(loginUserBodyLoginMax).regex(loginUserBodyLoginRegExp),
-  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax)
+export const EnableTwoFactorAuthResponse = zod.object({
+  "qr_code": zod.string().regex(enableTwoFactorAuthResponseQrCodeRegExp).describe('PNG QR-код в формате data URI. Содержит otpauth://totp/ URI: issuer Cellestial, аккаунт — текущий логин, SHA1, digits=6, period=30.'),
+  "secret": zod.string().regex(enableTwoFactorAuthResponseSecretRegExp).describe('Тот же TOTP-секрет, что в QR: Base32 без padding, пробелов и разделителей. Для ручного добавления в аутентификатор; это не шестизначный код.')
 })
 
 
+/**
+ * Принимает user_code — строку ровно из шести ASCII-цифр, включая ведущие нули. Проверяет код неподтверждённого секрета и только при успехе атомарно активирует секрет и устанавливает has_2fa=true. Принятый шаг запоминается: код подтверждения нельзя немедленно использовать для входа. Неверный формат, отсутствие настройки или уже включённая 2FA — 400 validation_error. Код, не прошедший TOTP-проверку, — 401 invalid_totp. Неверный код и ошибка запроса не включают 2FA и не удаляют неподтверждённый секрет; настройку можно повторить. Лимит попыток привязан к аккаунту и не сбрасывается получением QR.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Подтвердить подключение 2FA
+ */
 
 
 
-
-
-
-export const LoginUserResponse = zod.object({
-  "user": zod.object({
-  "id": zod.int().min(1).describe('ID'),
-  "login": zod.string(),
-  "avatar_url": zod.url().nullable().describe('Абсолютный публичный HTTPS URL CDN для прямой загрузки аватара браузером, без Bearer и X-BFF-Key. null, если аватар не загружен. Ключ S3 в API не раскрывается. Домен CDN задаётся конфигурацией. Параметры avatar_url и публичную выдачу CDN необходимо согласовать с frontend до реализации.')
-}),
-  "tokens": zod.object({
-  "access_token": zod.string().min(1).describe('Access-токен для Authorization Bearer'),
-  "access_expires_in": zod.int().min(1).describe('Срок действия выданного access-токена в секундах'),
-  "refresh_token": zod.string().min(1).describe('Refresh-токен; при обновлении заменяется новым'),
-  "refresh_expires_in": zod.int().min(1).describe('Срок действия выданного refresh-токена в секундах')
+export const ConfirmTwoFactorAuthHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
+
+export const confirmTwoFactorAuthBodyUserCodeMin = 6;
+export const confirmTwoFactorAuthBodyUserCodeMax = 6;
+
+
+export const confirmTwoFactorAuthBodyUserCodeRegExp = new RegExp('^[0-9]{6}$');
+
+
+export const ConfirmTwoFactorAuthBody = zod.object({
+  "user_code": zod.string().min(confirmTwoFactorAuthBodyUserCodeMin).max(confirmTwoFactorAuthBodyUserCodeMax).regex(confirmTwoFactorAuthBodyUserCodeRegExp).describe('Ровно шесть ASCII-цифр; ведущие нули сохраняются.')
 })
+
+export const ConfirmTwoFactorAuthResponse = zod.unknown()
+
+
+/**
+ * Если 2FA не включена, возвращает 400 validation_error. При включённой 2FA проверяет текущий пароль: неверный пароль — 403 invalid_current_password. Успешная проверка атомарно выключает 2FA (has_2fa=false) и удаляет TOTP-секрет. Следующее подключение создаёт новый секрет. Проверка пароля защищена от перебора; превышение лимита — 429 rate_limited. Конкурентное подтверждение или получение QR не может восстановить удалённый активный секрет.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Отключить 2FA
+ */
+
+
+
+export const DisableTwoFactorAuthHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const DisableTwoFactorAuthBody = zod.object({
+  "password": zod.string().describe('Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password.')
+})
+
+export const DisableTwoFactorAuthResponse = zod.unknown()
 
 
 /**

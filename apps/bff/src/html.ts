@@ -93,7 +93,12 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
             if (session.active) {
                 const me = await go.getCurrentUser();
                 // только DTO пользователя: лишние поля ответа Go в HTML не попадают
-                user = { id: me.id, login: me.login, avatar_url: me.avatar_url };
+                user = {
+                    id: me.id,
+                    login: me.login,
+                    avatar_url: me.avatar_url,
+                    has_2fa: me.has_2fa,
+                };
             }
             if (user && page === 'notebook') {
                 const id = notebookId(pathname);

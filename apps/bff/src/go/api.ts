@@ -14,6 +14,7 @@ import {
     MoveNotebookCellResponse,
     RemoveNotebookCellResponse,
     CreateNotebookResponse,
+    EnableTwoFactorAuthResponse,
     GetCurrentUserResponse,
     GetNotebookContentResponse,
     GetNotebookResponse,
@@ -28,9 +29,12 @@ import type { Session } from '../session/session.ts';
 import {
     addNotebookCell,
     changeCurrentUserPassword,
+    confirmTwoFactorAuth,
     createNotebook,
     createRuntimeExecution,
     createRuntimeExecutionBatch,
+    disableTwoFactorAuth,
+    enableTwoFactorAuth,
     getActiveRuntimeSession,
     getRuntimeExecution,
     getRuntimeQueue,
@@ -54,6 +58,10 @@ import {
     uploadCurrentUserAvatar,
     type AddNotebookCellRequest,
     type ChangeCurrentUserPasswordRequest,
+    type ConfirmTwoFactorRequest,
+    type DisableTwoFactorRequest,
+    type LoginRequest,
+    type TwoFactorSetupResponse,
     type CreateNotebookRequest,
     type EditNotebookCellRequest,
     type MoveNotebookCellRequest,
@@ -87,6 +95,15 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
 const ifMatch = (init: RequestInit, hash: string): RequestInit =>
     withHeader(init, 'If-Match', `"${hash}"`);
 
+const isInvalidTotp = (res: { status: number }): boolean => {
+    const { data } = res as { data?: unknown };
+    return (
+        typeof data === 'object' &&
+        data !== null &&
+        (data as { code?: unknown }).code === 'invalid_totp'
+    );
+};
+
 /** Итог отзыва сессии в Go при выходе. */
 export type ServerRevocation = 'confirmed' | 'unconfirmed' | 'unknown';
 
@@ -116,6 +133,9 @@ export type Go = {
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
     logout(): Promise<ServerRevocation>;
     logoutAll(): Promise<void>;
+    enableTwoFactor(): Promise<TwoFactorSetupResponse>;
+    confirmTwoFactor(body: ConfirmTwoFactorRequest): Promise<void>;
+    disableTwoFactor(body: DisableTwoFactorRequest): Promise<void>;
     getActiveRuntimeSession(): Promise<RuntimeSession | null>;
     getRuntimeSession(id: string): Promise<RuntimeSession>;
     getRuntimeQueue(id: string): Promise<RuntimeQueueSnapshot>;
@@ -139,8 +159,8 @@ export type Go = {
  * @returns вызовы Go
  */
 export function createGo(session: Session, prefer?: string): Go {
-    const call: Session['call'] = (fn) =>
-        session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init));
+    const call: Session['call'] = (fn, refused) =>
+        session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init), refused);
     return {
         getCurrentUser: async () =>
             unwrap(await call(getCurrentUser), [200], GetCurrentUserResponse),
@@ -210,6 +230,15 @@ export function createGo(session: Session, prefer?: string): Go {
         },
         logoutAll: async () => {
             unwrap(await call((init) => logoutAllUserSessions(init)), [204]);
+        },
+        enableTwoFactor: async () =>
+            unwrap(await call(enableTwoFactorAuth), [200], EnableTwoFactorAuthResponse),
+        // 401 invalid_totp — неверный код, а не истёкший токен: без refresh и повтора тем же кодом
+        confirmTwoFactor: async (body) => {
+            unwrap(await call((init) => confirmTwoFactorAuth(body, init), isInvalidTotp), [200]);
+        },
+        disableTwoFactor: async (body) => {
+            unwrap(await call((init) => disableTwoFactorAuth(body, init)), [200]);
         },
         getActiveRuntimeSession: async () =>
             unwrap(await call(getActiveRuntimeSession), [200], GetActiveRuntimeSessionResponse)
@@ -286,10 +315,10 @@ export const publicGo = {
         unwrap(await registerUser(body, withRequestId(requestId)), [201], RegisterUserResponse),
     /**
      * Вход в Go.
-     * @param body логин и пароль
+     * @param body логин, пароль и при включённой 2FA — код `user_code`
      * @param requestId `X-Request-ID` для Go
      * @returns пользователь и токены
      */
-    login: async (body: Credentials, requestId?: string): Promise<AuthResult> =>
+    login: async (body: LoginRequest, requestId?: string): Promise<AuthResult> =>
         unwrap(await loginUser(body, withRequestId(requestId)), [200], LoginUserResponse),
 };
