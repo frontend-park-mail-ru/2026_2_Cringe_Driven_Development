@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from '@cdd-team/react';
+import { createPortal, useEffect, type ReactNode } from '@cdd-team/react';
 import { IconButton } from '@components/IconButton/IconButton';
 import styles from './Modal.module.css';
 
@@ -15,8 +15,6 @@ interface ModalProps {
     description?: string;
     /** id элемента, который получает фокус при открытии */
     initialFocusId: string;
-    /** Клик по затемнению вокруг модалки тоже закрывает её */
-    closeOnBackdrop?: boolean;
     onClose: () => void;
     children: ReactNode;
 }
@@ -46,19 +44,12 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 }
 
 /**
- * Модалка по центру поверх затемнения (Components → Modal).
- * При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
+ * Модалка по центру поверх затемнения (Components → Modal), порталом в `body`.
+ * Закрывается крестиком, Escape и кликом по затемнению. При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
  * @param props свойства модалки
  * @returns модалка
  */
-export function Modal({
-    title,
-    description,
-    initialFocusId,
-    closeOnBackdrop,
-    onClose,
-    children,
-}: ModalProps) {
+export function Modal({ title, description, initialFocusId, onClose, children }: ModalProps) {
     useEffect(() => {
         const opener =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -78,7 +69,7 @@ export function Modal({
         };
         // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
         const handleClick = (event: MouseEvent) => {
-            if (closeOnBackdrop && (event.target as Element | null)?.id === OVERLAY_ID) onClose();
+            if ((event.target as Element | null)?.id === OVERLAY_ID) onClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('click', handleClick);
@@ -86,9 +77,9 @@ export function Modal({
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('click', handleClick);
         };
-    }, [onClose, closeOnBackdrop]);
+    }, [onClose]);
 
-    return (
+    return createPortal(
         <div id={OVERLAY_ID} className={styles.overlay}>
             <dialog
                 id={DIALOG_ID}
@@ -117,6 +108,7 @@ export function Modal({
                 />
                 <div key="body">{children}</div>
             </dialog>
-        </div>
+        </div>,
+        document.body,
     );
 }
