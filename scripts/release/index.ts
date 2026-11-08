@@ -1,35 +1,37 @@
 // Выпуск и выкатка, по команде на шаг workflow. Ассеты клиента — неизменяемые releases/{sha}/ в S3 и
-// на CDN; образ BFF — публичный GHCR по digest; готовые выпуски и история прода — GitHub Deployments
-// (release-artifacts и production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
+// на CDN; образ BFF — публичный GHCR по digest; готовые выпуски — GitHub Releases, история прода —
+// GitHub Deployments (production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
 import { appendFileSync } from 'node:fs';
 import { health, releaseCheck } from './checks.ts';
 import {
-    artifacts,
     assertReleaseDirection,
     finishProduction,
     lastConfirmed,
-    published,
-    register,
+    notificationMetadata,
     rollbackTarget,
     startProduction,
 } from './deployments.ts';
+import { importReleases } from './import.ts';
+import { artifacts, published, publishRelease } from './releases.ts';
+import { runUrl } from './github.ts';
 import { ReleaseError, checkSha } from './env.ts';
 import { updateReleaseBoard, type BoardResult } from './board.ts';
 import { checkImage, checkImageRef } from './image.ts';
 import { retention } from './retention.ts';
 import { upload } from './upload.ts';
-import { readOperationReport, reportRelease, type ReleaseKind } from './report.ts';
+import { readOperationReport, releaseBody, reportRelease, type ReleaseKind } from './report.ts';
 
 const USAGE = `Использование: bun run release <команда>
   upload <sha> [каталог]          apps/client/dist → releases/{sha}/, неизменяемо
   check <sha>                     Release check: ассеты релиза отдаются с CDN
   image <image_ref> <sha>         образ скачивается анонимно и помечен этим SHA
-  published <sha>                 выпуск SHA уже есть в release-artifacts
-  register <sha> <image_ref>      записать готовый выпуск в release-artifacts
-  artifacts <sha>                 готовый выпуск SHA: image_ref и каталог ассетов
+  published <sha>                 состояние Release SHA: опубликован, draft или нет
+  register <sha> <image_ref>      опубликовать GitHub Release release-<sha> с архивами
+  artifacts <release-<sha>>       проверенный Release для CD: sha, image_ref, release_id
+  import                          разовый перенос двух выпусков прода в Releases
   confirmed                       последний подтверждённый выпуск прода по истории
   target                          цель отката по истории production
-  start <sha> <image_ref> <deploy|rollback>   запись production до переключения
+  start <sha> <image_ref> <deploy|rollback>   запись production до переключения (RELEASE_ID)
   finish <deployment_id> <success|failure|error>   итог записи production
   health <sha>                    Health check: прод отдаёт выпуск через BFF
   retention                       удалить старые ассеты
@@ -81,14 +83,28 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
         case 'check':
             return releaseCheck(checkSha(args[0]));
         case 'image':
-            return checkImage(checkImageRef(args[0]), checkSha(args[1]));
+            await checkImage(checkImageRef(args[0]), checkSha(args[1]));
+            return;
         case 'published':
             return published(checkSha(args[0]));
-        case 'register':
-            return register(checkSha(args[0]), checkImageRef(args[1]));
-        case 'artifacts':
-            await artifacts(checkSha(args[0]));
+        case 'register': {
+            const sha = checkSha(args[0]);
+            const imageRef = checkImageRef(args[1]);
+            // ошибка отчёта не отменяет готовность проверенных артефактов: описание станет неполным
+            const report = await readOperationReport('publish', sha).catch(() => undefined);
+            await publishRelease({
+                sha,
+                imageRef,
+                notification: notificationMetadata(),
+                body: releaseBody(sha, imageRef, runUrl(), report),
+                dist: 'apps/client/dist',
+            });
             return;
+        }
+        case 'artifacts':
+            return artifacts(args[0] ?? '');
+        case 'import':
+            return importReleases();
         case 'confirmed':
             await lastConfirmed();
             return;
@@ -96,7 +112,12 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
             return rollbackTarget();
         case 'start':
             if (args[2] !== 'deploy' && args[2] !== 'rollback') throw new ReleaseError(USAGE);
-            return startProduction(checkSha(args[0]), checkImageRef(args[1]), args[2]);
+            return startProduction(
+                checkSha(args[0]),
+                checkImageRef(args[1]),
+                args[2],
+                Number(process.env.RELEASE_ID),
+            );
         case 'finish':
             return finishProduction(args[0] ?? '', args[1] ?? '');
         case 'health':

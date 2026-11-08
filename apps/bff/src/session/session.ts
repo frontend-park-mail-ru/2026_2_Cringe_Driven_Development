@@ -32,9 +32,13 @@ export interface Session {
     end(): void;
     /**
      * Вызов Go с `Authorization: Bearer` и `X-Request-ID`. Без сессии — `SessionEnded`; access
-     * обновляется заранее и после 401 (один повтор); повторный 401 завершает сессию.
+     * обновляется заранее и после 401 (один повтор); повторный 401 завершает сессию. `refused` —
+     * 401, который отказ операции, а не истёкший токен: возвращается как есть, без refresh.
      */
-    call<T extends { status: number }>(fn: (init: RequestInit) => Promise<T>): Promise<T>;
+    call<T extends { status: number }>(
+        fn: (init: RequestInit) => Promise<T>,
+        refused?: (res: T) => boolean,
+    ): Promise<T>;
     /** Привести `Set-Cookie` ответа к решению по сессии; чужие `Set-Cookie` остаются. */
     setCookies(headers: Headers): void;
     /** Удалить в ответе cookie прежней схемы авторизации Go. */
@@ -75,14 +79,17 @@ class RequestSession implements Session {
         this.cookie = null;
     }
 
-    async call<T extends { status: number }>(fn: (init: RequestInit) => Promise<T>): Promise<T> {
+    async call<T extends { status: number }>(
+        fn: (init: RequestInit) => Promise<T>,
+        refused?: (res: T) => boolean,
+    ): Promise<T> {
         if (!this.data) throw new SessionEnded();
         if (this.data.accessExp - now() < REFRESH_BEFORE_S) await this.refresh();
         const res = await fn(this.init());
-        if (res.status !== 401) return res;
+        if (res.status !== 401 || refused?.(res)) return res;
         await this.refresh();
         const retry = await fn(this.init());
-        if (retry.status === 401) {
+        if (retry.status === 401 && !refused?.(retry)) {
             this.end();
             throw new SessionEnded();
         }

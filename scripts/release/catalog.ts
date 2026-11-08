@@ -12,9 +12,11 @@ export interface LinkedIssue {
 /** Проверенный источник записи Deployment. */
 export interface TrustedRun {
     id: number;
-    kind: 'publish' | 'deploy' | 'rollback';
+    kind: 'publish' | 'deploy' | 'rollback' | 'import';
     sha: string;
     url: string;
+    /** Последняя попытка run */
+    attempt: number;
 }
 
 /** Проверка repository, события и workflow ID/path; conclusion не определяет готовность выпуска. */
@@ -26,6 +28,7 @@ export async function readTrustedRun(id: number): Promise<TrustedRun> {
         event: string;
         head_branch: string;
         head_sha: string;
+        run_attempt: number;
         repository: { full_name: string };
         head_repository: { full_name: string };
     }>(`/actions/runs/${id}`);
@@ -33,12 +36,16 @@ export async function readTrustedRun(id: number): Promise<TrustedRun> {
         ['ci.yml', 'push', 'publish'],
         ['cd.yml', 'workflow_dispatch', 'deploy'],
         ['rollback.yml', 'workflow_dispatch', 'rollback'],
+        // разовый перенос выпусков в Releases (docs/release.md, «Импорт»)
+        ['release-import.yml', 'workflow_dispatch', 'import'],
     ].find(([file, event]) => run.path === `.github/workflows/${file}` && run.event === event);
     if (
         !entry ||
         run.head_branch !== 'main' ||
         run.repository?.full_name !== need('GITHUB_REPOSITORY') ||
-        run.head_repository?.full_name !== need('GITHUB_REPOSITORY')
+        run.head_repository?.full_name !== need('GITHUB_REPOSITORY') ||
+        !Number.isSafeInteger(run.run_attempt) ||
+        run.run_attempt <= 0
     )
         throw new ReleaseError(`Недоверенный источник run ${id}`);
     const workflow = await api<{ id: number }>(`/actions/workflows/${entry[0]}`);
@@ -48,6 +55,7 @@ export async function readTrustedRun(id: number): Promise<TrustedRun> {
         id,
         kind: entry[2] as TrustedRun['kind'],
         sha: checkSha(run.head_sha),
+        attempt: run.run_attempt,
         url: `${process.env.GITHUB_SERVER_URL || 'https://github.com'}/${need('GITHUB_REPOSITORY')}/actions/runs/${id}`,
     };
 }

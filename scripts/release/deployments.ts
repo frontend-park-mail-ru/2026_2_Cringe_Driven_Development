@@ -1,10 +1,8 @@
-// Готовые выпуски (release-artifacts) и история прода (production) — в GitHub Deployments. S3 хранит
-// только ассеты, указателя релиза и release.json нет.
+// История прода (production) — в GitHub Deployments; готовые выпуски — GitHub Releases
+// (releases.ts). S3 хранит только ассеты.
 import { ReleaseError, output } from './env.ts';
 import {
-    ARTIFACTS_ENV,
     PRODUCTION_ENV,
-    type ArtifactsPayload,
     type Deployment,
     type ProductionPayload,
     type NotificationMetadata,
@@ -15,6 +13,7 @@ import {
 } from './github.ts';
 import { checkImageRef } from './image.ts';
 import { checkSha } from './env.ts';
+import { assetsOf, readyRelease, runAttempt } from './releases.ts';
 
 /** Проверяет локальный граф: выкатка идёт к потомку, откат — к предку; тот же SHA допустим. */
 export async function assertReleaseDirection(
@@ -35,12 +34,14 @@ export async function assertReleaseDirection(
     if (git.exitCode) throw new ReleaseError(`Git: ${git.stderr.toString().trim()}`);
 }
 
-function notificationMetadata(): NotificationMetadata {
+/**
+ * Данные уведомления текущей операции из RELEASE_REPORT_BASE_SHA, RELEASE_REPORT_URL и попытки run.
+ * @returns notification
+ */
+export function notificationMetadata(): NotificationMetadata {
     const base = process.env.RELEASE_REPORT_BASE_SHA;
     const report = process.env.RELEASE_REPORT_URL;
-    const attempt = Number(process.env.GITHUB_RUN_ATTEMPT);
-    if (!Number.isSafeInteger(attempt) || attempt <= 0)
-        throw new ReleaseError('Некорректный номер попытки Actions run');
+    const attempt = runAttempt();
     if (report && report !== `${runUrl()}#summary`)
         throw new ReleaseError('URL отчёта вне текущего Actions run');
     return {
@@ -48,36 +49,6 @@ function notificationMetadata(): NotificationMetadata {
         report_url: report || null,
         run_attempt: attempt,
     };
-}
-
-/** Каталог ассетов релиза в S3 и на CDN. */
-export const assetsOf = (sha: string): string => `releases/${sha}/`;
-
-/**
- * Единственный готовый выпуск SHA среди записей `release-artifacts`: успешная запись `publish` с
- * образом BFF по digest. Неоднозначность (несколько успешных с разными образами) — ошибка.
- * @param records записи этого SHA
- * @param sha полный SHA
- * @returns payload выпуска или undefined, если готового выпуска нет
- */
-export function readyArtifacts(
-    records: Deployment<ArtifactsPayload>[],
-    sha: string,
-): ArtifactsPayload | undefined {
-    const ready = records.filter((record) => record.sha === sha && record.state === 'success');
-    const refs = new Set(ready.map((record) => record.payload?.image_ref));
-    if (refs.size > 1) {
-        throw new ReleaseError(
-            `У ${sha} несколько готовых выпусков с разными образами: ${[...refs]}`,
-        );
-    }
-    const payload = ready[0]?.payload;
-    if (!payload) return undefined;
-    checkImageRef(payload.image_ref);
-    if (payload.assets !== assetsOf(sha)) {
-        throw new ReleaseError(`У ${sha} в release-artifacts каталог ${payload.assets}`);
-    }
-    return payload;
 }
 
 /** Цель отката, выбранная по истории production. */
@@ -152,72 +123,6 @@ export function protectedReleases(history: Deployment<ProductionPayload>[]): str
 }
 
 /**
- * Готовый выпуск SHA из `release-artifacts`; выходы шага `image_ref` и `assets`.
- * @param sha полный SHA
- * @returns payload выпуска
- */
-export async function artifacts(sha: string): Promise<ArtifactsPayload> {
-    const payload = readyArtifacts(await listDeployments(ARTIFACTS_ENV, sha), sha);
-    if (!payload) {
-        throw new ReleaseError(
-            `Готового выпуска ${sha} нет в release-artifacts: CI этого коммита не опубликовал образ ` +
-                'и ассеты или ещё идёт. Частично опубликованный выпуск не выкатывается',
-        );
-    }
-    output('image_ref', payload.image_ref);
-    output('assets', payload.assets);
-    console.log(`Готовый выпуск ${sha}: ${payload.image_ref}, ${payload.assets}`);
-    return payload;
-}
-
-/**
- * Опубликован ли уже выпуск SHA: повторный CI его не пересобирает. Выход шага `published`.
- * @param sha полный SHA
- */
-export async function published(sha: string): Promise<void> {
-    const payload = readyArtifacts(await listDeployments(ARTIFACTS_ENV, sha), sha);
-    output('published', payload ? 'true' : 'false');
-    if (payload) output('image_ref', payload.image_ref);
-    console.log(
-        payload ? `Выпуск ${sha} уже опубликован: ${payload.image_ref}` : `Выпуска ${sha} ещё нет`,
-    );
-}
-
-/**
- * Регистрирует готовый выпуск после проверки образа и ассетов. Успешная запись одна на SHA:
- * другой образ того же SHA отклоняется.
- * @param sha полный SHA
- * @param imageRef образ BFF по digest
- */
-export async function register(sha: string, imageRef: string): Promise<void> {
-    checkImageRef(imageRef);
-    const existing = readyArtifacts(await listDeployments(ARTIFACTS_ENV, sha), sha);
-    if (existing) {
-        if (existing.image_ref === imageRef) {
-            console.log(`Выпуск ${sha} уже зарегистрирован с ${imageRef}`);
-            return;
-        }
-        throw new ReleaseError(
-            `Выпуск ${sha} уже опубликован с ${existing.image_ref}; другой образ ${imageRef} не принимается`,
-        );
-    }
-    const payload: ArtifactsPayload = {
-        image_ref: imageRef,
-        assets: assetsOf(sha),
-        ci_run: runUrl(),
-        notification: notificationMetadata(),
-    };
-    const id = await createDeployment({
-        environment: ARTIFACTS_ENV,
-        sha,
-        task: 'publish',
-        payload,
-    });
-    await setDeploymentState(id, 'success', 'Образ и ассеты опубликованы и проверены');
-    console.log(`release-artifacts ${id}: ${sha} → ${imageRef}`);
-}
-
-/**
  * Последний подтверждённый выпуск прода по истории GitHub; выход шага `before_sha`.
  * @returns SHA или пустая строка
  */
@@ -235,16 +140,17 @@ export async function rollbackTarget(): Promise<void> {
     const history = await listDeployments<ProductionPayload>(PRODUCTION_ENV);
     output('before_sha', history.find((record) => record.state === 'success')?.sha ?? '');
     const target = chooseRollbackTarget(history);
-    // цель сверяется с готовым выпуском: тот же образ по digest
-    const ready = readyArtifacts(await listDeployments(ARTIFACTS_ENV, target.sha), target.sha);
-    if (ready?.image_ref !== target.imageRef) {
+    // цель сверяется с Release: старые записи без release_id — по SHA и digest
+    const { release, manifest } = await readyRelease(target.sha);
+    if (manifest.image_ref !== target.imageRef) {
         throw new ReleaseError(
-            `Цель отката ${target.sha} (${target.imageRef}) не совпадает с release-artifacts ` +
-                `(${ready?.image_ref ?? 'нет готового выпуска'})`,
+            `Цель отката ${target.sha} (${target.imageRef}) не совпадает с Release ` +
+                `(${manifest.image_ref})`,
         );
     }
     output('sha', target.sha);
     output('image_ref', target.imageRef);
+    output('release_id', String(release.id));
     console.log(
         `Последняя попытка: ${target.last.sha} (${target.last.state}); цель отката: ${target.sha} → ${target.imageRef}`,
     );
@@ -255,18 +161,23 @@ export async function rollbackTarget(): Promise<void> {
  * @param sha полный SHA выбранного образа
  * @param imageRef образ по digest
  * @param action deploy или rollback
+ * @param releaseId id проверенного GitHub Release выпуска
  */
 export async function startProduction(
     sha: string,
     imageRef: string,
     action: ProductionPayload['action'],
+    releaseId: number,
 ): Promise<void> {
+    if (!Number.isSafeInteger(releaseId) || releaseId <= 0)
+        throw new ReleaseError('Ожидается id Release выпуска');
     const payload: ProductionPayload = {
         image_ref: checkImageRef(imageRef),
         assets: assetsOf(sha),
         action,
         run: runUrl(),
         notification: notificationMetadata(),
+        release_id: releaseId,
     };
     const id = await createDeployment({ environment: PRODUCTION_ENV, sha, task: action, payload });
     // до статуса: при его сбое завершающий шаг workflow найдёт запись и поставит ей error
