@@ -69,7 +69,7 @@ export function ProfilePage() {
                     <div key="heading" className={styles.heading}>
                         <Link key="back" to="/" className={styles.back}>
                             <Icon key="icon" name="back" />
-                            <span key="text">На главную</span>
+                            На главную
                         </Link>
                         <h1 key="title" className={styles.title}>
                             Профиль

@@ -25,7 +25,7 @@
 .profile {
     max-width: 792px;
     margin: 0 auto;
-    padding-top: 38px;
+    padding-top: 48px;
 }
 
 .heading {
@@ -39,8 +39,9 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    /* область нажатия на телефоне */
+    /* область нажатия на телефоне; подпись остаётся на прежнем месте заголовка */
     min-height: 44px;
+    margin-top: -10px;
     border-radius: 6px;
     font: var(--font-body-accent);
     color: var(--color-primary-text);
@@ -387,7 +388,7 @@
     }
 
     .profile {
-        padding-top: 22px;
+        padding-top: 32px;
     }
 
     .section {
