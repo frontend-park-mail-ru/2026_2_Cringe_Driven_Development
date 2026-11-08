@@ -19,18 +19,12 @@
     min-height: 560px;
     border-radius: 24px;
     overflow: hidden;
+    border: 1px solid var(--color-border);
     background: var(--color-surface-solid);
     box-shadow: var(--shadow-popover);
     container-type: inline-size;
-}
-
-.card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--color-border);
-    border-radius: inherit;
-    pointer-events: none;
+    /* Форма 545 из 994 px внутри рамки, луна — остальное */
+    --split: calc(100cqw * 545 / 994);
 }
 
 .showRegister .card {
@@ -39,8 +33,8 @@
 
 .formPane {
     display: flex;
-    /* 50% вместе с padding: при flex-basis 0 форма забирает его сверх половины */
-    flex: 1 1 50%;
+    /* доля вместе с padding: при flex-basis 0 форма забирает его сверх своей доли */
+    flex: 0 0 var(--split);
     flex-direction: column;
     justify-content: center;
     min-width: 0;
@@ -50,28 +44,28 @@
 .side {
     position: relative;
     display: flex;
-    flex: 1 1 50%;
+    flex: 1 1 0;
     align-items: center;
     justify-content: center;
     min-width: 0;
 }
 
 /*
- * Луна 660 px (600 × 1.1) накрывает внешние углы своей половины карточки 996 × 560.
- * Масштаб — от центра: вход — левый край на середине карточки (центр в 50cqw + 330px),
- * регистрация — правый (центр в 50cqw − 330px).
+ * Луна 628 px (600 × 628/600), центр на 1 px ниже середины карточки, как в макете.
+ * Масштаб — от центра, поэтому видимый край на 14 px левее блока:
+ * вход — левый край на стыке с формой, регистрация — правый край на стыке.
  */
 .moon {
     position: absolute;
-    top: 50%;
+    top: calc(50% + 1px);
     left: 0;
     margin-top: -300px;
-    transform: translateX(calc(50cqw + 30px)) scale(1.1);
+    transform: translateX(calc(var(--split) + 14px)) scale(calc(628 / 600));
     transition: transform var(--sweep) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .register .moon {
-    transform: translateX(calc(50cqw - 630px)) scale(1.1);
+    transform: translateX(calc(100cqw - var(--split) - 614px)) scale(calc(628 / 600));
 }
 
 .formPane,
@@ -152,11 +146,27 @@
     display: none;
 }
 
+/* Переход к другой форме на телефоне, вместо луны («Switch» в макете) */
+.switch {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 8px;
+}
+
+.switchTitle {
+    font: var(--font-caption);
+    letter-spacing: -0.02em;
+    color: var(--color-text-secondary);
+}
+
 /* Узкий экран: форма сверху, под ней восходит край луны */
 @media (max-width: 860px) {
     .auth {
         gap: 32px;
-        padding: 32px 16px;
+        padding: 48px 16px 32px;
     }
 
     .card,
@@ -167,32 +177,19 @@
 
     .formPane {
         flex: none;
-        padding: 32px 24px;
+        padding: 24px;
     }
 
-    .side {
-        flex: none;
-        height: 240px;
-    }
-
-    .moon,
-    .register .moon {
-        top: calc(100% - 216px);
-        left: 50%;
-        margin: 0 0 0 -300px;
-        transform: none;
-    }
-
-    .face {
-        margin-top: 24px;
-    }
-
-    .codeStep .side,
-    .codeStep .moon {
+    .side,
+    .moon {
         display: none;
     }
 
-    .codeStep .formPane {
-        padding: 24px;
+    .switch {
+        display: flex;
+    }
+
+    .codeStep .switch {
+        display: none;
     }
 }

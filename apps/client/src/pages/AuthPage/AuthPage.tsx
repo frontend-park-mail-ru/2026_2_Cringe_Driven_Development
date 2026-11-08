@@ -32,6 +32,7 @@ const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
  * Режим берётся из адреса: /login или /register.
  * При смене режима луна сразу едет на другую сторону, а содержимое гаснет
  * и подменяется на середине пути, когда луна его накрывает.
+ * На телефоне луны нет: под формой ссылка на другой режим.
  * На шаге кода 2FA («08. Вход с 2FA») луна остаётся без текста, на телефоне — только форма.
  * @returns страница
  */
@@ -77,6 +78,18 @@ export function AuthPage() {
                 <Moon key="moon" className={styles.moon} />
                 <div key="form" className={styles.formPane}>
                     <AuthForm key={shownMode} mode={shownMode} onCodeStep={setCodeStep} />
+                    <div key="switch" className={styles.switch}>
+                        <p key="title" className={styles.switchTitle}>
+                            {showRegister ? 'Уже есть аккаунт?' : 'Ещё нет аккаунта?'}
+                        </p>
+                        <Link
+                            key="link"
+                            to={showRegister ? '/login' : '/register'}
+                            className={buttonClassName('secondary', true)}
+                        >
+                            {showRegister ? 'Войти' : 'Создать аккаунт'}
+                        </Link>
+                    </div>
                 </div>
                 <div key="side" className={styles.side}>
                     <div key="face" className={styles.face}>
