@@ -96,6 +96,8 @@ export function authErrorMessage(error: AuthError, mode: AuthMode): string {
     switch (error.code) {
         case 'invalid_credentials':
             return 'Неверный логин или пароль';
+        case 'invalid_totp':
+            return 'Неверный код. Попробуйте ещё раз';
         case 'login_taken':
             return 'Логин уже занят. Выберите другой';
         case 'validation_error':

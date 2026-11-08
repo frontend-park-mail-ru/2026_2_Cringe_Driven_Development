@@ -36,7 +36,7 @@ beforeEach(() => {
     onSessionLost(sessionLost);
     useSessionStore.setState({
         status: 'authed',
-        user: { id: 1, login: 'denis', avatar_url: null },
+        user: { id: 1, login: 'denis', avatar_url: null, has_2fa: false },
     });
     globalThis.fetch = (async (input: RequestInfo | URL) => {
         const path = new URL(String(input), 'https://localhost').pathname.replace('/api/trpc/', '');
@@ -114,7 +114,7 @@ test('факт потери не переживает смену сессии: �
 
     useSessionStore.setState({
         status: 'authed',
-        user: { id: 1, login: 'denis', avatar_url: null },
+        user: { id: 1, login: 'denis', avatar_url: null, has_2fa: false },
     });
     answers.set('auth.logout', networkError);
     expect(await logout()).toBe('failed');
@@ -259,9 +259,11 @@ const single = (answer: Answer): Answer => ({
 });
 
 test('аватар уходит multipart без батча; после 200 пользователь в сторе с новым URL', async () => {
-    const user = { id: 1, login: 'denis', avatar_url: 'https://cdn.example/a.png' };
+    const user = { id: 1, login: 'denis', avatar_url: 'https://cdn.example/a.png', has_2fa: false };
     // логин успели сменить, пока шла загрузка: ответ аватара его не откатывает
-    useSessionStore.setState({ user: { id: 1, login: 'denis2', avatar_url: null } });
+    useSessionStore.setState({
+        user: { id: 1, login: 'denis2', avatar_url: null, has_2fa: false },
+    });
     let body: unknown;
     globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
         body = init?.body;
@@ -302,7 +304,7 @@ test('выход: любой ответ BFF делает гостем; без п
     ] as const) {
         useSessionStore.setState({
             status: 'authed',
-            user: { id: 1, login: 'denis', avatar_url: null },
+            user: { id: 1, login: 'denis', avatar_url: null, has_2fa: false },
         });
         useSnackbarStore.setState({ snackbar: null });
         answers.set('auth.logout', async () => ok(ended(revocation)));

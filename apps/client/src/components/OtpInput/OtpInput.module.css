@@ -1,0 +1,76 @@
+/* Components → OTP: ячейки тянутся (FILL, мин. 32 px), разделитель после третьей */
+.otp {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.label {
+    margin-bottom: 8px;
+    padding: 0;
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.cells {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cell {
+    flex: 1 1 0;
+    min-width: 32px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    outline: 0;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border-control);
+    font: 500 24px / 32px var(--font-sans);
+    color: var(--color-text-primary);
+    text-align: center;
+    caret-color: var(--color-focus);
+    transition: box-shadow 0.15s;
+
+    &:focus {
+        box-shadow: inset 0 0 0 2px var(--color-focus);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+    }
+
+    /* цифра выделяется, чтобы ввод заменял её; подсветка выделения не нужна */
+    &::selection {
+        background: transparent;
+    }
+
+    .error & {
+        box-shadow: inset 0 0 0 1px var(--color-error);
+    }
+
+    .error &:focus {
+        box-shadow: inset 0 0 0 2px var(--color-error);
+    }
+}
+
+.separator {
+    flex: none;
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-text-disabled);
+}
+
+.message {
+    display: flex;
+    margin-top: 8px;
+    align-items: center;
+    gap: 8px;
+    font: var(--font-caption);
+    color: var(--color-error);
+}

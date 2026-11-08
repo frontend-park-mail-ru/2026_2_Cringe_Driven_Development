@@ -69,7 +69,8 @@
                     "value": {
                       "id": 1,
                       "login": "new_login",
-                      "avatar_url": null
+                      "avatar_url": null,
+                      "has_2fa": false
                     }
                   }
                 }
@@ -194,7 +195,8 @@
                     "value": {
                       "id": 1,
                       "login": "example",
-                      "avatar_url": null
+                      "avatar_url": null,
+                      "has_2fa": false
                     }
                   },
                   "withAvatar": {
@@ -202,7 +204,8 @@
                     "value": {
                       "id": 1,
                       "login": "example",
-                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg"
+                      "avatar_url": "https://cdn.example.com/avatars/1/7e53dba8.jpg",
+                      "has_2fa": false
                     }
                   }
                 }
@@ -686,7 +689,8 @@
                   "user": {
                     "id": 1,
                     "login": "example",
-                    "avatar_url": null
+                    "avatar_url": null,
+                    "has_2fa": false
                   },
                   "tokens": {
                     "access_token": "<access-token>",
@@ -731,6 +735,181 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Вход",
+        "deprecated": false,
+        "description": "Проверяет логин и пароль перед вторым фактором. Неверные credentials — 400 invalid_credentials независимо от user_code. При выключенной 2FA, включая неподтверждённую настройку, user_code не требуется и игнорируется; вход возвращает 200 с user.has_2fa=false.\n\nПри верных credentials и включённой 2FA: отсутствие user_code — 412 two_factor_required; переданная строка с неверным форматом, неверный или уже использованный TOTP — 401 invalid_totp. Пустая строка считается переданным кодом неверного формата, а не отсутствием поля. Корректный неиспользованный код — 200 с user.has_2fa=true. TOTP: SHA-1, 6 ASCII-цифр, 30 секунд, окно ±1 шаг. Код подтверждения подключения нельзя повторно принять в его временном шаге.\n\nДо успешной проверки второго фактора полноценная авторизованная сессия и токены не создаются. Ответ 200 сохраняет структуру {user,tokens}; Cookie не устанавливаются. Проверки пароля и TOTP защищены от перебора: превышение лимита — 429 rate_limited. Пароли, введённые коды и токены не журналируются. Обязательный X-BFF-Key проверяется раньше credentials и тела.",
+        "operationId": "loginUser",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "login": "example",
+                "password": "user-password",
+                "user_code": "012345"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Пользователь и новая пара токенов. user.has_2fa отражает подтверждённое состояние 2FA.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "Вход без 2FA",
+                    "value": {
+                      "user": {
+                        "id": 1,
+                        "login": "example",
+                        "avatar_url": null,
+                        "has_2fa": false
+                      },
+                      "tokens": {
+                        "access_token": "<access-token>",
+                        "access_expires_in": 900,
+                        "refresh_token": "<refresh-token>",
+                        "refresh_expires_in": 2592000
+                      }
+                    }
+                  },
+                  "3": {
+                    "summary": "Вход с подтверждённой 2FA",
+                    "value": {
+                      "user": {
+                        "id": 1,
+                        "login": "example",
+                        "avatar_url": null,
+                        "has_2fa": true
+                      },
+                      "tokens": {
+                        "access_token": "<access-token>",
+                        "access_expires_in": 900,
+                        "refresh_token": "<refresh-token>",
+                        "refresh_expires_in": 2592000
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Неверные логин или пароль: invalid_credentials; некорректное тело запроса: validation_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "invalid_credentials",
+                  "message": "invalid login or password"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Credentials верны, 2FA включена, но переданный user_code имеет неверный формат, не прошёл TOTP-проверку или уже использован: invalid_totp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "invalid_totp",
+                  "message": "invalid or already used TOTP code"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "412": {
+            "description": "Верные credentials, 2FA включена, поле user_code отсутствует: two_factor_required. Сессия не создана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "two_factor_required",
+                  "message": "TOTP code required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "429": {
+            "description": "Превышен лимит попыток или частоты запросов: rate_limited. Повторное получение QR не сбрасывает лимит подтверждения, привязанный к аккаунту.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rate_limited",
+                  "message": "too many requests"
                 }
               }
             },
@@ -968,12 +1147,141 @@
         ]
       }
     },
-    "/auth/login": {
+    "/auth/enable2fa": {
       "post": {
-        "summary": "Вход",
+        "summary": "Получить данные настройки 2FA",
         "deprecated": false,
-        "description": "Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.",
-        "operationId": "loginUser",
+        "description": "Подготавливает настройку, но не включает 2FA: has_2fa остаётся false, вход без TOTP продолжает работать. Первый запрос создаёт неподтверждённый секрет; все повторные запросы до подтверждения возвращают тот же secret и QR для этого секрета, включая конкурентные запросы. QR и ручной ввод ключа на том же телефоне настраивают один аккаунт. Закрытие окна, показ или копирование ключа не включают 2FA.\n\nТолько успешный POST /auth/confirm2fa включает 2FA. Если она уже включена, ответ 400 validation_error без выдачи QR/секрета и без замены активного секрета. После отключения следующая настройка создаёт новый секрет. Число повторных получений данных не ограничено числом попыток настройки; обычное ограничение частоты сохраняется. Ответ с данными настройки: Cache-Control: no-store.\n\nВсе операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.\n\nTOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.\n",
+        "operationId": "enableTwoFactorAuth",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Данные настройки одного неподтверждённого TOTP-секрета; 2FA остаётся выключенной.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorSetupResponse"
+                },
+                "example": {
+                  "qr_code": "data:image/png;base64,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",
+                  "secret": "JBSWY3DPEHPK3PXP"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "example": "no-store",
+                "required": true,
+                "description": "Не сохранять секрет и QR в кэше.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "2FA уже включена: validation_error. Активный секрет не выдаётся и не заменяется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "2FA is already enabled"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Пользователь не авторизован: Bearer отсутствует, истёк или сессия отозвана (unauthorized).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует, неверен или повторяется: 403 s2s_forbidden; проверка до Bearer и валидации. BFF сохраняет пользовательскую сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "429": {
+            "description": "Превышен лимит попыток или частоты запросов: rate_limited. Повторное получение QR не сбрасывает лимит подтверждения, привязанный к аккаунту.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rate_limited",
+                  "message": "too many requests"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка. Ответ не подтверждает успешное изменение состояния.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/confirm2fa": {
+      "post": {
+        "summary": "Подтвердить подключение 2FA",
+        "deprecated": false,
+        "description": "Принимает user_code — строку ровно из шести ASCII-цифр, включая ведущие нули. Проверяет код неподтверждённого секрета и только при успехе атомарно активирует секрет и устанавливает has_2fa=true. Принятый шаг запоминается: код подтверждения нельзя немедленно использовать для входа. Неверный формат, отсутствие настройки или уже включённая 2FA — 400 validation_error. Код, не прошедший TOTP-проверку, — 401 invalid_totp. Неверный код и ошибка запроса не включают 2FA и не удаляют неподтверждённый секрет; настройку можно повторить. Лимит попыток привязан к аккаунту и не сбрасывается получением QR.\n\nВсе операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.\n\nTOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.\n",
+        "operationId": "confirmTwoFactorAuth",
         "tags": [
           "auth"
         ],
@@ -994,7 +1302,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Credentials"
+                "$ref": "#/components/schemas/ConfirmTwoFactorRequest"
               }
             }
           },
@@ -1002,53 +1310,53 @@
         },
         "responses": {
           "200": {
-            "description": "Пользователь и новая пара токенов",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                },
-                "example": {
-                  "user": {
-                    "id": 1,
-                    "login": "example",
-                    "avatar_url": null
-                  },
-                  "tokens": {
-                    "access_token": "<access-token>",
-                    "access_expires_in": 900,
-                    "refresh_token": "<refresh-token>",
-                    "refresh_expires_in": 2592000
-                  }
-                }
-              }
-            },
+            "description": "2FA атомарно включена; тело ответа отсутствует.",
             "headers": {}
           },
           "400": {
-            "description": "Невалидный запрос",
+            "description": "Неверный формат user_code, данные настройки ещё не запрошены или 2FA уже включена: validation_error.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "2FA setup is required or the code format is invalid"
                 }
               }
             },
             "headers": {}
           },
           "401": {
-            "description": "Нет авторизации",
+            "description": "Нет авторизации: unauthorized; TOTP неверен или уже использован: invalid_totp. 2FA остаётся выключенной.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "2": {
+                    "summary": "invalid_totp",
+                    "value": {
+                      "code": "invalid_totp",
+                      "message": "invalid or already used TOTP code"
+                    }
+                  },
+                  "3": {
+                    "summary": "unauthorized",
+                    "value": {
+                      "code": "unauthorized",
+                      "message": "authentication required"
+                    }
+                  }
                 }
               }
             },
             "headers": {}
           },
           "403": {
-            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "description": "X-BFF-Key отсутствует, неверен или повторяется: 403 s2s_forbidden; проверка до Bearer и валидации. BFF сохраняет пользовательскую сессию и не выполняет refresh.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1062,8 +1370,23 @@
             },
             "headers": {}
           },
+          "429": {
+            "description": "Превышен лимит попыток или частоты запросов: rate_limited. Повторное получение QR не сбрасывает лимит подтверждения, привязанный к аккаунту.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rate_limited",
+                  "message": "too many requests"
+                }
+              }
+            },
+            "headers": {}
+          },
           "500": {
-            "description": "Внутренняя ошибка",
+            "description": "Внутренняя ошибка. Ответ не подтверждает успешное изменение состояния.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1074,7 +1397,139 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/disable2fa": {
+      "post": {
+        "summary": "Отключить 2FA",
+        "deprecated": false,
+        "description": "Если 2FA не включена, возвращает 400 validation_error. При включённой 2FA проверяет текущий пароль: неверный пароль — 403 invalid_current_password. Успешная проверка атомарно выключает 2FA (has_2fa=false) и удаляет TOTP-секрет. Следующее подключение создаёт новый секрет. Проверка пароля защищена от перебора; превышение лимита — 429 rate_limited. Конкурентное подтверждение или получение QR не может восстановить удалённый активный секрет.\n\nВсе операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.\n\nTOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.\n",
+        "operationId": "disableTwoFactorAuth",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableTwoFactorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "2FA выключена, TOTP-секрет удалён; тело ответа отсутствует.",
+            "headers": {}
+          },
+          "400": {
+            "description": "2FA не включена либо тело запроса некорректно: validation_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "2FA is not enabled"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Пользователь не авторизован: Bearer отсутствует, истёк или сессия отозвана (unauthorized).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "Неверный пароль при включённой 2FA: invalid_current_password. X-BFF-Key отсутствует, неверен или повторяется: 403 s2s_forbidden; проверка до Bearer и валидации. BFF сохраняет пользовательскую сессию и не выполняет refresh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "3": {
+                    "summary": "invalid_current_password",
+                    "value": {
+                      "code": "invalid_current_password",
+                      "message": "invalid current password"
+                    }
+                  },
+                  "4": {
+                    "summary": "s2s_forbidden",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "429": {
+            "description": "Превышен лимит попыток или частоты запросов: rate_limited. Повторное получение QR не сбрасывает лимит подтверждения, привязанный к аккаунту.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rate_limited",
+                  "message": "too many requests"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка. Ответ не подтверждает успешное изменение состояния.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/notebooks/{id}/cells": {
@@ -3970,18 +4425,24 @@
             "examples": [
               null
             ]
+          },
+          "has_2fa": {
+            "type": "boolean",
+            "description": "true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false."
           }
         },
         "required": [
           "id",
           "login",
-          "avatar_url"
+          "avatar_url",
+          "has_2fa"
         ],
         "examples": [
           {
             "id": 1,
             "login": "example",
-            "avatar_url": null
+            "avatar_url": null,
+            "has_2fa": false
           }
         ]
       },
@@ -4133,32 +4594,6 @@
         },
         "required": [
           "name"
-        ]
-      },
-      "Error": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "enum": [
-              "validation_error",
-              "invalid_credentials",
-              "login_taken",
-              "unauthorized",
-              "not_found",
-              "not_implemented",
-              "internal",
-              "csrf_invalid",
-              "s2s_forbidden"
-            ]
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "message"
         ]
       },
       "TokenPair": {
@@ -5080,6 +5515,135 @@
           "body"
         ],
         "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9_]+$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72
+          },
+          "user_code": {
+            "type": "string",
+            "description": "TOTP-код: ровно 6 ASCII-цифр (0–9), ведущие нули сохраняются. Обязателен только после подтверждения 2FA. Формат проверяется после логина и пароля и только при включённой 2FA; неверный формат — 401, отсутствие поля — 412. При выключенной 2FA поле игнорируется. Общий pattern здесь намеренно отсутствует, чтобы валидатор не возвращал 400 вместо условного 401.",
+            "examples": [
+              "012345"
+            ]
+          }
+        },
+        "required": [
+          "login",
+          "password"
+        ],
+        "examples": [
+          {
+            "login": "example",
+            "password": "user-password"
+          },
+          {
+            "login": "example",
+            "password": "user-password",
+            "user_code": "012345"
+          }
+        ]
+      },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "qr_code": {
+            "type": "string",
+            "pattern": "^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$",
+            "description": "PNG QR-код в формате data URI. Содержит otpauth://totp/ URI: issuer Cellestial, аккаунт — текущий логин, SHA1, digits=6, period=30."
+          },
+          "secret": {
+            "type": "string",
+            "pattern": "^[A-Z2-7]+$",
+            "description": "Тот же TOTP-секрет, что в QR: Base32 без padding, пробелов и разделителей. Для ручного добавления в аутентификатор; это не шестизначный код."
+          }
+        },
+        "required": [
+          "qr_code",
+          "secret"
+        ],
+        "examples": []
+      },
+      "ConfirmTwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "user_code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6,
+            "pattern": "^[0-9]{6}$",
+            "description": "Ровно шесть ASCII-цифр; ведущие нули сохраняются.",
+            "examples": [
+              "012345"
+            ]
+          }
+        },
+        "required": [
+          "user_code"
+        ],
+        "examples": [
+          {
+            "user_code": "012345"
+          }
+        ]
+      },
+      "DisableTwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password.",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "examples": [
+          {
+            "password": "user-password"
+          }
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "invalid_credentials",
+              "login_taken",
+              "unauthorized",
+              "not_found",
+              "not_implemented",
+              "internal",
+              "csrf_invalid",
+              "s2s_forbidden",
+              "two_factor_required",
+              "invalid_totp",
+              "invalid_current_password",
+              "rate_limited"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
       }
     },
     "responses": {
@@ -5198,7 +5762,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Access-токен пользователя, передаваемый BFF."
+        "description": "Access-токен пользователя, передаваемый BFF. Для настройки, подтверждения и отключения 2FA требуется действующая авторизованная сессия текущего пользователя."
       }
     }
   },

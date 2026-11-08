@@ -1,7 +1,9 @@
 import { useEffect, useState } from '@cdd-team/react';
 
 import { Button } from '@components/Button/Button';
+import { Icon } from '@components/Icon/Icon';
 import { Input } from '@components/Input/Input';
+import { OTP_LENGTH, OtpInput } from '@components/OtpInput/OtpInput';
 import { useNavigate } from '@cdd-team/router';
 import { login, register } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
@@ -20,22 +22,27 @@ import styles from './AuthPage.module.css';
 type Field = 'login' | 'password' | 'confirm';
 type FieldTexts = Partial<Record<Field, string>>;
 
+const CODE_ID = 'login-code';
+
 const EMPTY = { login: '', password: '', confirm: '' };
 const NOT_TOUCHED = { login: false, password: false, confirm: false };
 
 /** Свойства {@link AuthForm}. */
 interface AuthFormProps {
     mode: AuthMode;
+    /** Вход перешёл к шагу кода 2FA или вернулся к логину и паролю */
+    onCodeStep?: (active: boolean) => void;
 }
 
 /**
  * Форма входа или регистрации.
  * Ошибки полей видны после первой отправки или после ухода из заполненного поля.
  * Ошибки сервера и сети — в снекбаре: «Повторить» отправляет форму ещё раз.
+ * Если у аккаунта 2FA (`two_factor_required`), вход продолжается шагом кода из приложения.
  * @param props свойства формы
  * @returns форма
  */
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, onCodeStep }: AuthFormProps) {
     const isRegister = mode === 'register';
     const navigate = useNavigate();
 
@@ -47,7 +54,12 @@ export function AuthForm({ mode }: AuthFormProps) {
     // Сервер не сказал, что неверно, — подсвечиваем и логин, сообщение только под паролем
     const [credentialsRejected, setCredentialsRejected] = useState(false);
     const [revealed, setRevealed] = useState({ password: false, confirm: false });
-    const [focusRequest, setFocusRequest] = useState<{ field: Field }>({ field: 'login' });
+    const [focusRequest, setFocusRequest] = useState<{ field: Field | 'code' }>({
+        field: 'login',
+    });
+    const [codeStep, setCodeStep] = useState(false);
+    const [code, setCode] = useState('');
+    const [codeError, setCodeError] = useState<string | undefined>(undefined);
     const [life] = useState({ alive: true });
 
     const fieldId = (field: Field) => `${mode}-${field}`;
@@ -55,6 +67,11 @@ export function AuthForm({ mode }: AuthFormProps) {
     useEffect(() => {
         document.getElementById(`${mode}-${focusRequest.field}`)?.focus();
     }, [mode, focusRequest]);
+
+    const showCodeStep = (active: boolean) => {
+        setCodeStep(active);
+        onCodeStep?.(active);
+    };
 
     useEffect(
         () => () => {
@@ -91,14 +108,18 @@ export function AuthForm({ mode }: AuthFormProps) {
     const toggleReveal = (field: 'password' | 'confirm') => () =>
         setRevealed((current) => ({ ...current, [field]: !current[field] }));
 
-    const send = async () => {
+    const send = async (userCode?: string) => {
         setPending(true);
         setServerErrors({});
         setCredentialsRejected(false);
         hideSnackbar();
 
         const credentials = { login: values.login, password: values.password };
-        const result = isRegister ? await register(credentials) : await login(credentials);
+        const result = isRegister
+            ? await register(credentials)
+            : await login(
+                  userCode === undefined ? credentials : { ...credentials, user_code: userCode },
+              );
 
         if (result.ok) {
             if (isRegister) showToast('Аккаунт создан');
@@ -110,7 +131,19 @@ export function AuthForm({ mode }: AuthFormProps) {
         setPending(false);
         const message = authErrorMessage(result.error, mode);
         switch (result.error.code) {
+            case 'two_factor_required':
+                setCode('');
+                setCodeError(undefined);
+                showCodeStep(true);
+                setFocusRequest({ field: 'code' });
+                break;
+            case 'invalid_totp':
+                setCodeError(message);
+                setFocusRequest({ field: 'code' });
+                break;
             case 'invalid_credentials':
+                // пароль сменили, пока вводили код: снова логин и пароль
+                if (userCode !== undefined) showCodeStep(false);
                 setServerErrors({ password: message });
                 setCredentialsRejected(true);
                 setFocusRequest({ field: 'password' });
@@ -132,10 +165,77 @@ export function AuthForm({ mode }: AuthFormProps) {
                 break;
             }
             default:
-                showSnackbar(message, { label: 'Повторить', onClick: () => void send() });
-                setFocusRequest({ field: 'password' });
+                showSnackbar(message, { label: 'Повторить', onClick: () => void send(userCode) });
+                setFocusRequest({ field: userCode === undefined ? 'password' : 'code' });
         }
     };
+
+    const changeCode = (value: string) => {
+        setCode(value);
+        setCodeError(undefined);
+        hideSnackbar();
+    };
+
+    const submitCode = (value: string) => {
+        if (pending || value.length < OTP_LENGTH) return;
+        void send(value);
+    };
+
+    const backToCredentials = () => {
+        hideSnackbar();
+        showCodeStep(false);
+        setFocusRequest({ field: 'password' });
+    };
+
+    if (codeStep) {
+        return (
+            <form
+                className={styles.form}
+                noValidate
+                onSubmit={(event: Event) => {
+                    event.preventDefault();
+                    submitCode(code);
+                }}
+            >
+                <button
+                    key="back"
+                    type="button"
+                    className={styles.back}
+                    disabled={pending}
+                    onClick={backToCredentials}
+                >
+                    <Icon key="icon" name="back" />
+                    Назад ко входу
+                </button>
+                <h1 key="title" className={styles.formTitle}>
+                    Подтвердите вход
+                </h1>
+                <p key="description" className={styles.formDescription}>
+                    Введите 6-значный код из Яндекс Ключа или Google Authenticator для аккаунта{' '}
+                    {values.login}.
+                </p>
+                <OtpInput
+                    key="code"
+                    id={CODE_ID}
+                    label="Код из приложения"
+                    value={code}
+                    error={codeError}
+                    disabled={pending}
+                    onValueChange={changeCode}
+                    onComplete={submitCode}
+                />
+                <Button
+                    key="submit"
+                    type="submit"
+                    loading={pending}
+                    disabled={code.length < OTP_LENGTH}
+                    block
+                >
+                    Войти
+                </Button>
+            </form>
+        );
+    }
 
     const handleSubmit = (event: Event) => {
         event.preventDefault();

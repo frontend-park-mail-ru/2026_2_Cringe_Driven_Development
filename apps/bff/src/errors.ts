@@ -29,6 +29,7 @@ const HTTP_CODES: Record<number, Code> = {
     403: 'FORBIDDEN',
     404: 'NOT_FOUND',
     409: 'CONFLICT',
+    412: 'PRECONDITION_FAILED',
     413: 'PAYLOAD_TOO_LARGE',
     415: 'UNSUPPORTED_MEDIA_TYPE',
     429: 'TOO_MANY_REQUESTS',
@@ -36,10 +37,13 @@ const HTTP_CODES: Record<number, Code> = {
 
 const fromGo = (err: GoError): TRPCError => {
     // 403 s2s_forbidden — сбой между BFF и Go, а не запрет пользователю
+    // 401 invalid_totp — неверный код 2FA, а не конец сессии: клиент не должен выходить
     const mapped =
-        err.kind === 'http' && err.code !== 's2s_forbidden'
-            ? HTTP_CODES[err.status ?? 0]
-            : undefined;
+        err.kind !== 'http' || err.code === 's2s_forbidden'
+            ? undefined
+            : err.code === 'invalid_totp'
+              ? 'BAD_REQUEST'
+              : HTTP_CODES[err.status ?? 0];
     return new TRPCError({
         code: mapped ?? 'BAD_GATEWAY',
         message: mapped ? err.message : 'Go недоступен или ответил с ошибкой',
@@ -49,7 +53,7 @@ const fromGo = (err: GoError): TRPCError => {
 
 /**
  * Переводит ошибку процедуры в ответ tRPC: `SessionEnded` — `UNAUTHORIZED`, `GoError` — по статусу
- * Go (400, 401, 403, 404, 409, 413, 415, 429), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
+ * Go (400, 401, 403, 404, 409, 412, 413, 415, 429; `invalid_totp` — `BAD_REQUEST`), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
  * `BAD_GATEWAY`. Прочие ошибки tRPC остаются как есть.
  * @param e ошибка процедуры или её обёртка tRPC
  * @returns ошибка tRPC

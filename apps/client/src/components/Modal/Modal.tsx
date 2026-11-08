@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from '@cdd-team/react';
+import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import styles from './Modal.module.css';
 
@@ -15,6 +16,8 @@ interface ModalProps {
     description?: string;
     /** id элемента, который получает фокус при открытии */
     initialFocusId: string;
+    /** Ссылка «Назад» над заголовком: возврат к предыдущему шагу */
+    onBack?: () => void;
     /** Клик по затемнению вокруг модалки тоже закрывает её */
     closeOnBackdrop?: boolean;
     onClose: () => void;
@@ -55,6 +58,7 @@ export function Modal({
     title,
     description,
     initialFocusId,
+    onBack,
     closeOnBackdrop,
     onClose,
     children,
@@ -98,6 +102,12 @@ export function Modal({
                 aria-labelledby={TITLE_ID}
                 aria-describedby={description ? DESCRIPTION_ID : undefined}
             >
+                {onBack && (
+                    <button key="back" type="button" className={styles.back} onClick={onBack}>
+                        <Icon key="icon" name="back" />
+                        Назад
+                    </button>
+                )}
                 <div key="head" className={styles.head}>
                     <h2 key="title" id={TITLE_ID} className={styles.title}>
                         {title}
