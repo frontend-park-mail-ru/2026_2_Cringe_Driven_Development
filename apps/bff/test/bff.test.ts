@@ -674,6 +674,28 @@ describe('публичные файлы', () => {
         expect(res.status).toBe(200);
         expect(await res.text()).toBe('<h1>offline</h1>');
     });
+
+    test('HEAD favicon через Bun.serve — тип и размер как у GET, без тела', async () => {
+        const icon = Bun.file(new URL('../../client/public/apple-touch-icon.png', import.meta.url));
+        const server = Bun.serve({
+            port: 0,
+            fetch: createBff(template, new Map([['apple-touch-icon.png', icon]])),
+        });
+        try {
+            const url = `${server.url}apple-touch-icon.png`;
+            const get = await fetch(url);
+            const res = await fetch(url, { method: 'HEAD' });
+            expect(get.status).toBe(200);
+            expect(res.status).toBe(200);
+            expect(res.headers.get('Content-Type')).toBe('image/png');
+            expect(get.headers.get('Content-Type')).toBe('image/png');
+            expect(res.headers.get('Content-Length')).toBe(String(icon.size));
+            expect(await res.text()).toBe('');
+            expect((await get.arrayBuffer()).byteLength).toBe(icon.size);
+        } finally {
+            await server.stop(true);
+        }
+    });
 });
 
 describe('robots.txt', () => {
