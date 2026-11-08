@@ -12,6 +12,7 @@ import { authedProcedure, router } from '../trpc.ts';
 const sessionId = GetRuntimeExecutionParams.shape.id;
 const session = z.strictObject({ sessionId });
 
+/** Сколько исполнений клиент может отслеживать в одном запросе `updates` */
 const MAX_TRACKED = 100;
 
 /**
@@ -19,7 +20,7 @@ const MAX_TRACKED = 100;
  * `updates`. Отдельные чтения session/queue/events/execution браузеру не публикуются.
  */
 export const runtime = router({
-    // в интерфейсе только Python: язык выбирает BFF
+    /** Запуск окружения блокнота: в интерфейсе только Python, язык выбирает BFF */
     start: authedProcedure
         .input(
             z.strictObject({
@@ -38,7 +39,7 @@ export const runtime = router({
         .mutation(({ ctx, input: { sessionId: id, ...body } }) =>
             ctx.go.createRuntimeExecution(id, body),
         ),
-    // один пакетный запрос Go, не цикл единичных запусков
+    /** Запуск нескольких ячеек одним пакетным запросом Go, не циклом единичных */
     executeAll: authedProcedure
         .input(z.strictObject({ sessionId, ...CreateRuntimeExecutionBatchBody.shape }))
         .mutation(({ ctx, input: { sessionId: id, ...body } }) =>
@@ -73,8 +74,8 @@ export const runtime = router({
                 ctx.go.listRuntimeEvents(input.sessionId, input.after),
             ]);
             const ids = new Set(input.executionIds);
-            // ID code-исполнения — только непустой строковый body.execution_id; у инспекций его нет,
-            // у событий агента без исполнения (session_state, kernel_started) он пустой
+            // ID code-исполнения — только непустой строковый body.execution_id; у инспекций его
+            // нет, у событий агента без исполнения (session_state, kernel_started) он пустой
             for (const event of page.events) {
                 const id = event.body.execution_id;
                 if (typeof id === 'string' && id) ids.add(id);

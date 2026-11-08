@@ -14,12 +14,12 @@ export type MdBlock =
     | { type: 'paragraph'; children: MdInline[] }
     | { type: 'list'; ordered: boolean; start: number; items: MdBlock[][] }
     | { type: 'quote'; children: MdBlock[] }
-    /** lang — первое слово строки после ``` (` ```python ` → `python`), если оно есть */
+    /** `lang` — первое слово строки после ``` (` ```python ` → `python`), если оно есть */
     | { type: 'code'; text: string; lang?: string };
 
-// Предел вложенности, чтобы рекурсия разбора и рендера не росла без границ. Глубже — текстом
+/** Предел вложенности, чтобы рекурсия разбора и рендера не росла без границ. Глубже — текстом. */
 const MAX_DEPTH = 32;
-// Вложенность скобок в адресе ссылки, как у markdown-it
+/** Предел вложенности скобок в адресе ссылки, как у markdown-it. */
 const MAX_PAREN_DEPTH = 32;
 
 const ASCII_PUNCT = /^[!-/:-@[-`{-~]$/;
@@ -43,7 +43,7 @@ export function parseMarkdown(source: string): MdBlock[] {
  * @returns адрес для `href` или `null`, если ссылка должна остаться текстом
  */
 export function safeHref(raw: string): string | null {
-    // управляющие символы по краям браузер отбрасывает — здесь тоже
+    /** Адрес без управляющих символов по краям: браузер их отбрасывает, здесь так же */
     // oxlint-disable-next-line no-control-regex
     const href = raw.replace(/[\t\n\r]/g, '').replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '');
     if (!href) return null;
@@ -95,8 +95,13 @@ export function codeBlockAt(source: string, at: number): CodeAt | null {
     return null;
 }
 
-// Позиция в строке исходника, с которой идёт строка кода. Снятие префиксов и отступов оставляет
-// конец строки и, если табуляция раскрылась частично, пробелы перед ним: code = пробелы + line.slice(from)
+/**
+ * Позиция в строке исходника, с которой идёт строка кода. Снятие префиксов и отступов оставляет
+ * конец строки и, если табуляция раскрылась частично, пробелы перед ним:
+ * `code` = пробелы + `line.slice(from)`.
+ * @param line строка исходника
+ * @param code та же строка в коде блока
+ */
 function codeStart(line: string, code: string): number {
     const lead = /^ */.exec(code)![0].length;
     for (let from = Math.max(0, line.length - code.length); from <= line.length; from += 1) {
@@ -111,7 +116,7 @@ function codeStart(line: string, code: string): number {
 
 const isBlank = (line: string): boolean => /^[ \t]*$/.test(line);
 
-// Ширина ведущего отступа: табуляция — до следующей позиции, кратной 4
+/** Ширина ведущего отступа: табуляция — до следующей позиции, кратной 4. */
 function indentOf(line: string): number {
     let width = 0;
     for (const char of line) {
@@ -146,7 +151,10 @@ interface ListMarker {
     content: string;
 }
 
-// Ширина промежутка после маркера в колонках: табуляция — до следующей позиции, кратной 4
+/**
+ * Ширина промежутка после маркера, начинающегося в колонке `from`: табуляция — до следующей
+ * позиции, кратной 4.
+ */
 function gapWidth(gap: string, from: number): number {
     let width = from;
     for (const char of gap) width += char === '\t' ? 4 - (width % 4) : 1;
@@ -167,7 +175,7 @@ function listMarker(line: string): ListMarker | null {
     };
 }
 
-// После ``` обратных кавычек быть не может: «```code```» — inline-code (CommonMark)
+/** Открывающий забор кода. После ``` обратных кавычек быть не может: «```code```» — inline-code. */
 function fenceOf(line: string): RegExpExecArray | null {
     const fence = /^( {0,3})(`{3,}|~{3,})/.exec(line);
     if (fence?.[2]?.startsWith('`') && line.includes('`', fence[0].length)) return null;
@@ -176,7 +184,7 @@ function fenceOf(line: string): RegExpExecArray | null {
 const isHeading = (line: string): boolean => /^ {0,3}#{1,6}(?:[ \t]|$)/.test(line);
 const isQuote = (line: string): boolean => /^ {0,3}>/.test(line);
 
-// Прерывает абзац: как в CommonMark, нумерованный список — только с 1 и непустой
+/** Прерывает ли строка абзац: как в CommonMark, нумерованный список — только с 1 и непустой. */
 function interrupts(line: string): boolean {
     if (fenceOf(line) || isHeading(line) || isQuote(line)) return true;
     const item = listMarker(line);
@@ -186,7 +194,7 @@ function interrupts(line: string): boolean {
 const closingFence = (marker: string): RegExp =>
     new RegExp(`^ {0,3}${marker[0] === '`' ? '`' : '~'}{${marker.length},}[ \\t]*$`);
 
-// Открыт ли абзац после строк цитаты или пункта: только его можно продолжить лениво (CommonMark)
+/** Открыт ли абзац после строк цитаты или пункта: только его можно продолжить лениво (CommonMark). */
 function paragraphState(): { push: (line: string) => void; open: () => boolean } {
     let fence: RegExp | null = null;
     let open = false;
@@ -217,13 +225,13 @@ function paragraphState(): { push: (line: string) => void; open: () => boolean }
     };
 }
 
-// Строки исходника для строк блока и найденные блоки кода: нужно только codeBlockAt
+/** Строки исходника для строк блока и найденные блоки кода: нужно только {@link codeBlockAt}. */
 interface Track {
     rows: number[];
     fences: { lang: string | undefined; rows: number[]; lines: string[] }[];
 }
 
-// Строки вложенного блока — те же строки исходника: одна строка контейнера даёт одну строку блока
+/** Строки вложенного блока — те же строки исходника: строка контейнера даёт одну строку блока. */
 const nestedTrack = (track: Track | null, rows: number[]): Track | null =>
     track && { rows, fences: track.fences };
 
@@ -262,7 +270,7 @@ function parseBlocks(lines: string[], depth: number, track: Track | null = null)
         const heading = /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/.exec(line);
         if (heading) {
             const [, hashes = '', rest = ''] = heading;
-            // закрывающие `#` и хвостовые пробелы — не часть заголовка
+            /** Текст заголовка без закрывающих `#` и хвостовых пробелов */
             const text = rest.replace(/(?:^|[ \t]+)#+[ \t]*$/, '').trim();
             blocks.push({
                 type: 'heading',
@@ -312,7 +320,7 @@ function parseBlocks(lines: string[], depth: number, track: Track | null = null)
     return blocks;
 }
 
-// Индекс первой непустой строки начиная с from
+/** Индекс первой непустой строки начиная с `from`. */
 function nextFilled(lines: string[], from: number): number {
     let index = from;
     while (index < lines.length && isBlank(lines[index]!)) index += 1;
@@ -396,7 +404,7 @@ interface ListNode {
 const isSpace = (char: string | undefined): boolean => char === undefined || SPACE.test(char);
 const isPunct = (char: string | undefined): boolean => char !== undefined && PUNCT.test(char);
 
-// Позиции серий обратных кавычек по длине: поиск закрывающей серии без повторного прохода
+/** Позиции серий обратных кавычек по длине: поиск закрывающей серии без повторного прохода. */
 function backtickRuns(text: string): Map<number, number[]> {
     const runs = new Map<number, number[]>();
     let i = 0;
@@ -415,7 +423,7 @@ function backtickRuns(text: string): Map<number, number[]> {
     return runs;
 }
 
-// Ближайшая серия той же длины после from; позиция запросов только растёт, поэтому курсор — тоже
+/** Ближайшая серия той же длины после `from`; позиция запросов только растёт, курсор — тоже. */
 function closingRuns(runs: Map<number, number[]>): (length: number, from: number) => number {
     const cursors = new Map<number, number>();
     return (length, from) => {
@@ -427,8 +435,10 @@ function closingRuns(runs: Map<number, number[]>): (length: number, from: number
     };
 }
 
-// Пара `]` для каждой `[` одним проходом; без пары — -1. Скобки внутри inline-code не считаются, а
-// адрес и title ссылки после `]` пропускаются, как в основном разборе: их кавычки — не inline-code
+/**
+ * Пара `]` для каждой `[` одним проходом; без пары — -1. Скобки внутри inline-code не считаются, а
+ * адрес и title ссылки после `]` пропускаются, как в основном разборе: их кавычки — не inline-code.
+ */
 function matchBrackets(
     text: string,
     runs: Map<number, number[]>,
@@ -469,7 +479,7 @@ const NAMED_ENTITIES: Record<string, string> = {
     nbsp: ' ',
 };
 
-// Как markdown-it: экранирование и сущности в адресе раскрываются до проверки схемы
+/** Как у markdown-it: экранирование и сущности в адресе раскрываются до проверки схемы. */
 function unescapeDestination(raw: string): string {
     return raw
         .replace(/\\([!-/:-@[-`{-~])/g, '$1')
@@ -491,8 +501,10 @@ const skipSpaces = (text: string, from: number): number => {
     return i;
 };
 
-// Ближайший неэкранированный символ от позиции: таблица на символ строится один раз — иначе
-// поиск конца title от каждой `[` до конца текста квадратичен
+/**
+ * Ближайший неэкранированный символ от позиции: таблица на символ строится один раз — иначе
+ * поиск конца title от каждой `[` до конца текста квадратичен.
+ */
 function closingIndex(text: string): (char: string, from: number) => number {
     const tables = new Map<string, Int32Array>();
     let escaped: Uint8Array | null = null;
@@ -513,7 +525,7 @@ function closingIndex(text: string): (char: string, from: number) => number {
     };
 }
 
-// `(адрес "title")` после `]`: адрес и позиция за `)` или null
+/** Хвост ссылки `(адрес "title")` после `]` в позиции `close`: адрес и позиция за `)` или null. */
 function linkTail(
     text: string,
     close: number,
@@ -571,7 +583,7 @@ function parseInline(text: string, depth: number): MdInline[] {
     const closingRun = closingRuns(runs);
     const closings = closingIndex(text);
     const brackets = matchBrackets(text, runs, closings);
-    // меняются внутри append: без приведения TypeScript считает их всегда null
+    /** `head` и `tail` меняются в `append`: без приведения TypeScript считает их всегда null */
     let head = null as ListNode | null;
     let tail = null as ListNode | null;
     let firstDelimiter: Delimiter | null = null;
@@ -622,7 +634,7 @@ function parseInline(text: string, depth: number): MdInline[] {
             const open = image ? i + 1 : i;
             const tailOfLink = depth < MAX_DEPTH ? linkTail(text, brackets[open]!, closings) : null;
             if (tailOfLink) {
-                // картинок нет в MVP: остаются текстом, как и ссылки с опасным адресом
+                /** Картинок нет в MVP: остаются текстом, как и ссылки с опасным адресом */
                 const href = image ? null : safeHref(tailOfLink.destination);
                 if (href === null) buffer += text.slice(i, tailOfLink.end);
                 else {
@@ -700,7 +712,7 @@ const containsLink = (nodes: MdInline[]): boolean =>
             ((node.type === 'strong' || node.type === 'em') && containsLink(node.children)),
     );
 
-// Глубина вложенности узлов выделения и ссылок: по ней дерево удерживается в пределах MAX_DEPTH
+/** Глубина вложенности узлов выделения и ссылок: держит дерево в пределах {@link MAX_DEPTH}. */
 const depths = new WeakMap<object, number>();
 
 const depthOfItems = (items: (MdInline | Delimiter)[]): number => {
@@ -719,9 +731,9 @@ function removeNode(node: ListNode): void {
     if (node.next) node.next.prev = node.prev;
 }
 
-// Алгоритм выделения CommonMark: пары разделителей → strong/em, остальное — текст
+/** Алгоритм выделения CommonMark: пары разделителей → strong/em, остальное — текст. */
 function processEmphasis(first: Delimiter | null, depth: number): void {
-    // ниже этой границы открывающего для такого закрывающего уже нет
+    /** Граница поиска открывающего по виду закрывающего: ниже неё пары уже нет */
     const bottoms = new Map<string, Delimiter | null>();
 
     let closer = first;
@@ -779,7 +791,7 @@ function processEmphasis(first: Delimiter | null, depth: number): void {
     }
 }
 
-// Оставшиеся разделители — текстом, соседние текстовые узлы — одним
+/** Оставшиеся разделители — текстом, соседние текстовые узлы — одним. */
 function finalize(items: (MdInline | Delimiter)[]): MdInline[] {
     const result: MdInline[] = [];
     for (const item of items) {

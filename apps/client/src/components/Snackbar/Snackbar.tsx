@@ -5,7 +5,7 @@ import styles from './Snackbar.module.css';
 export interface SnackbarMessage {
     /** Уникален для каждого показа */
     id: number;
-    /** Текст ошибки */
+    /** Текст сообщения */
     text: string;
     /** Действие справа от текста, например «Повторить» */
     action?: { label: string; onClick: () => void };
@@ -20,9 +20,8 @@ interface SnackbarProps {
 }
 
 /**
- * Ошибка внизу по центру экрана (Components → Snackbar, Type=Error); над ней — предупреждение о сети.
- * @param props свойства снекбара
- * @returns область снекбара
+ * Сообщение внизу по центру экрана (Components → Snackbar, Type=Error); над ним — предупреждение
+ * о сети.
  */
 export function Snackbar({ snackbar, offline = false }: SnackbarProps) {
     return (

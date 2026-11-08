@@ -13,11 +13,14 @@ export interface TextEdit {
     selectionEnd: number;
 }
 
-// lastIndexOf с отрицательной позицией ищет с 0: «\n» в начале поля дало бы начало строки 1
+/**
+ * Начало строки, в которой стоит позиция `at`. `lastIndexOf` с отрицательной позицией ищет с 0:
+ * «\n» в начале поля дало бы начало строки 1.
+ */
 const lineStart = (value: string, at: number): number =>
     at > 0 ? value.lastIndexOf('\n', at - 1) + 1 : 0;
 
-// Визуальная ширина начала строки при tab-size: 4 — табуляция доходит до позиции, кратной 4
+/** Визуальная ширина начала строки при tab-size: 4 — табуляция доходит до позиции, кратной 4. */
 function columnOf(text: string): number {
     let column = 0;
     for (const char of text) column = char === '\t' ? column + 4 - (column % 4) : column + 1;
@@ -29,13 +32,13 @@ const lineEnd = (value: string, at: number): number => {
     return end < 0 ? value.length : end;
 };
 
-// Строки, которых касается выделение. Конец в начале следующей строки её не захватывает
+/** Строки, которых касается выделение. Конец в начале следующей строки её не захватывает. */
 function selectedLines(value: string, start: number, end: number): { from: number; to: number } {
     const last = end > start && lineStart(value, end) === end ? end - 1 : end;
     return { from: lineStart(value, start), to: lineEnd(value, last) };
 }
 
-// Новый текст строк `[from, to)`: change получает строку и позицию её начала в поле
+/** Новый текст строк `[from, to)`: `change` получает строку и позицию её начала в поле. */
 function mapLines(
     value: string,
     lines: { from: number; to: number },
@@ -53,7 +56,11 @@ function mapLines(
         .join('\n');
 }
 
-// Сдвиг позиции после правки строк: shifts — [начало строки, изменение длины в её начале]
+/**
+ * Сдвиг позиции после правки строк.
+ * @param position позиция до правки
+ * @param shifts пары [начало строки, изменение длины в её начале] по возрастанию начала
+ */
 function mapPosition(position: number, shifts: [number, number][]): number {
     let result = position;
     for (const [start, delta] of shifts) {
@@ -168,7 +175,7 @@ export function newline(
     return { from: start, to: end, text, selectionStart: caret, selectionEnd: caret };
 }
 
-// Последний значимый символ кода — `:` вне строк и комментариев, и стоит он не раньше from
+/** Последний значимый символ кода — `:` вне строк и комментариев, и стоит он не раньше `from`. */
 function endsWithColon(code: string, from: number): boolean {
     let colon = false;
     let offset = 0;

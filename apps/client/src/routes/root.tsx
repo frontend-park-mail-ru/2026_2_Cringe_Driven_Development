@@ -5,8 +5,7 @@ import { useSessionStore } from '@stores/session';
 
 /**
  * Неизвестный адрес при переходе внутри приложения — как при прямом открытии у BFF: гость уходит на
- * вход, вошедший — на `/404`.
- * @returns ничего: только перенаправление
+ * вход, вошедший — на `/404`. Сам ничего не рисует.
  */
 function UnknownAddress() {
     const navigate = useNavigate();

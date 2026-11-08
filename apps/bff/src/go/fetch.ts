@@ -9,7 +9,6 @@ const GO_TIMEOUT_MS = 5000;
  * отдаёт ответ в форме клиента. `Authorization` и `X-Request-ID` передаёт вызывающий код. Таймаут
  * и сетевой сбой — `GoError` вида `timeout` и `network`.
  * @param path путь операции из контракта Go, например `/notebooks/1/cells`
- * @param init параметры запроса: метод, заголовки, тело
  * @returns статус, заголовки и тело ответа (JSON, иначе текст; без тела — `undefined`)
  */
 export const bearerFetch = async <T>(path: string, init: RequestInit): Promise<T> => {

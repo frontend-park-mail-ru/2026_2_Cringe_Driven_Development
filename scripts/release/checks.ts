@@ -2,7 +2,7 @@ import { ReleaseError, cdnUrl, siteUrl } from './env.ts';
 
 const TIMEOUT_MS = 10_000;
 const INTERVAL_MS = Number(process.env.CHECK_INTERVAL_MS || 5000);
-// после переключения Caddy и BFF отвечают не сразу
+/** Сколько ждать прод: после переключения Caddy и BFF отвечают не сразу. */
 const HEALTH_WAIT_MS = Number(process.env.HEALTH_WAIT_MS || 120_000);
 const RELEASE_CHECK_TRIES = 3;
 const ASSET_TYPES: Record<string, string[]> = {
@@ -26,8 +26,8 @@ function message(err: unknown): string {
 
 /**
  * Все JS и CSS из HTML выпуска — с CDN его SHA и грузятся с типом своего вида (HTML с 200 не
- * подходит); JS — с CORS: чанки подключены как <script type="module" crossorigin>, без CORS браузер
- * их не выполнит.
+ * подходит); JS — с CORS: чанки подключены как `<script type="module" crossorigin>`, без CORS
+ * браузер их не выполнит.
  */
 async function checkAssets(html: string, base: string, where: string): Promise<number> {
     const site = siteUrl();
@@ -72,7 +72,6 @@ async function releaseCheckOnce(sha: string): Promise<number> {
 /**
  * Релиз отдаётся с CDN: его index.html и все JS и CSS из него. Выполняется после заливки и до
  * переключения: без любого из ассетов прод не меняется.
- * @param sha sha релиза
  */
 export async function releaseCheck(sha: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
@@ -120,7 +119,7 @@ async function checkGo(site: string): Promise<void> {
 async function healthOnce(sha: string): Promise<string> {
     const site = siteUrl();
     const base = `${cdnUrl()}/releases/${sha}/`;
-    // гостю HTML отдаёт /login: защищённые страницы ведут его туда редиректом BFF
+    /** Гостю HTML отдаёт `/login`: защищённые страницы ведут его туда редиректом BFF. */
     const page = await get(`${site}/login`, { Accept: 'text/html' });
     if (page.headers.get('cache-control') !== 'private, no-store') {
         throw new Error(
@@ -168,10 +167,10 @@ async function healthOnce(sha: string): Promise<string> {
 /**
  * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, его JS и CSS с CDN,
  * tRPC UNAUTHORIZED без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
- * вход со случайными данными. Выполняется после переключения;
- * образ, healthy и внутренний /health проверяет Ansible (deploy-bff.yml).
- * @param sha sha релиза
+ * вход со случайными данными. Выполняется после переключения; образ, healthy и внутренний
+ * `/health` проверяет Ansible (`deploy-bff.yml`).
  */
+
 export async function health(sha: string): Promise<void> {
     const deadline = Date.now() + HEALTH_WAIT_MS;
     for (;;) {

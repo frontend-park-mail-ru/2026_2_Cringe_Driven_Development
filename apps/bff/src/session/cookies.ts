@@ -5,7 +5,6 @@ const SESSION_ATTRS = 'Path=/; HttpOnly; Secure; SameSite=Lax';
 
 /**
  * Значение cookie сессии из заголовка `Cookie` запроса.
- * @param req входящий запрос
  * @returns значение или `undefined`, если cookie нет
  */
 export function readSessionCookie(req: Request): string | undefined {
@@ -35,7 +34,7 @@ export function clearedSessionCookie(): string {
     return `${SESSION_COOKIE}=; Max-Age=0; ${SESSION_ATTRS}`;
 }
 
-// cookie прежней схемы авторизации Go — с теми Path, с которыми их ставил Go
+/** Cookie прежней схемы авторизации Go — с теми Path, с которыми их ставил Go */
 const LEGACY: readonly (readonly [string, string])[] = [
     ['access_token', '/api/v1'],
     ['refresh_token', '/api/v1/auth'],

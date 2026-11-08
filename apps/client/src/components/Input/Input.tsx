@@ -40,11 +40,7 @@ interface InputProps {
     onBlur?: () => void;
 }
 
-/**
- * Поле ввода из макета (Components → Input).
- * @param props свойства поля
- * @returns разметка поля
- */
+/** Поле ввода из макета (Components → Input). */
 export function Input({
     id,
     label,

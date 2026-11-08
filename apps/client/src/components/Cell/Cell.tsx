@@ -18,35 +18,41 @@ import {
 import { isEditing } from './editing';
 import styles from './Cell.module.css';
 
-// Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
+/** Высота редактора по содержимому: своей вертикальной прокрутки нет, прокручивается страница. */
 function fitHeight(element: HTMLElement): void {
-    // Пока высота 'auto', страница не должна укорачиваться: браузер обрезал бы прокрутку, и экран
-    // прыгал бы на каждый ввод
+    /**
+     * Пока высота 'auto', родитель держит прежнюю высоту: иначе страница укоротится, браузер
+     * обрежет прокрутку, и экран прыгнет на каждый ввод
+     */
     const parent = element.parentElement;
     if (parent) parent.style.minHeight = `${parent.offsetHeight}px`;
     element.style.height = 'auto';
-    // полоса горизонтальной прокрутки кода не должна закрывать последнюю строку
+    /** Полоса горизонтальной прокрутки кода не должна закрывать последнюю строку */
     const scrollbar = element.offsetHeight - element.clientHeight;
     element.style.height = `${element.scrollHeight + scrollbar}px`;
     if (parent) parent.style.minHeight = '';
 }
 
-// Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой:
-// сдвиг — переменная общей обёртки (.codeEditor), её читает .highlight
+/**
+ * Подсветка под прозрачным текстом редактора сдвигается вместе с его горизонтальной прокруткой:
+ * сдвиг — переменная общей обёртки (.codeEditor), её читает .highlight.
+ */
 function syncHighlight(editor: HTMLTextAreaElement): void {
     editor.parentElement?.style.setProperty('--scroll-x', `${editor.scrollLeft}px`);
 }
 
-// execCommand в lib.dom помечен устаревшим, но замены с историей отмены нет: свой тип без пометки
+/** `execCommand` в lib.dom помечен устаревшим, но замены с историей отмены нет: тип без пометки. */
 interface Editing {
     execCommand(command: string, showUI?: boolean, value?: string): boolean;
 }
 
-// Поля кода, где нажат Esc: следующий Tab или Shift+Tab переводит фокус, как обычно, — к кнопкам
-// ячейки или запуску, не выходя из неё
+/**
+ * Поля, где нажат Esc: следующий Tab или Shift+Tab переводит фокус, как обычно, — к кнопкам ячейки
+ * или запуску.
+ */
 const tabReleased = new WeakSet<HTMLTextAreaElement>();
 
-// Правка через execCommand: попадает в историю отмены и приходит обычным событием input
+/** Правка через `execCommand`: попадает в историю отмены и приходит обычным событием input. */
 function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
     editor.setSelectionRange(edit.from, edit.to);
     const editing: Editing = document;
@@ -60,8 +66,10 @@ function applyEdit(editor: HTMLTextAreaElement, edit: TextEdit): void {
     editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
 }
 
-// Клавиши отступов; undefined — клавиша не наша. В Markdown Enter углубляет отступ после `:`
-// только внутри блока ```python
+/**
+ * Правка по клавише отступа; undefined — клавиша не наша. В Markdown Enter углубляет отступ после
+ * `:` только внутри блока ```python.
+ */
 function indentEdit(
     event: KeyboardEvent,
     editor: HTMLTextAreaElement,
@@ -82,9 +90,10 @@ const editorOf = (id: string): HTMLTextAreaElement | null => {
     return element instanceof HTMLTextAreaElement ? element : null;
 };
 
-/** Режим Markdown-ячейки; refocus — перевести фокус в новый режим после отрисовки */
+/** Режим Markdown-ячейки */
 interface Mode {
     value: 'view' | 'edit';
+    /** Перевести фокус в новый режим после отрисовки */
     refocus: boolean;
 }
 
@@ -133,8 +142,6 @@ interface CellProps {
  * {@link Python} с тем же исходником, на тач-устройствах он же — без поля ввода. Markdown-ячейка
  * вне редактирования показывает просмотр: двойной клик или Enter открывают исходник, Shift+Enter,
  * Esc и уход фокуса возвращают просмотр.
- * @param props свойства ячейки
- * @returns ячейка
  */
 export function Cell({
     cell,
@@ -166,7 +173,7 @@ export function Cell({
         value: startEditing ? 'edit' : 'view',
         refocus: startEditing,
     });
-    // Больше лимита исходник не прячется за просмотром
+    /** Больше лимита исходник не прячется за просмотром */
     const editing = isEditing(cell.kind, { readOnly, edit: mode.value === 'edit', tooLarge });
     const hintId = `${cellEditorId(cell.id)}-hint`;
 
@@ -194,7 +201,7 @@ export function Cell({
         if (!element) return;
         // проверка орфографии подчёркивала бы код; атрибута в типах JSX нет
         element.spellcheck = false;
-        // высоту меняет сам fitHeight: пересчёт нужен только при смене ширины
+        /** Высоту при вводе меняет сам fitHeight: пересчёт нужен только при смене ширины */
         let width = element.clientWidth;
         const observer = new ResizeObserver(() => {
             if (element.clientWidth === width) return;
@@ -283,9 +290,8 @@ export function Cell({
     );
 
     return (
-        // Нажатие на любое место ячейки, кроме кнопок и ссылок, выбирает её: фокус — в редактор
-        // или просмотр, не уходя из ячейки. Это удобство для мыши: с клавиатуры редактор, просмотр
-        // и кнопки и так достижимы по Tab
+        // Нажатие мышью на ячейку вне кнопок и ссылок переводит фокус в редактор или просмотр;
+        // с клавиатуры они и так достижимы по Tab
         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
             className={clsx(
@@ -297,7 +303,7 @@ export function Cell({
             )}
             onMouseDown={(event) => {
                 if (readOnly) return;
-                // в просмотре мышь выделяет текст, фокус он получает сам
+                /** В просмотре мышь выделяет текст, фокус он получает сам */
                 const own = `button:enabled, textarea, a, .${styles.preview}`;
                 if ((event.target as Element).closest(own)) return;
                 event.preventDefault();
@@ -308,7 +314,7 @@ export function Cell({
                 // удалённая ячейка: куда перейти, решает страница
                 if (!(event.target as Node).isConnected) return;
                 if (next && (event.currentTarget as Node).contains(next)) return;
-                // уход в другое окно или в модалку — не конец ввода: исходник ждёт возвращения фокуса
+                /** Уход в другое окно или в модалку — не конец ввода: исходник ждёт фокуса */
                 const away = !document.hasFocus() || (next as Element | null)?.closest('dialog');
                 if (mode.value === 'edit' && !tooLarge && !away)
                     setMode({ value: 'view', refocus: false });
@@ -355,7 +361,7 @@ export function Cell({
                         )}
                     </pre>
                 ) : editing && isCode ? (
-                    // Ввод — в той же textarea, её текст прозрачный: виден подсвеченный исходник под ней
+                    // Текст textarea прозрачный: виден подсвеченный исходник под ней
                     <div key="code" className={styles.codeEditor}>
                         <pre key="highlight" className={styles.highlight} aria-hidden="true">
                             <Python key="code" source={text} marks={marks} />
@@ -363,7 +369,7 @@ export function Cell({
                         {editor}
                     </div>
                 ) : editing ? (
-                    // Как у кода: текст рисует слой под прозрачной textarea — в нём видны совпадения поиска
+                    // Как у кода: текст рисует слой под прозрачной textarea — с совпадениями поиска
                     <div key="text" className={styles.textEditor}>
                         <pre key="highlight" className={styles.textHighlight} aria-hidden="true">
                             <Marked key="text" text={text} marks={marks} />
@@ -374,7 +380,8 @@ export function Cell({
                     <div
                         key="preview"
                         id={cellEditorId(cell.id)}
-                        // совпадения поиска — в исходнике: на время поиска он виден вместо просмотра
+                        // совпадения поиска — в исходнике: на время поиска он виден вместо
+                        // просмотра
                         className={clsx(styles.preview, marks.length > 0 && styles.reveal)}
                         tabIndex={0}
                         // поле только для чтения: содержимое читается, Enter открывает исходник.
@@ -467,10 +474,7 @@ export function cellEditorId(id: string): string {
     return `cell-editor-${id}`;
 }
 
-/**
- * Ячейка-скелетон, пока блокнот загружается.
- * @returns скелетон ячейки
- */
+/** Ячейка-скелетон, пока блокнот загружается. */
 export function CellSkeleton() {
     return (
         <div className={clsx(styles.cell, styles.skeleton)} aria-hidden="true">

@@ -12,11 +12,7 @@ interface IconButtonProps {
     onClick: () => void;
 }
 
-/**
- * Кнопка-иконка 36×36 (Components → IconButton).
- * @param props свойства кнопки
- * @returns элемент button
- */
+/** Кнопка-иконка 36×36 (Components → IconButton). */
 export function IconButton({ icon, label, className, disabled, onClick }: IconButtonProps) {
     return (
         <button

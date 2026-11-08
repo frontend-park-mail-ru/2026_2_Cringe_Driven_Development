@@ -7,11 +7,7 @@ import { defineConfig, mergeConfig } from 'vite';
 import mkcert from 'vite-plugin-mkcert';
 import { loadClientEnv, sharedConfig } from './vite/shared.ts';
 
-/**
- * Каталог из PATH в виде для сравнения: на Windows регистр в путях не важен.
- * @param dir каталог
- * @returns нормализованный путь
- */
+/** Каталог из PATH в виде для сравнения: на Windows регистр в путях не важен. */
 const pathKey = (dir: string) => {
     const path = resolve(dir);
     return process.platform === 'win32' ? path.toLowerCase() : path;
@@ -62,8 +58,11 @@ export default defineConfig(({ mode }) => {
     // dev-плагины идут первыми, как до разделения конфига
     return mergeConfig(
         {
-            // один origin с API: https://localhost:5173 — его же BFF ждёт в APP_ORIGIN. Vite слушает
-            // 127.0.0.1: с host localhost на Windows он недоступен; открывать всё равно https://localhost:5173
+            /**
+             * Один origin с API: https://localhost:5173 — его же BFF ждёт в APP_ORIGIN. Vite
+             * слушает 127.0.0.1: с host localhost на Windows он недоступен; открывать всё равно
+             * https://localhost:5173
+             */
             server: {
                 host: '127.0.0.1',
                 port: 5173,
@@ -71,10 +70,12 @@ export default defineConfig(({ mode }) => {
                 proxy: { '/api/trpc': bffUrl },
             },
             plugins: [
-                // локальный HTTPS: cookie сессии BFF — Secure; сертификат выпускает и доверяет mkcert
+                // локальный HTTPS: cookie сессии BFF — Secure; сертификат выпускает и доверяет
+                // mkcert
                 mkcert({ hosts: ['localhost', '127.0.0.1'] }),
-                // HTML страниц — от BFF (пользователь в bootstrap и Set-Cookie сессии, как на проде),
-                // Vite добавляет в него клиент HMR; /api/trpc из server.proxy плагин не трогает
+                // HTML страниц — от BFF (пользователь в bootstrap и Set-Cookie сессии, как на
+                // проде), Vite добавляет в него клиент HMR; /api/trpc из server.proxy плагин не
+                // трогает
                 bffHtml(bffUrl),
             ],
         },

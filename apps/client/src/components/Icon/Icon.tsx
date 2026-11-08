@@ -61,11 +61,7 @@ interface IconProps {
     className?: string;
 }
 
-/**
- * Декоративная иконка. Цвет наследуется из `color` родителя, для скринридеров не видна.
- * @param props свойства иконки
- * @returns svg-иконка
- */
+/** Декоративная иконка. Цвет наследуется из `color` родителя, для скринридеров не видна. */
 export function Icon({ name, size = 16, className }: IconProps) {
     const Svg = ICONS[name];
     return (

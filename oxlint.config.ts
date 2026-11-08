@@ -2,7 +2,7 @@ import { defineConfig } from 'oxlint';
 
 export default defineConfig({
     plugins: ['typescript', 'unicorn', 'oxc', 'react', 'jsx-a11y', 'jsdoc'],
-    // require-jsdoc и check-param-names: в плагине jsdoc самого oxlint этих правил нет
+    /** `require-jsdoc` и `check-param-names`: в плагине jsdoc самого oxlint этих правил нет */
     jsPlugins: ['@cdd-team/oxlint-plugin-jsdoc'],
     categories: {
         correctness: 'error',
@@ -20,7 +20,7 @@ export default defineConfig({
         'react-hooks/exhaustive-deps': 'error',
         'react/jsx-key': 'error',
         'react/react-in-jsx-scope': 'off',
-        // Экспортируемый код документируется JSDoc (README, «Документация кода»)
+        /** Экспорт документируется JSDoc (docs/local-development.md, «Документация кода») */
         'cdd/require-jsdoc': 'error',
         'cdd/check-param-names': 'error',
     },

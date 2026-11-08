@@ -1,4 +1,4 @@
-/** Вхождение поиска в тексте одной ячейки; current — активное. */
+/** Вхождение поиска в тексте одной ячейки; `current` — активное. */
 export interface SourceMark {
     from: number;
     to: number;

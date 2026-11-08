@@ -13,8 +13,6 @@ interface MarkedPieceProps {
 
 /**
  * Кусок текста: внутри совпадения — `<mark>`, вне — `<span>`. Текст — текстовым узлом.
- * @param props кусок и класс места использования
- * @returns элемент куска
  */
 export function MarkedPiece({ piece, className }: MarkedPieceProps) {
     if (!piece.mark) return <span className={className}>{piece.text}</span>;
@@ -35,11 +33,7 @@ interface MarkedProps {
     marks: readonly SourceMark[];
 }
 
-/**
- * Обычный текст с совпадениями поиска в `<mark>`.
- * @param props текст и совпадения
- * @returns куски текста
- */
+/** Обычный текст с совпадениями поиска в `<mark>`. */
 export function Marked({ text, marks }: MarkedProps) {
     if (marks.length === 0) return <>{text}</>;
     return (

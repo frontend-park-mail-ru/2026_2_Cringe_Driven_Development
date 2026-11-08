@@ -14,7 +14,7 @@ let nextId = 1;
 /**
  * Показывает снекбар с ошибкой. Нажатие на действие убирает снекбар.
  * @param text текст ошибки
- * @param [action] действие справа от текста
+ * @param action действие справа от текста
  * @returns id показа: по нему можно убрать именно этот снекбар
  */
 export function showSnackbar(text: string, action?: SnackbarMessage['action']): number {
@@ -32,7 +32,7 @@ export function showSnackbar(text: string, action?: SnackbarMessage['action']): 
 
 /**
  * Убирает снекбар.
- * @param [id] убрать, только если на экране этот показ, а не чужой
+ * @param id убрать, только если на экране этот показ, а не чужой
  */
 export function hideSnackbar(id?: number): void {
     const { snackbar } = useSnackbarStore.getState();

@@ -18,9 +18,6 @@ const encoder = new TextEncoder();
 /**
  * Больше ли текст лимита в байтах UTF-8. Кодируется только неоднозначная длина: символ UTF-16 —
  * от 1 до 3 байт.
- * @param text текст
- * @param limit лимит в байтах
- * @returns true, если байт больше лимита
  */
 export function exceedsBytes(text: string, limit: number): boolean {
     if (text.length > limit) return true;
@@ -28,31 +25,22 @@ export function exceedsBytes(text: string, limit: number): boolean {
     return encoder.encode(text).length > limit;
 }
 
-/**
- * Самое длинное начало текста, которое помещается в лимит байт UTF-8; символы не разрезаются.
- * @param text текст
- * @param limit лимит в байтах
- * @returns начало текста
- */
+/** Самое длинное начало текста, которое помещается в лимит байт UTF-8; символы не разрезаются. */
 export function fitBytes(text: string, limit: number): string {
     if (limit <= 0) return '';
     if (!exceedsBytes(text, limit)) return text;
     return text.slice(0, encoder.encodeInto(text, new Uint8Array(limit)).read);
 }
 
-// У кода без результата исполнения: до первого запуска и после изменения source
+/** Поля кода без результата исполнения: до первого запуска и после изменения source. */
 const noOutput = () => ({ outputs: [], execution_count: null, output_truncated: false });
 
 const withSource = (cell: Cell, source: string): Cell =>
     cell.kind === 'code' ? { ...cell, source, ...noOutput() } : { ...cell, source };
 
 /**
- * Подтверждённое изменение source: у кода прежний результат больше не относится к ячейке.
- * @param snapshot снимок
- * @param hash hash из ответа
- * @param cellId ячейка
- * @param source отправленный текст
- * @returns новый снимок; ячейки, которой нет, не появляется
+ * Подтверждённое изменение source с `hash` из ответа: у кода прежний результат больше не относится
+ * к ячейке. Ячейки, которой нет в снимке, не появляется.
  */
 export function applyUpdate(
     snapshot: Snapshot,
@@ -66,15 +54,7 @@ export function applyUpdate(
     };
 }
 
-/**
- * Подтверждённое создание пустой ячейки.
- * @param snapshot снимок
- * @param hash hash из ответа
- * @param id id из ответа
- * @param kind вид ячейки
- * @param index позиция с нуля; без неё — в конец
- * @returns новый снимок
- */
+/** Подтверждённое создание пустой ячейки с `id` и `hash` из ответа; без `index` — в конец. */
 export function applyCreate(
     snapshot: Snapshot,
     hash: string,
@@ -87,14 +67,7 @@ export function applyCreate(
     return { hash, cells: snapshot.cells.toSpliced(index, 0, created) };
 }
 
-/**
- * Подтверждённое перемещение: результаты ячейки сохраняются.
- * @param snapshot снимок
- * @param hash hash из ответа
- * @param cellId ячейка
- * @param index итоговая позиция с нуля
- * @returns новый снимок
- */
+/** Подтверждённое перемещение на позицию `index` с нуля: результаты ячейки сохраняются. */
 export function applyMove(
     snapshot: Snapshot,
     hash: string,
@@ -107,24 +80,14 @@ export function applyMove(
     return { hash, cells: [...rest.slice(0, index), cell, ...rest.slice(index)] };
 }
 
-/**
- * Подтверждённое удаление.
- * @param snapshot снимок
- * @param hash hash из ответа
- * @param cellId ячейка
- * @returns новый снимок
- */
+/** Подтверждённое удаление ячейки. */
 export function applyDelete(snapshot: Snapshot, hash: string, cellId: string): Snapshot {
     return { hash, cells: snapshot.cells.filter((c) => c.id !== cellId) };
 }
 
 /**
- * Подтверждённая операция: тот же снимок, что даст сервер, если она применилась.
- * @param snapshot снимок до операции
- * @param hash hash после операции
- * @param op операция
- * @param createdId id созданной ячейки — для create
- * @returns снимок после операции
+ * Снимок после операции с её `hash` — тот же, что даст сервер, если она применилась. `createdId` —
+ * id созданной ячейки, только для create.
  */
 export function applyOp(snapshot: Snapshot, hash: string, op: Op, createdId = ''): Snapshot {
     switch (op.type) {
@@ -142,9 +105,6 @@ export function applyOp(snapshot: Snapshot, hash: string, op: Op, createdId = ''
 /**
  * Совпадают ли снимки по тому, что защищает hash: id, вид, порядок и source. Результаты исполнения
  * не сравниваются.
- * @param a первый снимок
- * @param b второй снимок
- * @returns true, если структура и исходники совпадают
  */
 export function sameStructure(a: Snapshot, b: Snapshot): boolean {
     return (

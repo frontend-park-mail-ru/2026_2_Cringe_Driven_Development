@@ -59,8 +59,8 @@ const SKELETON_COUNT = 4;
 
 /**
  * Загружает блокнот.
- * @param id id блокнота
- * @returns данные блокнота, 'missing', если такого блокнота нет, или undefined, если загрузить не удалось
+ * @returns данные блокнота; 'missing' — блокнота нет или он чужой; undefined — загрузить не
+ * удалось
  */
 async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
@@ -72,15 +72,17 @@ async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | 
     }
 }
 
-// «+ Код» в шапке: есть всегда, в том числе в пустом блокноте
+/** Id чипа «+ Код» в шапке: он есть всегда, в том числе в пустом блокноте */
 const ADD_CODE_ID = 'add-code';
 
+/** Тексты снекбара по ошибкам сохранения блокнота */
 const ERRORS = {
     save: 'Не удалось сохранить изменения',
     too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
 };
 
+/** Тексты снекбара по ошибкам команд окружения */
 const RUNTIME_ERRORS: Record<RuntimeError, string> = {
     network: 'Не удалось отправить команду окружению',
     queue_full: 'Очередь исполнения переполнена — повторите позже',
@@ -90,19 +92,22 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
     failed: 'Не удалось выполнить команду окружения',
 };
 
+/** Сколько миллисекунд видно уведомление об обрезанной вставке */
 const PASTE_NOTICE_MS = 4000;
 
-// Поиск открывает Cmd+F на Mac и Ctrl+F на остальных системах
+/** Поиск открывает Cmd+F на Mac и Ctrl+F на остальных системах */
 const IS_MAC = navigator.userAgent.includes('Mac');
 
-// Запас между прилипшей шапкой и совпадением, к которому прокрутили
+/** Запас в пикселях между прилипшей шапкой и совпадением, к которому прокрутили */
 const SEARCH_GAP = 16;
 
-// Лимит — в байтах, но человеку понятнее, сколько символов вошло: «37 090»
+/** Число символов для уведомления: лимит в байтах, но понятнее, сколько символов вошло: «37 090» */
 const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
 
-// Больше лимита не вставляется: такой исходник не сохранить. Помещающаяся часть вставляется как
-// обычный ввод — с отменой по Ctrl+Z
+/**
+ * Обрезает вставку по лимиту ячейки: больший исходник не сохранить. Помещающаяся часть
+ * вставляется как обычный ввод — с отменой по Ctrl+Z.
+ */
 const handlePaste = (event: ClipboardEvent): void => {
     const editor = event.target as HTMLTextAreaElement;
     const pasted = event.clipboardData?.getData('text/plain') ?? '';
@@ -113,23 +118,20 @@ const handlePaste = (event: ClipboardEvent): void => {
     const shown = showSnackbar(
         `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
     );
-    // это уведомление, а не ошибка с действием: прячется само
+    // уведомление без действия: прячется само
     setTimeout(() => hideSnackbar(shown), PASTE_NOTICE_MS);
 };
 
 /** Свойства {@link AddCellChips}. */
 interface AddCellChipsProps {
-    /** id чипа «+ Код»: у чипов в шапке */
+    /** Id чипа «+ Код»: задаётся только чипам в шапке */
     codeId?: string;
     disabled: boolean;
+    /** Добавить ячейку выбранного вида */
     onAdd: (kind: CreatableKind) => void;
 }
 
-/**
- * Чипы «+ Код» и «+ Текст».
- * @param props свойства чипов
- * @returns чипы
- */
+/** Чипы «+ Код» и «+ Текст» для добавления ячейки. */
 function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
     return (
         <>
@@ -145,7 +147,7 @@ function AddCellChips({ codeId, disabled, onAdd }: AddCellChipsProps) {
 
 type CellProps = Parameters<typeof Cell>[0];
 
-// Ячейка с исполнением: у кодовой — кнопка запуска и счётчик слева, состояние и выводы под кодом
+/** Ячейка; у кодовой с исполнением — запуск и счётчик слева, состояние и выводы под кодом */
 function CodeOrText({
     run,
     ...props
@@ -179,7 +181,7 @@ function CodeOrText({
     );
 }
 
-// Фокус в редактор ячейки; без ячейки — на первый чип «+ Код»
+/** Фокус в редактор ячейки; без ячейки — на чип «+ Код» в шапке */
 const focusCell = (id: string | undefined): void => {
     const target = id ? document.getElementById(cellEditorId(id)) : null;
     if (target) {
@@ -193,22 +195,21 @@ const focusCell = (id: string | undefined): void => {
 /**
  * Страница блокнота: шапка со статусом сохранения и редактируемые ячейки. Всё сохранение — в
  * `@stores/notebook`; страница показывает его состояние и передаёт действия.
- * @returns страница
  */
 export function NotebookPage() {
     const navigate = useNavigate();
     const id = Number(useParams({ from: '/_auth/notebooks/$notebookId' }).notebookId);
-    // При прямом открытии своего блокнота BFF уже положил его в bootstrap: первый показ без запроса
+    /** Свой блокнот при прямом открытии BFF уже положил в bootstrap: первый показ без запроса */
     const [load, setLoad] = useState<'loading' | 'error' | 'ready'>(
         peekPreloadedNotebook(id) ? 'ready' : 'loading',
     );
     const [attempt, setAttempt] = useState(0);
     const [selected, setSelected] = useState<string | undefined>(undefined);
-    // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
+    /** Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления */
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
-    // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
+    /** Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода */
     const [fresh, setFresh] = useState<string | undefined>(undefined);
-    // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
+    /** На тач-устройстве блокнот только для чтения: ячейки не добавить, не править, не двигать */
     const touch = useTouchDevice();
     const forcedColors = useForcedColors();
     const notebook = useNotebookStore();
@@ -266,7 +267,7 @@ export function NotebookPage() {
         if (touch) leaveNotebook();
     }, [touch]);
 
-    // Несохранённый текст: браузер предупредит перед уходом и перезагрузкой
+    /** Есть несохранённое: браузер предупредит перед уходом и перезагрузкой */
     const unsaved = notebook.status !== 'idle' && notebook.status !== 'saved';
     useEffect(() => {
         if (!unsaved) return;
@@ -315,14 +316,16 @@ export function NotebookPage() {
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error' && !touch;
     const execution = ready ? runtimeStatus(runtime) : undefined;
-    // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
+    /** Ход и проблемы сохранения — рядом со статусом выполнения: «Сохранено» его не перекрывает */
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
-    // поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера.
-    // То же в системных цветах: слой подсветки скрыт, совпадения не видно и к ним не прокрутить
+    /**
+     * Поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера.
+     * То же в системных цветах: слой подсветки скрыт, совпадения не видно и к ним не прокрутить
+     */
     const searchEnabled = ready && !touch && !forcedColors;
     const search = useNotebookSearch(cells, notebook.drafts, searchEnabled);
-    // Перевести фокус в поле поиска после отрисовки панели
+    /** Счётчик запросов фокуса в поле поиска: фокус переводится после отрисовки панели */
     const [searchFocus, setSearchFocus] = useState(0);
     useLayoutEffect(() => {
         if (searchFocus === 0) return;
@@ -340,8 +343,9 @@ export function NotebookPage() {
     useEffect(() => {
         if (!searchEnabled) return;
         const handleKey = (event: KeyboardEvent) => {
-            // по коду клавиши: в русской раскладке key — «а»; на Mac Ctrl+F — курсор вперёд
+            /** Cmd на Mac, Ctrl на остальных: на Mac Ctrl+F — курсор вперёд */
             const modifier = IS_MAC ? event.metaKey : event.ctrlKey;
+            // по коду клавиши: в русской раскладке key — «а»
             if (!modifier || event.code !== 'KeyF' || event.altKey || event.shiftKey) return;
             // открытая модалка держит фокус: поле поиска за ней не открываем
             if (document.querySelector('[aria-modal="true"]')) return;
@@ -355,8 +359,8 @@ export function NotebookPage() {
     useLayoutEffect(() => {
         if (search.jump > 0) scrollToCurrent();
     }, [search.jump]);
-    // Прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
     const pageRef = useRef<HTMLDivElement>(null);
+    // прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
     useLayoutEffect(() => {
         const page = pageRef.current;
         const header = page?.querySelector('header');
@@ -386,7 +390,7 @@ export function NotebookPage() {
               ? 'Не удалось загрузить блокнот'
               : (notebook.meta?.name ?? '');
 
-    // Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус
+    /** Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус */
     const handleAdd = (kind: CreatableKind, index?: number) => {
         void addCell(kind, index).then((created) => {
             if (!created) return;
@@ -395,7 +399,7 @@ export function NotebookPage() {
             setFocusTarget({ id: created });
         });
     };
-    // На время запроса кнопки неактивны и фокус с нажатой молча уходит на body: возвращаем его в ячейку
+    /** Пока идёт запрос, кнопки неактивны и фокус с нажатой уходит на body: вернуть его в ячейку */
     const handleMove = (cellId: string, direction: -1 | 1) => {
         void moveCell(cellId, direction).then(() => {
             if (document.activeElement === document.body) setFocusTarget({ id: cellId });
@@ -412,7 +416,7 @@ export function NotebookPage() {
         });
     };
 
-    // черновики удалённых на сервере ячеек — на их прежних местах
+    /** Ячейки и черновики удалённых на сервере ячеек — на их прежних местах */
     const rows: ({ at: number } & ({ cell: CellData; index: number } | { orphan: Orphan }))[] = [
         ...cells.map((cell, index) => ({ at: index, cell, index })),
         ...notebook.orphans.map((orphan) => ({ at: orphan.index - 0.5, orphan })),

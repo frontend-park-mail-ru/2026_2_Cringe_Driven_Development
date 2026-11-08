@@ -11,7 +11,7 @@ export type SessionData = {
 
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
-// имя cookie как AAD: сессию нельзя переложить в cookie с другим назначением
+/** Имя cookie как AAD: сессию нельзя переложить в cookie с другим назначением. */
 const aad = new TextEncoder().encode(SESSION_COOKIE);
 const key = crypto.subtle.importKey('raw', env.sessionKey, 'AES-GCM', false, [
     'encrypt',
@@ -20,7 +20,6 @@ const key = crypto.subtle.importKey('raw', env.sessionKey, 'AES-GCM', false, [
 
 /**
  * Шифрует сессию AES-256-GCM ключом `SESSION_KEY` с новым случайным IV.
- * @param data токены и сроки
  * @returns `base64url(iv ‖ ciphertext ‖ tag)` — значение cookie
  */
 export async function sealSession(data: SessionData): Promise<string> {
@@ -50,7 +49,6 @@ const isSessionData = (value: unknown): value is SessionData => {
  * Расшифровывает сессию. Любая ошибка разбора, проверки тега или формы — `null`: это отсутствие
  * сессии, а не сбой.
  * @param value значение cookie
- * @returns сессия или `null`
  */
 export async function openSession(value: string): Promise<SessionData | null> {
     if (!/^[\w-]+$/.test(value)) return null;

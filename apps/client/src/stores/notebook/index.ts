@@ -10,7 +10,7 @@ import {
     type Snapshot,
 } from './snapshot';
 
-// Лимит исходника ячейки — 64 КиБ в UTF-8
+/** Лимит исходника ячейки — 64 КиБ в UTF-8. */
 const SOURCE_LIMIT_BYTES = 65_536;
 /** Пауза ввода перед автосохранением. */
 export const AUTOSAVE_DELAY_MS = 500;
@@ -39,6 +39,7 @@ export type FlushResult =
     | { ok: true }
     | { ok: false; reason: 'conflict' | 'error' | 'too_large' | 'edited' };
 
+/** Состояние стора открытого блокнота. */
 interface NotebookState {
     /** Открытый блокнот; null — страница блокнота не открыта */
     notebookId: number | null;
@@ -79,25 +80,25 @@ export const useNotebookStore = create<NotebookState>()(() => empty());
 const get = () => useNotebookStore.getState();
 const set = (patch: Partial<NotebookState>) => useNotebookStore.setState(patch);
 
-// retried — запись уже повторялась: после новой ошибки сама больше не уходит
+/** Операция очереди; `retried` — запись уже повторялась и после новой ошибки сама не уходит. */
 type Job = { op: Op; done: (result: string | boolean | undefined) => void; retried?: boolean };
 
-// Поколение меняется при открытии и закрытии блокнота: ответы прежнего в стор не попадают
+/** Поколение меняется при открытии и закрытии блокнота: ответы прежнего в стор не попадают. */
 let generation = 0;
 let queue: Job[] = [];
-// Поколение, чья очередь сейчас выполняется; null — очередь стоит
+/** Поколение, чья очередь сейчас выполняется; null — очередь стоит. */
 let active: number | null = null;
-// Операция, результат которой неизвестен после сбоя сети или 5xx: ждёт сверки со снимком
+/** Операция с неизвестным результатом после сбоя сети или 5xx: ждёт сверки со снимком. */
 let pending: Job | null = null;
-// Ожидание итога «Сохранить мой текст»: true — сохранено, false — снова конфликт или ошибка
+/** Ожидание итога «Сохранить мой текст»: true — сохранено, false — снова конфликт или ошибка. */
 let resolution: ((ok: boolean) => void) | null = null;
-// Выполняемая сейчас операция очереди
+/** Операция очереди, которая выполняется сейчас. */
 let inflight: Job | null = null;
-// Ячейки, чьё удаление ждёт или идёт: их правки больше не отправляются
+/** Ячейки, чьё удаление ждёт или идёт: их правки больше не отправляются. */
 const deleting = new Set<string>();
-// Идёт сверка после сбоя: «Повторить» в это время не запускает вторую
+/** Идёт сверка после сбоя: «Повторить» в это время не запускает вторую. */
 let reconciling = false;
-// «Повторить» нажали во время сверки: она завершится как повтор по нажатию
+/** «Повторить» нажали во время сверки: она завершится как повтор по нажатию. */
 let retryRequested = false;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let savedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -120,7 +121,7 @@ const reset = (): void => {
     resolution = null;
 };
 
-// Сброс очереди: структурные операции не воспроизводятся, правки снова берутся из черновиков
+/** Сброс очереди: структурные операции не воспроизводятся, правки снова берутся из черновиков. */
 function dropQueue(): void {
     for (const job of [...queue, ...(pending ? [pending] : [])]) job.done(undefined);
     queue = [];
@@ -128,7 +129,7 @@ function dropQueue(): void {
     deleting.clear();
 }
 
-// Ошибка, после которой сохранение стоит до перечитывания
+/** Ошибка, после которой сохранение стоит до перечитывания. */
 const halted = (error: NotebookError | null): boolean =>
     error === 'save' || error === 'notebook_gone';
 
@@ -137,11 +138,11 @@ const cancelAutosave = (cellId: string): void => {
     timers.delete(cellId);
 };
 
-// Конфликт, который ждёт выбора версии или загрузки снимка
+/** Конфликт, который ждёт выбора версии или загрузки снимка. */
 const unresolved = (conflict: Conflict): boolean =>
     conflict.phase !== 'none' && conflict.phase !== 'resolving';
 
-// Очередь стоит при неразрешённом конфликте и при ошибке, требующей перечитывания
+/** Очередь стоит при неразрешённом конфликте и при ошибке, требующей перечитывания. */
 const paused = (): boolean => {
     const { conflict, error } = get();
     return unresolved(conflict) || halted(error);
@@ -151,7 +152,8 @@ const edits = new Set<(cellId: string) => void>();
 const saves = new Set<(snapshot: Snapshot) => void>();
 
 /**
- * Подписка на реальный ввод пользователя (не на загрузку и снимки): для сигнала активности исполнения.
+ * Подписка на реальный ввод пользователя (не на загрузку и снимки): для сигнала активности
+ * исполнения.
  * @param listener вызывается с id ячейки
  * @returns отписка
  */
@@ -172,7 +174,6 @@ export function onSaved(listener: (snapshot: Snapshot) => void): () => void {
 
 /**
  * Заблокированы ли добавление, перемещение и удаление ячеек.
- * @param state состояние стора
  * @returns true во время структурной операции, пока конфликт не разрешён и пока сохранение стоит
  *   из-за ошибки
  */
@@ -182,7 +183,7 @@ export function structureLocked(state: NotebookState): boolean {
 
 type Unsaved = Pick<NotebookState, 'drafts' | 'tooLarge' | 'orphans'> & { confirmed: Snapshot };
 
-// Несохранённое покинутых блокнотов этой вкладки: вернётся при следующем открытии блокнота
+/** Несохранённое покинутых блокнотов этой вкладки: вернётся при следующем открытии блокнота. */
 const unsaved = new Map<number, Unsaved>();
 
 const keepUnsaved = (): void => {
@@ -194,8 +195,8 @@ const keepUnsaved = (): void => {
 
 /**
  * Открывает блокнот: подтверждённый снимок — из bootstrap или `notebooks.get`. Несохранённое с
- * прошлого открытия возвращается: блокнот не менялся — правки уходят снова, изменился — выбор версии.
- * @param page данные страницы блокнота
+ * прошлого открытия возвращается: блокнот не менялся — правки уходят снова, изменился — выбор
+ * версии.
  */
 export function openNotebook(page: NotebookPageData): void {
     keepUnsaved();
@@ -227,7 +228,7 @@ export function leaveNotebook(): void {
     for (const cellId of Object.keys(get().drafts)) commitSource(cellId);
 }
 
-/** Закрывает блокнот и забывает несохранённое: ожидающие и поздние ответы больше ничего не меняют. */
+/** Закрывает блокнот и забывает несохранённое: ожидающие и поздние ответы ничего не меняют. */
 export function closeNotebook(): void {
     reset();
     unsaved.clear();
@@ -237,12 +238,12 @@ export function closeNotebook(): void {
 const sourceOf = (cellId: string): string | undefined =>
     get().confirmed?.cells.find((c) => c.id === cellId)?.source;
 
-// Статус меняется только при новом значении: на каждое нажатие не уведомлять подписчиков зря
+/** Статус меняется только при новом значении: подписчики не уведомляются на каждое нажатие. */
 const setStatus = (status: SaveStatus): void => {
     if (get().status !== status) set({ status });
 };
 
-// Статус шапки по текущему состоянию; saved — только когда сохранять больше нечего
+/** Статус шапки по текущему состоянию; saved — только когда сохранять больше нечего. */
 const refreshStatus = (justSaved = false): void => {
     const { error, drafts, conflict } = get();
     if (unresolved(conflict)) return setStatus('conflict');
@@ -278,7 +279,7 @@ export function pastedPart(text: string, start: number, end: number, pasted: str
 /**
  * Ввод пользователя в ячейке. Сохранение — через {@link AUTOSAVE_DELAY_MS} без ввода; во время
  * IME-композиции не отправляется.
- * @param cellId ячейка
+ * @param cellId ячейка, в которой идёт ввод
  * @param text полный текст
  * @param composing идёт ли IME-композиция
  */
@@ -306,15 +307,12 @@ export function editSource(cellId: string, text: string, composing: boolean): vo
     refreshStatus();
 }
 
-/**
- * Немедленно ставит в очередь ожидающую правку ячейки: выход из редактора, конец IME.
- * @param cellId ячейка
- */
+/** Немедленно ставит в очередь ожидающую правку ячейки: выход из редактора, конец IME. */
 export function commitSource(cellId: string): void {
     if (enqueueSource(cellId)) void run();
 }
 
-// Правка ячейки в очереди без запуска очереди; false — отправлять нечего
+/** Ставит правку ячейки в очередь, не запуская её; false — отправлять нечего. */
 function enqueueSource(cellId: string): boolean {
     cancelAutosave(cellId);
     const source = get().drafts[cellId];
@@ -335,7 +333,7 @@ const structural = (op: Op): Promise<string | boolean | undefined> => {
 
 /**
  * Добавляет пустую ячейку. Ячейка появляется только после подтверждения сервером.
- * @param kind вид ячейки
+ * @param kind вид новой ячейки
  * @param index позиция с нуля; без неё — в конец
  * @returns id новой ячейки или `undefined`, если добавить нельзя или не удалось
  */
@@ -348,7 +346,7 @@ export async function addCell(kind: CreatableKind, index?: number): Promise<stri
 
 /**
  * Перемещает ячейку на одну позицию.
- * @param cellId ячейка
+ * @param cellId перемещаемая ячейка
  * @param direction -1 — выше, 1 — ниже
  * @returns подтвердил ли сервер перемещение
  */
@@ -364,7 +362,6 @@ export async function moveCell(cellId: string, direction: -1 | 1): Promise<boole
 
 /**
  * Удаляет ячейку; её несохранённый текст пропадает только после подтверждения сервером.
- * @param cellId ячейка
  * @returns подтвердил ли сервер удаление
  */
 export async function deleteCell(cellId: string): Promise<boolean> {
@@ -379,7 +376,7 @@ export async function deleteCell(cellId: string): Promise<boolean> {
     return deleted;
 }
 
-// Подтверждённая операция: новый снимок, черновик снимается, только если он равен отправленному
+/** Подтверждённая операция: новый снимок; черновик снимается, только если равен отправленному. */
 function commit(job: Job, confirmed: Snapshot, createdId?: string): void {
     const { op } = job;
     const drafts = { ...get().drafts };
@@ -394,7 +391,7 @@ function commit(job: Job, confirmed: Snapshot, createdId?: string): void {
     for (const listener of saves) listener(confirmed);
 }
 
-// Снимок после операции, если она применилась; для create — и id созданной ячейки
+/** Снимок после операции, если она применилась; для create — и id созданной ячейки. */
 function expectedAfter(
     confirmed: Snapshot,
     op: Op,
@@ -408,7 +405,7 @@ function expectedAfter(
     return { snapshot: applyOp(confirmed, server.hash, op, createdId), createdId };
 }
 
-// Запрос операции с текущим hash: новый hash и, для create, id ячейки
+/** Запрос операции с текущим hash: новый hash и, для create, id ячейки. */
 async function send(
     op: Op,
     notebookId: number,
@@ -439,9 +436,9 @@ async function send(
     }
 }
 
-// У ячейки есть отправленная или ждущая отправки правка, ещё не подтверждённая сервером
 const isUpdateOf = (job: Job | null, cellId: string): boolean =>
     job?.op.type === 'update' && job.op.cellId === cellId;
+/** У ячейки есть отправленная или ждущая отправки правка, ещё не подтверждённая сервером. */
 const updateUnconfirmed = (cellId: string): boolean =>
     isUpdateOf(inflight, cellId) ||
     isUpdateOf(pending, cellId) ||
@@ -449,7 +446,7 @@ const updateUnconfirmed = (cellId: string): boolean =>
 
 const structureQueued = (): boolean => queue.some((j) => j.op.type !== 'update');
 
-// Очередь одного блокнота: строго по одной операции, каждая с hash предыдущего ответа
+/** Очередь одного блокнота: строго по одной операции, каждая с hash предыдущего ответа. */
 async function run(): Promise<void> {
     if (active === generation || paused()) return;
     const started = generation;
@@ -494,7 +491,7 @@ export const UNKNOWN_RESULT = new Set([
     'SERVICE_UNAVAILABLE',
 ]);
 
-// Сбой операции. Сеть и 5xx: запись могла состояться — перечитать и сверить, вслепую не повторять
+/** Сбой операции. Сеть и 5xx: запись могла пройти — перечитать и сверить, вслепую не повторять. */
 function failed(job: Job, error: unknown): void {
     const code = isRpcError(error) ? error.data?.code : undefined;
     const appCode = isRpcError(error) ? error.data?.appCode : undefined;
@@ -517,7 +514,7 @@ function failed(job: Job, error: unknown): void {
 
 type Loaded = { snapshot: Snapshot } | { error: 'gone' | 'failed' };
 
-// Свежий снимок блокнота; ошибка чтения не стирает экран
+/** Свежий снимок блокнота; ошибка чтения не стирает экран. */
 async function load(live: () => boolean): Promise<Loaded | null> {
     const id = get().notebookId;
     if (id === null) return null;
@@ -539,8 +536,11 @@ const loadFailed = (result: { error: 'gone' | 'failed' }): void => {
     refreshStatus();
 };
 
-// Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений. Не
-// применившаяся запись сама повторяется один раз; дальше ошибка остаётся до «Повторить» (manual)
+/**
+ * Сверка после сбоя: применилась ли операция и нет ли на сервере чужих изменений. Не применившаяся
+ * запись сама повторяется один раз; дальше ошибка остаётся до «Повторить».
+ * @param manual сверку запустило «Повторить»
+ */
 async function reconcile(manual = false): Promise<void> {
     if (reconciling) {
         retryRequested ||= manual;
@@ -586,21 +586,21 @@ async function reconcile(manual = false): Promise<void> {
 }
 
 /**
- * Повтор после ошибки сохранения или чтения: перечитать и сверить, без слепой записи. Если на сервере
- * ничего не изменилось, несохранённые правки отправляются один раз.
+ * Повтор после ошибки сохранения или чтения: перечитать и сверить, без слепой записи. Если на
+ * сервере ничего не изменилось, несохранённые правки отправляются один раз.
  */
 export async function retry(): Promise<void> {
     if (get().error === 'save') await reconcile(true);
 }
 
-// Конфликт с уже полученным снимком: диалог выбора версии открывается сразу
+/** Конфликт с уже полученным снимком: диалог выбора версии открывается сразу. */
 function enterConflict(snapshot: Snapshot): void {
     dropQueue();
     set({ conflict: { phase: 'ready', snapshot, dialogOpen: true }, structureBusy: false });
     refreshStatus();
 }
 
-// 409 notebook_conflict: очередь стоит, черновики остаются, загружается свежий снимок
+/** 409 notebook_conflict: очередь стоит, черновики остаются, загружается свежий снимок. */
 async function startConflict(): Promise<void> {
     finishResolving(false);
     dropQueue();
@@ -620,8 +620,11 @@ async function startConflict(): Promise<void> {
     enterConflict(result.snapshot);
 }
 
-// Конфликт снят, если не начался новый. Успех — только когда сохранено всё: черновик больше
-// лимита на сервер не ушёл и останется несохранённым, пока его не сократят
+/**
+ * Итог выбора «mine»: конфликт снят, ожидание {@link resolveConflict} получает результат. Успех —
+ * только когда сохранено всё: черновик больше лимита не ушёл и ждёт сокращения.
+ * @param ok очередь отработала без ошибки
+ */
 function finishResolving(ok: boolean): void {
     if (get().conflict.phase !== 'resolving') return;
     if (ok || !unresolved(get().conflict)) set({ conflict: { phase: 'none' } });
@@ -637,7 +640,7 @@ export async function retryConflictLoad(): Promise<void> {
     if (get().conflict.phase === 'failed') await startConflict();
 }
 
-/** Снова открывает диалог выбора версии: «Разрешить конфликт», ▶ и «Запустить всё» при конфликте. */
+/** Снова открывает диалог выбора версии: «Разрешить конфликт», ▶ и «Запустить всё» в конфликте. */
 export function openConflictDialog(): void {
     const { conflict } = get();
     if (conflict.phase === 'ready') set({ conflict: { ...conflict, dialogOpen: true } });
@@ -653,7 +656,6 @@ export function closeConflictDialog(): void {
  * Выбор версии при конфликте. «server» — принять свежий снимок и отбросить несохранённое;
  * «mine» — сохранить свои исходники затронутых ячеек поверх свежей версии с её hash.
  * Черновики ячеек, удалённых на сервере, остаются в `orphans` и не воссоздаются.
- * @param choice выбранная версия
  * @returns true, если всё сохранено; false — снова конфликт, ошибка или остался черновик больше
  *   лимита (он не отправлен и ждёт сокращения)
  */
@@ -703,10 +705,7 @@ export function resolveConflict(choice: 'server' | 'mine'): Promise<boolean> {
     return promise;
 }
 
-/**
- * Убирает черновик удалённой на сервере ячейки.
- * @param cellId ячейка
- */
+/** Убирает черновик удалённой на сервере ячейки. */
 export function dismissOrphan(cellId: string): void {
     set({ orphans: get().orphans.filter((o) => o.cellId !== cellId) });
 }
@@ -720,9 +719,8 @@ export type CellResult = Pick<
 /**
  * Результат исполнения в подтверждённую ячейку — только если её исходник всё ещё тот, что
  * исполнялся. Hash редактирования не меняется: результаты он не защищает.
- * @param cellId ячейка
+ * @param cellId ячейка, чей код исполнялся
  * @param source исполненный исходник
- * @param result результат
  */
 export function applyResult(cellId: string, source: string, result: CellResult): void {
     const { confirmed } = get();
@@ -744,8 +742,8 @@ export function resultsSaved(): void {
 }
 
 /**
- * Сервер отказал в исполнении из-за исходника: перечитать блокнот. Изменился — выбор версии, как при
- * конфликте сохранения; нет — снимок обновляется молча.
+ * Сервер отказал в исполнении из-за исходника: перечитать блокнот. Изменился — выбор версии, как
+ * при конфликте сохранения; нет — снимок обновляется молча.
  */
 export async function recheck(): Promise<void> {
     if (get().conflict.phase !== 'none' || reconciling || active === generation) return;
@@ -762,7 +760,6 @@ export async function recheck(): Promise<void> {
  * и дождаться подтверждения. Конфликт, ошибка, лимит или новый ввод этих ячеек за время ожидания —
  * отказ; разрешение конфликта отказ не отменяет, запуск нужно нажать заново.
  * @param cellIds ячейки, чей код будет исполнен; без них — все несохранённые
- * @returns итог ожидания
  */
 export function flush(cellIds?: string[]): Promise<FlushResult> {
     const start = get();

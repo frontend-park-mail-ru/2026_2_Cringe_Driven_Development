@@ -1,10 +1,10 @@
-/** Категория токена Python: цвет из макета (`code/*`) */
+/** Категория токена Python: цвет из макета (`code/*`). */
 export type PyTokenType = 'text' | 'keyword' | 'string' | 'number' | 'comment' | 'function';
 
 /**
  * Язык блока кода в Markdown — Python. Подсветка — только при явно названном языке, как в Jupyter.
  * @param lang первое слово после открывающих ``` или undefined
- * @returns `python`, `python3` или `py` в любом регистре
+ * @returns true для `python`, `python3` или `py` в любом регистре
  */
 export function isPythonLang(lang: string | undefined): boolean {
     return lang !== undefined && /^(?:python3?|py)$/i.test(lang);
@@ -16,7 +16,10 @@ export interface PyToken {
     text: string;
 }
 
-// Жёсткие ключевые слова Python 3.13. Мягкие (match, case, type, _) зависят от контекста: обычный текст
+/**
+ * Жёсткие ключевые слова Python 3.13. Мягкие (match, case, type, _) зависят от контекста и
+ * подсвечиваются как обычный текст.
+ */
 const KEYWORDS = new Set([
     'False',
     'None',
@@ -69,7 +72,7 @@ const matchAt = (pattern: RegExp, source: string, at: number): string | null => 
 
 const isQuote = (char: string | undefined): boolean => char === '"' || char === "'";
 
-// Глубже вложенные f-строки и поля разбираются как обычный текст строки: рекурсия не переполнит стек
+/** Глубже вложенные f-строки и поля разбираются как обычный текст строки: стек не переполнится. */
 const MAX_NESTING = 32;
 
 /**
@@ -105,8 +108,8 @@ function stringEnd(source: string, at: number, formatted: boolean, nesting = 0):
 
 /**
  * Конец поля замены f-строки после `{`. В выражении бывают вложенные скобки, комментарии и строки
- * с теми же кавычками (Python 3.12+); после `:` верхнего уровня — спецификатор, где кавычки — просто
- * символы, а `{}` — вложенные поля. Для однострочной f-строки перевод строки обрывает поле —
+ * с теми же кавычками (Python 3.12+); после `:` верхнего уровня — спецификатор, где кавычки —
+ * просто символы, а `{}` — вложенные поля. Для однострочной f-строки перевод строки обрывает поле —
  * незаконченный ввод не окрашивает строкой весь код ниже.
  */
 function fieldEnd(source: string, at: number, quote: string, nesting: number): number {
@@ -139,7 +142,7 @@ function fieldEnd(source: string, at: number, quote: string, nesting: number): n
         const name = matchAt(IDENTIFIER, source, i);
         if (name) {
             const end = i + name.length;
-            // вложенная строка с префиксом: f"{f'{x}'}"
+            /** Вложенная строка с префиксом: f"{f'{x}'}" */
             const prefixed = STRING_PREFIXES.has(name.toLowerCase()) && isQuote(source[end]);
             i = prefixed ? stringEnd(source, end, isFormatPrefix(name), nesting) : end;
             continue;
@@ -164,8 +167,6 @@ const isFormatPrefix = (prefix: string): boolean => {
  * Разбор исходника Python на токены для подсветки. Склейка текстов токенов всегда равна
  * исходнику: незавершённый или ошибочный код не теряет символов. Ничего не вычисляет.
  * f-строка — один токен строки целиком, с префиксом и выражениями.
- * @param source исходник ячейки
- * @returns токены по порядку
  */
 export function tokenizePython(source: string): PyToken[] {
     const tokens: PyToken[] = [];
@@ -174,7 +175,7 @@ export function tokenizePython(source: string): PyToken[] {
         if (last && last.type === type) last.text += text;
         else tokens.push({ type, text });
     };
-    // после def следующее имя — объявляемая функция
+    /** После def следующее имя — объявляемая функция */
     let afterDef = false;
     let i = 0;
     while (i < source.length) {
@@ -213,7 +214,7 @@ export function tokenizePython(source: string): PyToken[] {
             continue;
         }
 
-        // имя с цифрами целиком разобрано выше: здесь число не продолжает идентификатор
+        /** Имя с цифрами целиком разобрано выше: здесь число не продолжает идентификатор */
         const number = matchAt(NUMBER, source, i);
         if (number) {
             push('number', number);

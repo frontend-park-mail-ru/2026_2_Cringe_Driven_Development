@@ -19,7 +19,7 @@ const SUMMED = [DIST_ASSET, IMAGE_ASSET, MANIFEST_ASSET];
 const ASSETS = [...SUMMED, SUMS_ASSET];
 /** Лимит GitHub на asset; размер должен быть строго меньше. */
 export const MAX_ASSET_SIZE = 2 * 1024 ** 3;
-/** release.json и SHA256SUMS скачиваются для проверки; бинарные архивы — нет. */
+/** Предел скачиваемого для проверки asset: release.json и SHA256SUMS; архивы не скачиваются. */
 const SMALL_ASSET = 64 * 1024;
 
 /** Состав и происхождение выпуска: asset `release.json`. */
@@ -58,7 +58,7 @@ export interface GitHubRelease {
 
 /** Каталог ассетов выпуска в S3 и на CDN. */
 export const assetsOf = (sha: string): string => `releases/${sha}/`;
-/** Тег выпуска. */
+/** Тег выпуска `release-<sha>`. */
 export const tagOf = (sha: string): string => `release-${sha}`;
 
 /** SHA из точного тега `release-<полный SHA>`. */
@@ -167,7 +167,6 @@ export function renderSums(sums: Record<string, string>): string {
 
 /**
  * Разбирает SHA256SUMS: ровно три строки `sha256sum` для трёх файлов выпуска.
- * @param text содержимое
  * @returns hex-суммы по именам
  */
 export function parseSums(text: string): Record<string, string> {
@@ -200,7 +199,6 @@ export async function listReleases(): Promise<GitHubRelease[]> {
 /**
  * Release SHA, включая draft (его видит токен с правом записи).
  * @param sha полный SHA
- * @returns Release или undefined
  */
 export async function findRelease(sha: string): Promise<GitHubRelease | undefined> {
     const found = (await listReleases()).filter((release) => release.tag_name === tagOf(sha));
@@ -251,7 +249,11 @@ async function downloadAsset(asset: ReleaseAsset): Promise<string> {
     return new TextDecoder().decode(bytes);
 }
 
-/** Asset проверяемого выпуска: ровно один, загружен, размер и digest GitHub. */
+/**
+ * Проверяет assets выпуска: нет лишних и повторных; каждый из `names` загружен, размер меньше
+ * {@link MAX_ASSET_SIZE}, есть digest GitHub.
+ * @returns assets по именам
+ */
 function checkAssets(release: GitHubRelease, names: string[]): Map<string, ReleaseAsset> {
     const byName = new Map<string, ReleaseAsset>();
     for (const asset of release.assets) {
@@ -316,7 +318,7 @@ export async function checkSource(manifest: ReleaseManifest): Promise<void> {
  * @param release Release из API
  * @param sha полный SHA
  * @param [draft] проверка draft перед publish: тега ещё нет, сверяется target_commitish
- * @returns manifest
+ * @returns проверенный release.json
  */
 export async function verifyRelease(
     release: GitHubRelease,
@@ -364,7 +366,7 @@ async function draftManifest(release: GitHubRelease, sha: string): Promise<Relea
     return readManifestAsset(asset, sha);
 }
 
-/** Опубликованный проверенный Release по точному тегу; выход шага для CD и Rollback. */
+/** Опубликованный и проверенный Release по точному тегу: источник выпуска для CD и Rollback. */
 export async function readyRelease(
     sha: string,
 ): Promise<{ release: GitHubRelease; manifest: ReleaseManifest }> {
@@ -472,7 +474,6 @@ export interface PublishOptions {
  * Публикует выпуск: проверенный опубликованный — пропускается; draft — завершается с
  * зафиксированным составом; иначе draft на точном SHA → assets → publish. Архивы — из тех же
  * байтов, что в CDN/GHCR.
- * @param options выпуск
  * @returns id опубликованного Release
  */
 export async function publishRelease(options: PublishOptions): Promise<number> {

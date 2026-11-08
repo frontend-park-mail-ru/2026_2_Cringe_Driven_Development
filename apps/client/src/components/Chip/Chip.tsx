@@ -12,11 +12,7 @@ interface ChipProps {
     onClick: () => void;
 }
 
-/**
- * Чип «+ Код» / «+ Текст» (Components → Chip).
- * @param props свойства чипа
- * @returns элемент button
- */
+/** Чип «+ Код» / «+ Текст» (Components → Chip). */
 export function Chip({ children, id, disabled, onClick }: ChipProps) {
     return (
         <button id={id} className={styles.chip} type="button" disabled={disabled} onClick={onClick}>

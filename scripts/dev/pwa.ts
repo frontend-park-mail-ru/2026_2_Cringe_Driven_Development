@@ -1,13 +1,13 @@
-// Локальная проверка PWA и service worker: production-сборка клиента и BFF на одном origin, без CDN и
-// Docker. В bun run dev service worker нет: там HMR. Адрес другой, чтобы режимы можно было держать рядом.
+// Локальная проверка PWA и service worker: production-сборка клиента и BFF на одном origin, без CDN
+// и Docker. В bun run dev service worker нет: там HMR. Адрес другой, чтобы режимы работали рядом.
 import { join } from 'node:path';
 
 const ORIGIN = 'http://localhost:4173';
 const root = join(import.meta.dir, '../..');
 
-// пустые значения важнее корневого .env: с ними чанки ищутся здесь, а не на CDN релиза
 const build = Bun.spawnSync(['bun', 'run', 'build'], {
     cwd: join(root, 'apps/client'),
+    /** Пустые значения важнее корневого .env: с ними чанки ищутся здесь, а не на CDN релиза */
     env: { ...process.env, RELEASE_SHA: '', CDN_URL: '' },
     stdio: ['ignore', 'inherit', 'inherit'],
 });
@@ -21,7 +21,7 @@ const bff = Bun.spawn(['bun', '--env-file=../../.env', 'src/dev.ts'], {
         APP_ORIGIN: ORIGIN,
         PORT: '4173',
         HTML_TEMPLATE: join(root, 'apps/client/dist/index.html'),
-        // пустое значение отменяет умолчание dev.ts: нужны sw.js, манифест и offline.html
+        /** Пустое значение отменяет умолчание dev.ts: нужны sw.js, манифест и offline.html */
         SKIP_PUBLIC_FILES: '',
         SERVE_CLIENT_ASSETS: '1',
     },

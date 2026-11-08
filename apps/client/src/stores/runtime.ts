@@ -41,7 +41,7 @@ export const POLL_INTERVAL_MS = 2000;
 export const SUCCESS_VISIBLE_MS = 4000;
 /** Не чаще одного сигнала активности за это время. */
 export const ACTIVITY_INTERVAL_MS = 30_000;
-// Лимит execution IDs одного вызова runtime.updates — не лимит размера запуска
+/** Лимит execution IDs одного вызова `runtime.updates` — не лимит размера запуска. */
 const CHUNK = 100;
 
 const ENDED = new Set<RuntimeSession['state']>(['STOPPED', 'FAILED']);
@@ -111,29 +111,36 @@ export const useRuntimeStore = create<RuntimeState>()(() => empty());
 const get = () => useRuntimeStore.getState();
 const set = (patch: Partial<RuntimeState>) => useRuntimeStore.setState(patch);
 
-// Поколение меняется при открытии, закрытии и смене сессии: поздние ответы прежних не применяются
+/**
+ * Поколение: меняется при открытии, закрытии и смене сессии, поздние ответы прежних не
+ * применяются.
+ */
 let generation = 0;
-// Курсор последней успешно применённой страницы событий
+/** Курсор последней успешно применённой страницы событий. */
 let cursor = 0;
-// Обход отслеживаемых IDs: состав фиксируется в начале, порции по CHUNK идут подряд
+/** Обход отслеживаемых IDs: состав фиксируется в начале, порции по {@link CHUNK} идут подряд. */
 let pass: string[] = [];
 let offset = 0;
 let polling = false;
-// Опрос нужен сразу после текущего: принятая команда или stop во время запроса
+/** Опрос нужен сразу после текущего: принятая команда или stop во время запроса. */
 let again = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let successTimer: ReturnType<typeof setTimeout> | undefined;
-// Исполнения, начатые или увиденные незавершёнными на этой странице. Завершённые до неё — история:
-// их результат уже в content, повтор журнала не подменяет его
+/**
+ * Исполнения, начатые или увиденные незавершёнными на этой странице. Завершённые до неё — история:
+ * их результат уже в content, повтор журнала не подменяет его.
+ */
 const live = new Set<string>();
-// Ключ запуска окружения ждёт повтора после сбоя сети
+/** Ключ запуска окружения, ждущий повтора после сбоя сети. */
 let startRequest: string | undefined;
-// Команда исполнения, чей результат неизвестен после сбоя: повтор — с теми же ID и телом
+/** Команда исполнения, чей результат неизвестен после сбоя: повтор — с теми же ID и телом. */
 let unsent: Command | null = null;
-// stop с неизвестным результатом: «Повторить» отправляет его снова, stop идемпотентен
+/** `stop` с неизвестным результатом: «Повторить» отправляет его снова, `stop` идемпотентен. */
 let stopUnsure = false;
-// Последний seq журнала на момент открытия: исполнения из событий до него — история, после — новые,
-// в том числе завершённые в другой вкладке между опросами
+/**
+ * Последний seq журнала на момент открытия: исполнения из событий до него — история, после — новые,
+ * в том числе завершённые в другой вкладке между опросами.
+ */
 let replayUntil = 0;
 let lastActivity = Number.NEGATIVE_INFINITY;
 
@@ -165,7 +172,6 @@ const resetTracking = (): void => {
 /**
  * Окружение при открытии блокнота: активная сессия и очередь из первоначальной загрузки. Своя
  * сессия — наблюдение с начала журнала; спиннеры сразу из снимка очереди, без ожидания replay.
- * @param page данные страницы блокнота
  */
 export function openRuntime(page: NotebookPageData): void {
     resetTracking();
@@ -179,7 +185,10 @@ export function openRuntime(page: NotebookPageData): void {
     kick();
 }
 
-/** Уход со страницы: опрос прекращается, поздние ответы не применяются. Окружение не останавливается. */
+/**
+ * Уход со страницы: опрос прекращается, поздние ответы не применяются. Окружение не
+ * останавливается.
+ */
 export function closeRuntime(): void {
     resetTracking();
     startRequest = undefined;
@@ -187,8 +196,10 @@ export function closeRuntime(): void {
     set(empty());
 }
 
-// Время начала выполнения по очереди. Go его не отдаёт: отсчёт — с первого наблюдения RUNNING на
-// этой странице, после перезагрузки начнётся заново
+/**
+ * Время начала выполнения по очереди. Go его не отдаёт: отсчёт — с первого наблюдения RUNNING на
+ * этой странице, после перезагрузки начнётся заново.
+ */
 function runningSince(items: QueueItem[]): Record<string, number> {
     const known = get().startedAt;
     const next: Record<string, number> = {};
@@ -199,7 +210,7 @@ function runningSince(items: QueueItem[]): Record<string, number> {
     return next;
 }
 
-// Новые живые исполнения: порядок появления — порядок свежести для ячейки
+/** Отмечает новые живые исполнения: порядок появления — порядок свежести для ячейки. */
 function track(items: { execution_id: string; cell_id: string }[]): void {
     let latest: Record<string, string> | undefined;
     for (const { execution_id, cell_id } of items) {
@@ -211,7 +222,7 @@ function track(items: { execution_id: string; cell_id: string }[]): void {
     if (latest) set({ latest });
 }
 
-// Ещё нужны обновления: снимка нет, исполнение не завершено или результат ждёт сохранения
+/** Ещё нужны обновления: снимка нет, исполнение не завершено или результат ждёт сохранения. */
 const needed = (id: string): boolean => {
     const snapshot = get().executions[id];
     return !snapshot || !TERMINAL.has(snapshot.state) || snapshot.projection === 'pending';
@@ -219,8 +230,6 @@ const needed = (id: string): boolean => {
 
 /**
  * Есть ли завершённые исполнения, чей результат ещё сохраняется: «Сохраняем результаты…».
- * @param state состояние стора
- * @returns true, если хоть один результат ждёт сохранения
  */
 export function resultsPending(state: RuntimeState): boolean {
     return Object.values(state.executions).some(
@@ -230,19 +239,17 @@ export function resultsPending(state: RuntimeState): boolean {
 
 /**
  * Статус запуска в шапке: очередь важнее итога, пока в ней что-то есть.
- * @param state состояние стора
  * @returns статус или null — шапка без статуса выполнения
  */
 export function runStatus(state: RuntimeState): RunOutcome | null {
     if (!own(state)) return state.outcome;
-    // запуск идёт, пока в очереди что-то есть — даже между ячейками, когда ни одна ещё не взята
+    // в том числе между ячейками, когда ни одна ещё не взята
     if (state.queue.length > 0) return 'running';
     return state.outcome;
 }
 
 /**
  * Может ли окружение исполнять код этого блокнота сейчас.
- * @param state состояние стора
  * @returns true, если своя сессия READY, команда не ждёт принятия и нет команды, ждущей повтора
  */
 export function canExecute(state: RuntimeState): boolean {
@@ -251,14 +258,13 @@ export function canExecute(state: RuntimeState): boolean {
 
 /**
  * Занимает ли сессия слот пользователя: до подтверждённого завершения, включая очистку.
- * @param session сессия
  * @returns true для всех состояний, кроме STOPPED и FAILED
  */
 export function sessionActive(session: RuntimeSession | null): boolean {
     return session !== null && !ENDED.has(session.state);
 }
 
-// Опрос сразу: после команды, stop и при открытии. Цепочка одна: идущий запрос не дублируется
+/** Опрос сразу: после команды, stop и при открытии. Цепочка одна: идущий запрос не дублируется. */
 function kick(): void {
     if (!own()) return;
     clearTimeout(timer);
@@ -303,12 +309,14 @@ async function poll(): Promise<void> {
     timer = setTimeout(() => void poll(), again ? 0 : delay);
 }
 
-// Сессия завершена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
-// неизвестный результат, а не вечное «выполняется»
+/**
+ * Сессия завершена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
+ * неизвестный результат, а не вечное «выполняется».
+ */
 function finished(): boolean {
     const session = own();
     if (session && !ENDED.has(session.state)) return false;
-    // результат уже исполненного кода ещё сохраняется: дочитать, иначе «Сохраняем результаты…» навсегда
+    // результат ещё сохраняется: дочитать, иначе «Сохраняем результаты…» навсегда
     if (resultsPending(get())) return false;
     const { run, outcome, executions } = get();
     const open = (id: string) => {
@@ -351,8 +359,10 @@ function apply(res: Updates): void {
     if (stored && !resultsPending(get())) resultsSaved();
 }
 
-// Вывод последнего исполнения ячейки — в её подтверждённый снимок, если исполнялся её текущий
-// исходник. Поздний результат старого source и конфликт сохранения его не заменяют
+/**
+ * Вывод последнего исполнения ячейки — в её подтверждённый снимок, если исполнялся её текущий
+ * исходник. Поздний результат старого source и конфликт сохранения его не заменяют.
+ */
 async function showResult(execution: RuntimeExecution): Promise<void> {
     const { cell_id, execution_id, projection } = execution;
     if (projection === 'conflict' || get().latest[cell_id] !== execution_id) return;
@@ -365,7 +375,7 @@ async function showResult(execution: RuntimeExecution): Promise<void> {
     applyResult(cell_id, cell.source, { outputs, execution_count, output_truncated });
 }
 
-// Итог по всем попыткам запуска. Объявленный итог поздние ответы не меняют
+/** Итог по всем попыткам запуска. Объявленный итог поздние ответы не меняют. */
 function evaluate(): void {
     const { run, executions, outcome } = get();
     if (!run || (outcome !== null && outcome !== 'running')) return;
@@ -382,7 +392,7 @@ function evaluate(): void {
     }, SUCCESS_VISIBLE_MS);
 }
 
-// Приоритет смешанного итога: неизвестный → ошибка → остановка → успех
+/** Итог по состояниям; приоритет смешанного: неизвестный → ошибка → остановка → успех. */
 const outcomeOf = (states: RuntimeExecution['state'][]): RunOutcome => {
     if (states.includes('UNKNOWN')) return 'unknown';
     if (states.some((s) => s === 'FAILED' || s === 'REJECTED' || s === 'TIMED_OUT')) {
@@ -404,7 +414,7 @@ export async function sha256(text: string): Promise<string> {
 
 const fail = (error: RuntimeError): void => set({ error, failure: get().failure + 1 });
 
-// Сбой, после которого команда могла быть принята: повтор — только с теми же ID и телом
+/** Сбой, после которого команда могла быть принята: повтор — только с теми же ID и телом. */
 const uncertain = (error: unknown): boolean =>
     !isRpcError(error) || UNKNOWN_RESULT.has(error.data?.code ?? '');
 
@@ -422,7 +432,7 @@ const errorOf = (error: unknown): RuntimeError => {
     }
 };
 
-// Наблюдение за другой сессией: прежние исполнения и курсор к ней не относятся
+/** Наблюдение за сессией; при смене сессии прежние исполнения и курсор сбрасываются. */
 function observe(session: RuntimeSession): void {
     if (get().session?.id !== session.id) {
         resetTracking();
@@ -471,7 +481,6 @@ export async function startRuntime(): Promise<void> {
 /**
  * «Выполнить» сохранённую кодовую ячейку: сначала её сохранение через общий механизм, затем
  * исполнение по SHA-256 подтверждённого исходника. Конфликт — диалог выбора версии, без запуска.
- * @param cellId ячейка
  */
 export async function runCell(cellId: string): Promise<void> {
     if (!canExecute(get()) || conflictFirst()) return;
@@ -523,14 +532,20 @@ export async function retryCommand(): Promise<void> {
     if (startRequest) return startRuntime();
 }
 
-// Известный конфликт сохранения: запуск ячейки и «Выполнить всё» открывают диалог, команда не уходит
+/**
+ * Известный конфликт сохранения: запуск ячейки и «Выполнить всё» открывают диалог, команда не
+ * уходит.
+ */
 function conflictFirst(): boolean {
     if (useNotebookStore.getState().conflict.phase === 'none') return false;
     openConflictDialog();
     return true;
 }
 
-// Ожидание сохранения ячеек перед исполнением; их подтверждённые исходники или null — не запускать
+/**
+ * Ожидание сохранения ячеек перед исполнением.
+ * @returns подтверждённые исходники по ID или null — не запускать
+ */
 async function saved(cellIds: string[]): Promise<Map<string, string> | null> {
     const started = generation;
     set({ busy: 'execute', error: null });
@@ -595,12 +610,16 @@ async function send(command: Command): Promise<void> {
         set({ awaitingRetry: unsent !== null });
         const reason = errorOf(error);
         fail(reason);
-        // исходник на сервере другой: свежий снимок или выбор версии; код без нового нажатия не идёт
+        // исходник на сервере другой: свежий снимок или выбор версии, сам код не уходит
         if (reason === 'conflict') void recheck();
     }
 }
 
-/** «Завершить окружение»: после принятия — STOPPING, исполнение недоступно, опрос дочитывает хвост. */
+/**
+ * «Завершить окружение»: после принятия — STOPPING, исполнение недоступно, опрос дочитывает
+ * хвост.
+ */
+
 export async function stopRuntime(): Promise<void> {
     const session = own();
     if (!session || ENDED.has(session.state) || get().busy !== null) return;

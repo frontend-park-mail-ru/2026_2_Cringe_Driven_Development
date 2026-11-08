@@ -6,9 +6,10 @@ import { deleteObject, listObjects, openBucket } from './s3.ts';
 const KEEP_RELEASES = 5;
 
 /**
- * Оставить KEEP_RELEASES последних релизов и, независимо от возраста, ассеты последнего успешного
- * выпуска прода и предыдущего успешного с другим digest (история GitHub Deployments). Если последняя
- * попытка выкатки не success, очистка откладывается: попытка могла переключить контейнер.
+ * Оставляет {@link KEEP_RELEASES} последних релизов и, независимо от возраста, ассеты последнего
+ * успешного выпуска прода и предыдущего успешного с другим digest (история GitHub Deployments).
+ * Если последняя попытка выкатки не success, очистка откладывается: попытка могла переключить
+ * контейнер.
  */
 export async function retention(): Promise<void> {
     const keep = protectedReleases(await listDeployments<ProductionPayload>(PRODUCTION_ENV));
@@ -18,7 +19,7 @@ export async function retention(): Promise<void> {
     }
     const bucket = openBucket();
 
-    // возраст релиза — время последней записи в его каталог
+    /** Релизы по SHA; возраст релиза — время последней записи в его каталог */
     const releases = new Map<string, { keys: string[]; modified: number }>();
     for (const { key, modified } of await listObjects(bucket, 'releases/')) {
         const dir = key.split('/')[1] ?? '';

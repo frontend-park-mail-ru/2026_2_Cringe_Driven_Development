@@ -16,6 +16,7 @@ import styles from './Conflict.module.css';
 
 const SERVER_ID = 'conflict-server';
 
+/** Заголовок и текст баннера по фазе конфликта */
 const BANNER = {
     loading: {
         title: 'Конфликт сохранения: загружаем актуальную версию',
@@ -39,8 +40,6 @@ interface ConflictBannerProps {
 /**
  * Предупреждение над ячейками, пока конфликт сохранения не разрешён: загрузка свежей версии,
  * ошибка её загрузки или повторное открытие диалога.
- * @param props свойства баннера
- * @returns баннер или ничего
  */
 export function ConflictBanner({ className }: ConflictBannerProps) {
     const conflict = useNotebookStore((state) => state.conflict);
@@ -89,7 +88,7 @@ export function ConflictBanner({ className }: ConflictBannerProps) {
     );
 }
 
-// Тост — только когда выбор подтверждён; иначе снова открывается диалог конфликта
+/** Разрешает конфликт выбранной версией; тост — только когда выбор подтверждён. */
 const choose = (choice: 'server' | 'mine'): void => {
     void resolveConflict(choice).then((ok) => {
         if (!ok) return;
@@ -100,7 +99,6 @@ const choose = (choice: 'server' | 'mine'): void => {
 /**
  * Диалог выбора версии при конфликте сохранения. Крестик, Escape и клик по фону закрывают его без
  * выбора: черновики и пауза сохранения остаются.
- * @returns диалог или ничего
  */
 export function ConflictDialog() {
     const conflict = useNotebookStore((state) => state.conflict);
@@ -157,8 +155,6 @@ interface OrphanDraftProps {
 /**
  * Черновик ячейки, которую удалили в другой вкладке: только для чтения и копирования, сама ячейка
  * не воссоздаётся.
- * @param props свойства блока
- * @returns блок с текстом
  */
 export function OrphanDraft({ orphan }: OrphanDraftProps) {
     return (

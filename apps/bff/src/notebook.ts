@@ -21,13 +21,12 @@ export type NotebookPage = {
 
 /**
  * Общий загрузчик блокнота для HTML и `notebooks.get`: метаданные — из `GET /notebooks/{id}`,
- * согласованные `hash` и ячейки — из одного ответа `GET /notebooks/{id}/content`, активная сессия —
- * из `GET /runtime-sessions/active`; три чтения параллельно. Очередь читается после `/active` и только
- * для сессии этого блокнота. Сбой любого чтения — ошибка, а не пустые данные.
+ * согласованные `hash` и ячейки — из одного ответа `GET /notebooks/{id}/content`, активная
+ * сессия — из `GET /runtime-sessions/active`; три чтения параллельно. Очередь читается после
+ * `/active` и только для сессии этого блокнота. Сбой любого чтения — ошибка, а не пустые данные.
  * @param go вызовы Go от имени сессии
- * @param id ID блокнота
- * @returns данные страницы блокнота
  */
+
 export async function loadNotebook(go: Go, id: number): Promise<NotebookPage> {
     const active = go.getActiveRuntimeSession();
     const queue = active.then((session) =>

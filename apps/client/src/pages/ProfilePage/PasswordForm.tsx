@@ -27,7 +27,6 @@ type Field = keyof typeof EMPTY;
  * Раздел «Смена пароля». Кнопка активна, когда заполнены все поля. Неверный текущий пароль —
  * ошибка под его полем, новый пароль и повтор остаются. После успеха Go отзывает все сессии:
  * пользователь становится гостем и входит заново с новым паролем.
- * @returns раздел с формой
  */
 export function PasswordForm() {
     const [values, setValues] = useState(EMPTY);
@@ -40,7 +39,8 @@ export function PasswordForm() {
     const [focusRequest, setFocusRequest] = useState<{ field: Field } | null>(null);
     const [life] = useState({ alive: true });
 
-    // после снятия pending: отключённое поле фокус не принимает
+    // фокус — после снятия pending: отключённое поле его не принимает
+
     useEffect(() => {
         if (focusRequest) document.getElementById(fieldId(focusRequest.field))?.focus();
     }, [focusRequest]);

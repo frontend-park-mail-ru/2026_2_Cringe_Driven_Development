@@ -13,7 +13,7 @@ const t = initTRPC.context<Context>().create({
         const { stack: _stack, ...data } = shape.data;
         return {
             ...shape,
-            // детали неожиданных исключений клиенту не отдаются
+            /** Детали неожиданных исключений клиенту не отдаются. */
             message: internal ? 'Internal Server Error' : shape.message,
             data: {
                 ...data,
@@ -29,7 +29,7 @@ const t = initTRPC.context<Context>().create({
 /** Роутер tRPC. */
 export const router = t.router;
 
-// все процедуры: ошибки — в коды tRPC, Set-Cookie сессии — по итоговому решению
+/** Основа всех процедур: ошибки — в коды tRPC, Set-Cookie сессии — по итоговому решению. */
 const base = t.procedure.use(async ({ ctx, next }) => {
     try {
         const result = await next();

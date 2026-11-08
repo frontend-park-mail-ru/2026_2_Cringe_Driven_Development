@@ -9,21 +9,17 @@ export interface ToastMessage {
     /** Уникален для каждого показа */
     id: number;
     text: string;
-    /** Вид из макета: success — успех, info — нейтральное сообщение */
+    /** Вид из макета: `success` — успех, `info` — нейтральное сообщение */
     type: ToastType;
 }
 
 /** Свойства {@link Toast}. */
 interface ToastProps {
-    /** Что показать; null — тоста нет */
+    /** Что показать; `null` — тоста нет */
     toast: ToastMessage | null;
 }
 
-/**
- * Тост внизу по центру экрана (Components → Toast).
- * @param props свойства тоста
- * @returns область уведомлений
- */
+/** Тост внизу по центру экрана (Components → Toast). */
 export function Toast({ toast }: ToastProps) {
     return (
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role

@@ -6,10 +6,12 @@ import { listReleases, tagOf, verifyRelease } from './releases.ts';
 
 /** Состав конкретного диапазона, независимо от Telegram и доски. */
 export interface ChangeReport {
+    /** null — база неизвестна */
     baseSha: string | null;
     headSha: string;
     prs: { number: number; title: string; url: string; mergeSha: string }[];
     issues: LinkedIssue[];
+    /** false — состав недоступен, `prs` и `issues` не заполнены */
     complete: boolean;
 }
 
@@ -154,6 +156,7 @@ export async function readChangeReport(
     return report;
 }
 
+/** Экранирует текст для Markdown и сводит его в одну строку. */
 function markdown(value: string): string {
     return value
         .replaceAll('&', '&amp;')

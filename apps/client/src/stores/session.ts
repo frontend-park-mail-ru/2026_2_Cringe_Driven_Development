@@ -3,7 +3,7 @@ import { create } from '@cdd-team/zustand';
 import { isRpcError, switchSession, trpc, type User } from '@api/trpc';
 import { showSnackbar } from '@stores/snackbar';
 
-/** guest — не вошёл, authed — вошёл. Известен с первого рендера: его задаёт первый HTML. */
+/** `guest` — не вошёл, `authed` — вошёл. Известен с первого рендера: его задаёт первый HTML. */
 export type SessionStatus = 'guest' | 'authed';
 
 interface SessionState {
@@ -32,8 +32,8 @@ export function initSession(user: User | null): void {
 }
 
 /**
- * Ошибка входа или регистрации. code — `appCode` от Go, validation_error — ещё и ошибки полей
- * проверки BFF, network — BFF недоступен или ответил не по протоколу.
+ * Ошибка входа или регистрации. `code` — `appCode` от Go, `validation_error` — ещё и ошибки полей
+ * проверки BFF, `network` — BFF недоступен или ответил не по протоколу.
  */
 export interface AuthError {
     code: string;
@@ -66,11 +66,7 @@ function toAuthError(error: unknown): AuthError {
     return { code: appCode ?? 'unknown', message: error.message };
 }
 
-/**
- * Вход по логину и паролю.
- * @param credentials логин и пароль
- * @returns итог входа
- */
+/** Вход по логину и паролю. */
 export async function login(credentials: Credentials): Promise<AuthResult> {
     try {
         const user = await switchSession(() => trpc.auth.login.mutate(credentials));
@@ -81,11 +77,7 @@ export async function login(credentials: Credentials): Promise<AuthResult> {
     }
 }
 
-/**
- * Регистрация. BFF сразу ставит cookie сессии, поэтому после неё пользователь уже вошёл.
- * @param credentials логин и пароль
- * @returns итог регистрации
- */
+/** Регистрация. BFF сразу ставит cookie сессии, поэтому после неё пользователь уже вошёл. */
 export async function register(credentials: Credentials): Promise<AuthResult> {
     try {
         const user = await switchSession(() => trpc.auth.register.mutate(credentials));
@@ -108,7 +100,7 @@ export async function changePassword(
     useSessionStore.setState(GUEST);
 }
 
-/** Итог выхода: serverRevocation от BFF или failed — BFF не ответил, выход не подтверждён. */
+/** Итог выхода: `serverRevocation` от BFF или `failed` — BFF не ответил, выход не подтверждён. */
 export type LogoutResult = RouterOutputs['auth']['logout']['serverRevocation'] | 'failed';
 
 const REVOCATION_WARNINGS: Partial<Record<LogoutResult, string>> = {
@@ -121,7 +113,6 @@ const REVOCATION_WARNINGS: Partial<Record<LogoutResult, string>> = {
  * Любой ответ BFF — выход в этом браузере: пользователь — гость, а если Go не подтвердил отзыв,
  * об этом сообщает снекбар. Сбой сети или CSRF — не выход: снекбар с ошибкой, сессию гостем
  * делает только `onSessionLost`, если она закончилась, пока ждали отправленные запросы.
- * @returns итог выхода
  */
 export async function logout(): Promise<LogoutResult> {
     let result: LogoutResult;
@@ -137,14 +128,16 @@ export async function logout(): Promise<LogoutResult> {
     return result;
 }
 
-/** Итог выхода со всех устройств: ok — Go подтвердил, lost — сессия потеряна без подтверждения. */
+/**
+ * Итог выхода со всех устройств: `ok` — Go подтвердил, `lost` — сессия потеряна без подтверждения,
+ * `failed` — исход неизвестен, сессия остаётся.
+ */
 export type LogoutAllResult = 'ok' | 'lost' | 'failed';
 
 /**
  * Выход со всех устройств через `switchSession`. Успех — только после подтверждения Go: тогда
  * пользователь — гость. Потеря сессии (`UNAUTHORIZED`) — не подтверждение общего отзыва: её
  * обрабатывает `onSessionLost`. Сбой сети, Go 5xx или S2S — исход неизвестен, сессия остаётся.
- * @returns итог выхода
  */
 export async function logoutAll(): Promise<LogoutAllResult> {
     try {
@@ -156,7 +149,7 @@ export async function logoutAll(): Promise<LogoutAllResult> {
     return 'ok';
 }
 
-/** Ошибка загрузки аватара: file — файл отвергнут, upload — сбой сети, Go или BFF. */
+/** Ошибка загрузки аватара: `file` — файл отвергнут, `upload` — сбой сети, Go или BFF. */
 export type AvatarError = 'file' | 'upload';
 
 const FILE_ERRORS = new Set(['validation_error', 'payload_too_large', 'unsupported_media_type']);

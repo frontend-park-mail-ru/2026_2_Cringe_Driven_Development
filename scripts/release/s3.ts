@@ -20,13 +20,10 @@ export interface Bucket {
     name: string;
 }
 
-/**
- * Клиент S3 и бакет из переменных S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY и S3_SECRET_KEY.
- * @returns бакет релизов
- */
+/** Клиент S3 и бакет из переменных S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY и S3_SECRET_KEY. */
 export function openBucket(): Bucket {
     const endpoint = need('S3_ENDPOINT');
-    // регион подписи у Selectel — пул из адреса: https://s3.<пул>.storage.selcloud.ru
+    /** Регион подписи у Selectel — пул из адреса: https://s3.<пул>.storage.selcloud.ru */
     const region = process.env.S3_REGION || /^https?:\/\/s3\.([^./]+)\./.exec(endpoint)?.[1];
     if (!region) {
         throw new ReleaseError('Не удалось взять регион из S3_ENDPOINT, задайте S3_REGION');
@@ -39,21 +36,14 @@ export function openBucket(): Bucket {
             accessKeyId: need('S3_ACCESS_KEY'),
             secretAccessKey: need('S3_SECRET_KEY'),
         },
-        // S3 Selectel не считает контрольные суммы, которые SDK шлёт по умолчанию
+        /** S3 Selectel не считает контрольные суммы, которые SDK шлёт по умолчанию */
         requestChecksumCalculation: 'WHEN_REQUIRED',
         responseChecksumValidation: 'WHEN_REQUIRED',
     });
     return { client, name: need('S3_BUCKET') };
 }
 
-/**
- * Записывает объект в бакет.
- * @param bucket бакет
- * @param key ключ объекта
- * @param body содержимое
- * @param contentType значение Content-Type
- * @param cacheControl значение Cache-Control
- */
+/** Записывает объект в бакет с заголовками Content-Type и Cache-Control. */
 export async function putObject(
     bucket: Bucket,
     key: string,
@@ -74,8 +64,6 @@ export async function putObject(
 
 /**
  * Содержимое объекта бакета.
- * @param bucket бакет
- * @param key ключ объекта
  * @returns байты объекта или undefined, если его нет
  */
 export async function readObject(bucket: Bucket, key: string): Promise<Uint8Array | undefined> {
@@ -96,12 +84,7 @@ export interface StoredObject {
     modified: number;
 }
 
-/**
- * Все объекты бакета с префиксом, со всех страниц выдачи.
- * @param bucket бакет
- * @param prefix префикс ключей
- * @returns объекты
- */
+/** Все объекты бакета с префиксом ключей, со всех страниц выдачи. */
 export async function listObjects(bucket: Bucket, prefix: string): Promise<StoredObject[]> {
     const objects: StoredObject[] = [];
     let token: string | undefined;
@@ -122,11 +105,7 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
     return objects;
 }
 
-/**
- * Удаляет объект из бакета.
- * @param bucket бакет
- * @param key ключ объекта
- */
+/** Удаляет объект из бакета. */
 export async function deleteObject(bucket: Bucket, key: string): Promise<void> {
     await bucket.client.send(new DeleteObjectCommand({ Bucket: bucket.name, Key: key }));
 }

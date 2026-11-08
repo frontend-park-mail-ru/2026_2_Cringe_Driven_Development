@@ -3,6 +3,7 @@ import { ReleaseError } from './env.ts';
 /** Публичный образ BFF: выкатывается только он и только по digest. */
 export const BFF_IMAGE = 'ghcr.io/cringe-driven-development-team/bff';
 
+/** Accept для манифеста: индекс и одиночный образ, OCI и Docker */
 const MANIFEST_TYPES = [
     'application/vnd.oci.image.index.v1+json',
     'application/vnd.docker.distribution.manifest.list.v2+json',
@@ -11,7 +12,8 @@ const MANIFEST_TYPES = [
 ].join(', ');
 
 /**
- * Проверяет ссылку на образ BFF: только `ghcr.io/cringe-driven-development-team/bff@sha256:<64 hex>`.
+ * Проверяет ссылку на образ BFF: только
+ * `ghcr.io/cringe-driven-development-team/bff@sha256:<64 hex>`.
  * @param ref ссылка из аргумента или payload
  * @returns та же ссылка
  */

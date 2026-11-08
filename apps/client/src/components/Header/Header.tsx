@@ -11,11 +11,7 @@ interface HeaderProps {
     panel?: ReactNode;
 }
 
-/**
- * Шапка (Components → Header).
- * @param props свойства шапки
- * @returns шапка
- */
+/** Шапка (Components → Header): строка с содержимым, под ней необязательные панели. */
 export function Header({ children, toolbar, panel }: HeaderProps) {
     return (
         <header className={styles.header}>

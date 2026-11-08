@@ -13,15 +13,13 @@ export class SessionEnded extends Error {
 }
 
 const CACHE_MS = 10_000;
-// одновременные refresh одного токена (HTML и RPC, вкладки) — один вызов Go
+/** Одновременные refresh одного токена (HTML и RPC, вкладки) — один вызов Go. */
 const inflight = new Map<string, Promise<SessionData>>();
 
 const now = (): number => Math.floor(Date.now() / 1000);
 
 /**
  * Сессия из пары токенов Go (уже проверенной схемой ответа): сроки — от текущего момента.
- * @param tokens пара токенов из ответа Go
- * @returns токены и сроки сессии
  */
 export function toSessionData(tokens: TokenPair): SessionData {
     const t = now();

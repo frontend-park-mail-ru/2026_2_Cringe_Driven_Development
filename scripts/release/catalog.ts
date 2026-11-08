@@ -19,7 +19,10 @@ export interface TrustedRun {
     attempt: number;
 }
 
-/** Проверка repository, события и workflow ID/path; conclusion не определяет готовность выпуска. */
+/**
+ * Читает run и проверяет repository, событие, ветку `main` и workflow ID/path; conclusion
+ * готовность выпуска не определяет.
+ */
 export async function readTrustedRun(id: number): Promise<TrustedRun> {
     if (!Number.isSafeInteger(id) || id <= 0) throw new ReleaseError('Некорректный run ID');
     const run = await api<{

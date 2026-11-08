@@ -57,7 +57,7 @@ export function unwrap<T = undefined>(
     if (!ok.includes(res.status)) {
         const code =
             isObject(res.data) && typeof res.data.code === 'string' ? res.data.code : undefined;
-        // данные конфликта проверяются схемой: в клиент уходят только публичные поля сессии
+        /** Занятая сессия проверяется схемой: в клиент уходят только её публичные поля */
         const active =
             code === 'active_session_exists' && isObject(res.data)
                 ? GetRuntimeSessionResponse.safeParse(res.data.active_session)

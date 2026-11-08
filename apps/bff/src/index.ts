@@ -6,6 +6,7 @@ import { env } from './env.ts';
 import { loadClientAssets, loadPublicFiles } from './public.ts';
 import { loadTemplate } from './template.ts';
 
+/** Сколько ждать завершения текущих запросов при остановке. */
 const STOP_TIMEOUT_MS = 10_000;
 
 async function start(): Promise<void> {
@@ -34,8 +35,9 @@ async function start(): Promise<void> {
     const stop = async (): Promise<void> => {
         if (stopping) return;
         stopping = true;
-        // новые запросы не принимаются, текущие завершаются; по сроку — принудительно
+        /** Принудительная остановка, если текущие запросы не завершились к сроку */
         const force = setTimeout(() => void server.stop(true), STOP_TIMEOUT_MS);
+        // новые запросы не принимаются, текущие завершаются
         await server.stop();
         clearTimeout(force);
         process.exit(0);

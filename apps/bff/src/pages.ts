@@ -19,11 +19,7 @@ export type Page = keyof typeof PAGES;
 
 const segments = (path: string) => path.split('/').filter(Boolean);
 
-/**
- * Сегмент адреса, декодированный как в роутере клиента; некорректное кодирование — как есть.
- * @param segment сегмент пути
- * @returns декодированный сегмент
- */
+/** Сегмент адреса, декодированный как в роутере клиента; некорректное кодирование — как есть. */
 export function decodeSegment(segment: string): string {
     try {
         return decodeURIComponent(segment);
@@ -36,8 +32,6 @@ export function decodeSegment(segment: string): string {
  * Подходит ли адрес под путь страницы. Сопоставление как у роутера клиента: `$param` — любой
  * непустой сегмент, регистр статичных сегментов и завершающий слэш не учитываются.
  * @param page путь страницы из {@link PAGES}
- * @param pathname путь адреса
- * @returns `true`, если адрес — эта страница
  */
 export function matchesPage(page: string, pathname: string): boolean {
     const pattern = segments(page);
@@ -51,11 +45,7 @@ export function matchesPage(page: string, pathname: string): boolean {
     );
 }
 
-/**
- * Страница клиента по адресу.
- * @param pathname путь адреса
- * @returns ключ страницы или `undefined` для неизвестного адреса
- */
+/** Страница клиента по адресу; `undefined` — адрес неизвестен. */
 export function pageOf(pathname: string): Page | undefined {
     return (Object.keys(PAGES) as Page[]).find((page) => matchesPage(PAGES[page], pathname));
 }

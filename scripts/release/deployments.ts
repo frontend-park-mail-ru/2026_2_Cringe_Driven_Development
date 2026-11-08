@@ -34,10 +34,7 @@ export async function assertReleaseDirection(
     if (git.exitCode) throw new ReleaseError(`Git: ${git.stderr.toString().trim()}`);
 }
 
-/**
- * Данные уведомления текущей операции из RELEASE_REPORT_BASE_SHA, RELEASE_REPORT_URL и попытки run.
- * @returns notification
- */
+/** Данные уведомления операции из RELEASE_REPORT_BASE_SHA, RELEASE_REPORT_URL и попытки run. */
 export function notificationMetadata(): NotificationMetadata {
     const base = process.env.RELEASE_REPORT_BASE_SHA;
     const report = process.env.RELEASE_REPORT_URL;
@@ -59,6 +56,7 @@ export interface RollbackTarget {
     last: Deployment<ProductionPayload>;
 }
 
+/** Итоговые состояния записи: после них попытка завершена */
 const DONE = new Set(['success', 'failure', 'error']);
 
 /**
@@ -91,7 +89,7 @@ export function chooseRollbackTarget(history: Deployment<ProductionPayload>[]): 
         );
     }
     const imageRef = checkImageRef(target.payload?.image_ref);
-    // один SHA — один образ: иначе не ясно, какой из образов этого SHA работал
+    /** Успешная запись того же SHA с другим образом: тогда не ясно, какой из образов работал */
     const conflicting = successes.find(
         (record) => record.sha === target.sha && record.payload?.image_ref !== imageRef,
     );
@@ -140,7 +138,7 @@ export async function rollbackTarget(): Promise<void> {
     const history = await listDeployments<ProductionPayload>(PRODUCTION_ENV);
     output('before_sha', history.find((record) => record.state === 'success')?.sha ?? '');
     const target = chooseRollbackTarget(history);
-    // цель сверяется с Release: старые записи без release_id — по SHA и digest
+    /** Release цели: с ним сверяется цель; старые записи без release_id — по SHA и digest */
     const { release, manifest } = await readyRelease(target.sha);
     if (manifest.image_ref !== target.imageRef) {
         throw new ReleaseError(
@@ -161,7 +159,7 @@ export async function rollbackTarget(): Promise<void> {
  * @param sha полный SHA выбранного образа
  * @param imageRef образ по digest
  * @param action deploy или rollback
- * @param releaseId id проверенного GitHub Release выпуска
+ * @param releaseId id проверенного GitHub Release
  */
 export async function startProduction(
     sha: string,
@@ -192,7 +190,7 @@ export async function startProduction(
 
 /**
  * Итог записи production: success — только после проверок фактически запущенного выпуска.
- * @param id id записи
+ * @param id id записи Deployment строкой
  * @param state success, failure или error
  */
 export async function finishProduction(id: string, state: string): Promise<void> {

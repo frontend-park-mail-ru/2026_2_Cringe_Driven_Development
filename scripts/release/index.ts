@@ -1,6 +1,6 @@
-// Выпуск и выкатка, по команде на шаг workflow. Ассеты клиента — неизменяемые releases/{sha}/ в S3 и
-// на CDN; образ BFF — публичный GHCR по digest; готовые выпуски — GitHub Releases, история прода —
-// GitHub Deployments (production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
+// Выпуск и выкатка, по команде на шаг workflow. Ассеты клиента — неизменяемые releases/{sha}/ в S3
+// и на CDN; образ BFF — публичный GHCR по digest; готовые выпуски — GitHub Releases, история прода
+// — GitHub Deployments (production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
 import { appendFileSync } from 'node:fs';
 import { health, releaseCheck } from './checks.ts';
 import {
@@ -21,6 +21,7 @@ import { retention } from './retention.ts';
 import { upload } from './upload.ts';
 import { readOperationReport, releaseBody, reportRelease, type ReleaseKind } from './report.ts';
 
+/** Справка по командам: выводится при неверном вызове */
 const USAGE = `Использование: bun run release <команда>
   upload <sha> [каталог]          apps/client/dist → releases/{sha}/, неизменяемо
   check <sha>                     Release check: ассеты релиза отдаются с CDN
@@ -90,7 +91,7 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
         case 'register': {
             const sha = checkSha(args[0]);
             const imageRef = checkImageRef(args[1]);
-            // ошибка отчёта не отменяет готовность проверенных артефактов: описание станет неполным
+            /** Ошибка отчёта не отменяет готовность проверенных артефактов: описание неполное */
             const report = await readOperationReport('publish', sha).catch(() => undefined);
             await publishRelease({
                 sha,

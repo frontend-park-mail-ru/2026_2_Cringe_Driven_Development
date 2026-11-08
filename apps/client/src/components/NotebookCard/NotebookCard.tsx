@@ -12,10 +12,7 @@ interface NotebookCardProps {
     notebook: NotebookSummary;
 }
 
-/**
- * Свечение под курсором: координаты уходят в CSS-переменные карточки.
- * @param event движение указателя над карточкой
- */
+/** Свечение под курсором: координаты уходят в CSS-переменные карточки. */
 function trackPointer(event: PointerEvent) {
     const card = event.currentTarget as HTMLElement;
     const rect = card.getBoundingClientRect();
@@ -23,11 +20,7 @@ function trackPointer(event: PointerEvent) {
     card.style.setProperty('--my', `${event.clientY - rect.top}px`);
 }
 
-/**
- * Карточка блокнота (Components → NotebookCard). Ведёт на страницу блокнота.
- * @param props свойства карточки
- * @returns карточка
- */
+/** Карточка блокнота (Components → NotebookCard). Ведёт на страницу блокнота. */
 export function NotebookCard({ notebook }: NotebookCardProps) {
     const cells = plural(notebook.cells_count, 'ячейка', 'ячейки', 'ячеек');
 
@@ -68,10 +61,7 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
     );
 }
 
-/**
- * Карточка-скелетон, пока список загружается.
- * @returns скелетон карточки
- */
+/** Карточка-скелетон, пока список загружается. */
 export function NotebookCardSkeleton() {
     return (
         <div className={clsx(styles.card, styles.skeleton)} aria-hidden="true">

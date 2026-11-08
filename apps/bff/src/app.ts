@@ -11,7 +11,7 @@ export type AppDeps = {
     html?: (req: Request) => Promise<Response>;
 };
 
-// поисковым роботам не обходить API; клиентские страницы и ассеты не закрыты
+/** Поисковым роботам не обходить API; клиентские страницы и ассеты не закрыты */
 const ROBOTS_TXT = 'User-agent: *\nDisallow: /api/\n';
 
 const notFound = (): Response =>
@@ -22,7 +22,6 @@ const notFound = (): Response =>
  * `/robots.txt` (без сессии и Go, при любом `Accept`), публичные файлы, HTML для GET/HEAD
  * с `Accept: text/html` (на неизвестный адрес — со статусом 404), остальное — 404. HEAD сюда
  * приходит как GET (`bff.ts`), тело отбрасывает Bun.
- * @param deps шаблон, публичные файлы и обработчики tRPC и HTML
  * @returns приложение для `Bun.serve`
  */
 export function createApp(deps: AppDeps): Hono {
@@ -45,7 +44,7 @@ export function createApp(deps: AppDeps): Hono {
     );
 
     for (const [name, file] of deps.publicFiles) {
-        // заголовки явно: HEAD Hono собирает из ответа GET, и тип и размер BunFile теряются
+        /** Заголовки явно: HEAD Hono собирает из ответа GET, и тип и размер BunFile теряются */
         const headers = { 'Content-Type': file.type, 'Content-Length': String(file.size) };
         app.get(`/${name}`, () => new Response(file, { headers }));
     }

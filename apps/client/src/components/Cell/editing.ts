@@ -5,7 +5,6 @@ import type { Cell } from '@api/trpc';
  * когда исходник больше лимита, raw — никогда: показывается буквальным текстом.
  * @param kind вид ячейки
  * @param state только просмотр, режим правки Markdown, исходник больше лимита
- * @returns редактор открыт
  */
 export function isEditing(
     kind: Cell['kind'],

@@ -10,13 +10,13 @@ import {
 import { NO_MARKS, type SourceMark } from '@modules/search/marks';
 import { CURRENT_SELECTOR } from '@modules/search/Marked';
 
-/** id кнопки «Поиск»: на неё возвращается фокус после закрытия панели. */
+/** Id кнопки «Поиск»: на неё возвращается фокус после закрытия панели. */
 export const SEARCH_BUTTON_ID = 'notebook-search-button';
 
-/** id поля запроса: в него переводят фокус кнопка «Поиск» и Ctrl/Cmd+F. */
+/** Id поля запроса: в него переводят фокус кнопка «Поиск» и Ctrl/Cmd+F. */
 export const SEARCH_INPUT_ID = 'notebook-search';
 
-/** id панели поиска: на неё ссылается aria-controls кнопки «Поиск». */
+/** Id панели поиска: на неё ссылается `aria-controls` кнопки «Поиск». */
 export const SEARCH_PANEL_ID = 'notebook-search-panel';
 
 const NO_MATCHES: SearchRange[] = [];
@@ -46,7 +46,6 @@ export interface NotebookSearch {
  * @param cells ячейки блокнота по порядку
  * @param drafts черновики по id ячейки
  * @param enabled поиск доступен: блокнот загружен и это не тач-устройство
- * @returns состояние и действия поиска
  */
 export function useNotebookSearch(
     cells: readonly Cell[],
@@ -119,7 +118,7 @@ export function useNotebookSearch(
     };
 }
 
-// Запас до края поля кода, чтобы совпадение не прилипало к границе
+/** Запас до края поля кода, чтобы совпадение не прилипало к границе. */
 const EDGE = 32;
 
 /**
@@ -127,11 +126,11 @@ const EDGE = 32;
  * а не страница; по вертикали — страница, с отступом под прилипшую шапку (`--search-margin`).
  */
 export function scrollToCurrent(): void {
-    // в коде вхождение на стыке токенов — несколько <mark>, все в одной строке
+    /** В коде вхождение на стыке токенов — несколько `<mark>`, все в одной строке */
     const parts = [...document.querySelectorAll<HTMLElement>(CURRENT_SELECTOR)];
     const mark = parts[0];
     if (!mark) return;
-    // слой подсветки кода — <pre> под полем: координаты метки — те же, что у текста поля
+    /** Поле кода: слой подсветки — `<pre>` под ним, координаты метки — те же, что у текста поля */
     const editor = mark.closest('pre')?.nextElementSibling;
     if (editor instanceof HTMLTextAreaElement && editor.scrollWidth > editor.clientWidth) {
         const left = Math.min(...parts.map((part) => part.offsetLeft));

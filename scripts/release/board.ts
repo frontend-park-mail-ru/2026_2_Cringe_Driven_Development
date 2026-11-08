@@ -313,7 +313,11 @@ export async function updateReleaseBoard(
             }
             const latest = await issueState(linked.id, context.id);
             if (JSON.stringify(latest) !== JSON.stringify(state)) continue;
-            // запись той же опции может не обновить updatedAt: при reset значение сначала очищается
+            /**
+             * Подтверждение записи Status. Запись той же опции может не обновить updatedAt: при
+             * reset значение сначала очищается.
+             */
+
             const written = await graphql<Record<string, { projectV2Item: { id: string } }>>(
                 `
                     mutation UpdateReleaseStatus(

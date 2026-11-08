@@ -10,7 +10,7 @@ import {
 import { openSession, sealSession, type SessionData } from './crypto.ts';
 import { SessionEnded, refreshTokens, toSessionData } from './refresh.ts';
 
-// refresh заранее, чтобы access не истёк по дороге к Go
+/** За сколько секунд до истечения access обновляется: чтобы не истёк по дороге к Go. */
 const REFRESH_BEFORE_S = 30;
 
 const now = (): number => Math.floor(Date.now() / 1000);
@@ -49,7 +49,7 @@ const REQUEST_ID = /^[\w.:-]{1,128}$/;
 
 class RequestSession implements Session {
     private data: SessionData | null;
-    // undefined — cookie не меняется, null — удалить, строка — записать
+    /** Решение по cookie: `undefined` — не меняется, `null` — удалить, строка — записать. */
     private cookie: string | null | undefined;
     private legacy = false;
     readonly requestId: string;
@@ -141,9 +141,8 @@ class RequestSession implements Session {
 /**
  * Сессия запроса из cookie `__Host-Http-session`. Cookie, которая не расшифровалась или у которой
  * истёк refresh, — это отсутствие сессии, и она помечается к удалению; Go при этом не вызывается.
- * @param req входящий запрос
- * @returns сессия запроса
  */
+
 export async function createSession(req: Request): Promise<Session> {
     const incoming = req.headers.get('X-Request-ID');
     const requestId = incoming && REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID();

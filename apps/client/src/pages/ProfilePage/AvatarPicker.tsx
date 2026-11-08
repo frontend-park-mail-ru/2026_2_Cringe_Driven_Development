@@ -14,7 +14,6 @@ const INPUT_ID = 'profile-avatar-file';
 /**
  * Аватар и логин профиля с кнопкой «Изменить фото»: выбор одного JPEG/PNG, проверка и загрузка.
  * Прежнее фото остаётся, пока Go не подтвердит новое.
- * @returns аватар, логин и кнопка смены фото
  */
 export function AvatarPicker() {
     const user = useSessionStore((state) => state.user);
