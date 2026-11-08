@@ -92,7 +92,12 @@ export async function imageArchive(
             ],
             'docker inspect',
         );
-    if (inspect() !== `${imageId} ${sha}`)
+    // containerd image store (раннеры ubuntu-26.04): .Id — digest индекса из imageRef, а не config;
+    // config всё равно сверяется по manifest.json архива ниже
+    const expected = [imageId, imageRef.slice(imageRef.indexOf('@') + 1)].map(
+        (id) => `${id} ${sha}`,
+    );
+    if (!expected.includes(inspect()))
         throw new ReleaseError(`Локальный ${tag} — не образ ${imageRef} (${imageId})`);
     const out = join(work, 'bff-image.tar.gz');
     bash('docker image save "$1" | gzip -n > "$2"', 'docker save', tag, out);
@@ -103,7 +108,7 @@ export async function imageArchive(
         throw new ReleaseError('В архиве образа другой config');
     run(['docker', 'image', 'rm', tag], 'docker rmi');
     bash('gunzip -c "$1" | docker load', 'docker load', out);
-    if (inspect() !== `${imageId} ${sha}`)
+    if (!expected.includes(inspect()))
         throw new ReleaseError('docker load вернул другой image ID или метку SHA');
     return out;
 }
