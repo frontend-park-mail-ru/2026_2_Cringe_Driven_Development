@@ -2,9 +2,15 @@ name: CD
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Тег выпуска release-<полный SHA> со страницы GitHub Release'
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
   pull-requests: read
   issues: read
   deployments: write
@@ -27,8 +33,8 @@ jobs:
       group: release-board
       cancel-in-progress: false
       queue: max
+    # SHA — выбранного Release, а не workflow: его выставляет шаг artifacts
     env:
-      SHA: ${{ github.sha }}
       GITHUB_TOKEN: ${{ github.token }}
       CDN_URL: ${{ vars.CDN_URL }}
       ANSIBLE_HOST_KEY_CHECKING: 'True'
@@ -40,18 +46,21 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
+      # до доступа к VPS: published immutable Release, тег, комплект, суммы, manifest и источник
+      - name: Ready release
+        id: artifacts
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: bun run release artifacts "$RELEASE"
       - name: Last confirmed release
         id: confirmed
         run: bun run release confirmed
-      # до изменения сервера: единственный готовый выпуск SHA, образ анонимно, ассеты с CDN
+      # до изменения сервера: направление, образ анонимно, ассеты с CDN
       - name: Check release direction
         id: direction
         env:
           RELEASE_BEFORE_SHA: ${{ steps.confirmed.outputs.before_sha }}
         run: bun run release direction deploy "$SHA"
-      - name: Ready release
-        id: artifacts
-        run: bun run release artifacts "$SHA"
       - name: Anonymous image check
         id: image
         env:
@@ -103,6 +112,7 @@ jobs:
           RELEASE_REPORT_BASE_SHA: ${{ steps.report.outputs.report_base_sha }}
           RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
           IMAGE_REF: ${{ steps.artifacts.outputs.image_ref }}
+          RELEASE_ID: ${{ steps.artifacts.outputs.release_id }}
         run: bun run release start "$SHA" "$IMAGE_REF" deploy
       - name: Switch BFF
         id: switch

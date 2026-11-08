@@ -7,7 +7,7 @@ import {
     writeChangeSummary,
     reportRelease,
 } from './report.ts';
-import { register, startProduction } from './deployments.ts';
+import { startProduction } from './deployments.ts';
 import { fixture, IMAGE, REPO } from './test/fixture.ts';
 const sha = (n: number) => n.toString(16).padStart(40, '0');
 let f: ReturnType<typeof fixture>;
@@ -229,24 +229,23 @@ test('unknown_base_does_not_invent_sha', async () => {
 test('operation_records_include_source_attempt_and_report_metadata', async () => {
     process.env.RELEASE_REPORT_BASE_SHA = f.a;
     process.env.RELEASE_REPORT_URL = `https://github.com/${REPO}/actions/runs/77#summary`;
-    await register(f.b, IMAGE);
-    await startProduction(f.b, IMAGE, 'deploy');
-    for (const environment of ['release-artifacts', 'production']) {
-        expect(f.records[environment]![0]!.payload).toMatchObject({
-            notification: {
-                base_sha: f.a,
-                report_url: `https://github.com/${REPO}/actions/runs/77#summary`,
-                run_attempt: 2,
-            },
-        });
-    }
+    await startProduction(f.b, IMAGE, 'deploy', 5);
+    expect(f.records.production![0]!.payload).toMatchObject({
+        release_id: 5,
+        notification: {
+            base_sha: f.a,
+            report_url: `https://github.com/${REPO}/actions/runs/77#summary`,
+            run_attempt: 2,
+        },
+    });
+    expect(f.records['release-artifacts']).toHaveLength(0);
 });
 test('operation_rejects_foreign_report_and_invalid_attempt_before_write', async () => {
     process.env.RELEASE_REPORT_URL = 'https://evil.invalid/report';
-    await expect(register(f.b, IMAGE)).rejects.toThrow();
+    await expect(startProduction(f.b, IMAGE, 'deploy', 5)).rejects.toThrow();
     delete process.env.RELEASE_REPORT_URL;
     process.env.GITHUB_RUN_ATTEMPT = '0';
-    await expect(startProduction(f.b, IMAGE, 'deploy')).rejects.toThrow();
+    await expect(startProduction(f.b, IMAGE, 'deploy', 5)).rejects.toThrow();
     expect(f.records.production).toHaveLength(0);
 });
 test('publication_uses_nearest_verified_ancestor', async () => {
@@ -258,7 +257,7 @@ test('publication_uses_nearest_verified_ancestor', async () => {
     expect(await readOperationReport('publish', f.b)).toMatchObject({ baseSha: f.a, headSha: f.b });
 });
 test('foreign_publication_url_does_not_become_report_base', async () => {
-    f.publish(f.a).payload.ci_run = 'https://evil.invalid/actions/runs/1';
+    f.release(f.a, 1, { manifest: { ci_run: 'https://evil.invalid/actions/runs/1' } });
     process.env.GITHUB_OUTPUT = join(f.dir, 'outputs');
     await reportRelease('publish', f.b, f.dir);
     expect(warnings.splice(0)).toEqual([incompleteWarning]);

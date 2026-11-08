@@ -1,8 +1,6 @@
 import { ReleaseError, need } from './env.ts';
 
-/** Окружения GitHub Deployments: готовые выпуски и история прода. */
-export const ARTIFACTS_ENV = 'release-artifacts';
-/** Окружение истории выкаток и откатов на прод. */
+/** Окружение истории выкаток и откатов на прод; готовые выпуски — GitHub Releases (releases.ts). */
 export const PRODUCTION_ENV = 'production';
 
 /** Состояние статуса Deployment в GitHub. */
@@ -15,15 +13,7 @@ export type DeploymentState =
     | 'pending'
     | 'success';
 
-/** Payload записи `release-artifacts`: что опубликовано для SHA. */
-export interface ArtifactsPayload {
-    image_ref: string;
-    assets: string;
-    ci_run: string;
-    notification?: NotificationMetadata;
-}
-
-/** Данные нового notification-потребителя; прежние записи остаются историей. */
+/** Данные notification-потребителя; прежние записи остаются историей. */
 export interface NotificationMetadata {
     base_sha: string | null;
     report_url: string | null;
@@ -37,6 +27,8 @@ export interface ProductionPayload {
     action: 'deploy' | 'rollback';
     run: string;
     notification?: NotificationMetadata;
+    /** id GitHub Release выпуска; у записей до перехода на Releases его нет */
+    release_id?: number;
 }
 
 /** Deployment GitHub с последним статусом. */
@@ -76,7 +68,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
             `GitHub ${init.method ?? 'GET'} ${path}: ${res.status} ${await res.text()}`,
         );
     }
-    return (await res.json()) as T;
+    return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
 /** GraphQL с явным токеном: Project PAT не смешивается с репозиторным. */
@@ -231,6 +223,7 @@ export async function setDeploymentState(
             state,
             description: description.slice(0, 140),
             log_url: runUrl(),
+            environment_url: 'https://cellestial.ru',
             // успех прежних выпусков не становится inactive: история нужна для выбора цели отката
             auto_inactive: false,
         }),

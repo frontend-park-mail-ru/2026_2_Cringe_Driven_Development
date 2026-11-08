@@ -24,45 +24,94 @@ git remote -v
 Выпуск коммита `main` — два артефакта одного SHA: ассеты клиента (JS, CSS, неперсональный
 `index.html`) в S3 и на CDN в неизменяемом `releases/<sha>/` и **публичный** образ BFF в GHCR с
 серверным бандлом и HTML того же коммита. На прод выкатывается образ по digest: HTML отдаёт
-работающий BFF, S3-указателя и копии корневого `index.html` больше нет. Готовые выпуски и история
-прода хранятся в GitHub Deployments. Шаги — команды `scripts/release/` (`bun run release <команда>`).
+работающий BFF, S3-указателя и копии корневого `index.html` больше нет. Готовые выпуски — GitHub
+Releases (один на SHA, скачиваемые сборка клиента и образ BFF), история прода — GitHub Deployments. Шаги — команды `scripts/release/` (`bun run release <команда>`).
 
-| Workflow   | Когда                                            | Что делает                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CI`       | pull request, Merge Queue и push в `main`        | `bun run check`, `bun run test`, `bun run build`, локальная сборка образа BFF — без production-секретов. На push в `main` ещё job `Publish release`: сборка с `RELEASE_SHA` и CDN base → заливка `releases/<sha>/` (неизменяемо) → Release check → образ BFF `sha-<sha>` в GHCR → анонимная проверка digest → запись `release-artifacts`; статус задач обновляется внутри CI, сообщение отправляет webhook-сервис |
-| `CD`       | вручную из `main`, без параметров                | готовый выпуск SHA → анонимная проверка образа → Release check → запись `production` → Telegram о начале → `deploy-bff.yml` из infra → Health check → итог записи → retention → Telegram                                                                                                                                                                                                                          |
-| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow` | цель по истории `production` → те же проверки и тот же `deploy-bff.yml` → итог записи → Telegram                                                                                                                                                                                                                                                                                                                  |
+| Workflow   | Когда                                            | Что делает                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI`       | pull request, Merge Queue и push в `main`        | `bun run check`, `bun run test`, `bun run build`, локальная сборка образа BFF — без production-секретов. На push в `main` ещё job `Publish release`: сборка с `RELEASE_SHA` и CDN base → заливка `releases/<sha>/` (неизменяемо) → Release check → образ BFF `sha-<sha>` в GHCR → анонимная проверка digest → GitHub Release `release-<sha>` (draft → assets → publish); статус задач обновляется внутри CI, сообщение отправляет webhook-сервис |
+| `CD`       | вручную из `main`, input `release` — тег Release | проверка выбранного Release → анонимная проверка образа → Release check → запись `production` → Telegram о начале → `deploy-bff.yml` из infra → Health check → итог записи → retention → Telegram                                                                                                                                                                                                                                                |
+| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow` | цель по истории `production` → сверка с её Release → те же проверки и тот же `deploy-bff.yml` → итог записи → Telegram                                                                                                                                                                                                                                                                                                                           |
 
 Статусы задач обновляются шагами CI/CD/Rollback после успешной операции.
-Уведомления о релизах отправляет webhook-сервис по событиям GitHub Deployments.
+Уведомления о готовности выпуска webhook-сервис отправляет по событию `release.published`, о выкатке и
+откате — по GitHub Deployments `production`.
 
 Образ BFF собирается в `Check` на каждом событии CI и никуда не отправляется. Повторить локально
 вместе со сборкой клиента и BFF: `bun run image`.
 
-### Готовые выпуски: `release-artifacts`
+### Готовые выпуски: GitHub Releases
 
-Job `Publish release` работает в environment `production` (ключ S3), но с
-`environment.deployment: false`: заливка в CDN ещё не означает, что выпуск работает на VPS. Вместо
-автоматической записи после проверки **обоих** артефактов скрипт создаёт явный Deployment:
+Каталог выпусков — [Releases](https://github.com/Cringe-Driven-Development-Team/frontend/releases).
+Один Release на полный SHA: тег `release-<40 hex>`, заголовок `Frontend <короткий SHA>`, SemVer нет.
+Job `Publish release` работает в environment `production` (ключ S3) с `environment.deployment: false`
+и после проверки S3/CDN и GHCR публикует Release через `GITHUB_TOKEN` (`contents: write` — только у
+этого job). Успех выкатки для публикации не нужен. Отдельного `on: release` workflow нет.
 
-| Поле          | Значение                                                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `environment` | `release-artifacts`, `production_environment: false`                                                                                     |
-| `ref`         | полный SHA коммита                                                                                                                       |
-| `task`        | `publish`                                                                                                                                |
-| `payload`     | `{ "image_ref": "ghcr.io/cringe-driven-development-team/bff@sha256:…", "assets": "releases/<sha>/", "ci_run": "<ссылка на запуск CI>" }` |
-| статус        | `success` с `auto_inactive: false`: успех прежних выпусков не становится `inactive`                                                      |
+| Asset                  | Содержимое                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `frontend-dist.tar.gz` | всё содержимое `apps/client/dist/` с относительными путями (HTML, JS/CSS, PWA), те же байты, что в CDN         |
+| `bff-image.tar.gz`     | gzip `docker image save` опубликованного linux/amd64 образа `sha-<SHA>`; runtime, bundle и HTML входят в образ |
+| `release.json`         | состав и происхождение выпуска                                                                                 |
+| `SHA256SUMS`           | SHA-256 трёх файлов выше в формате `sha256sum`                                                                 |
 
-Успешная запись на SHA одна. Повторный CI того же SHA её находит и ничего не пересобирает; другой
-digest того же SHA отклоняется. Ассеты неизменяемы: уже залитый релиз сверяется с новой сборкой
-побайтно и не перезаписывается. Частично опубликованный выпуск (нет записи `success`) в CD не
-попадает. Отдельного `release.json` в S3 нет.
+`release.json` — машиночитаемый состав (описание Release редактируемое и доказательством не считается):
+
+| Поле                       | Значение                                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `sha`                      | полный SHA, совпадающий с тегом и меткой образа                                              |
+| `image_ref`                | только `ghcr.io/cringe-driven-development-team/bff@sha256:<64 hex>`                          |
+| `image_id`                 | config digest образа (image ID Docker), прочитанный из GHCR                                  |
+| `assets`                   | строго `releases/<sha>/`                                                                     |
+| `ci_run`, `ci_run_attempt` | push/main CI и его попытка, подготовившие файлы и образ                                      |
+| `publication_run`          | run, завершивший публикацию; у обычного выпуска совпадает с `ci_run`, у импорта — import run |
+| `notification.base_sha`    | предыдущий опубликованный first-parent предок для отчёта или `null`                          |
+| `notification.report_url`  | `<publication_run>#summary` или `null` при неполном отчёте                                   |
+| `notification.run_attempt` | попытка публикации                                                                           |
+
+Порядок: draft на точном SHA → `release.json` (с ним состав зафиксирован) → архивы → `SHA256SUMS` по
+digest GitHub → проверка draft → publish → повторное чтение и полная проверка. Архив клиента после
+распаковки сверяется с dist; для образа config в архиве и image ID после `docker load` равны
+config digest GHCR, метка — SHA. Каждый asset строго меньше 2 GiB, иначе публикация останавливается
+без разбиения. Секретов, env и персонального bootstrap в assets нет.
+
+Готовым считается только **published immutable** Release с полным комплектом; draft, prerelease и
+неполный выпуск CD не принимает. Проверка (CD, Rollback, база отчёта, повтор CI): фактический SHA
+тега, ровно четыре asset, размеры, `SHA256SUMS` против digest GitHub, сумма и поля `release.json`,
+источник CI (repository, `ci.yml`, `push`, `main`, SHA, attempt). Бинарные архивы при этом не
+скачиваются. `Latest` — последний опубликованный выпуск, а **не** текущий production: что работает
+на проде, показывает история `production`.
+
+Повторный CI того же SHA перепроверяет опубликованный Release и пропускает публикацию без новой
+версии и повторного ready. Описание формируется из отчёта публикации (SHA, изменения, PR/задачи,
+CI, `docker pull` по digest, проверка сумм); при сбое отчёта в нём явно указан неполный состав, а
+проверенные артефакты всё равно публикуются. Автоматические Source code (zip/tar.gz) — исходники,
+не сборка.
+
+Проверить скачанный выпуск:
+
+```sh
+sha256sum -c SHA256SUMS
+gunzip -c bff-image.tar.gz | docker load   # Loaded image: ghcr.io/…/bff:sha-<SHA>
+mkdir dist && tar -xzf frontend-dist.tar.gz -C dist
+```
+
+#### Восстановление draft
+
+Упавший после создания draft CI перезапускается (`Re-run jobs`). Шаг `Published already` находит
+draft с `release.json`: сборка, заливка и push образа пропускаются, недостающие архивы собираются из
+сохранённого S3 `releases/<sha>/` и точного GHCR digest. Новая попытка меняет только
+`publication_run`, `notification` и суммы изменившегося `release.json`; `ci_run`/`ci_run_attempt` и
+артефакты остаются прежними. Обрыв publish разрешается повторным чтением Release; после сбоя
+upload удаляется только незавершённый asset этой операции. Draft **без** `release.json` — состав не
+зафиксирован: сверьте S3 и образ GHCR, удалите draft вручную (`gh release delete release-<sha>`, тег
+у draft ещё не создан) и перезапустите CI.
 
 Образ: `ghcr.io/cringe-driven-development-team/bff`, тег `sha-<полный SHA>` — только для поиска (он
 может быть перезаписан повторной публикацией), выкатывается digest. Метка
 `org.opencontainers.image.revision` — полный SHA: по ней CD и Ansible сверяют образ с релизом.
 Package `bff` должен быть **публичным**: VPS скачивает образ без GHCR credentials. Перед
-регистрацией выпуска CI получает анонимный токен GHCR и читает манифест по digest; приватный
+публикацией Release CI получает анонимный токен GHCR и читает манифест по digest; приватный
 package — выпуск не готов, job красный. При первой публикации package создаётся приватным:
 GitHub → Packages → `bff` → Package settings → Change visibility → Public, затем `Re-run failed jobs`.
 
@@ -71,13 +120,14 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 `CD` и `Rollback` тоже работают с `environment.deployment: false` и пишут историю сами
 (`deployments: write`). До изменения сервера:
 
-1. единственная успешная запись `release-artifacts` выбранного SHA → `image_ref` и каталог ассетов;
+1. выбранный published immutable Release (проверка выше) → SHA, `image_ref`, каталог ассетов и `release_id`;
 2. анонимная доступность точного digest и метка `org.opencontainers.image.revision` = SHA;
 3. Release check: `index.html` и все JS и CSS из него отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется.
 
 Затем создаётся запись `production` (`ref` — SHA **выбранного образа**, в том числе при откате;
-`payload` — `image_ref`, `assets`, `action` = `deploy`/`rollback`, `run` — ссылка на этот запуск) со
-статусом `in_progress`, и запускается `ansible/deploy-bff.yml` из
+`payload` — `image_ref`, `assets`, `action` = `deploy`/`rollback`, `run` — ссылка на этот запуск,
+`notification` и числовой `release_id`) со статусом `in_progress` (`environment_url` —
+`https://cellestial.ru`, `log_url` — текущий run); у каждой попытки своя запись, и запускается `ansible/deploy-bff.yml` из
 [infra](https://github.com/Cringe-Driven-Development-Team/infra) из актуального `main` с `bff_image_ref` и `bff_release_sha` — без GHCR credentials. Ansible скачивает
 образ анонимно, сверяет метку, переключает BFF и Caddy, проверяет, что запущен именно этот образ и он
 `healthy` (внутренний `/health`), и пробу снаружи. После него Health check workflow:
@@ -92,11 +142,14 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 
 Итог записи: `success` — только после всех проверок фактически запущенного выпуска; переключение было,
 а проверка не прошла — `failure`; сбой до проверки результата или отмена — `error`. Workflow при
-этом красный, а не ложно успешный. Выкатить: `Actions` → `CD` → `Run workflow` из `main`,
-либо `gh workflow run cd.yml --ref main`. CD использует коммит `main` на момент запуска,
-без ручного выбора SHA. Дождитесь успешной публикации этого коммита в CI: если готового
-выпуска ещё нет, CD остановится до изменения VPS. Более поздние коммиты в `main` не
-меняют SHA уже запущенной выкатки.
+этом красный, а не ложно успешный. Ошибка карточек или retention успех выкатки не отменяет.
+
+Выкатить: скопируйте тег со страницы Release (`release-<полный SHA>`), затем `Actions` → `CD` →
+`Run workflow` из `main` с input `release`, либо
+`gh workflow run cd.yml --ref main -f release=release-<SHA>`. Workflow исполняется из `main`, целевой
+SHA берётся из Release и может отличаться от SHA workflow. Направление сохраняется: тот же SHA или
+потомок последнего подтверждённого production; возврат к предку — только `Rollback`. Без
+опубликованного Release, CDN-ассетов или публичного образа CD останавливается до VPS.
 
 ### Откат
 
@@ -108,7 +161,8 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 - последняя попытка незавершённая или без статуса, цели нет или у SHA в истории разные digest →
   остановка до изменений.
 
-Цель сверяется с успешной записью `release-artifacts` (тот же digest), затем те же проверки образа и
+Цель сверяется с её GitHub Release (тот же digest, полная проверка; старые записи `production` без
+`release_id` — по SHA и digest), затем те же проверки образа и
 ассетов и тот же `deploy-bff.yml`. Последний успешный Deployment — последний подтверждённый
 результат проверки, а не гарантия того, что контейнер работает сейчас: отсутствующий или упавший
 контейнер откат не блокирует, а после запуска Ansible проверяет фактический образ, здоровье и API.
@@ -122,7 +176,29 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 последнего успешного выпуска прода и предыдущего успешного с другим digest. Если последняя попытка
 выкатки не `success`, очистка откладывается до следующего подтверждённого результата: попытка могла
 переключить контейнер. Ассеты выпуска, который сейчас публикуется или выкатывается, входят в пять
-последних.
+последних. Release assets очистка не трогает: если у старого Release уже нет CDN-каталога или образа,
+CD остановится до VPS; S3/GHCR из архивов автоматически не восстанавливаются.
+
+### Импорт
+
+Разовый перенос при переходе на Releases — workflow `Release import` (`release-import.yml`, вручную из
+`main`): только последний подтверждённый production и предыдущий успешный с другим digest
+(как у retention). Источник — прежние записи `production`/`release-artifacts` и фактически
+сохранённые S3 `releases/<sha>/` и GHCR digest; архивы собираются из них без пересборки. Расхождение
+digest, источника CI или недоступность CDN/образа останавливают перенос. `ci_run`/`ci_run_attempt`
+указывают старую сборку, `publication_run` и `notification` — import run (`base_sha` и
+`report_url` — `null`). Повтор проверяет и пропускает уже перенесённые выпуски. Массового импорта
+истории нет; отсутствие Release у невыбранных старых записей чтение истории не ломает.
+
+Порядок перехода:
+
+1. Включить immutable releases репозитория (`Settings` → `General` → `Releases` → `Enable release
+immutability`) — до первого выпуска нового формата.
+2. Слить frontend и consumer; запустить `Release import` до переключения webhook-потребителя:
+   импортированные выпуски не рассылают повторный ready.
+3. Переключить consumer и подписку org webhook на `Releases` по README webhook-сервиса; граница
+   нового контракта отсекает опоздавшие delivery импорта. SQLite дедупликацию не сбрасывать.
+4. Общая проверка: push/main → Release, CD по тегу, Rollback.
 
 ### Очередь
 
@@ -139,7 +215,7 @@ Check для PR остаются независимыми. Порядок ожи
 Уведомления фронта отправляет существующий [webhook-сервис организации](https://github.com/Cringe-Driven-Development-Team/.github/tree/main/services/webhook-alerts), без запуска отдельного Actions sender:
 
 - `pull_request.enqueued/dequeued` — актуальная постановка/снятие PR из main merge queue; MERGE не создаёт тревогу о снятии.
-- `deployment_status` окружения `release-artifacts`, success — проверенный выпуск готов, есть кнопка «Выкатить».
+- `release.published` — проверенный immutable Release готов, есть ссылка на страницу выпуска.
 - `production` in_progress — начало выкатки/отката непосредственно перед Switch BFF; вместо одного SHA показаны названия PR и логи.
 - `production` success/failure/error — результат операции и Health Check ✅/❌/⚪.
 - `workflow_job.completed` — ошибка/отмена до записи результата; после успешной выкатки сбой Retention показывается отдельным предупреждением.
@@ -239,8 +315,8 @@ Environment `production` (`Settings` → `Environments`, только из `main
 | переменная | `S3_BUCKET`              | `pulumi stack output s3Bucket`                                           |
 | переменная | `CDN_URL`                | `pulumi stack output cdnCustomDomain`                                    |
 
-Environment `release-artifacts` создаётся первой записью сам; секретов в нём нет. GHCR credentials
-для выкатки не нужны. Настройки Telegram release-потребителя хранятся в конфигурации
+Новые записи `release-artifacts` не создаются; старые остаются историей и источником импорта.
+GHCR credentials для выкатки не нужны. Настройки Telegram release-потребителя хранятся в конфигурации
 webhook-сервиса; CI/CD их для этой рассылки не используют.
 
 > [!WARNING]
@@ -251,7 +327,7 @@ webhook-сервиса; CI/CD их для этой рассылки не исп�
 
 `bun run release report <publish|deploy|rollback> <sha>` записывает состав конкретного
 диапазона в Summary без Telegram. CI/CD передают outputs `report_base_sha` и
-`report_url` в регистрацию операции; payload содержит `notification.base_sha`,
+`report_url` в публикацию Release и запись production; `release.json` и payload содержат `notification.base_sha`,
 `notification.report_url` и положительный `notification.run_attempt`. Неизвестная
 база или ошибка обогащения даёт неполный отчёт без ссылки «полный список» и не
 мешает публикации или выкатке. Production record создаётся непосредственно перед
