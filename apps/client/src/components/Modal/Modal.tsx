@@ -67,14 +67,23 @@ export function Modal({ title, description, initialFocusId, onClose, children }:
             const dialog = document.getElementById(DIALOG_ID);
             if (dialog) trapFocus(event, dialog);
         };
+        const onOverlay = (event: MouseEvent) =>
+            (event.target as Element | null)?.id === OVERLAY_ID;
+        // нажали в окне и отпустили на затемнении (выделение текста) — click тоже придёт оверлею
+        let pressedOnOverlay = false;
+        const handleMouseDown = (event: MouseEvent) => {
+            pressedOnOverlay = onOverlay(event);
+        };
         // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
         const handleClick = (event: MouseEvent) => {
-            if ((event.target as Element | null)?.id === OVERLAY_ID) onClose();
+            if (pressedOnOverlay && onOverlay(event)) onClose();
         };
         document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('mousedown', handleMouseDown);
         document.addEventListener('click', handleClick);
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('mousedown', handleMouseDown);
             document.removeEventListener('click', handleClick);
         };
     }, [onClose]);
