@@ -112,7 +112,6 @@ export function ConflictDialog() {
             title="Конфликт сохранения"
             description="Блокнот изменили в другой вкладке или браузере. Мы загрузили актуальную версию, ваш текст пока в редакторе. Выберите, что оставить."
             initialFocusId={SERVER_ID}
-            closeOnBackdrop
             onClose={closeConflictDialog}
         >
             <div className={styles.options}>

@@ -1259,7 +1259,7 @@ describe('runtime', () => {
         });
     });
 
-    test('updates: одна страница событий, по одному GET на исполнение, инспекции не читаются', async () => {
+    test('updates: одна страница событий, по одному GET на исполнение, инспекции и пустой execution_id не читаются', async () => {
         useGo({
             'GET /runtime-sessions/:id/queue': () => Response.json(QUEUE),
             'GET /runtime-sessions/:id/events': () =>
@@ -1269,6 +1269,7 @@ describe('runtime', () => {
                         { seq: 5, kind: 'output', body: { execution_id: 'e1' } },
                         { seq: 6, kind: 'inspection_state', body: { inspection_id: 'i1' } },
                         { seq: 7, kind: 'session_state', body: {} },
+                        { seq: 8, kind: 'kernel_started', body: { execution_id: '' } },
                     ],
                     next_cursor: 7,
                     has_more: true,
@@ -1294,6 +1295,7 @@ describe('runtime', () => {
         expect(go?.calls.find((c) => c.path.endsWith('/events'))?.search).toBe('?after=3');
         expect(paths.filter((p) => p.includes('/executions/'))).toHaveLength(2);
         expect(paths.some((p) => p.includes('i1'))).toBe(false);
+        expect(paths.some((p) => p.endsWith('/executions/'))).toBe(false);
     });
 
     test('updates: сбой любого чтения — ошибка без частичного ответа; неверный вход — 400 без Go', async () => {

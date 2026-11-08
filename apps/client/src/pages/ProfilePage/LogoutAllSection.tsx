@@ -58,7 +58,6 @@ export function LogoutAllSection() {
         if (!pending) setConfirming(false);
     };
 
-    // модалка — вне секции: её backdrop-filter стал бы содержащим блоком для fixed-затемнения
     return (
         <>
             <section key="section" className={clsx(styles.section, styles.danger)}>

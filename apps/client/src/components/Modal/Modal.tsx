@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from '@cdd-team/react';
+import { createPortal, useEffect, type ReactNode } from '@cdd-team/react';
 import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import styles from './Modal.module.css';
@@ -18,8 +18,6 @@ interface ModalProps {
     initialFocusId: string;
     /** Ссылка «Назад» над заголовком: возврат к предыдущему шагу */
     onBack?: () => void;
-    /** Клик по затемнению вокруг модалки тоже закрывает её */
-    closeOnBackdrop?: boolean;
     onClose: () => void;
     children: ReactNode;
 }
@@ -49,8 +47,8 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 }
 
 /**
- * Модалка по центру поверх затемнения (Components → Modal).
- * При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
+ * Модалка по центру поверх затемнения (Components → Modal), порталом в `body`.
+ * Закрывается крестиком, Escape и кликом по затемнению. При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
  * @param props свойства модалки
  * @returns модалка
  */
@@ -59,7 +57,6 @@ export function Modal({
     description,
     initialFocusId,
     onBack,
-    closeOnBackdrop,
     onClose,
     children,
 }: ModalProps) {
@@ -80,19 +77,28 @@ export function Modal({
             const dialog = document.getElementById(DIALOG_ID);
             if (dialog) trapFocus(event, dialog);
         };
+        const onOverlay = (event: MouseEvent) =>
+            (event.target as Element | null)?.id === OVERLAY_ID;
+        // нажали в окне и отпустили на затемнении (выделение текста) — click тоже придёт оверлею
+        let pressedOnOverlay = false;
+        const handleMouseDown = (event: MouseEvent) => {
+            pressedOnOverlay = onOverlay(event);
+        };
         // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
         const handleClick = (event: MouseEvent) => {
-            if (closeOnBackdrop && (event.target as Element | null)?.id === OVERLAY_ID) onClose();
+            if (pressedOnOverlay && onOverlay(event)) onClose();
         };
         document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('mousedown', handleMouseDown);
         document.addEventListener('click', handleClick);
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('mousedown', handleMouseDown);
             document.removeEventListener('click', handleClick);
         };
-    }, [onClose, closeOnBackdrop]);
+    }, [onClose]);
 
-    return (
+    return createPortal(
         <div id={OVERLAY_ID} className={styles.overlay}>
             <dialog
                 id={DIALOG_ID}
@@ -127,6 +133,7 @@ export function Modal({
                 />
                 <div key="body">{children}</div>
             </dialog>
-        </div>
+        </div>,
+        document.body,
     );
 }
