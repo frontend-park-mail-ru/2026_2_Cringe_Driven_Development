@@ -72,14 +72,12 @@ export function pickOutput(output: NbOutput): Shown {
  */
 export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }[] {
     const groups: { key: number; shown: Shown }[] = [];
-    let streamOpen = false;
     outputs.forEach((output, index) => {
         const shown = pickOutput(output);
         const last = groups.at(-1)?.shown;
-        const isStream = output.output_type === 'stream';
         if (
-            isStream &&
-            streamOpen &&
+            output.output_type === 'stream' &&
+            outputs[index - 1]?.output_type === 'stream' &&
             last?.kind === 'text' &&
             shown.kind === 'text' &&
             last.stream === shown.stream
@@ -87,7 +85,6 @@ export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }
             last.text += shown.text;
             return;
         }
-        streamOpen = isStream;
         groups.push({ key: index, shown });
     });
     return groups;
@@ -100,8 +97,8 @@ interface OutputsProps {
 }
 
 /**
- * Выводы кодовой ячейки по порядку в общей области. Текст и traceback — текстовыми узлами, разметка в них не
- * разбирается.
+ * Выводы кодовой ячейки по порядку в общей области. Текст и traceback — текстовыми узлами,
+ * разметка в них не разбирается.
  * @param props выводы и признак усечения
  * @returns выводы или ничего
  */
