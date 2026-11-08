@@ -80,6 +80,15 @@ test('фрагменты одного потока склеиваются без
     expect(groupOutputs([])).toEqual([]);
 });
 
+test('вывод — не объект: не поддерживается, без падения', () => {
+    const outputs = [null, 'x', out('a')] as unknown as Parameters<typeof groupOutputs>[0];
+    expect(groupOutputs(outputs).map(({ shown }) => shown.kind)).toEqual([
+        'unsupported',
+        'unsupported',
+        'text',
+    ]);
+});
+
 test('текст не склеивается через stderr, результат выражения, картинку и ошибку', () => {
     const png = { output_type: 'display_data', data: { 'image/png': 'iVBO' } };
     const result = { output_type: 'execute_result', data: { 'text/plain': '42' } };
