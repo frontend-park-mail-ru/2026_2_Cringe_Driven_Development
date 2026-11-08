@@ -11,9 +11,7 @@
         "start": "bun src/index.ts",
         "dev": "bun --env-file=../../.env src/dev.ts",
         "lint": "oxlint",
-        "typecheck": "tsc --noEmit",
-        "test": "bun test",
-        "mock:check": "bun test/mock-check.ts"
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "@cdd/schemas": "workspace:*",

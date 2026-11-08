@@ -15,9 +15,6 @@
         "typecheck": {
             "dependsOn": ["^build"]
         },
-        "test": {
-            "dependsOn": ["^build"]
-        },
         "dev": {
             "cache": false,
             "persistent": true,
@@ -38,9 +35,6 @@
             "inputs": ["scripts/**", "oxlint.config.ts"]
         },
         "//#typecheck:scripts": {
-            "inputs": ["scripts/**"]
-        },
-        "//#test:scripts": {
             "inputs": ["scripts/**"]
         }
     }

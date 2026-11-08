@@ -78,7 +78,6 @@ Docker не нужен. HMR там нет, после изменений кли�
 он вызывает `pages.yml` в `docs/main`; для диагностики доступен ручной запуск.
 Нужен secret `DOCS_PAGES_TOKEN` с Actions: write только для репозитория docs;
 настройка и публичная wiki — в [README docs](https://github.com/Cringe-Driven-Development-Team/docs#readme).
-Локальная проверка dispatch без GitHub: `bun test scripts/openwiki-publish.test.ts`.
 
 ## Как работать с задачами
 
@@ -102,7 +101,7 @@ Docker не нужен. HMR там нет, после изменений кли�
 
 После успешного `Check`, одобрения frontend-ментора и разрешения обсуждений нажмите
 **Merge when ready**. GitHub проверит кандидата с актуальным `main` и предыдущими PR
-в очереди: событие `merge_group` запускает тот же `Check` с проверками, тестами и сборкой.
+в очереди: событие `merge_group` запускает тот же `Check` с проверками и сборкой.
 Кандидаты имеют отдельные CI-запуски по ref; новый коммит PR отменяет только его
 устаревший PR-запуск.
 
