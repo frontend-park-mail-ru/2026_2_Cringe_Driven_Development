@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from '@cdd-team/react';
+import { useEffect, useState } from '@cdd-team/react';
 
 import type { RouterOutputs } from '@cdd/bff';
 import { isRpcError, trpc } from '@api/trpc';
@@ -10,6 +10,7 @@ import { OTP_LENGTH, OtpInput } from '@components/OtpInput/OtpInput';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
+import { useNarrow } from '@utils/media';
 import styles from './ProfilePage.module.css';
 
 type Setup = RouterOutputs['twoFactor']['setup'];
@@ -21,14 +22,6 @@ const CODE_ID = 'two-factor-code';
 const PASSWORD_ID = 'two-factor-password';
 const KEY_ID = 'two-factor-key';
 const INVALID_CODE = 'Неверный код. Попробуйте ещё раз';
-
-// телефонная раскладка макета: ручной ключ — отдельным шагом без QR
-const narrow = window.matchMedia('(max-width: 860px)');
-const subscribe = (onChange: () => void): (() => void) => {
-    narrow.addEventListener('change', onChange);
-    return () => narrow.removeEventListener('change', onChange);
-};
-const useNarrow = (): boolean => useSyncExternalStore(subscribe, () => narrow.matches);
 
 const appCodeOf = (error: unknown): string | undefined =>
     isRpcError(error) ? error.data?.appCode : undefined;
@@ -428,6 +421,7 @@ function DisableModal({ onClose }: DisableModalProps) {
                     error={error}
                     disabled={pending}
                     autocomplete="current-password"
+                    reserveMessage={false}
                     revealed={revealed}
                     onToggleReveal={() => setRevealed((current) => !current)}
                     onValueChange={(value) => {

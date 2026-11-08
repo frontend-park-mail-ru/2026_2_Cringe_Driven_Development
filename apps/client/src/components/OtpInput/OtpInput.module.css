@@ -22,6 +22,8 @@
 
 .cell {
     flex: 1 1 0;
+    /* без width: 0 собственная ширина input (~150 px) распирает модалку на телефоне */
+    width: 0;
     min-width: 32px;
     height: 56px;
     padding: 0;

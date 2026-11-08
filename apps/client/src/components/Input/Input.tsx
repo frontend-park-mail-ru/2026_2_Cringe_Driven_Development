@@ -33,6 +33,8 @@ interface InputProps {
     onToggleReveal?: () => void;
     /** Иконка справа в поле, например карандаш у редактируемого значения */
     icon?: IconName;
+    /** Строка под полем есть, даже пустая (по умолчанию): форма не прыгает при валидации */
+    reserveMessage?: boolean;
     /** Новое значение при каждом вводе */
     onValueChange: (value: string) => void;
     /** Поле потеряло фокус */
@@ -60,6 +62,7 @@ export function Input({
     revealed = false,
     onToggleReveal,
     icon,
+    reserveMessage = true,
     onValueChange,
     onBlur,
 }: InputProps) {
@@ -108,18 +111,20 @@ export function Input({
                     </button>
                 )}
             </div>
-            <p key="message" id={messageId} className={styles.message}>
-                {error && <Icon key="icon" name="alert" />}
-                {error ? (
-                    <span key="error" className={styles.messageText} role="alert">
-                        {error}
-                    </span>
-                ) : (
-                    <span key="hint" className={styles.messageText}>
-                        {invalid ? '' : (hint ?? '')}
-                    </span>
-                )}
-            </p>
+            {(reserveMessage || error || hint) && (
+                <p key="message" id={messageId} className={styles.message}>
+                    {error && <Icon key="icon" name="alert" />}
+                    {error ? (
+                        <span key="error" className={styles.messageText} role="alert">
+                            {error}
+                        </span>
+                    ) : (
+                        <span key="hint" className={styles.messageText}>
+                            {invalid ? '' : (hint ?? '')}
+                        </span>
+                    )}
+                </p>
+            )}
         </div>
     );
 }
