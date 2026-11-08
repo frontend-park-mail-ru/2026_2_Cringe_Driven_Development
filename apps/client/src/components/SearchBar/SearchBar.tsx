@@ -72,7 +72,8 @@ export function SearchBar({
                     {...domProps({ autocomplete: 'off', spellcheck: false })}
                     onInput={(event) => onQuery((event.target as HTMLInputElement).value)}
                     onKeyDown={(event) => {
-                        // Enter подтверждает ввод IME; Safari отдаёт его с keyCode 229
+                        // Enter подтверждает ввод IME; Safari отдаёт его с isComposing: false и
+                        // keyCode 229. keyCode устарел, но другого признака у такого Enter нет
                         if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229)
                             return;
                         event.preventDefault();
