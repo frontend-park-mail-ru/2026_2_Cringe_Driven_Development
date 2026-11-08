@@ -1,5 +1,16 @@
 import { expect, test } from 'bun:test';
-import { readdirSync } from 'node:fs';
+import {
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { git } from './test/fixture.ts';
 
 interface Step {
     id?: string;
@@ -342,18 +353,17 @@ test('CI публикует GitHub Release: contents write только у publi
     expect(Object.keys(config.on)).not.toContain('release');
 });
 
-test('CD выкатывает выбранный Release: обязательный тег, проверка до VPS, release_id', async () => {
+test('CD выкатывает выбранный Release: необязательный тег, проверка до VPS, release_id', async () => {
     const config = await workflow('cd.yml');
     const input = (
         config.on.workflow_dispatch as unknown as {
             inputs: Record<string, { required: boolean; type: string }>;
         }
     ).inputs.release;
-    expect(input).toMatchObject({ required: true, type: 'string' });
+    expect(input).toMatchObject({ required: false, type: 'string' });
     const job = config.jobs.cd!;
     expect(job.env?.SHA).toBeUndefined();
     const ready = job.steps.findIndex((step) => step.id === 'artifacts');
-    expect(job.steps[ready]?.run).toBe('bun run release artifacts "$RELEASE"');
     expect(job.steps[ready]?.env?.RELEASE).toBe('${{ inputs.release }}');
     for (const id of ['direction', 'image', 'check', 'start', 'switch'])
         expect(ready).toBeLessThan(job.steps.findIndex((step) => step.id === id));
@@ -364,6 +374,65 @@ test('CD выкатывает выбранный Release: обязательны
         (await workflow('rollback.yml')).jobs.rollback!.steps.find((step) => step.id === 'start')
             ?.env?.RELEASE_ID,
     ).toBe('${{ steps.target.outputs.release_id }}');
+});
+
+test('Ready release обновляет main, сохраняет checkout и прекращается при ошибке fetch', async () => {
+    const step = (await workflow('cd.yml')).jobs.cd!.steps.find((row) => row.id === 'artifacts')!;
+    const dir = mkdtempSync(join(tmpdir(), 'cd-ready-'));
+    try {
+        const remote = join(dir, 'remote');
+        const checkout = join(dir, 'checkout');
+        const bin = join(dir, 'bin');
+        mkdirSync(remote);
+        mkdirSync(bin);
+        git(remote, 'init', '-b', 'main');
+        git(remote, 'config', 'user.name', 'CD Test');
+        git(remote, 'config', 'user.email', 'cd@example.invalid');
+        git(remote, 'commit', '--allow-empty', '-m', 'A');
+        const a = git(remote, 'rev-parse', 'HEAD');
+        git(dir, 'clone', remote, checkout);
+        git(remote, 'commit', '--allow-empty', '-m', 'B');
+        const b = git(remote, 'rev-parse', 'HEAD');
+        // Только граница вызова Bun: сам fetch выполняется настоящим Git.
+        writeFileSync(
+            join(bin, 'bun'),
+            '#!/bin/sh\nprintf "%s\\n" "$@" > "$CAPTURE"\ngit rev-parse refs/remotes/origin/main > "$FETCHED"\ngit rev-parse HEAD > "$CHECKOUT"\n',
+            { mode: 0o755 },
+        );
+        const capture = join(dir, 'args');
+        const fetched = join(dir, 'fetched');
+        const head = join(dir, 'head');
+        const run = (release: string) =>
+            Bun.spawnSync(['bash', '-e', '-c', step.run!], {
+                cwd: checkout,
+                env: {
+                    ...process.env,
+                    PATH: `${bin}:${process.env.PATH}`,
+                    RELEASE: release,
+                    CAPTURE: capture,
+                    FETCHED: fetched,
+                    CHECKOUT: head,
+                },
+            });
+        for (const release of ['', `release-${a}`]) {
+            git(checkout, 'update-ref', 'refs/remotes/origin/main', a);
+            expect(run(release).exitCode).toBe(0);
+            expect(readFileSync(capture, 'utf8').split('\n').slice(0, -1)).toEqual([
+                'run',
+                'release',
+                'artifacts',
+                release,
+            ]);
+            expect(readFileSync(fetched, 'utf8').trim()).toBe(b);
+            expect(readFileSync(head, 'utf8').trim()).toBe(a);
+        }
+        rmSync(capture);
+        git(checkout, 'remote', 'set-url', 'origin', join(dir, 'missing'));
+        expect(run('').exitCode).not.toBe(0);
+        expect(existsSync(capture)).toBe(false);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test('импорт — отдельный ручной workflow из main с доверенным путём', async () => {
