@@ -7,6 +7,8 @@ interface HeaderProps {
     children: ReactNode;
     /** Панель под строкой шапки, отделена разделителем */
     toolbar?: ReactNode;
+    /** Строка под панелью, например поиск по блокноту: прилипает вместе с шапкой */
+    panel?: ReactNode;
 }
 
 /**
@@ -14,7 +16,7 @@ interface HeaderProps {
  * @param props свойства шапки
  * @returns шапка
  */
-export function Header({ children, toolbar }: HeaderProps) {
+export function Header({ children, toolbar, panel }: HeaderProps) {
     return (
         <header className={styles.header}>
             <div key="row" className={styles.row}>
@@ -26,6 +28,7 @@ export function Header({ children, toolbar }: HeaderProps) {
                     {toolbar}
                 </div>
             )}
+            {panel}
         </header>
     );
 }
