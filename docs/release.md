@@ -136,7 +136,7 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
   `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
 - JS и CSS из HTML — с CDN `releases/<sha>/` и отдаются с типом JS или CSS (чанк — с CORS);
 - `users.me` без сессии — tRPC `UNAUTHORIZED` (401), `/api/unknown` — 404 не HTML;
-- `auth.login` со случайными логином и паролем — 401, tRPC `UNAUTHORIZED` и
+- `auth.login` со случайными логином и паролем — 400, tRPC `BAD_REQUEST` и
   `appCode=invalid_credentials`: отказ Go подтверждает BFF, S2S и обработчик входа. Пользователь и
   сессия не создаются.
 

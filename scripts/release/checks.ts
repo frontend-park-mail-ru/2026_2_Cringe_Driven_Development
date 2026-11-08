@@ -110,7 +110,7 @@ async function checkGo(site: string): Promise<void> {
         | { error?: { data?: { code?: string; appCode?: string } } }
         | undefined;
     const { code, appCode } = body?.error?.data ?? {};
-    if (res.status !== 401 || code !== 'UNAUTHORIZED' || appCode !== 'invalid_credentials') {
+    if (res.status !== 400 || code !== 'BAD_REQUEST' || appCode !== 'invalid_credentials') {
         throw new Error(
             `${url}: ${res.status} ${code ?? ''} ${appCode ?? ''}, нужен отказ Go invalid_credentials`,
         );
