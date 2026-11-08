@@ -40,7 +40,7 @@ export const sharedConfig = (env: Record<string, string>, release: string): User
             staticUrlPlugin(staticUrl),
             releaseMetaPlugin(release),
             vitepwaPlugin(),
-            // *.svg?react — компонент (иконки, знак логотипа); обычный импорт .svg остаётся URL (empty-planet, favicon)
+            // *.svg?react — компонент (иконки, знак логотипа); обычный импорт .svg остаётся URL (empty-planet)
             svgr({
                 svgrOptions: { jsxRuntime: 'automatic' },
                 // ?react-модуль не видит tsconfig, jsxImportSource задаём здесь
