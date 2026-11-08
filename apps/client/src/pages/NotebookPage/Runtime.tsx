@@ -11,8 +11,7 @@ import {
     stopRuntime,
     useRuntimeStore,
 } from '@stores/runtime';
-import { SEARCH_BUTTON_ID } from './search';
-import { SEARCH_PANEL_ID } from './SearchBar';
+import { SEARCH_BUTTON_ID, SEARCH_PANEL_ID } from './search';
 import { bannerKind, runtimeButtons, type BannerKind, type CellRun } from './status';
 import styles from './Runtime.module.css';
 

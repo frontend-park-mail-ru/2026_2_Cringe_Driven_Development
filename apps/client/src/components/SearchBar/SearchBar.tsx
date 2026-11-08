@@ -4,14 +4,14 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { domProps } from '@utils/dom-props';
 import styles from './SearchBar.module.css';
 
-/** id поля запроса: в него переводят фокус кнопка «Поиск» и Ctrl/Cmd+F. */
-export const SEARCH_INPUT_ID = 'notebook-search';
-
-/** id панели поиска: на неё ссылается aria-controls кнопки «Поиск». */
-export const SEARCH_PANEL_ID = 'notebook-search-panel';
-
 /** Свойства {@link SearchBar}. */
 interface SearchBarProps {
+    /** id панели: для aria-controls кнопки, которая её открывает */
+    id: string;
+    /** id поля: для перевода в него фокуса снаружи */
+    inputId: string;
+    /** Подпись и плейсхолдер поля */
+    label: string;
     query: string;
     /** Номер активного вхождения с 1; 0 — активного нет */
     current: number;
@@ -23,16 +23,16 @@ interface SearchBarProps {
     onClose: () => void;
 }
 
-// После нажатия кнопки панели ввод продолжается в поле
-const focusInput = (): void => document.getElementById(SEARCH_INPUT_ID)?.focus();
-
 /**
- * Панель поиска по блокноту (Components → SearchBar): поле со счётчиком и очисткой, переходы и
+ * Панель поиска (Components → SearchBar): поле со счётчиком и очисткой, переходы и
  * закрытие. Enter и Shift+Enter в поле — следующее и предыдущее совпадение, Esc в панели закрывает.
- * @param props запрос, счётчик и действия
+ * @param props id, подпись, запрос, счётчик и действия
  * @returns панель
  */
 export function SearchBar({
+    id,
+    inputId,
+    label,
     query,
     current,
     total,
@@ -54,19 +54,21 @@ export function SearchBar({
         bar.addEventListener('keydown', handleKey);
         return () => bar.removeEventListener('keydown', handleKey);
     }, [onClose]);
+    // После нажатия кнопки панели ввод продолжается в поле
+    const focusInput = (): void => document.getElementById(inputId)?.focus();
     const status = !query ? '' : total > 0 ? `${current} из ${total}` : 'Ничего не найдено';
     return (
-        <search ref={barRef} id={SEARCH_PANEL_ID} className={styles.bar}>
+        <search ref={barRef} id={id} className={styles.bar}>
             <div key="field" className={styles.field}>
                 <Icon key="icon" name="search" className={styles.icon} />
                 <input
                     key="input"
-                    id={SEARCH_INPUT_ID}
+                    id={inputId}
                     className={styles.input}
                     type="text"
                     value={query}
-                    placeholder="Поиск по блокноту"
-                    aria-label="Поиск по блокноту"
+                    placeholder={label}
+                    aria-label={label}
                     {...domProps({ autocomplete: 'off', spellcheck: false })}
                     onInput={(event) => onQuery((event.target as HTMLInputElement).value)}
                     onKeyDown={(event) => {

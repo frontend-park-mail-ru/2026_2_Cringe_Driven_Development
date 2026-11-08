@@ -13,6 +13,12 @@ import { CURRENT_SELECTOR } from '@modules/search/Marked';
 /** id кнопки «Поиск»: на неё возвращается фокус после закрытия панели. */
 export const SEARCH_BUTTON_ID = 'notebook-search-button';
 
+/** id поля запроса: в него переводят фокус кнопка «Поиск» и Ctrl/Cmd+F. */
+export const SEARCH_INPUT_ID = 'notebook-search';
+
+/** id панели поиска: на неё ссылается aria-controls кнопки «Поиск». */
+export const SEARCH_PANEL_ID = 'notebook-search-panel';
+
 const NO_MATCHES: SearchRange[] = [];
 
 /** Состояние поиска по блокноту и действия с ним. */

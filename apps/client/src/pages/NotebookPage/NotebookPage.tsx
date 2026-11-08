@@ -8,6 +8,7 @@ import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { ScrollTop } from '@components/ScrollTop/ScrollTop';
+import { SearchBar } from '@components/SearchBar/SearchBar';
 import { SaveStatus } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
@@ -42,8 +43,13 @@ import { useTouchDevice } from '@utils/touch';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
 import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
-import { SEARCH_BUTTON_ID, scrollToCurrent, useNotebookSearch } from './search';
-import { SearchBar, SEARCH_INPUT_ID } from './SearchBar';
+import {
+    SEARCH_BUTTON_ID,
+    SEARCH_INPUT_ID,
+    SEARCH_PANEL_ID,
+    scrollToCurrent,
+    useNotebookSearch,
+} from './search';
 import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
@@ -419,6 +425,9 @@ export function NotebookPage() {
                         search.open && (
                             <SearchBar
                                 key="search"
+                                id={SEARCH_PANEL_ID}
+                                inputId={SEARCH_INPUT_ID}
+                                label="Поиск по блокноту"
                                 query={search.query}
                                 current={search.current}
                                 total={search.total}
