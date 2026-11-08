@@ -17,7 +17,7 @@ const RPC = {
     'Sec-Fetch-Site': 'same-origin',
     'Content-Type': 'application/json',
 };
-const USER = { id: 1, login: 'denis', avatar_url: null };
+const USER = { id: 1, login: 'denis', avatar_url: null, has_2fa: false };
 const template = await loadTemplate(process.env.HTML_TEMPLATE ?? '');
 const bff = createBff(template, new Map());
 
@@ -262,6 +262,31 @@ describe('RPC', () => {
         ]);
         expect(missingError.code).toBe('NOT_FOUND');
         expect(foreignError).toEqual(missingError);
+    });
+
+    test('notebooks.list — превью кода и активная сессия из списка Go без изменений', async () => {
+        const list = [
+            {
+                id: 1,
+                name: 'a',
+                updated_at: '2026-10-04T12:00:00Z',
+                cells_count: 2,
+                preview_code: 'def f():\n    return "<script>alert(1)</script>"',
+                has_active_session: true,
+            },
+            {
+                id: 2,
+                name: 'b',
+                updated_at: '2026-10-04T12:00:00Z',
+                cells_count: 0,
+                preview_code: '',
+                has_active_session: false,
+            },
+        ];
+        useGo({ 'GET /notebooks': () => Response.json(list) });
+        const res = await rpc('notebooks.list', { cookie: await cookie(goTokens().issue()) });
+        expect(await dataOf(res)).toEqual(list);
+        expect(goPaths()).toEqual(['GET /notebooks']);
     });
 
     test('успешный статус с телом не по контракту — BAD_GATEWAY', async () => {
@@ -619,6 +644,7 @@ describe('HTML', () => {
             id: 7,
             login: '</script><script>alert(1)</script><!-- "\'&Привет ',
             avatar_url: null,
+            has_2fa: false,
         };
         const html = await renderBootstrap(template, { user }, new Headers()).text();
         let scripts = 0;
@@ -691,7 +717,7 @@ describe('robots.txt', () => {
 describe('смена логина и пароля', () => {
     test('updateLogin шлёт PATCH /users/me и возвращает пользователя', async () => {
         const tokens = goTokens();
-        const renamed = { id: 1, login: 'orbit', avatar_url: null };
+        const renamed = { id: 1, login: 'orbit', avatar_url: null, has_2fa: false };
         useGo({ 'PATCH /users/me': () => Response.json(renamed) });
         const res = await rpc('users.updateLogin', {
             body: { login: 'orbit' },
