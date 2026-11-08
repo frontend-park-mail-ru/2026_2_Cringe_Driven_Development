@@ -1,6 +1,14 @@
 import { create } from '@cdd-team/zustand';
 import { isRpcError, trpc, type Cell, type NotebookPageData } from '@api/trpc';
-import { applyOp, exceedsBytes, fitBytes, sameStructure, type Op, type Snapshot } from './snapshot';
+import {
+    applyOp,
+    exceedsBytes,
+    fitBytes,
+    sameStructure,
+    type CreatableKind,
+    type Op,
+    type Snapshot,
+} from './snapshot';
 
 // Лимит исходника ячейки — 64 КиБ в UTF-8
 const SOURCE_LIMIT_BYTES = 65_536;
@@ -331,7 +339,7 @@ const structural = (op: Op): Promise<string | boolean | undefined> => {
  * @param index позиция с нуля; без неё — в конец
  * @returns id новой ячейки или `undefined`, если добавить нельзя или не удалось
  */
-export async function addCell(kind: Cell['kind'], index?: number): Promise<string | undefined> {
+export async function addCell(kind: CreatableKind, index?: number): Promise<string | undefined> {
     if (!get().confirmed || get().structureBusy || paused()) return undefined;
     if (get().error === 'too_many_cells') set({ error: null });
     const result = await structural({ type: 'create', kind, index });

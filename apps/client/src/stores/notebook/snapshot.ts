@@ -3,10 +3,13 @@ import type { Cell } from '@api/trpc';
 /** Подтверждённое сервером содержимое блокнота: hash и ячейки по порядку. */
 export type Snapshot = { hash: string; cells: Cell[] };
 
+/** Вид ячейки, которую можно создать: raw только читается. */
+export type CreatableKind = Exclude<Cell['kind'], 'raw'>;
+
 /** Операция над ячейками, которую подтверждает сервер. */
 export type Op =
     | { type: 'update'; cellId: string; source: string }
-    | { type: 'create'; kind: Cell['kind']; index?: number }
+    | { type: 'create'; kind: CreatableKind; index?: number }
     | { type: 'move'; cellId: string; index: number }
     | { type: 'delete'; cellId: string };
 

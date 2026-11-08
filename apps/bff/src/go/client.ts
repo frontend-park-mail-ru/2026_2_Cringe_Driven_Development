@@ -21,8 +21,27 @@ export interface User {
   has_2fa: boolean;
 }
 
+export interface NotebookSummary {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  updated_at: string;
+  /** Число блоков */
+  cells_count: number;
+  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
+  preview_code: string;
+  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
+  has_active_session: boolean;
+}
+
 /**
- * Вид блока
+ * Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.
+ * @minLength 1
+ */
+export type NotebookHash = string;
+
+/**
+ * Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.
  */
 export type CellKind = typeof CellKind[keyof typeof CellKind];
 
@@ -30,6 +49,7 @@ export type CellKind = typeof CellKind[keyof typeof CellKind];
 export const CellKind = {
   code: 'code',
   markdown: 'markdown',
+  raw: 'raw',
 } as const;
 
 /**
@@ -43,10 +63,55 @@ export interface Cell {
      * @pattern ^[a-zA-Z0-9_-]+$
      */
   id: string;
-  /** Вид блока */
+  /** Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown. */
   kind: CellKind;
   /** Содержимое блока */
   source: string;
+}
+
+export type NotebookContentCellsItem = {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'markdown' | 'raw';
+  /** Содержимое блока */
+  source: string;
+} | {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'code';
+  /** Содержимое блока */
+  source: string;
+  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
+  outputs: { [key: string]: unknown }[];
+  /**
+     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
+     * @minimum 0
+     * @nullable
+     */
+  execution_count: number | null;
+  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
+  output_truncated: boolean;
+};
+
+/**
+ * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
+ */
+export interface NotebookContent {
+  hash: NotebookHash;
+  /** @maxItems 1000 */
+  cells: NotebookContentCellsItem[];
 }
 
 /**
@@ -64,15 +129,6 @@ export interface Notebook {
   cells: Cell[];
   created_at: string;
   updated_at: string;
-}
-
-export interface NotebookSummary {
-  /** @minimum 1 */
-  id: number;
-  name: string;
-  updated_at: string;
-  /** Число блоков */
-  cells_count: number;
 }
 
 export interface Credentials {
@@ -153,12 +209,6 @@ export interface RefreshTokenRequest {
      */
   refresh_token: string;
 }
-
-/**
- * Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".
- * @minLength 1
- */
-export type NotebookHash = string;
 
 export interface NotebookCellChange {
   hash: NotebookHash;
@@ -550,51 +600,6 @@ export interface RuntimeInspection {
      * @nullable
      */
   reason: string | null;
-}
-
-export type NotebookContentCellsItem = {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'markdown';
-  /** Содержимое блока */
-  source: string;
-} | {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'code';
-  /** Содержимое блока */
-  source: string;
-  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
-  outputs: { [key: string]: unknown }[];
-  /**
-     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
-     * @minimum 0
-     * @nullable
-     */
-  execution_count: number | null;
-  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
-  output_truncated: boolean;
-};
-
-/**
- * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
- */
-export interface NotebookContent {
-  hash: NotebookHash;
-  /** @maxItems 1000 */
-  cells: NotebookContentCellsItem[];
 }
 
 export type RuntimeExecutionState = typeof RuntimeExecutionState[keyof typeof RuntimeExecutionState];

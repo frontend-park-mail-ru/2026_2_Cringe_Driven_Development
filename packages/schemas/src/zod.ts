@@ -406,7 +406,7 @@ export const createCellResponseIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
 
 export const CreateCellResponse = zod.object({
   "id": zod.string().min(1).max(createCellResponseIdMax).regex(createCellResponseIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')
 
@@ -447,10 +447,10 @@ export const getNotebookContentResponseCellsMax = 1000;
 
 
 export const GetNotebookContentResponse = zod.object({
-  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.'),
   "cells": zod.array(zod.union([zod.object({
   "id": zod.string().min(1).max(getNotebookContentResponseCellsItemOneIdMax).regex(getNotebookContentResponseCellsItemOneIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['markdown']).describe('Вид блока'),
+  "kind": zod.enum(['markdown', 'raw']).describe('Вид блока'),
   "source": zod.string().describe('Содержимое блока')
 }),zod.object({
   "id": zod.string().min(1).max(getNotebookContentResponseCellsItemTwoIdMax).regex(getNotebookContentResponseCellsItemTwoIdRegExp).describe('ID блока внутри блокнота'),
@@ -502,10 +502,10 @@ export const addNotebookCellResponseCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$'
 
 
 export const AddNotebookCellResponse = zod.object({
-  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.'),
   "cell": zod.object({
   "id": zod.string().min(1).max(addNotebookCellResponseCellIdMax).regex(addNotebookCellResponseCellIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')
 })
@@ -548,10 +548,10 @@ export const editNotebookCellResponseCellIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$
 
 
 export const EditNotebookCellResponse = zod.object({
-  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".'),
+  "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.'),
   "cell": zod.object({
   "id": zod.string().min(1).max(editNotebookCellResponseCellIdMax).regex(editNotebookCellResponseCellIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')
 })
@@ -586,7 +586,7 @@ export const RemoveNotebookCellHeader = zod.object({
 
 
 export const RemoveNotebookCellResponse = zod.object({
-  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".')
+  "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.')
 })
 
 
@@ -653,7 +653,7 @@ export const MoveNotebookCellBody = zod.object({
 
 
 export const MoveNotebookCellResponse = zod.object({
-  "hash": zod.string().min(1).describe('Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".')
+  "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.')
 })
 
 
@@ -686,7 +686,7 @@ export const GetNotebookResponse = zod.object({
   "name": zod.string().describe('Название блокнота'),
   "cells": zod.array(zod.object({
   "id": zod.string().min(1).max(getNotebookResponseCellsItemIdMax).regex(getNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
   "created_at": zod.iso.datetime({"offset":true}),
@@ -711,7 +711,9 @@ export const ListNotebooksResponseItem = zod.object({
   "id": zod.int().min(1),
   "name": zod.string(),
   "updated_at": zod.iso.datetime({"offset":true}),
-  "cells_count": zod.int().describe('Число блоков')
+  "cells_count": zod.int().describe('Число блоков'),
+  "preview_code": zod.string().describe('Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии.'),
+  "has_active_session": zod.boolean().describe('У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения.')
 })
 export const ListNotebooksResponse = zod.array(ListNotebooksResponseItem)
 
@@ -746,7 +748,7 @@ export const CreateNotebookResponse = zod.object({
   "name": zod.string().describe('Название блокнота'),
   "cells": zod.array(zod.object({
   "id": zod.string().min(1).max(createNotebookResponseCellsItemIdMax).regex(createNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown']).describe('Вид блока'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
   "created_at": zod.iso.datetime({"offset":true}),

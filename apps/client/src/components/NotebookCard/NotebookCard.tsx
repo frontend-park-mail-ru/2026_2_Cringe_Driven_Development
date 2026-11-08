@@ -1,6 +1,7 @@
 import type { NotebookSummary } from '@api/trpc';
 import { clsx } from '@cdd-team/clsx';
 import { Link } from '@cdd-team/router';
+import { Icon } from '@components/Icon/Icon';
 import { Python } from '@modules/python/Python';
 import { timeAgo } from '@utils/date';
 import { plural } from '@utils/plural';
@@ -10,16 +11,6 @@ import styles from './NotebookCard.module.css';
 interface NotebookCardProps {
     notebook: NotebookSummary;
 }
-
-/**
- * Превью кода из макета (NotebookCard → State=Default). В списке блокнотов кода нет,
- * поэтому превью у всех карточек одно.
- */
-const PREVIEW_CODE = `def step(w, grad, lr=0.01):
-    return w - lr * grad
-
-for epoch in range(200):
-    w = step(w, loss_grad(w, X, y))`;
 
 /**
  * Свечение под курсором: координаты уходят в CSS-переменные карточки.
@@ -49,9 +40,15 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
             onPointerMove={trackPointer}
         >
             <div key="peek" className={styles.peek} aria-hidden="true">
-                <pre className={styles.code}>
-                    <Python key="code" source={PREVIEW_CODE} />
-                </pre>
+                {notebook.preview_code === '' ? (
+                    <p key="empty" className={styles.empty}>
+                        Нет кода для превью
+                    </p>
+                ) : (
+                    <pre key="code" className={styles.code}>
+                        <Python key="code" source={notebook.preview_code} />
+                    </pre>
+                )}
             </div>
             <div key="body" className={styles.body}>
                 <h2 key="title" className={styles.title}>
@@ -60,6 +57,12 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
                 <p key="meta" className={styles.meta}>
                     {`${cells} · изменён ${timeAgo(notebook.updated_at)}`}
                 </p>
+                {notebook.has_active_session && (
+                    <p key="session" className={styles.session}>
+                        <Icon key="icon" name="dot" size={12} />
+                        <span key="label">Активная сессия</span>
+                    </p>
+                )}
             </div>
         </Link>
     );

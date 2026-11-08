@@ -4446,6 +4446,187 @@
           }
         ]
       },
+      "NotebookSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cells_count": {
+            "type": "integer",
+            "description": "Число блоков"
+          },
+          "preview_code": {
+            "type": "string",
+            "description": "Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии."
+          },
+          "has_active_session": {
+            "type": "boolean",
+            "description": "У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "updated_at",
+          "cells_count",
+          "preview_code",
+          "has_active_session"
+        ]
+      },
+      "NotebookHash": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.",
+        "examples": [
+          "h123"
+        ]
+      },
+      "Cell": {
+        "type": "object",
+        "description": "Блок блокнота",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "description": "ID блока внутри блокнота"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "markdown",
+              "raw"
+            ],
+            "description": "Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown."
+          },
+          "source": {
+            "type": "string",
+            "description": "Содержимое блока"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source"
+        ]
+      },
+      "NotebookContent": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "markdown",
+                        "raw"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "code"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    },
+                    "outputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "properties": {}
+                      },
+                      "description": "Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение."
+                    },
+                    "execution_count": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "format": "int64",
+                      "description": "Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии."
+                    },
+                    "output_truncated": {
+                      "type": "boolean",
+                      "description": "Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source",
+                    "outputs",
+                    "execution_count",
+                    "output_truncated"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "hash",
+          "cells"
+        ],
+        "description": "Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла."
+      },
       "Notebook": {
         "type": "object",
         "description": "Блокнот (.ipynb)",
@@ -4484,33 +4665,6 @@
           "updated_at"
         ]
       },
-      "NotebookSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          },
-          "name": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cells_count": {
-            "type": "integer",
-            "description": "Число блоков"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "updated_at",
-          "cells_count"
-        ]
-      },
       "Credentials": {
         "type": "object",
         "properties": {
@@ -4529,36 +4683,6 @@
         "required": [
           "login",
           "password"
-        ]
-      },
-      "Cell": {
-        "type": "object",
-        "description": "Блок блокнота",
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-zA-Z0-9_-]+$",
-            "description": "ID блока внутри блокнота"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "code",
-              "markdown"
-            ],
-            "description": "Вид блока"
-          },
-          "source": {
-            "type": "string",
-            "description": "Содержимое блока"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "source"
         ]
       },
       "CreateCellRequest": {
@@ -4661,14 +4785,6 @@
         },
         "required": [
           "refresh_token"
-        ]
-      },
-      "NotebookHash": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например \"h123\".",
-        "examples": [
-          "h123"
         ]
       },
       "NotebookCellChange": {
@@ -5260,110 +5376,6 @@
         ],
         "additionalProperties": false
       },
-      "NotebookContent": {
-        "type": "object",
-        "properties": {
-          "hash": {
-            "$ref": "#/components/schemas/NotebookHash"
-          },
-          "cells": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-zA-Z0-9_-]+$",
-                      "description": "ID блока внутри блокнота"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "markdown"
-                      ],
-                      "description": "Вид блока"
-                    },
-                    "source": {
-                      "type": "string",
-                      "description": "Содержимое блока"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "kind",
-                    "source"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-zA-Z0-9_-]+$",
-                      "description": "ID блока внутри блокнота"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "code"
-                      ],
-                      "description": "Вид блока"
-                    },
-                    "source": {
-                      "type": "string",
-                      "description": "Содержимое блока"
-                    },
-                    "outputs": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": true,
-                        "properties": {}
-                      },
-                      "description": "Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение."
-                    },
-                    "execution_count": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
-                      "minimum": 0,
-                      "format": "int64",
-                      "description": "Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии."
-                    },
-                    "output_truncated": {
-                      "type": "boolean",
-                      "description": "Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется."
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "kind",
-                    "source",
-                    "outputs",
-                    "execution_count",
-                    "output_truncated"
-                  ],
-                  "additionalProperties": false
-                }
-              ]
-            },
-            "maxItems": 1000
-          }
-        },
-        "required": [
-          "hash",
-          "cells"
-        ],
-        "description": "Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла."
-      },
       "RuntimeExecution": {
         "type": "object",
         "properties": {
@@ -5762,7 +5774,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Access-токен пользователя, передаваемый BFF. Для настройки, подтверждения и отключения 2FA требуется действующая авторизованная сессия текущего пользователя."
+        "description": "Access-токен пользователя, передаваемый BFF."
       }
     }
   },

@@ -264,6 +264,31 @@ describe('RPC', () => {
         expect(foreignError).toEqual(missingError);
     });
 
+    test('notebooks.list — превью кода и активная сессия из списка Go без изменений', async () => {
+        const list = [
+            {
+                id: 1,
+                name: 'a',
+                updated_at: '2026-10-04T12:00:00Z',
+                cells_count: 2,
+                preview_code: 'def f():\n    return "<script>alert(1)</script>"',
+                has_active_session: true,
+            },
+            {
+                id: 2,
+                name: 'b',
+                updated_at: '2026-10-04T12:00:00Z',
+                cells_count: 0,
+                preview_code: '',
+                has_active_session: false,
+            },
+        ];
+        useGo({ 'GET /notebooks': () => Response.json(list) });
+        const res = await rpc('notebooks.list', { cookie: await cookie(goTokens().issue()) });
+        expect(await dataOf(res)).toEqual(list);
+        expect(goPaths()).toEqual(['GET /notebooks']);
+    });
+
     test('успешный статус с телом не по контракту — BAD_GATEWAY', async () => {
         useGo({
             'GET /users/me': () => Response.json({}),

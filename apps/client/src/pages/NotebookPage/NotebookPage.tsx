@@ -28,6 +28,7 @@ import {
     useNotebookStore,
     type Orphan,
 } from '@stores/notebook';
+import type { CreatableKind } from '@stores/notebook/snapshot';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import {
     closeRuntime,
@@ -55,8 +56,6 @@ import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
 const SKELETON_COUNT = 4;
-
-type CellKind = CellData['kind'];
 
 /**
  * Загружает блокнот.
@@ -123,7 +122,7 @@ interface AddCellChipsProps {
     /** id чипа «+ Код»: у чипов в шапке */
     codeId?: string;
     disabled: boolean;
-    onAdd: (kind: CellKind) => void;
+    onAdd: (kind: CreatableKind) => void;
 }
 
 /**
@@ -388,7 +387,7 @@ export function NotebookPage() {
               : (notebook.meta?.name ?? '');
 
     // Новая ячейка появляется после ответа сервера — тогда в неё переходит фокус
-    const handleAdd = (kind: CellKind, index?: number) => {
+    const handleAdd = (kind: CreatableKind, index?: number) => {
         void addCell(kind, index).then((created) => {
             if (!created) return;
             setSelected(created);
