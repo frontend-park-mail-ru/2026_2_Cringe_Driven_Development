@@ -1,4 +1,6 @@
 .page {
+    /* отступ прокрутки под прилипшую шапку; при открытом поиске JS меряет шапку с панелью */
+    --search-margin: 160px;
     position: relative;
     isolation: isolate;
     min-height: 100vh;
@@ -67,7 +69,7 @@
     /* Шапка прилипает к верху: новая ячейка не должна прокручиваться под неё */
     & > li {
         position: relative;
-        scroll-margin: var(--search-margin, 160px) 0 96px;
+        scroll-margin: var(--search-margin) 0 96px;
     }
 }
 
