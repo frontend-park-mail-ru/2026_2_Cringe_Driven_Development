@@ -193,6 +193,10 @@
 }
 
 /* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
+.raw {
+    color: var(--color-text-primary);
+}
+
 .preview {
     min-width: 0;
     cursor: text;

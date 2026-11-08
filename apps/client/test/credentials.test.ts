@@ -1,5 +1,10 @@
 import { expect, test } from 'bun:test';
-import { passwordRules, validateNewPassword } from '@utils/credentials';
+import {
+    authErrorMessage,
+    passwordRules,
+    validateNewPassword,
+    validateTotp,
+} from '@utils/credentials';
 
 const met = (current: string, next: string, confirm: string) =>
     passwordRules(current, next, confirm).map((rule) => rule.met);
@@ -18,4 +23,18 @@ test('новый пароль: правила регистрации и отли
     expect(validateNewPassword('old-password', 'new-password')).toBeUndefined();
     expect(validateNewPassword('old-password', 'old-password')).toBe('Совпадает с текущим паролем');
     expect(validateNewPassword('old-password', 'short')).toBeDefined();
+});
+
+test('TOTP-код: ровно 6 цифр, ведущие нули допустимы', () => {
+    expect(validateTotp('012345')).toBeUndefined();
+    expect(validateTotp('')).toBe('Введите код');
+    expect(validateTotp('12345')).toBe('Код — 6 цифр');
+    expect(validateTotp('12345a')).toBe('Код — 6 цифр');
+    expect(validateTotp(' 123456')).toBe('Код — 6 цифр');
+});
+
+test('неверный TOTP-код — своё сообщение', () => {
+    expect(authErrorMessage({ code: 'invalid_totp' }, 'login')).toBe(
+        'Неверный или уже использованный код',
+    );
 });

@@ -138,6 +138,26 @@ describe('RPC', () => {
         expect(call?.headers.has('X-CSRF')).toBe(false);
     });
 
+    test('login с 2FA: без кода — 412 two_factor_required, неверный код — 401 invalid_totp, код уходит в Go', async () => {
+        useGo({
+            'POST /auth/login': ({ body }) =>
+                (body as { user_code?: string }).user_code === '012345'
+                    ? goError(401, 'invalid_totp')
+                    : goError(412, 'two_factor_required'),
+        });
+        const missing = await rpc('auth.login', {
+            body: { login: 'denis', password: 'password123' },
+        });
+        expect(missing.status).toBe(412);
+        expect((await errorOf(missing)).appCode).toBe('two_factor_required');
+        const wrong = await rpc('auth.login', {
+            body: { login: 'denis', password: 'password123', user_code: '012345' },
+        });
+        expect(wrong.status).toBe(401);
+        expect((await errorOf(wrong)).appCode).toBe('invalid_totp');
+        expect(sessionSetCookie(wrong)).toBeUndefined();
+    });
+
     test('без сессии — UNAUTHORIZED, Go не вызывается', async () => {
         useGo({});
         const res = await rpc('notebooks.list');

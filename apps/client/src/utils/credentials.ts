@@ -47,6 +47,17 @@ export function validatePassword(password: string): string | undefined {
 }
 
 /**
+ * Проверяет TOTP-код второго шага входа: ровно 6 цифр.
+ * @param code код из приложения-аутентификатора
+ * @returns текст ошибки или undefined, если код подходит
+ */
+export function validateTotp(code: string): string | undefined {
+    if (code === '') return 'Введите код';
+    if (!/^[0-9]{6}$/.test(code)) return 'Код — 6 цифр';
+    return undefined;
+}
+
+/**
  * Проверяет повтор пароля при регистрации.
  * @param password пароль
  * @param confirm повтор пароля
@@ -98,6 +109,8 @@ export function authErrorMessage(error: AuthError, mode: AuthMode): string {
             return 'Неверный логин или пароль';
         case 'login_taken':
             return 'Логин уже занят. Выберите другой';
+        case 'invalid_totp':
+            return 'Неверный или уже использованный код';
         case 'validation_error':
             return error.message ?? 'Проверьте логин и пароль';
         case 'network':

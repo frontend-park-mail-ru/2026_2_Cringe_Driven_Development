@@ -58,6 +58,7 @@ import {
     type EditNotebookCellRequest,
     type MoveNotebookCellRequest,
     type Credentials,
+    type LoginRequest,
     type Notebook,
     type NotebookCellChange,
     type NotebookContent,
@@ -286,10 +287,10 @@ export const publicGo = {
         unwrap(await registerUser(body, withRequestId(requestId)), [201], RegisterUserResponse),
     /**
      * Вход в Go.
-     * @param body логин и пароль
+     * @param body логин, пароль и TOTP-код при включённой 2FA
      * @param requestId `X-Request-ID` для Go
      * @returns пользователь и токены
      */
-    login: async (body: Credentials, requestId?: string): Promise<AuthResult> =>
+    login: async (body: LoginRequest, requestId?: string): Promise<AuthResult> =>
         unwrap(await loginUser(body, withRequestId(requestId)), [200], LoginUserResponse),
 };
