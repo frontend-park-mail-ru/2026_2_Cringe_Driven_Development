@@ -1,6 +1,7 @@
 // Вывод исполнения: одно безопасное представление, порядок PNG → SVG → HTML → текст.
+// Соседние фрагменты одного потока — один текст в общей области.
 import { expect, test } from 'bun:test';
-import { pickOutput } from '@pages/NotebookPage/Output';
+import { groupOutputs, pickOutput } from '@pages/NotebookPage/Output';
 
 test('stream и text/plain — текст как есть, разметка не разбирается', () => {
     const xss = '<img src=x onerror=alert(1)>';
@@ -68,4 +69,42 @@ test('HTML — в изолированный iframe; JavaScript без текс�
         kind: 'unsupported',
         mimes: ['application/javascript', 'application/vnd.plotly.v1+json'],
     });
+});
+
+const out = (text: string, name = 'stdout') => ({ output_type: 'stream', name, text });
+
+test('фрагменты одного потока склеиваются без лишних символов', () => {
+    expect(groupOutputs([out('a'), out('b\n'), out('\n  c\n')])).toEqual([
+        { key: 0, shown: { kind: 'text', text: 'ab\n\n  c\n', stream: undefined } },
+    ]);
+    expect(groupOutputs([])).toEqual([]);
+});
+
+test('текст не склеивается через stderr, результат выражения, картинку и ошибку', () => {
+    const png = { output_type: 'display_data', data: { 'image/png': 'iVBO' } };
+    const result = { output_type: 'execute_result', data: { 'text/plain': '42' } };
+    const error = { output_type: 'error', ename: 'E', evalue: 'v' };
+    const kinds = groupOutputs([
+        out('a\n'),
+        out('w\n', 'stderr'),
+        out('b\n'),
+        result,
+        out('c\n'),
+        png,
+        out('d\n'),
+        error,
+        out('e\n', 'stderr'),
+        out('f\n', 'stderr'),
+    ]).map(({ key, shown }) => [key, shown.kind, 'text' in shown ? shown.text : '']);
+    expect(kinds).toEqual([
+        [0, 'text', 'a\n'],
+        [1, 'text', 'w\n'],
+        [2, 'text', 'b\n'],
+        [3, 'text', '42'],
+        [4, 'text', 'c\n'],
+        [5, 'image', ''],
+        [6, 'text', 'd\n'],
+        [7, 'error', 'E: v'],
+        [8, 'text', 'e\nf\n'],
+    ]);
 });

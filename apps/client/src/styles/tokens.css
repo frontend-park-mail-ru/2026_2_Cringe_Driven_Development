@@ -24,6 +24,7 @@
     --color-primary-deep: #6543f5;
     --color-focus: #a48cff;
     --color-primary-text: #8b6cff;
+    --color-primary-soft: rgb(122 90 248 / 0.16);
 
     /* Текст */
     --color-text-primary: #ece9ff;
@@ -44,6 +45,10 @@
     --code-string: #8fe3c0;
     --code-comment: #8c86ae;
     --code-function: var(--color-text-primary);
+
+    /* Поиск по блокноту: фон совпадений, текст на текущем — --color-on-light */
+    --color-highlight: rgb(255 201 138 / 0.25);
+    --color-highlight-current: #ffc98a;
 
     /* «Луна»: светлая поверхность, тёмный текст */
     --color-on-light: #1a1330;

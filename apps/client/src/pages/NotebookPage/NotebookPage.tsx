@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from '@cdd-team/react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 
 import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
 import LogoMark from '@assets/logo-mark.svg?react';
@@ -8,6 +8,7 @@ import { Header } from '@components/Header/Header';
 import { IconButton } from '@components/IconButton/IconButton';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { ScrollTop } from '@components/ScrollTop/ScrollTop';
+import { SearchBar } from '@components/SearchBar/SearchBar';
 import { SaveStatus } from '@components/SaveStatus/SaveStatus';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
@@ -38,10 +39,17 @@ import {
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
-import { useTouchDevice } from '@utils/touch';
+import { useForcedColors, useTouchDevice } from '@utils/media';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
 import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
+import {
+    SEARCH_BUTTON_ID,
+    SEARCH_INPUT_ID,
+    SEARCH_PANEL_ID,
+    scrollToCurrent,
+    useNotebookSearch,
+} from './search';
 import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
@@ -84,6 +92,12 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
 };
 
 const PASTE_NOTICE_MS = 4000;
+
+// Поиск открывает Cmd+F на Mac и Ctrl+F на остальных системах
+const IS_MAC = navigator.userAgent.includes('Mac');
+
+// Запас между прилипшей шапкой и совпадением, к которому прокрутили
+const SEARCH_GAP = 16;
 
 // Лимит — в байтах, но человеку понятнее, сколько символов вошло: «37 090»
 const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
@@ -197,6 +211,7 @@ export function NotebookPage() {
     const [fresh, setFresh] = useState<string | undefined>(undefined);
     // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
     const touch = useTouchDevice();
+    const forcedColors = useForcedColors();
     const notebook = useNotebookStore();
     const runtime = useRuntimeStore();
 
@@ -304,6 +319,67 @@ export function NotebookPage() {
     // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
+    // поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера.
+    // То же в системных цветах: слой подсветки скрыт, совпадения не видно и к ним не прокрутить
+    const searchEnabled = ready && !touch && !forcedColors;
+    const search = useNotebookSearch(cells, notebook.drafts, searchEnabled);
+    // Перевести фокус в поле поиска после отрисовки панели
+    const [searchFocus, setSearchFocus] = useState(0);
+    useLayoutEffect(() => {
+        if (searchFocus === 0) return;
+        const input = document.getElementById(SEARCH_INPUT_ID);
+        if (input instanceof HTMLInputElement) {
+            input.focus();
+            input.select();
+        }
+    }, [searchFocus]);
+    const { show: showSearch } = search;
+    const openSearch = useCallback(() => {
+        showSearch();
+        setSearchFocus((count) => count + 1);
+    }, [showSearch]);
+    useEffect(() => {
+        if (!searchEnabled) return;
+        const handleKey = (event: KeyboardEvent) => {
+            // по коду клавиши: в русской раскладке key — «а»; на Mac Ctrl+F — курсор вперёд
+            const modifier = IS_MAC ? event.metaKey : event.ctrlKey;
+            if (!modifier || event.code !== 'KeyF' || event.altKey || event.shiftKey) return;
+            // открытая модалка держит фокус: поле поиска за ней не открываем
+            if (document.querySelector('[aria-modal="true"]')) return;
+            event.preventDefault();
+            openSearch();
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [searchEnabled, openSearch]);
+    // К активному вхождению — только после перехода или нового запроса, не после правки ячеек
+    useLayoutEffect(() => {
+        if (search.jump > 0) scrollToCurrent();
+    }, [search.jump]);
+    // Прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
+    const pageRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const page = pageRef.current;
+        const header = page?.querySelector('header');
+        if (!page || !header || !search.open) return;
+        const observer = new ResizeObserver(() => {
+            const top = parseFloat(getComputedStyle(header).top) || 0;
+            page.style.setProperty(
+                '--search-margin',
+                `${top + header.offsetHeight + SEARCH_GAP}px`,
+            );
+        });
+        observer.observe(header);
+        return () => {
+            observer.disconnect();
+            page.style.removeProperty('--search-margin');
+        };
+    }, [search.open]);
+    const closeSearch = () => {
+        // кнопка «Поиск» остаётся в шапке: фокус на неё до того, как исчезнет поле
+        document.getElementById(SEARCH_BUTTON_ID)?.focus();
+        search.close();
+    };
     const title =
         load === 'loading'
             ? 'Загрузка блокнота…'
@@ -344,11 +420,28 @@ export function NotebookPage() {
     ].toSorted((a, b) => a.at - b.at);
 
     return (
-        <div className={styles.page}>
+        <div ref={pageRef} className={styles.page}>
             <Space key="space" variant="plain" />
             <div key="content" className={styles.content}>
                 <Header
                     key="header"
+                    panel={
+                        search.open && (
+                            <SearchBar
+                                key="search"
+                                id={SEARCH_PANEL_ID}
+                                inputId={SEARCH_INPUT_ID}
+                                label="Поиск по блокноту"
+                                query={search.query}
+                                current={search.current}
+                                total={search.total}
+                                onQuery={search.setQuery}
+                                onNext={search.next}
+                                onPrev={search.prev}
+                                onClose={closeSearch}
+                            />
+                        )
+                    }
                     toolbar={
                         load !== 'error' && (
                             <>
@@ -360,7 +453,17 @@ export function NotebookPage() {
                                         onAdd={handleAdd}
                                     />
                                 )}
-                                {ready && <RuntimeActions key="runtime" hasCode={hasCode} />}
+                                {ready && (
+                                    <RuntimeActions
+                                        key="runtime"
+                                        hasCode={hasCode}
+                                        search={
+                                            searchEnabled
+                                                ? { open: search.open, onOpen: openSearch }
+                                                : undefined
+                                        }
+                                    />
+                                )}
                             </>
                         )
                     }
@@ -444,6 +547,7 @@ export function NotebookPage() {
                                                     : undefined
                                             }
                                             text={notebook.drafts[row.cell.id] ?? row.cell.source}
+                                            marks={search.marksOf(row.cell.id)}
                                             selected={selected === row.cell.id}
                                             tooLarge={notebook.tooLarge[row.cell.id] === true}
                                             canMoveUp={row.index > 0}
