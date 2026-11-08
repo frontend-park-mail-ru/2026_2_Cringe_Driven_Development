@@ -81,6 +81,9 @@ export function AuthForm({ mode, onCodeStep }: AuthFormProps) {
         [life],
     );
 
+    // «Назад» с шага кода на другой режим: новая форма шаг не сбросит
+    useEffect(() => () => onCodeStep?.(false), [onCodeStep]);
+
     const validationErrors: FieldTexts = {
         login: validateLogin(values.login),
         password: validatePassword(values.password),

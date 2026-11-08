@@ -89,7 +89,7 @@ class RequestSession implements Session {
         if (res.status !== 401 || refused?.(res)) return res;
         await this.refresh();
         const retry = await fn(this.init());
-        if (retry.status === 401) {
+        if (retry.status === 401 && !refused?.(retry)) {
             this.end();
             throw new SessionEnded();
         }

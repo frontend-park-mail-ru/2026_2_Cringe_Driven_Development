@@ -1370,6 +1370,27 @@ describe('2FA', () => {
         expect(cleared(res)).toBe(false);
     });
 
+    test('confirm: 401 до refresh, после refresh неверный код — BAD_REQUEST, сессия остаётся', async () => {
+        const tokens = goTokens();
+        let calls = 0;
+        useGo({
+            ...tokens.routes,
+            'POST /auth/confirm2fa': () =>
+                ++calls === 1 ? goError(401, 'unauthorized') : goError(401, 'invalid_totp'),
+        });
+        const res = await rpc('twoFactor.confirm', {
+            body: { user_code: '123456' },
+            cookie: await cookie(tokens.issue()),
+        });
+        expect(await errorOf(res)).toMatchObject({ code: 'BAD_REQUEST', appCode: 'invalid_totp' });
+        expect(go?.calls.map((c) => c.path)).toEqual([
+            '/auth/confirm2fa',
+            '/auth/refresh',
+            '/auth/confirm2fa',
+        ]);
+        expect(cleared(res)).toBe(false);
+    });
+
     test('confirm: код не из шести цифр не доходит до Go', async () => {
         useGo({});
         const res = await rpc('twoFactor.confirm', {
