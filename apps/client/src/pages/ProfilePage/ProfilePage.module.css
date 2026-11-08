@@ -25,7 +25,31 @@
 .profile {
     max-width: 792px;
     margin: 0 auto;
-    padding-top: 48px;
+    padding-top: 38px;
+}
+
+/* Profile / Heading: ссылка «На главную» и заголовок */
+.heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+/* BackLink: текстовая ссылка без заливки, высота 44px — область нажатия */
+.back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    border-radius: 6px;
+    font: var(--font-body-accent);
+    color: var(--color-primary-text);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
 .title {
@@ -365,7 +389,7 @@
     }
 
     .profile {
-        padding-top: 32px;
+        padding-top: 22px;
     }
 
     .section {
