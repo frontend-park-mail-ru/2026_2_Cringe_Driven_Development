@@ -13,7 +13,6 @@ interface InputProps {
     type?: 'text' | 'password';
     /** Имя поля в форме */
     name: string;
-    /** Текущее значение. */
     value: string;
     /** Подсказка внутри пустого поля */
     placeholder?: string;
@@ -43,7 +42,6 @@ interface InputProps {
 
 /**
  * Поле ввода из макета (Components → Input).
- * Под полем всегда есть строка под подсказку или ошибку, поэтому форма не прыгает при валидации.
  * @param props свойства поля
  * @returns разметка поля
  */

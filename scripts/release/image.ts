@@ -91,6 +91,7 @@ export async function imageConfig(ref: string): Promise<{ revision: string; imag
  * по digest, а метка `org.opencontainers.image.revision` равна SHA. Так же скачивает образ и VPS.
  * @param ref ссылка по digest
  * @param sha полный SHA релиза
+ * @returns config digest образа (image ID Docker)
  */
 export async function checkImage(ref: string, sha: string): Promise<string> {
     const { revision, imageId } = await imageConfig(checkImageRef(ref));

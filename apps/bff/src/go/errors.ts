@@ -20,7 +20,7 @@ export class GoError extends Error {
     /**
      * @param kind вид сбоя
      * @param message описание без секретов и тел запросов
-     * @param details статус ответа Go и `code` из его тела `Error`
+     * @param details статус ответа Go, `code` из его тела `Error` и занятая сессия
      */
     constructor(
         kind: GoErrorKind,

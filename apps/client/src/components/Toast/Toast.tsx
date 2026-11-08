@@ -8,7 +8,6 @@ export type ToastType = 'success' | 'info';
 export interface ToastMessage {
     /** Уникален для каждого показа */
     id: number;
-    /** Текст сообщения */
     text: string;
     /** Вид из макета: success — успех, info — нейтральное сообщение */
     type: ToastType;

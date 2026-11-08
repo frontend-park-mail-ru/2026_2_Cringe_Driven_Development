@@ -53,8 +53,9 @@ const fromGo = (err: GoError): TRPCError => {
 
 /**
  * Переводит ошибку процедуры в ответ tRPC: `SessionEnded` — `UNAUTHORIZED`, `GoError` — по статусу
- * Go (400, 401, 403, 404, 409, 412, 413, 415, 429; `invalid_totp` — `BAD_REQUEST`), а `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида —
- * `BAD_GATEWAY`. Прочие ошибки tRPC остаются как есть.
+ * Go (400, 401, 403, 404, 409, 412, 413, 415, 429; `invalid_totp` — `BAD_REQUEST`), а
+ * `403 s2s_forbidden`, 5xx, сеть, таймаут и ответ не того вида — `BAD_GATEWAY`. Прочие ошибки tRPC
+ * остаются как есть.
  * @param e ошибка процедуры или её обёртка tRPC
  * @returns ошибка tRPC
  */

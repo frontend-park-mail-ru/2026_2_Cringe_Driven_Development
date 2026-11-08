@@ -313,7 +313,7 @@ export async function updateReleaseBoard(
             }
             const latest = await issueState(linked.id, context.id);
             if (JSON.stringify(latest) !== JSON.stringify(state)) continue;
-            // Same-option writes may be no-ops; recreate stale evidence for this closure.
+            // запись той же опции может не обновить updatedAt: при reset значение сначала очищается
             const written = await graphql<Record<string, { projectV2Item: { id: string } }>>(
                 `
                     mutation UpdateReleaseStatus(

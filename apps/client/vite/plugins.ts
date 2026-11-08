@@ -37,15 +37,15 @@ export const vitepwaPlugin = (): Plugin[] =>
     VitePWA({
         // манифест и иконки отдаёт BFF со своего origin (PUBLIC_FILES): с CDN манифест не примут
         base: '/',
-        // регистрирует src/serviceWorker.ts
+        // регистрацию делает src/serviceWorker.ts
         injectRegister: false,
         includeManifestIcons: false,
         workbox: {
             // sw.js — один файл: его, как и манифест, отдаёт BFF
             inlineWorkboxRuntime: true,
             sourcemap: false,
-            // кеш — только самостоятельная офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS SPA всегда с CDN, а HTML
-            // и RPC с данными пользователя не кешируются (docs: трек «Офлайн-режим»)
+            // кеш — только офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS SPA
+            // всегда с CDN, HTML и RPC с данными пользователя не кешируются (docs: трек «Офлайн-режим»)
             globPatterns: ['offline.html', 'offline.css', 'onest-variable.woff2'],
             navigateFallback: null,
             runtimeCaching: [

@@ -57,7 +57,6 @@ function hideForeignMkcert() {
 export default defineConfig(({ mode }) => {
     hideForeignMkcert();
     const env = loadClientEnv(mode);
-    // BFF_URL — адрес локального BFF
     const bffUrl = env.BFF_URL || 'http://127.0.0.1:3000';
 
     // dev-плагины идут первыми, как до разделения конфига

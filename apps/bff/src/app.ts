@@ -19,9 +19,9 @@ const notFound = (): Response =>
 
 /**
  * Приложение Hono. Порядок маршрутов: `/health`, tRPC, остальные `/api` (404, в Go не уходят),
- * `/robots.txt` (без сессии и Go, при любом `Accept`), публичные файлы, HTML для GET/HEAD с `Accept: text/html` (на неизвестный адрес — со статусом 404),
- * остальное — 404. HEAD сюда приходит как
- * GET (`index.ts`), тело отбрасывает Bun.
+ * `/robots.txt` (без сессии и Go, при любом `Accept`), публичные файлы, HTML для GET/HEAD
+ * с `Accept: text/html` (на неизвестный адрес — со статусом 404), остальное — 404. HEAD сюда
+ * приходит как GET (`bff.ts`), тело отбрасывает Bun.
  * @param deps шаблон, публичные файлы и обработчики tRPC и HTML
  * @returns приложение для `Bun.serve`
  */

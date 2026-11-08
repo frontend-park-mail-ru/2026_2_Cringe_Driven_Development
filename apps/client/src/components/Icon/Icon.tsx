@@ -55,11 +55,9 @@ export type IconName = keyof typeof ICONS;
 
 /** Свойства {@link Icon}. */
 interface IconProps {
-    /** Имя иконки из макета */
     name: IconName;
     /** Сторона квадрата в px (по умолчанию 16) */
     size?: number;
-    /** Дополнительный класс */
     className?: string;
 }
 

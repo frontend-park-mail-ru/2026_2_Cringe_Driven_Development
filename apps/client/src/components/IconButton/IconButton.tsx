@@ -8,7 +8,6 @@ interface IconButtonProps {
     /** Подпись для скринридера */
     label: string;
     className?: string;
-    /** Действие сейчас недоступно */
     disabled?: boolean;
     onClick: () => void;
 }
