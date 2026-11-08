@@ -152,7 +152,8 @@ vite берёт их оттуда.
 - `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap; `notebook` — ячейки и сохранение; `runtime` — окружение, исполнение и единая цепочка опроса `runtime.updates`.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
-- `assets/` — SVG (знак логотипа, иконки) и favicon: Vite встраивает их в бандл.
+- `assets/` — SVG (знак логотипа, иконки): Vite встраивает их в бандл. Favicon — `public/apple-touch-icon.png`,
+  его отдаёт BFF с origin: файлы `public/` в HTML prod-сборки не уходят на CDN (`renderBuiltUrl` в `vite.config.prod.ts`).
   Картинки и шрифты лежат в репозитории
   [static](https://github.com/Cringe-Driven-Development-Team/static) и берутся с
   `https://static.cellestial.ru` (переменная `VITE_STATIC_URL` в `.env`). В `index.html` адрес пишется как
