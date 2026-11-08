@@ -50,9 +50,11 @@ export function findMatches(cells: readonly SearchCell[], query: string): Search
         let position = lower.indexOf(needle);
         while (position !== -1) {
             const end = position + needle.length;
-            if (!splits(starts, position) && !splits(starts, end))
+            const accepted = !splits(starts, position) && !splits(starts, end);
+            if (accepted)
                 ranges.push({ cellId: cell.id, from: starts[position]!, to: starts[end]! });
-            position = lower.indexOf(needle, end);
+            // отвергнутый кандидат не вхождение: пересекающееся с ним ещё может быть настоящим
+            position = lower.indexOf(needle, accepted ? end : position + 1);
         }
     }
     return ranges;

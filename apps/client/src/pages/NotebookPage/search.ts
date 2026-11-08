@@ -127,13 +127,15 @@ const EDGE = 32;
  * а не страница; по вертикали — страница, с отступом под прилипшую шапку (`--search-margin`).
  */
 export function scrollToCurrent(): void {
-    const mark = document.querySelector<HTMLElement>(CURRENT_SELECTOR);
+    // в коде вхождение на стыке токенов — несколько <mark>, все в одной строке
+    const parts = [...document.querySelectorAll<HTMLElement>(CURRENT_SELECTOR)];
+    const mark = parts[0];
     if (!mark) return;
     // слой подсветки кода — <pre> под полем: координаты метки — те же, что у текста поля
     const editor = mark.closest('pre')?.nextElementSibling;
     if (editor instanceof HTMLTextAreaElement && editor.scrollWidth > editor.clientWidth) {
-        const left = mark.offsetLeft;
-        const right = left + mark.offsetWidth;
+        const left = Math.min(...parts.map((part) => part.offsetLeft));
+        const right = Math.max(...parts.map((part) => part.offsetLeft + part.offsetWidth));
         if (left < editor.scrollLeft + EDGE) editor.scrollLeft = Math.max(0, left - EDGE);
         else if (right > editor.scrollLeft + editor.clientWidth - EDGE)
             editor.scrollLeft = right - editor.clientWidth + EDGE;

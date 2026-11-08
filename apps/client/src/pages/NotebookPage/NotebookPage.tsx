@@ -39,7 +39,7 @@ import {
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
-import { useTouchDevice } from '@utils/touch';
+import { useForcedColors, useTouchDevice } from '@utils/media';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
 import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
@@ -211,6 +211,7 @@ export function NotebookPage() {
     const [fresh, setFresh] = useState<string | undefined>(undefined);
     // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
     const touch = useTouchDevice();
+    const forcedColors = useForcedColors();
     const notebook = useNotebookStore();
     const runtime = useRuntimeStore();
 
@@ -318,8 +319,9 @@ export function NotebookPage() {
     // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
-    // поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера
-    const searchEnabled = ready && !touch;
+    // поиск — только на десктопе: на таче нет ни кнопки, ни Ctrl/Cmd+F, работает поиск браузера.
+    // То же в системных цветах: слой подсветки скрыт, совпадения не видно и к ним не прокрутить
+    const searchEnabled = ready && !touch && !forcedColors;
     const search = useNotebookSearch(cells, notebook.drafts, searchEnabled);
     // Перевести фокус в поле поиска после отрисовки панели
     const [searchFocus, setSearchFocus] = useState(0);
