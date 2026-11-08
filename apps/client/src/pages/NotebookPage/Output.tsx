@@ -64,6 +64,32 @@ export function pickOutput(output: NbOutput): Shown {
     return { kind: 'unsupported', mimes: Object.keys(data) };
 }
 
+/**
+ * Представления выводов по порядку. Соседние фрагменты одного потока (stdout или stderr) — один
+ * текст: граница сообщений сервера не видна. Через другие выводы текст не склеивается.
+ * @param outputs выводы nbformat
+ * @returns представления с индексом первого вывода — стабильным ключом
+ */
+export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }[] {
+    const groups: { key: number; shown: Shown }[] = [];
+    outputs.forEach((output, index) => {
+        const shown = pickOutput(output);
+        const last = groups.at(-1)?.shown;
+        if (
+            output.output_type === 'stream' &&
+            outputs[index - 1]?.output_type === 'stream' &&
+            last?.kind === 'text' &&
+            shown.kind === 'text' &&
+            last.stream === shown.stream
+        ) {
+            last.text += shown.text;
+            return;
+        }
+        groups.push({ key: index, shown });
+    });
+    return groups;
+}
+
 /** Свойства {@link Outputs}. */
 interface OutputsProps {
     outputs: NbOutput[];
@@ -71,8 +97,8 @@ interface OutputsProps {
 }
 
 /**
- * Выводы кодовой ячейки по порядку. Текст и traceback — текстовыми узлами, разметка в них не
- * разбирается.
+ * Выводы кодовой ячейки по порядку в общей области. Текст и traceback — текстовыми узлами,
+ * разметка в них не разбирается.
  * @param props выводы и признак усечения
  * @returns выводы или ничего
  */
@@ -80,8 +106,8 @@ export function Outputs({ outputs, truncated }: OutputsProps) {
     if (outputs.length === 0 && !truncated) return null;
     return (
         <div className={styles.outputs}>
-            {outputs.map((output, index) => (
-                <OutputView key={`output-${index}`} shown={pickOutput(output)} />
+            {groupOutputs(outputs).map(({ key, shown }) => (
+                <OutputView key={`output-${key}`} shown={shown} />
             ))}
             {truncated && (
                 <p key="truncated" className={styles.note}>
