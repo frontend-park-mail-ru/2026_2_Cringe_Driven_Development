@@ -35,16 +35,15 @@
     gap: 4px;
 }
 
-/* BackLink: текстовая ссылка без заливки, высота 44px — область нажатия */
 .back {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    /* область нажатия на телефоне */
     min-height: 44px;
     border-radius: 6px;
     font: var(--font-body-accent);
     color: var(--color-primary-text);
-    text-decoration: none;
 
     &:hover {
         text-decoration: underline;
