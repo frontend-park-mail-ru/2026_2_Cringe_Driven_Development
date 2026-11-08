@@ -46,6 +46,10 @@
     --code-comment: #8c86ae;
     --code-function: var(--color-text-primary);
 
+    /* Поиск по блокноту: фон совпадений, текст на текущем — --color-on-light */
+    --color-highlight: rgb(255 201 138 / 0.25);
+    --color-highlight-current: #ffc98a;
+
     /* «Луна»: светлая поверхность, тёмный текст */
     --color-on-light: #1a1330;
     --color-inverse-surface: rgb(26 19 48 / 0.08);

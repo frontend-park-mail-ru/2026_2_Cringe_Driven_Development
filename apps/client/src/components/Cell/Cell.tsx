@@ -4,6 +4,8 @@ import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';
 import { Python } from '@modules/python/Python';
+import { NO_MARKS, type SourceMark } from '@modules/search/marks';
+import { Marked } from '@modules/search/Marked';
 import { clsx } from '@cdd-team/clsx';
 import {
     backspace,
@@ -119,6 +121,8 @@ interface CellProps {
     below?: ReactNode;
     /** Исполнение кодовой ячейки: выполняется сейчас или завершилось ошибкой — своя рамка */
     run?: 'running' | 'failed';
+    /** Совпадения поиска по блокноту в исходнике ячейки */
+    marks?: readonly SourceMark[];
 }
 
 /**
@@ -151,6 +155,7 @@ export function Cell({
     gutter,
     below,
     run,
+    marks = NO_MARKS,
 }: CellProps) {
     const isCode = cell.kind === 'code';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
@@ -336,17 +341,24 @@ export function Cell({
                     // Ввод — в той же textarea, её текст прозрачный: виден подсвеченный исходник под ней
                     <div key="code" className={styles.codeEditor}>
                         <pre key="highlight" className={styles.highlight} aria-hidden="true">
-                            <Python key="code" source={text} />
+                            <Python key="code" source={text} marks={marks} />
                         </pre>
                         {editor}
                     </div>
                 ) : editing ? (
-                    editor
+                    // Как у кода: текст рисует слой под прозрачной textarea — в нём видны совпадения поиска
+                    <div key="text" className={styles.textEditor}>
+                        <pre key="highlight" className={styles.textHighlight} aria-hidden="true">
+                            <Marked key="text" text={text} marks={marks} />
+                        </pre>
+                        {editor}
+                    </div>
                 ) : (
                     <div
                         key="preview"
                         id={cellEditorId(cell.id)}
-                        className={styles.preview}
+                        // совпадения поиска — в исходнике: на время поиска он виден вместо просмотра
+                        className={clsx(styles.preview, marks.length > 0 && styles.reveal)}
                         tabIndex={0}
                         // поле только для чтения: содержимое читается, Enter открывает исходник.
                         // textarea не годится — в ней нет отформатированного Markdown
@@ -367,7 +379,9 @@ export function Cell({
                             edit();
                         }}
                     >
-                        {text ? (
+                        {text && marks.length > 0 ? (
+                            <Marked key="source" text={text} marks={marks} />
+                        ) : text ? (
                             <Markdown key="markdown" source={text} />
                         ) : (
                             <span key="empty" className={styles.empty}>
