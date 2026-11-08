@@ -27,7 +27,7 @@ const USAGE = `Использование: bun run release <команда>
   image <image_ref> <sha>         образ скачивается анонимно и помечен этим SHA
   published <sha>                 состояние Release SHA: опубликован, draft или нет
   register <sha> <image_ref>      опубликовать GitHub Release release-<sha> с архивами
-  artifacts <release-<sha>>       проверенный Release для CD: sha, image_ref, release_id
+  artifacts [release-<sha>]      Release для CD; пусто — последний готовый по истории origin/main
   import                          разовый перенос двух выпусков прода в Releases
   confirmed                       последний подтверждённый выпуск прода по истории
   target                          цель отката по истории production
