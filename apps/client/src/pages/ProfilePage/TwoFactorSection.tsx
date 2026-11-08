@@ -77,7 +77,6 @@ export function TwoFactorSection() {
         }
     };
 
-    // окна — вне секции: её backdrop-filter стал бы содержащим блоком для fixed-затемнения
     return (
         <>
             <section key="section" className={styles.section}>
