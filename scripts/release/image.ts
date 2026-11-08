@@ -29,12 +29,13 @@ interface Manifest {
 }
 
 /**
- * Метка `org.opencontainers.image.revision` образа GHCR, прочитанная анонимно — без учётных данных,
- * как его скачивает VPS. Приватный package или неизвестный digest — ReleaseError.
+ * Метка `org.opencontainers.image.revision` и config digest (image ID Docker) linux/amd64 образа
+ * GHCR, прочитанные анонимно — без учётных данных, как его скачивает VPS. Приватный package или
+ * неизвестный digest — ReleaseError.
  * @param ref ссылка `ghcr.io/<имя>@sha256:<digest>`
- * @returns значение метки или пустая строка
+ * @returns метка (или пустая строка) и config digest
  */
-export async function imageRevision(ref: string): Promise<string> {
+export async function imageConfig(ref: string): Promise<{ revision: string; imageId: string }> {
     const [name, digest] = ref.replace(/^ghcr\.io\//, '').split('@') as [string, string];
     const registry = 'https://ghcr.io';
     const tokenRes = await fetch(
@@ -79,7 +80,10 @@ export async function imageRevision(ref: string): Promise<string> {
     const config = (await (await get(`blobs/${manifest.config.digest}`)).json()) as {
         config?: { Labels?: Record<string, string> };
     };
-    return config.config?.Labels?.['org.opencontainers.image.revision'] ?? '';
+    return {
+        revision: config.config?.Labels?.['org.opencontainers.image.revision'] ?? '',
+        imageId: manifest.config.digest,
+    };
 }
 
 /**
@@ -88,12 +92,24 @@ export async function imageRevision(ref: string): Promise<string> {
  * @param ref ссылка по digest
  * @param sha полный SHA релиза
  */
-export async function checkImage(ref: string, sha: string): Promise<void> {
-    const revision = await imageRevision(checkImageRef(ref));
+export async function checkImage(ref: string, sha: string): Promise<string> {
+    const { revision, imageId } = await imageConfig(checkImageRef(ref));
     if (revision !== sha) {
         throw new ReleaseError(
             `${ref}: org.opencontainers.image.revision='${revision}', нужен '${sha}'`,
         );
     }
     console.log(`OK: ${ref} скачивается анонимно, релиз ${sha}`);
+    return imageId;
+}
+
+/**
+ * Config digest из `Config` манифеста `docker image save`: `<hex>.json` (классический формат) или
+ * `blobs/sha256/<hex>` (OCI-layout).
+ * @param config значение поля Config
+ * @returns `sha256:<hex>` или undefined
+ */
+export function configDigestOf(config: string | undefined): string | undefined {
+    const hex = /(?:^|\/)([0-9a-f]{64})(?:\.json)?$/.exec(config ?? '')?.[1];
+    return hex && `sha256:${hex}`;
 }

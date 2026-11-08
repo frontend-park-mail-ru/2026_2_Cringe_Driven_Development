@@ -37,19 +37,20 @@ jobs:
         run: docker build -f apps/bff/Dockerfile -t cdd-bff:ci .
 
   # Готовый выпуск коммита main: ассеты клиента в S3/CDN releases/<sha>/ и публичный образ BFF в GHCR
-  # с HTML того же коммита. Запись release-artifacts (GitHub Deployment) появляется только после
-  # проверки обоих; на прод выпуск выкатывает workflow CD (docs/release.md).
+  # с HTML того же коммита. GitHub Release release-<sha> публикуется только после проверки обоих;
+  # на прод выпуск выкатывает workflow CD по тегу Release (docs/release.md).
   publish:
     name: Publish release
     needs: check
     if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # contents: write — только здесь: draft, assets и publish Release через GITHUB_TOKEN
     permissions:
-      contents: read
+      contents: write
+      actions: read
       packages: write
       pull-requests: read
       issues: read
-      deployments: write
     # ключ S3 лежит в environment и действует на весь проект Selectel. Публикация — не выкатка:
     # автоматический Deployment production не создаётся
     environment:
@@ -75,15 +76,16 @@ jobs:
       - name: Published already
         id: published
         run: bun run release published "$SHA"
+      # build=false и у незавершённого draft: его состав уже зафиксирован, сборка не повторяется
       - name: Build release
-        if: steps.published.outputs.published != 'true'
+        if: steps.published.outputs.build == 'true'
         env:
           RELEASE_SHA: ${{ github.sha }}
         run: |
           [ -n "$CDN_URL" ] || { echo "::error::Не задана переменная CDN_URL"; exit 1; }
           bun run build
       - name: Upload assets
-        if: steps.published.outputs.published != 'true'
+        if: steps.published.outputs.build == 'true'
         env:
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           S3_BUCKET: ${{ vars.S3_BUCKET }}
@@ -96,7 +98,7 @@ jobs:
       # образ — после обеих сборок (bff.js и index.html этого SHA), вне turbo build
       - name: Publish BFF image
         id: image
-        if: steps.published.outputs.published != 'true'
+        if: steps.published.outputs.build == 'true'
         env:
           IMAGE: ghcr.io/cringe-driven-development-team/bff
         run: |
@@ -112,7 +114,7 @@ jobs:
       - name: Anonymous image check
         if: steps.published.outputs.published != 'true'
         env:
-          IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          IMAGE_REF: ${{ steps.image.outputs.image_ref || steps.published.outputs.image_ref }}
         run: bun run release image "$IMAGE_REF" "$SHA"
       - name: Release report
         id: report
@@ -120,13 +122,19 @@ jobs:
         env:
           RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
         run: bun run release report publish "$SHA"
+      # draft → assets → publish; клиент draft без локального dist берётся из S3, образ — по digest
       - name: Register release
         id: register
         if: steps.published.outputs.published != 'true'
         env:
+          RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
           RELEASE_REPORT_BASE_SHA: ${{ steps.report.outputs.report_base_sha }}
           RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
-          IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          IMAGE_REF: ${{ steps.image.outputs.image_ref || steps.published.outputs.image_ref }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
         run: bun run release register "$SHA" "$IMAGE_REF"
       - name: Update release issues
         id: board

@@ -1,8 +1,8 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { linkedIssues, readTrustedRun, type LinkedIssue } from './catalog.ts';
-import { readyArtifacts } from './deployments.ts';
+import { linkedIssues, type LinkedIssue } from './catalog.ts';
 import { checkSha, isSha, need, output, ReleaseError } from './env.ts';
-import { api, listDeployments, runUrl, type ArtifactsPayload } from './github.ts';
+import { api, runUrl } from './github.ts';
+import { listReleases, tagOf, verifyRelease } from './releases.ts';
 
 /** Состав конкретного диапазона, независимо от Telegram и доски. */
 export interface ChangeReport {
@@ -163,46 +163,87 @@ function markdown(value: string): string {
         .replace(/[\r\n]+/g, ' ');
 }
 
+/** Строки состава изменений: диапазон, сравнение, PR и закрытые ими задачи. */
+function changeLines(report: ChangeReport): string[] {
+    const repo = need('GITHUB_REPOSITORY');
+    const lines = [`${report.baseSha ?? 'база неизвестна'} → ${report.headSha}`];
+    if (!report.complete) {
+        lines.push('Отчёт неполный: состав изменений недоступен');
+        return lines;
+    }
+    lines.push(
+        `[Сравнение версий](https://github.com/${repo}/compare/${report.baseSha}...${report.headSha})`,
+    );
+    for (const pr of report.prs) {
+        lines.push(`- [#${pr.number}: ${markdown(pr.title)}](${pr.url})`);
+        for (const issue of report.issues.filter((item) => item.prNumbers.includes(pr.number)))
+            lines.push(
+                `  - [${markdown(issue.title)}](https://github.com/${issue.repo}/issues/${issue.number})`,
+            );
+    }
+    if (!report.prs.length) lines.push('Связанных PR нет');
+    return lines;
+}
+
 /** Публикует полный отчёт в Summary текущего шага, без сетевых отправок. */
 export function writeChangeSummary(report: ChangeReport): string | null {
     const path = process.env.GITHUB_STEP_SUMMARY;
     if (!path) return null;
-    const repo = need('GITHUB_REPOSITORY');
-    const lines = [
-        '## Состав выпуска',
-        `${report.baseSha ?? 'база неизвестна'} → ${report.headSha}`,
-    ];
-    if (!report.complete) lines.push('Отчёт неполный: состав изменений недоступен');
-    else {
-        lines.push(
-            `[Сравнение версий](https://github.com/${repo}/compare/${report.baseSha}...${report.headSha})`,
-        );
-        for (const pr of report.prs) {
-            lines.push(`- [#${pr.number}: ${markdown(pr.title)}](${pr.url})`);
-            for (const issue of report.issues.filter((item) => item.prNumbers.includes(pr.number)))
-                lines.push(
-                    `  - [${markdown(issue.title)}](https://github.com/${issue.repo}/issues/${issue.number})`,
-                );
-        }
-        if (!report.prs.length) lines.push('Связанных PR нет');
-    }
-    appendFileSync(path, `${lines.join('\n\n')}\n`);
+    appendFileSync(path, `${['## Состав выпуска', ...changeLines(report)].join('\n\n')}\n`);
     return report.complete ? `${runUrl()}#summary` : null;
 }
 
+/**
+ * Описание GitHub Release: SHA, изменения, CI, pull по digest и проверка архивов. Неполный отчёт
+ * показывается явно; описание редактируемое и состав не доказывает.
+ * @param sha полный SHA
+ * @param imageRef образ по digest
+ * @param ciRun run исходной сборки
+ * @param [report] отчёт публикации; undefined — состав недоступен
+ * @returns Markdown
+ */
+export function releaseBody(
+    sha: string,
+    imageRef: string,
+    ciRun: string,
+    report?: ChangeReport,
+): string {
+    return [
+        `SHA: \`${sha}\``,
+        '## Изменения',
+        ...(report ? changeLines(report) : ['Отчёт неполный: состав изменений недоступен']),
+        '## Сборка',
+        `CI: ${ciRun}`,
+        `Образ BFF: \`docker pull ${imageRef}\``,
+        '## Проверка архивов',
+        [
+            '```sh',
+            'sha256sum -c SHA256SUMS',
+            'gunzip -c bff-image.tar.gz | docker load',
+            'mkdir dist && tar -xzf frontend-dist.tar.gz -C dist',
+            '```',
+        ].join('\n'),
+        'Состав и происхождение — в `release.json`. Автоматические Source code (zip/tar.gz) — ' +
+            'исходники, не сборка выпуска.',
+    ].join('\n\n');
+}
+
+/** Ближайший first-parent предок с опубликованным Release и проверенным manifest. */
 async function publicationBase(sha: string, repoDir: string): Promise<string | null> {
     const git = Bun.spawnSync(['git', 'rev-list', '--first-parent', checkSha(sha)], {
         cwd: repoDir,
     });
     if (git.exitCode) throw new ReleaseError('Не удалось прочитать предков выпуска');
     const ancestors = git.stdout.toString().trim().split('\n').slice(1);
-    const records = await listDeployments<ArtifactsPayload>('release-artifacts');
+    const releases = new Map(
+        (await listReleases())
+            .filter((release) => !release.draft)
+            .map((release) => [release.tag_name, release]),
+    );
     for (const ancestor of ancestors) {
-        const payload = readyArtifacts(records, ancestor);
-        if (payload) {
-            const run = await readTrustedRun(Number(payload.ci_run.split('/').at(-1)));
-            if (run.kind !== 'publish' || run.url !== payload.ci_run || run.sha !== ancestor)
-                throw new ReleaseError('Недоверенный источник базы отчёта');
+        const release = releases.get(tagOf(ancestor));
+        if (release) {
+            await verifyRelease(release, ancestor);
             return ancestor;
         }
     }
