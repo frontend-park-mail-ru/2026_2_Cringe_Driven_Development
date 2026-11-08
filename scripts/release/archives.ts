@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { ReleaseError } from './env.ts';
-import { BFF_IMAGE } from './image.ts';
+import { BFF_IMAGE, configDigestOf } from './image.ts';
 import { listObjects, openBucket, readObject } from './s3.ts';
 
 function run(args: string[], what: string): string {
@@ -99,7 +99,7 @@ export async function imageArchive(
     const manifest = JSON.parse(bash('tar -xzOf "$1" manifest.json', 'manifest.json', out)) as {
         Config?: string;
     }[];
-    if (manifest.length !== 1 || !manifest[0]?.Config?.endsWith(imageId.slice('sha256:'.length)))
+    if (manifest.length !== 1 || configDigestOf(manifest[0]?.Config) !== imageId)
         throw new ReleaseError('В архиве образа другой config');
     run(['docker', 'image', 'rm', tag], 'docker rmi');
     bash('gunzip -c "$1" | docker load', 'docker load', out);

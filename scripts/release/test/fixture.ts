@@ -174,6 +174,7 @@ export function fixture() {
                 image_ref: IMAGE,
                 assets: `releases/${sha}/`,
                 ci_run: `https://github.com/${REPO}/actions/runs/${id}`,
+                notification: { base_sha: null, report_url: null, run_attempt: 1 },
             },
         };
         records['release-artifacts']!.push(row);
@@ -385,6 +386,14 @@ export function fixture() {
         const associated = /^\/commits\/([0-9a-f]{40})\/pulls$/.exec(path);
         if (associated) return slice(pulls.filter((pr) => pr.merge_commit_sha === associated[1]));
         if (path === '/pulls') return slice(pulls);
+        const attemptPath = /^\/actions\/runs\/(\d+)\/attempts\/(\d+)$/.exec(path);
+        if (attemptPath) {
+            const row = runs.get(Number(attemptPath[1]));
+            const attempt = Number(attemptPath[2]);
+            return row && attempt <= Number(row.run_attempt)
+                ? Response.json({ ...row, run_attempt: attempt })
+                : Response.json({}, { status: 404 });
+        }
         if (path.startsWith('/actions/runs/'))
             return Response.json(runs.get(Number(path.split('/').at(-1))) ?? {}, {
                 status: runs.has(Number(path.split('/').at(-1))) ? 200 : 404,

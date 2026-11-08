@@ -24,6 +24,7 @@ mock.module('./checks.ts', () => ({
     health: async () => {},
 }));
 const releases = await import('./releases.ts');
+const { configDigestOf } = await import('./image.ts');
 const { rollbackTarget } = await import('./deployments.ts');
 const { importReleases } = await import('./import.ts');
 
@@ -271,66 +272,107 @@ test('Rollback сверяет цель с Release; старые записи б�
     await expect(rollbackTarget()).rejects.toThrow('Нет опубликованного');
 });
 
-test('импорт переносит только текущий и предыдущий production, источник — старая сборка', async () => {
-    const other = `ghcr.io/cringe-driven-development-team/bff@sha256:${'b'.repeat(64)}`;
-    f.legacy(f.root, 5, '2026-10-01T00:00:00Z');
-    f.legacy(f.a, 6, '2026-10-02T00:00:00Z');
-    f.legacy(f.b, 7, '2026-10-03T00:00:00Z');
-    f.records['release-artifacts']!.at(-1)!.payload = {
-        image_ref: other,
-        assets: `releases/${f.b}/`,
-        ci_run: `https://github.com/${REPO}/actions/runs/7`,
-    };
-    for (const [sha, id, image] of [
-        [f.root, 30, IMAGE],
-        [f.a, 31, IMAGE],
-        [f.b, 32, other],
-    ] as const) {
-        f.records.production!.unshift({
-            id,
-            sha,
-            created_at: `2026-10-0${id - 29}T01:00:00Z`,
-            payload: { image_ref: image, assets: `releases/${sha}/`, action: 'deploy' },
-        });
-        f.statuses.set(id, [{ state: 'success', created_at: '2026-10-01T00:00:00Z' }]);
-    }
-    f.records.production!.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
-    f.runs.set(90, {
-        id: 90,
-        workflow_id: 103,
-        path: '.github/workflows/release-import.yml',
-        event: 'workflow_dispatch',
-        head_branch: 'main',
-        head_sha: f.b,
-        run_attempt: 1,
-        repository: { full_name: REPO },
-        head_repository: { full_name: REPO },
-    });
-    process.env.GITHUB_RUN_ID = '90';
-    f.extra = (url) => {
-        if (url.host === 'ghcr.io' && url.pathname.includes('/blobs/'))
-            return Response.json({
-                config: {
-                    Labels: {
-                        'org.opencontainers.image.revision': f.releases.length ? f.a : f.b,
-                    },
-                },
+test.each([undefined, 'error', 'failure'] as const)(
+    'импорт переносит текущий и предыдущий production, источник — исходная попытка (поздняя попытка: %s)',
+    async (late) => {
+        const other = `ghcr.io/cringe-driven-development-team/bff@sha256:${'b'.repeat(64)}`;
+        f.legacy(f.root, 5, '2026-10-01T00:00:00Z');
+        f.legacy(f.a, 6, '2026-10-02T00:00:00Z');
+        f.legacy(f.b, 7, '2026-10-03T00:00:00Z');
+        f.records['release-artifacts']!.at(-1)!.payload = {
+            image_ref: other,
+            assets: `releases/${f.b}/`,
+            ci_run: `https://github.com/${REPO}/actions/runs/7`,
+            notification: { base_sha: null, report_url: null, run_attempt: 1 },
+        };
+        // CI выпуска перезапускали: последняя попытка 2, сборка — попытка 1
+        f.runs.get(7)!.run_attempt = 2;
+        for (const [sha, id, image] of [
+            [f.root, 30, IMAGE],
+            [f.a, 31, IMAGE],
+            [f.b, 32, other],
+        ] as const) {
+            f.records.production!.unshift({
+                id,
+                sha,
+                created_at: `2026-10-0${id - 29}T01:00:00Z`,
+                payload: { image_ref: image, assets: `releases/${sha}/`, action: 'deploy' },
             });
-    };
-    await importReleases();
-    expect(f.releases.map((row) => row.tag_name).toSorted()).toEqual(
-        [`release-${f.a}`, `release-${f.b}`].toSorted(),
-    );
-    for (const row of f.releases) {
-        const manifest = manifestOf(row);
-        expect(manifest.publication_run).toBe(`https://github.com/${REPO}/actions/runs/90`);
-        expect(manifest.ci_run).not.toBe(manifest.publication_run);
-        expect(manifest.notification).toEqual(notification(1));
-    }
-    // повторный импорт ничего не меняет
-    const count = f.releases.length;
-    await importReleases();
-    expect(f.releases).toHaveLength(count);
+            f.statuses.set(id, [{ state: 'success', created_at: '2026-10-01T00:00:00Z' }]);
+        }
+        if (late) {
+            f.records.production!.push({
+                id: 40,
+                sha: f.root,
+                created_at: '2026-10-09T01:00:00Z',
+                payload: { image_ref: IMAGE, assets: `releases/${f.root}/`, action: 'rollback' },
+            });
+            f.statuses.set(40, [{ state: late, created_at: '2026-10-09T01:00:00Z' }]);
+        }
+        f.records.production!.sort((x, y) =>
+            String(y.created_at).localeCompare(String(x.created_at)),
+        );
+        f.runs.set(90, {
+            id: 90,
+            workflow_id: 103,
+            path: '.github/workflows/release-import.yml',
+            event: 'workflow_dispatch',
+            head_branch: 'main',
+            head_sha: f.b,
+            run_attempt: 1,
+            repository: { full_name: REPO },
+            head_repository: { full_name: REPO },
+        });
+        process.env.GITHUB_RUN_ID = '90';
+        f.extra = (url) => {
+            if (url.host === 'ghcr.io' && url.pathname.includes('/blobs/'))
+                return Response.json({
+                    config: {
+                        Labels: {
+                            'org.opencontainers.image.revision': f.releases.length ? f.a : f.b,
+                        },
+                    },
+                });
+        };
+        await importReleases();
+        expect(f.releases.map((row) => row.tag_name).toSorted()).toEqual(
+            [`release-${f.a}`, `release-${f.b}`].toSorted(),
+        );
+        for (const row of f.releases) {
+            const manifest = manifestOf(row);
+            expect(manifest.publication_run).toBe(`https://github.com/${REPO}/actions/runs/90`);
+            expect(manifest.ci_run).not.toBe(manifest.publication_run);
+            expect(manifest.notification).toEqual(notification(1));
+            expect(manifest.ci_run_attempt).toBe(1);
+        }
+        // повторный импорт ничего не меняет
+        const count = f.releases.length;
+        await importReleases();
+        expect(f.releases).toHaveLength(count);
+    },
+);
+
+test('импорт без исходной попытки в release-artifacts останавливается', async () => {
+    f.legacy(f.b, 7);
+    delete (f.records['release-artifacts']![0]!.payload as { notification?: unknown }).notification;
+    f.records.production!.push({
+        id: 30,
+        sha: f.b,
+        created_at: '2026-10-01T01:00:00Z',
+        payload: { image_ref: IMAGE, assets: `releases/${f.b}/`, action: 'deploy' },
+    });
+    f.statuses.set(30, [{ state: 'success', created_at: '2026-10-01T00:00:00Z' }]);
+    await expect(importReleases()).rejects.toThrow('исходной попытки');
+    expect(f.releases).toHaveLength(0);
+});
+
+test('config digest из manifest.json docker save: классический и OCI формат', () => {
+    const hex = 'c'.repeat(64);
+    expect(configDigestOf(`${hex}.json`)).toBe(`sha256:${hex}`);
+    expect(configDigestOf(`blobs/sha256/${hex}`)).toBe(`sha256:${hex}`);
+    expect(configDigestOf(`${'d'.repeat(64)}.json`)).not.toBe(`sha256:${hex}`);
+    expect(configDigestOf('config.json')).toBeUndefined();
+    expect(configDigestOf(undefined)).toBeUndefined();
 });
 
 test('общая fixture producer/consumer проходит проверку', async () => {

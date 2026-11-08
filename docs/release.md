@@ -182,11 +182,13 @@ CD остановится до VPS; S3/GHCR из архивов автомати
 ### Импорт
 
 Разовый перенос при переходе на Releases — workflow `Release import` (`release-import.yml`, вручную из
-`main`): только последний подтверждённый production и предыдущий успешный с другим digest
-(как у retention). Источник — прежние записи `production`/`release-artifacts` и фактически
+`main`): только последний подтверждённый production и предыдущий успешный с другим digest. Более
+поздняя `failure`/`error` выбор не блокирует (в отличие от паузы retention). Источник — прежние записи `production`/`release-artifacts` и фактически
 сохранённые S3 `releases/<sha>/` и GHCR digest; архивы собираются из них без пересборки. Расхождение
-digest, источника CI или недоступность CDN/образа останавливают перенос. `ci_run`/`ci_run_attempt`
-указывают старую сборку, `publication_run` и `notification` — import run (`base_sha` и
+digest, источника CI или недоступность CDN/образа останавливают перенос. `ci_run_attempt` — исходная
+попытка из записи `release-artifacts` (`notification.run_attempt`), проверенная через
+`/actions/runs/{id}/attempts/{n}`, а не последняя попытка run; без неё перенос останавливается.
+`ci_run`/`ci_run_attempt` указывают старую сборку, `publication_run` и `notification` — import run (`base_sha` и
 `report_url` — `null`). Повтор проверяет и пропускает уже перенесённые выпуски. Массового импорта
 истории нет; отсутствие Release у невыбранных старых записей чтение истории не ломает.
 

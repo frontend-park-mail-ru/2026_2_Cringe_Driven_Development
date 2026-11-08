@@ -102,3 +102,14 @@ export async function checkImage(ref: string, sha: string): Promise<string> {
     console.log(`OK: ${ref} скачивается анонимно, релиз ${sha}`);
     return imageId;
 }
+
+/**
+ * Config digest из `Config` манифеста `docker image save`: `<hex>.json` (классический формат) или
+ * `blobs/sha256/<hex>` (OCI-layout).
+ * @param config значение поля Config
+ * @returns `sha256:<hex>` или undefined
+ */
+export function configDigestOf(config: string | undefined): string | undefined {
+    const hex = /(?:^|\/)([0-9a-f]{64})(?:\.json)?$/.exec(config ?? '')?.[1];
+    return hex && `sha256:${hex}`;
+}
