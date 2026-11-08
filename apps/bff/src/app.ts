@@ -45,7 +45,9 @@ export function createApp(deps: AppDeps): Hono {
     );
 
     for (const [name, file] of deps.publicFiles) {
-        app.get(`/${name}`, () => new Response(file));
+        // заголовки явно: HEAD Hono собирает из ответа GET, и тип и размер BunFile теряются
+        const headers = { 'Content-Type': file.type, 'Content-Length': String(file.size) };
+        app.get(`/${name}`, () => new Response(file, { headers }));
     }
 
     app.get('*', (c) => {
