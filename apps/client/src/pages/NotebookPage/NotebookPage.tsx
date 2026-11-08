@@ -342,6 +342,8 @@ export function NotebookPage() {
             // по коду клавиши: в русской раскладке key — «а»; на Mac Ctrl+F — курсор вперёд
             const modifier = IS_MAC ? event.metaKey : event.ctrlKey;
             if (!modifier || event.code !== 'KeyF' || event.altKey || event.shiftKey) return;
+            // открытая модалка держит фокус: поле поиска за ней не открываем
+            if (document.querySelector('[aria-modal="true"]')) return;
             event.preventDefault();
             openSearch();
         };
