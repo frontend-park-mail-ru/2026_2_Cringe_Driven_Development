@@ -15,6 +15,7 @@ import OrbitIcon from '@assets/icons/orbit.svg?react';
 import PencilIcon from '@assets/icons/pencil.svg?react';
 import PlayIcon from '@assets/icons/play.svg?react';
 import PlusIcon from '@assets/icons/plus.svg?react';
+import SearchIcon from '@assets/icons/search.svg?react';
 import SpinnerIcon from '@assets/icons/spinner.svg?react';
 import SquareIcon from '@assets/icons/square.svg?react';
 import StopIcon from '@assets/icons/stop.svg?react';
@@ -46,6 +47,7 @@ const ICONS = {
     help: HelpIcon,
     square: SquareIcon,
     file: FileIcon,
+    search: SearchIcon,
 };
 
 /** Имя иконки из макета. */

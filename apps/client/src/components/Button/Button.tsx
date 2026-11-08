@@ -28,6 +28,10 @@ interface ButtonProps {
     /** Иконка перед текстом (свойство Icon в макете) */
     icon?: IconName;
     className?: string;
+    /** Кнопка открывает панель: открыта ли она сейчас (aria-expanded) */
+    expanded?: boolean;
+    /** id панели, которую открывает кнопка (aria-controls) */
+    controls?: string;
     /** Нажатие; во время загрузки не вызывается */
     onClick?: (event: MouseEvent) => void;
 }
@@ -57,6 +61,8 @@ export function Button({
     block = false,
     icon,
     className,
+    expanded,
+    controls,
     onClick,
 }: ButtonProps) {
     return (
@@ -67,6 +73,8 @@ export function Button({
             disabled={disabled}
             aria-busy={loading ? 'true' : undefined}
             aria-disabled={loading ? 'true' : undefined}
+            aria-expanded={expanded}
+            aria-controls={controls}
             onClick={(event) => {
                 // В макете кнопка в загрузке выглядит активной, но повторно срабатывать не должна
                 if (loading) {
