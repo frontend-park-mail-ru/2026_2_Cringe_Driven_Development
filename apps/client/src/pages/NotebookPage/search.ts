@@ -125,10 +125,9 @@ const EDGE = 32;
 /**
  * Прокручивает к активному вхождению. В длинной строке кода сдвигается само поле по горизонтали,
  * а не страница; по вертикали — страница, с отступом под прилипшую шапку (`--search-margin`).
- * @param root где искать активное вхождение
  */
-export function scrollToCurrent(root: ParentNode): void {
-    const mark = root.querySelector<HTMLElement>(CURRENT_SELECTOR);
+export function scrollToCurrent(): void {
+    const mark = document.querySelector<HTMLElement>(CURRENT_SELECTOR);
     if (!mark) return;
     // слой подсветки кода — <pre> под полем: координаты метки — те же, что у текста поля
     const editor = mark.closest('pre')?.nextElementSibling;

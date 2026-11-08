@@ -44,7 +44,7 @@ export function Marked({ text, marks }: MarkedProps) {
     if (marks.length === 0) return <>{text}</>;
     return (
         <>
-            {splitByMarks([{ text, data: undefined }], marks).map((piece, index) => (
+            {splitByMarks([{ text }], marks).map((piece, index) => (
                 <MarkedPiece key={index} piece={piece} />
             ))}
         </>

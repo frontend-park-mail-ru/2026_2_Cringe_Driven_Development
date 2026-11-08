@@ -8,10 +8,10 @@ export interface SourceMark {
 /** Пустой список вхождений: один на все ячейки, мемоизация по нему не сбрасывается. */
 export const NO_MARKS: readonly SourceMark[] = [];
 
-/** Кусок текста: данные исходного отрезка и метка поиска, если кусок внутри вхождения. */
+/** Кусок текста: исходный отрезок и метка поиска, если кусок внутри вхождения. */
 export interface Piece<T> {
     text: string;
-    data: T;
+    segment: T;
     mark: 'match' | 'current' | undefined;
 }
 
@@ -22,14 +22,15 @@ export interface Piece<T> {
  * @param marks вхождения по возрастанию `from`, без перекрытий
  * @returns куски без пустых
  */
-export function splitByMarks<T>(
-    segments: readonly { text: string; data: T }[],
+export function splitByMarks<T extends { text: string }>(
+    segments: readonly T[],
     marks: readonly SourceMark[],
 ): Piece<T>[] {
     const pieces: Piece<T>[] = [];
     let start = 0;
     let next = 0;
-    for (const { text, data } of segments) {
+    for (const segment of segments) {
+        const { text } = segment;
         const end = start + text.length;
         let at = start;
         while (at < end) {
@@ -39,7 +40,7 @@ export function splitByMarks<T>(
             const stop = Math.min(end, inside ? mark.to : (mark?.from ?? end));
             pieces.push({
                 text: text.slice(at - start, stop - start),
-                data,
+                segment,
                 mark: inside ? (mark.current ? 'current' : 'match') : undefined,
             });
             at = stop;

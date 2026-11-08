@@ -86,20 +86,24 @@
     font: var(--font-code);
 }
 
-.code .editor {
+/* Текст рисует слой подсветки под полем: от textarea видны курсор, выделение и placeholder */
+.code .editor,
+.textEditor > .editor {
     position: relative;
-    /* Текст рисует подсветка под полем: от textarea видны курсор, выделение и placeholder */
     color: transparent;
-    caret-color: var(--code-text);
-    white-space: pre;
-    tab-size: 4;
-    overflow-wrap: normal;
-    overflow-x: auto;
 
     &::selection {
         color: transparent;
         background: color-mix(in srgb, var(--color-focus) 30%, transparent);
     }
+}
+
+.code .editor {
+    caret-color: var(--code-text);
+    white-space: pre;
+    tab-size: 4;
+    overflow-wrap: normal;
+    overflow-x: auto;
 }
 
 /* Поле кода и подсветка под ним: метрики текста совпадают, иначе курсор разойдётся с символами */
@@ -123,23 +127,25 @@
     pointer-events: none;
 }
 
-/* Поле Markdown и слой под ним: текст рисует слой, от textarea видны курсор, выделение и placeholder */
+/* Поле Markdown и слой под ним */
 .textEditor {
     position: relative;
 
     & > .editor {
-        position: relative;
-        color: transparent;
         caret-color: var(--color-text-primary);
-
-        &::selection {
-            color: transparent;
-            background: color-mix(in srgb, var(--color-focus) 30%, transparent);
-        }
     }
 }
 
-/* Метрики — как у поля: шрифт, перенос и ширина те же, иначе курсор разойдётся с символами */
+/* Перенос — как у поля Markdown, иначе курсор разойдётся с символами. .reveal — исходник
+   Markdown на время поиска: как в редактировании, но без поля ввода */
+.textHighlight,
+.reveal {
+    color: var(--color-text-primary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Метрики — как у поля: шрифт и ширина те же */
 .textHighlight {
     position: absolute;
     top: 0;
@@ -147,22 +153,12 @@
     width: 100%;
     margin: 0;
     font: var(--font-body);
-    color: var(--color-text-primary);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
     pointer-events: none;
 }
 
-.selected .textHighlight {
-    font: var(--font-code);
-}
-
-/* Исходник Markdown на время поиска: как в редактировании, но без поля ввода */
+.selected .textHighlight,
 .reveal {
     font: var(--font-code);
-    color: var(--color-text-primary);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
 }
 
 /* Системные цвета перекрашивают и прозрачный текст: подсветка дублировала бы его */

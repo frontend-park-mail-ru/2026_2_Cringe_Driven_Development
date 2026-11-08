@@ -14,8 +14,8 @@
     flex: none;
 
     /* «Поиск» при открытой панели (ToolButton → Active) */
-    &.active,
-    &.active:hover {
+    &[aria-expanded='true'],
+    &[aria-expanded='true']:hover {
         background: var(--color-primary-soft);
         box-shadow: inset 0 0 0 1px var(--color-focus);
     }

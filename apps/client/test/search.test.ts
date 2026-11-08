@@ -59,11 +59,11 @@ test('активное совпадение сохраняется, перехо
 
 test('разрезание по токенам и меткам: вхождение на стыке токенов — несколько кусков', () => {
     const segments = [
-        { text: 'loss_', data: 'function' },
-        { text: 'grad(', data: 'text' },
+        { text: 'loss_', type: 'function' },
+        { text: 'grad(', type: 'text' },
     ];
     const pieces = splitByMarks(segments, [{ from: 3, to: 7, current: true }]);
-    expect(pieces.map((piece) => [piece.text, piece.data, piece.mark])).toEqual([
+    expect(pieces.map((piece) => [piece.text, piece.segment.type, piece.mark])).toEqual([
         ['los', 'function', undefined],
         ['s_', 'function', 'current'],
         ['gr', 'text', 'current'],
@@ -71,12 +71,12 @@ test('разрезание по токенам и меткам: вхождени
     ]);
     expect(pieces.map((piece) => piece.text).join('')).toBe('loss_grad(');
     expect(splitByMarks(segments, [])).toEqual([
-        { text: 'loss_', data: 'function', mark: undefined },
-        { text: 'grad(', data: 'text', mark: undefined },
+        { text: 'loss_', segment: segments[0]!, mark: undefined },
+        { text: 'grad(', segment: segments[1]!, mark: undefined },
     ]);
     expect(
         splitByMarks(
-            [{ text: 'a a a', data: 0 }],
+            [{ text: 'a a a' }],
             [
                 { from: 0, to: 1, current: false },
                 { from: 4, to: 5, current: true },

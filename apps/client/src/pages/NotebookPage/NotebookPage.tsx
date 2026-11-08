@@ -350,7 +350,7 @@ export function NotebookPage() {
     }, [searchEnabled, openSearch]);
     // К активному вхождению — только после перехода или нового запроса, не после правки ячеек
     useLayoutEffect(() => {
-        if (search.jump > 0) scrollToCurrent(document);
+        if (search.jump > 0) scrollToCurrent();
     }, [search.jump]);
     // Прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
     const pageRef = useRef<HTMLDivElement>(null);

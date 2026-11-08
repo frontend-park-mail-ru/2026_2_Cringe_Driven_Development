@@ -33,21 +33,16 @@ export function Python({ source, marks = NO_MARKS }: PythonProps) {
     const tokens = useMemo(() => tokenizePython(source), [source]);
     // Каждый токен — <span>, и обычный текст тоже: при сдвиге токенов от ввода узлы на тех же
     // позициях обновляются, а не пересоздаются из-за смены текста на элемент
-    const pieces = useMemo(
-        () =>
-            splitByMarks(
-                tokens.map((token) => ({ text: token.text, data: token.type })),
-                marks,
-            ),
-        [tokens, marks],
-    );
+    const pieces = useMemo(() => splitByMarks(tokens, marks), [tokens, marks]);
     return (
         <>
             {pieces.map((piece, index) => (
                 <MarkedPiece
                     key={index}
                     piece={piece}
-                    className={piece.mark === 'current' ? undefined : TOKEN_CLASS[piece.data]}
+                    className={
+                        piece.mark === 'current' ? undefined : TOKEN_CLASS[piece.segment.type]
+                    }
                 />
             ))}
         </>

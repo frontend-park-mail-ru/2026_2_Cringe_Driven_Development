@@ -45,7 +45,7 @@ export function RuntimeActions({ hasCode, search }: RuntimeActionsProps) {
                     id={SEARCH_BUTTON_ID}
                     variant="secondary"
                     icon="search"
-                    className={clsx(styles.button, search.open && styles.active)}
+                    className={styles.button}
                     expanded={search.open}
                     controls={search.open ? SEARCH_PANEL_ID : undefined}
                     onClick={search.onOpen}
