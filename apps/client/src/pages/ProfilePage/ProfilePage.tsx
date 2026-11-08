@@ -3,6 +3,7 @@ import { useEffect, useState } from '@cdd-team/react';
 import { trpc } from '@api/trpc';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
+import { Icon } from '@components/Icon/Icon';
 import { Logo } from '@components/Logo/Logo';
 import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { Space } from '@components/Space/Space';
@@ -65,9 +66,15 @@ export function ProfilePage() {
                     <ProfileLink key="profile" />
                 </Header>
                 <div key="profile" className={styles.profile}>
-                    <h1 key="title" className={styles.title}>
-                        Профиль
-                    </h1>
+                    <div key="heading" className={styles.heading}>
+                        <Link key="back" to="/" className={styles.back}>
+                            <Icon key="icon" name="back" />
+                            На главную
+                        </Link>
+                        <h1 key="title" className={styles.title}>
+                            Профиль
+                        </h1>
+                    </div>
                     {status === 'loading' && <ProfileSkeleton key="skeleton" />}
                     {status === 'error' && (
                         <StateBlock
