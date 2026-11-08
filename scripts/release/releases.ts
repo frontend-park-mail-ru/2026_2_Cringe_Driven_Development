@@ -225,8 +225,10 @@ function authHeaders(): Record<string, string> {
     };
 }
 
-/** Скачивает небольшой asset; ссылка хранилища — без токена GitHub. */
-async function downloadAsset(asset: ReleaseAsset): Promise<Uint8Array> {
+const hexOf = (asset: ReleaseAsset): string => asset.digest!.slice('sha256:'.length);
+
+/** Скачивает небольшой asset и сверяет с digest GitHub; ссылка хранилища — без токена GitHub. */
+async function downloadAsset(asset: ReleaseAsset): Promise<string> {
     if (asset.size > SMALL_ASSET)
         throw new ReleaseError(`${asset.name} больше ${SMALL_ASSET} байт`);
     const base = process.env.GITHUB_API_URL || 'https://api.github.com';
@@ -244,7 +246,9 @@ async function downloadAsset(asset: ReleaseAsset): Promise<Uint8Array> {
     if (!res.ok) throw new ReleaseError(`Не скачивается ${asset.name}: ${res.status}`);
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.length !== asset.size) throw new ReleaseError(`${asset.name}: размер не совпадает`);
-    return bytes;
+    if (sha256(bytes) !== hexOf(asset))
+        throw new ReleaseError(`${asset.name} не совпадает с digest`);
+    return new TextDecoder().decode(bytes);
 }
 
 /** Asset проверяемого выпуска: ровно один, загружен, размер и digest GitHub. */
@@ -267,14 +271,10 @@ function checkAssets(release: GitHubRelease, names: string[]): Map<string, Relea
     return byName;
 }
 
-const hexOf = (asset: ReleaseAsset): string => asset.digest!.slice('sha256:'.length);
-
 async function readManifestAsset(asset: ReleaseAsset, sha: string): Promise<ReleaseManifest> {
-    const bytes = await downloadAsset(asset);
-    if (sha256(bytes) !== hexOf(asset))
-        throw new ReleaseError('release.json не совпадает с digest');
+    const text = await downloadAsset(asset);
     try {
-        return checkManifest(JSON.parse(new TextDecoder().decode(bytes)), sha);
+        return checkManifest(JSON.parse(text), sha);
     } catch (error) {
         if (error instanceof ReleaseError) throw error;
         throw new ReleaseError('release.json: некорректный JSON');
@@ -337,11 +337,7 @@ export async function verifyRelease(
         if (commit !== sha) throw new ReleaseError(`Тег ${tag} указывает на ${commit}`);
     }
     const assets = checkAssets(release, ASSETS);
-    const sumsAsset = assets.get(SUMS_ASSET)!;
-    const sumsBytes = await downloadAsset(sumsAsset);
-    if (sha256(sumsBytes) !== hexOf(sumsAsset))
-        throw new ReleaseError('SHA256SUMS не совпадает с digest');
-    const sums = parseSums(new TextDecoder().decode(sumsBytes));
+    const sums = parseSums(await downloadAsset(assets.get(SUMS_ASSET)!));
     for (const name of SUMMED)
         if (sums[name] !== hexOf(assets.get(name)!))
             throw new ReleaseError(`SHA256SUMS: сумма ${name} не совпадает с digest GitHub`);
