@@ -66,6 +66,11 @@ a.card:hover::before {
     white-space: pre;
 }
 
+.empty {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
 .body {
     display: flex;
     flex: 1;
@@ -87,6 +92,14 @@ a.card:hover::before {
 .meta {
     font: var(--font-caption);
     color: var(--color-text-secondary);
+}
+
+.session {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font: var(--font-caption);
+    color: var(--color-success);
 }
 
 .skeleton .body {

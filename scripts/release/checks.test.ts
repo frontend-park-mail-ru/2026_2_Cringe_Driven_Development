@@ -85,7 +85,7 @@ function site(login: () => Response | Promise<Response>, assetType?: string | nu
 
 const rpcError = (status: number, code: string, appCode?: string) => () =>
     Response.json({ error: { data: { code, appCode } } }, { status });
-const rejected = rpcError(401, 'UNAUTHORIZED', 'invalid_credentials');
+const rejected = rpcError(400, 'BAD_REQUEST', 'invalid_credentials');
 
 function prodEnv(): void {
     process.env.CDN_URL = 'https://cdn.test';
@@ -114,6 +114,10 @@ test.each([
     ['неверный S2S-ключ', rpcError(502, 'BAD_GATEWAY', 's2s_forbidden')],
     ['Go недоступен', rpcError(502, 'BAD_GATEWAY')],
     ['401 без машинного кода', rpcError(401, 'UNAUTHORIZED')],
+    [
+        'invalid_credentials не со статусом 400',
+        rpcError(401, 'UNAUTHORIZED', 'invalid_credentials'),
+    ],
     ['успешный вход', () => Response.json({ result: { data: {} } })],
     ['ответ не JSON', () => new Response('<html>', { status: 401 })],
     ['таймаут', () => Promise.reject(new DOMException('The operation timed out', 'TimeoutError'))],

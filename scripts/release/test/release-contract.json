@@ -1,0 +1,20 @@
+{
+    "description": "Общий контракт GitHub Release frontend для producer (frontend) и webhook consumer (.github, services/webhook-alerts/tests/fixtures/github/release-manifest.json): release.json и SHA256SUMS.",
+    "tag": "release-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "assets": ["frontend-dist.tar.gz", "bff-image.tar.gz", "release.json", "SHA256SUMS"],
+    "manifest": {
+        "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "image_ref": "ghcr.io/cringe-driven-development-team/bff@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "image_id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "assets": "releases/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/",
+        "ci_run": "https://github.com/Cringe-Driven-Development-Team/frontend/actions/runs/10",
+        "ci_run_attempt": 1,
+        "publication_run": "https://github.com/Cringe-Driven-Development-Team/frontend/actions/runs/10",
+        "notification": {
+            "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "report_url": "https://github.com/Cringe-Driven-Development-Team/frontend/actions/runs/10#summary",
+            "run_attempt": 1
+        }
+    },
+    "sums": "1111111111111111111111111111111111111111111111111111111111111111  frontend-dist.tar.gz\n2222222222222222222222222222222222222222222222222222222222222222  bff-image.tar.gz\n289622d6263f4e88508df0b8a0ae539c6a42c36df9f8013460f9444f5ccaadd9  release.json\n"
+}

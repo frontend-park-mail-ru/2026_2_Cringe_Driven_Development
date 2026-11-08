@@ -17,10 +17,31 @@ export interface User {
      * @nullable
      */
   avatar_url: string | null;
+  /** true только после подтверждения подключения кодом TOTP. При неподтверждённой настройке и после отключения — false. */
+  has_2fa: boolean;
+}
+
+export interface NotebookSummary {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  updated_at: string;
+  /** Число блоков */
+  cells_count: number;
+  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
+  preview_code: string;
+  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
+  has_active_session: boolean;
 }
 
 /**
- * Вид блока
+ * Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.
+ * @minLength 1
+ */
+export type NotebookHash = string;
+
+/**
+ * Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.
  */
 export type CellKind = typeof CellKind[keyof typeof CellKind];
 
@@ -28,6 +49,7 @@ export type CellKind = typeof CellKind[keyof typeof CellKind];
 export const CellKind = {
   code: 'code',
   markdown: 'markdown',
+  raw: 'raw',
 } as const;
 
 /**
@@ -41,10 +63,55 @@ export interface Cell {
      * @pattern ^[a-zA-Z0-9_-]+$
      */
   id: string;
-  /** Вид блока */
+  /** Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown. */
   kind: CellKind;
   /** Содержимое блока */
   source: string;
+}
+
+export type NotebookContentCellsItem = {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'markdown' | 'raw';
+  /** Содержимое блока */
+  source: string;
+} | {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'code';
+  /** Содержимое блока */
+  source: string;
+  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
+  outputs: { [key: string]: unknown }[];
+  /**
+     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
+     * @minimum 0
+     * @nullable
+     */
+  execution_count: number | null;
+  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
+  output_truncated: boolean;
+};
+
+/**
+ * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
+ */
+export interface NotebookContent {
+  hash: NotebookHash;
+  /** @maxItems 1000 */
+  cells: NotebookContentCellsItem[];
 }
 
 /**
@@ -62,15 +129,6 @@ export interface Notebook {
   cells: Cell[];
   created_at: string;
   updated_at: string;
-}
-
-export interface NotebookSummary {
-  /** @minimum 1 */
-  id: number;
-  name: string;
-  updated_at: string;
-  /** Число блоков */
-  cells_count: number;
 }
 
 export interface Credentials {
@@ -116,26 +174,6 @@ export interface CreateNotebookRequest {
   name: string;
 }
 
-export type ErrorCode = typeof ErrorCode[keyof typeof ErrorCode];
-
-
-export const ErrorCode = {
-  validation_error: 'validation_error',
-  invalid_credentials: 'invalid_credentials',
-  login_taken: 'login_taken',
-  unauthorized: 'unauthorized',
-  not_found: 'not_found',
-  not_implemented: 'not_implemented',
-  internal: 'internal',
-  csrf_invalid: 'csrf_invalid',
-  s2s_forbidden: 's2s_forbidden',
-} as const;
-
-export interface Error {
-  code: ErrorCode;
-  message: string;
-}
-
 export interface TokenPair {
   /**
      * Access-токен для Authorization Bearer
@@ -171,12 +209,6 @@ export interface RefreshTokenRequest {
      */
   refresh_token: string;
 }
-
-/**
- * Непрозрачный хеш текущего содержимого блокнота, без HTTP-кавычек. Не вычислять на клиенте. В If-Match передавать в двойных кавычках, например "h123".
- * @minLength 1
- */
-export type NotebookHash = string;
 
 export interface NotebookCellChange {
   hash: NotebookHash;
@@ -570,51 +602,6 @@ export interface RuntimeInspection {
   reason: string | null;
 }
 
-export type NotebookContentCellsItem = {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'markdown';
-  /** Содержимое блока */
-  source: string;
-} | {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'code';
-  /** Содержимое блока */
-  source: string;
-  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
-  outputs: { [key: string]: unknown }[];
-  /**
-     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
-     * @minimum 0
-     * @nullable
-     */
-  execution_count: number | null;
-  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
-  output_truncated: boolean;
-};
-
-/**
- * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
- */
-export interface NotebookContent {
-  hash: NotebookHash;
-  /** @maxItems 1000 */
-  cells: NotebookContentCellsItem[];
-}
-
 export type RuntimeExecutionState = typeof RuntimeExecutionState[keyof typeof RuntimeExecutionState];
 
 
@@ -701,6 +688,74 @@ export interface RuntimeExecuteRequest {
      * @maximum 86400
      */
   timeout_seconds?: number;
+}
+
+export interface LoginRequest {
+  /**
+     * @minLength 3
+     * @maxLength 32
+     * @pattern ^[a-zA-Z0-9_]+$
+     */
+  login: string;
+  /**
+     * @minLength 8
+     * @maxLength 72
+     */
+  password: string;
+  /** TOTP-код: ровно 6 ASCII-цифр (0–9), ведущие нули сохраняются. Обязателен только после подтверждения 2FA. Формат проверяется после логина и пароля и только при включённой 2FA; неверный формат — 401, отсутствие поля — 412. При выключенной 2FA поле игнорируется. Общий pattern здесь намеренно отсутствует, чтобы валидатор не возвращал 400 вместо условного 401. */
+  user_code?: string;
+}
+
+export interface TwoFactorSetupResponse {
+  /**
+     * PNG QR-код в формате data URI. Содержит otpauth://totp/ URI: issuer Cellestial, аккаунт — текущий логин, SHA1, digits=6, period=30.
+     * @pattern ^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$
+     */
+  qr_code: string;
+  /**
+     * Тот же TOTP-секрет, что в QR: Base32 без padding, пробелов и разделителей. Для ручного добавления в аутентификатор; это не шестизначный код.
+     * @pattern ^[A-Z2-7]+$
+     */
+  secret: string;
+}
+
+export interface ConfirmTwoFactorRequest {
+  /**
+     * Ровно шесть ASCII-цифр; ведущие нули сохраняются.
+     * @minLength 6
+     * @maxLength 6
+     * @pattern ^[0-9]{6}$
+     */
+  user_code: string;
+}
+
+export interface DisableTwoFactorRequest {
+  /** Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password. */
+  password: string;
+}
+
+export type ErrorCode = typeof ErrorCode[keyof typeof ErrorCode];
+
+
+export const ErrorCode = {
+  validation_error: 'validation_error',
+  invalid_credentials: 'invalid_credentials',
+  login_taken: 'login_taken',
+  unauthorized: 'unauthorized',
+  not_found: 'not_found',
+  not_implemented: 'not_implemented',
+  internal: 'internal',
+  csrf_invalid: 'csrf_invalid',
+  s2s_forbidden: 's2s_forbidden',
+  two_factor_required: 'two_factor_required',
+  invalid_totp: 'invalid_totp',
+  invalid_current_password: 'invalid_current_password',
+  rate_limited: 'rate_limited',
+} as const;
+
+export interface Error {
+  code: ErrorCode;
+  message: string;
 }
 
 export type BadRequestResponseBody = Error;
@@ -1188,6 +1243,93 @@ return bearerFetch<registerUserResponse>(getRegisterUserUrl(),
 
 
 
+export type loginUserResponse200 = {
+  data: AuthResponse
+  status: 200
+}
+
+export type loginUserResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type loginUserResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type loginUserResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type loginUserResponse412 = {
+  data: Error
+  status: 412
+}
+
+export type loginUserResponse429 = {
+  data: Error
+  status: 429
+}
+
+export type loginUserResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type loginUserResponseSuccess = (loginUserResponse200) & {
+  headers: Headers;
+};
+export type loginUserResponseError = (loginUserResponse400 | loginUserResponse401 | loginUserResponse403 | loginUserResponse412 | loginUserResponse429 | loginUserResponse500) & {
+  headers: Headers;
+};
+
+export type loginUserResponse = (loginUserResponseSuccess | loginUserResponseError)
+
+export const getLoginUserUrl = () => {
+
+
+
+
+  return `/auth/login`
+}
+
+/**
+ * Проверяет логин и пароль перед вторым фактором. Неверные credentials — 400 invalid_credentials независимо от user_code. При выключенной 2FA, включая неподтверждённую настройку, user_code не требуется и игнорируется; вход возвращает 200 с user.has_2fa=false.
+ *
+ * При верных credentials и включённой 2FA: отсутствие user_code — 412 two_factor_required; переданная строка с неверным форматом, неверный или уже использованный TOTP — 401 invalid_totp. Пустая строка считается переданным кодом неверного формата, а не отсутствием поля. Корректный неиспользованный код — 200 с user.has_2fa=true. TOTP: SHA-1, 6 ASCII-цифр, 30 секунд, окно ±1 шаг. Код подтверждения подключения нельзя повторно принять в его временном шаге.
+ *
+ * До успешной проверки второго фактора полноценная авторизованная сессия и токены не создаются. Ответ 200 сохраняет структуру {user,tokens}; Cookie не устанавливаются. Проверки пароля и TOTP защищены от перебора: превышение лимита — 429 rate_limited. Пароли, введённые коды и токены не журналируются. Обязательный X-BFF-Key проверяется раньше credentials и тела.
+ * @summary Вход
+ */
+export const loginUser = async (loginRequest: LoginRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<loginUserResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<loginUserResponse>(getLoginUserUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(loginRequest)
+  }
+);}
+
+
+
 export type refreshTokenResponse200 = {
   data: TokenPair
   status: 200
@@ -1334,53 +1476,132 @@ return bearerFetch<logoutUserResponse>(getLogoutUserUrl(),
 
 
 
-export type loginUserResponse200 = {
-  data: AuthResponse
+export type enableTwoFactorAuthResponse200 = {
+  data: TwoFactorSetupResponse
   status: 200
 }
 
-export type loginUserResponse400 = {
+export type enableTwoFactorAuthResponse400 = {
   data: Error
   status: 400
 }
 
-export type loginUserResponse401 = {
+export type enableTwoFactorAuthResponse401 = {
   data: Error
   status: 401
 }
 
-export type loginUserResponse403 = {
+export type enableTwoFactorAuthResponse403 = {
   data: Error
   status: 403
 }
 
-export type loginUserResponse500 = {
+export type enableTwoFactorAuthResponse429 = {
+  data: Error
+  status: 429
+}
+
+export type enableTwoFactorAuthResponse500 = {
   data: Error
   status: 500
 }
 
-export type loginUserResponseSuccess = (loginUserResponse200) & {
+export type enableTwoFactorAuthResponseSuccess = (enableTwoFactorAuthResponse200) & {
   headers: Headers;
 };
-export type loginUserResponseError = (loginUserResponse400 | loginUserResponse401 | loginUserResponse403 | loginUserResponse500) & {
+export type enableTwoFactorAuthResponseError = (enableTwoFactorAuthResponse400 | enableTwoFactorAuthResponse401 | enableTwoFactorAuthResponse403 | enableTwoFactorAuthResponse429 | enableTwoFactorAuthResponse500) & {
   headers: Headers;
 };
 
-export type loginUserResponse = (loginUserResponseSuccess | loginUserResponseError)
+export type enableTwoFactorAuthResponse = (enableTwoFactorAuthResponseSuccess | enableTwoFactorAuthResponseError)
 
-export const getLoginUserUrl = () => {
-
-
+export const getEnableTwoFactorAuthUrl = () => {
 
 
-  return `/auth/login`
+
+
+  return `/auth/enable2fa`
 }
 
 /**
- * Проверяет учётные данные и создаёт новую сессию. Возвращает пользователя и пару токенов в JSON. Cookie не устанавливает.
- * @summary Вход
+ * Подготавливает настройку, но не включает 2FA: has_2fa остаётся false, вход без TOTP продолжает работать. Первый запрос создаёт неподтверждённый секрет; все повторные запросы до подтверждения возвращают тот же secret и QR для этого секрета, включая конкурентные запросы. QR и ручной ввод ключа на том же телефоне настраивают один аккаунт. Закрытие окна, показ или копирование ключа не включают 2FA.
+ *
+ * Только успешный POST /auth/confirm2fa включает 2FA. Если она уже включена, ответ 400 validation_error без выдачи QR/секрета и без замены активного секрета. После отключения следующая настройка создаёт новый секрет. Число повторных получений данных не ограничено числом попыток настройки; обычное ограничение частоты сохраняется. Ответ с данными настройки: Cache-Control: no-store.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Получить данные настройки 2FA
  */
-export const loginUser = async (credentials: Credentials, options?: Parameters<typeof bearerFetch>[1]): Promise<loginUserResponse> => {
+export const enableTwoFactorAuth = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<enableTwoFactorAuthResponse> => {
+
+  return bearerFetch<enableTwoFactorAuthResponse>(getEnableTwoFactorAuthUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type confirmTwoFactorAuthResponse200 = {
+  data: void
+  status: 200
+}
+
+export type confirmTwoFactorAuthResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type confirmTwoFactorAuthResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type confirmTwoFactorAuthResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type confirmTwoFactorAuthResponse429 = {
+  data: Error
+  status: 429
+}
+
+export type confirmTwoFactorAuthResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type confirmTwoFactorAuthResponseSuccess = (confirmTwoFactorAuthResponse200) & {
+  headers: Headers;
+};
+export type confirmTwoFactorAuthResponseError = (confirmTwoFactorAuthResponse400 | confirmTwoFactorAuthResponse401 | confirmTwoFactorAuthResponse403 | confirmTwoFactorAuthResponse429 | confirmTwoFactorAuthResponse500) & {
+  headers: Headers;
+};
+
+export type confirmTwoFactorAuthResponse = (confirmTwoFactorAuthResponseSuccess | confirmTwoFactorAuthResponseError)
+
+export const getConfirmTwoFactorAuthUrl = () => {
+
+
+
+
+  return `/auth/confirm2fa`
+}
+
+/**
+ * Принимает user_code — строку ровно из шести ASCII-цифр, включая ведущие нули. Проверяет код неподтверждённого секрета и только при успехе атомарно активирует секрет и устанавливает has_2fa=true. Принятый шаг запоминается: код подтверждения нельзя немедленно использовать для входа. Неверный формат, отсутствие настройки или уже включённая 2FA — 400 validation_error. Код, не прошедший TOTP-проверку, — 401 invalid_totp. Неверный код и ошибка запроса не включают 2FA и не удаляют неподтверждённый секрет; настройку можно повторить. Лимит попыток привязан к аккаунту и не сбрасывается получением QR.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Подтвердить подключение 2FA
+ */
+export const confirmTwoFactorAuth = async (confirmTwoFactorRequest: ConfirmTwoFactorRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<confirmTwoFactorAuthResponse> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1396,12 +1617,94 @@ export const loginUser = async (credentials: Credentials, options?: Parameters<t
     }
     return headers;
   };
-return bearerFetch<loginUserResponse>(getLoginUserUrl(),
+return bearerFetch<confirmTwoFactorAuthResponse>(getConfirmTwoFactorAuthUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(credentials)
+    body: JSON.stringify(confirmTwoFactorRequest)
+  }
+);}
+
+
+
+export type disableTwoFactorAuthResponse200 = {
+  data: void
+  status: 200
+}
+
+export type disableTwoFactorAuthResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type disableTwoFactorAuthResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type disableTwoFactorAuthResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type disableTwoFactorAuthResponse429 = {
+  data: Error
+  status: 429
+}
+
+export type disableTwoFactorAuthResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type disableTwoFactorAuthResponseSuccess = (disableTwoFactorAuthResponse200) & {
+  headers: Headers;
+};
+export type disableTwoFactorAuthResponseError = (disableTwoFactorAuthResponse400 | disableTwoFactorAuthResponse401 | disableTwoFactorAuthResponse403 | disableTwoFactorAuthResponse429 | disableTwoFactorAuthResponse500) & {
+  headers: Headers;
+};
+
+export type disableTwoFactorAuthResponse = (disableTwoFactorAuthResponseSuccess | disableTwoFactorAuthResponseError)
+
+export const getDisableTwoFactorAuthUrl = () => {
+
+
+
+
+  return `/auth/disable2fa`
+}
+
+/**
+ * Если 2FA не включена, возвращает 400 validation_error. При включённой 2FA проверяет текущий пароль: неверный пароль — 403 invalid_current_password. Успешная проверка атомарно выключает 2FA (has_2fa=false) и удаляет TOTP-секрет. Следующее подключение создаёт новый секрет. Проверка пароля защищена от перебора; превышение лимита — 429 rate_limited. Конкурентное подтверждение или получение QR не может восстановить удалённый активный секрет.
+ *
+ * Все операции работают только с текущим пользователем действующей Bearer-сессии; user_id в запросе не принимается. Обязателен X-BFF-Key: проверяется до Bearer и разбора тела, неверный ключ — 403 s2s_forbidden. Секрет, QR-код, otpauth URI, пароль и введённые TOTP-коды не журналируются.
+ *
+ * TOTP по RFC 6238: issuer Cellestial, имя аккаунта — текущий логин; SHA-1, 6 цифр, период 30 секунд, допустимое расхождение времени ±1 шаг. После успешной проверки тот же TOTP-код не принимается повторно в его временном шаге, включая код подтверждения подключения. Конкурентные запросы выполняются согласованно: нельзя заменить активный секрет, активировать устаревший секрет или дважды принять один код. Секрет хранится зашифрованным.
+ * @summary Отключить 2FA
+ */
+export const disableTwoFactorAuth = async (disableTwoFactorRequest: DisableTwoFactorRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<disableTwoFactorAuthResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<disableTwoFactorAuthResponse>(getDisableTwoFactorAuthUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(disableTwoFactorRequest)
   }
 );}
 

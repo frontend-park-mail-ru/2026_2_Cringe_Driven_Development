@@ -319,3 +319,58 @@ test('все очереди валидны, несмотря на точечно
         ).toThrow();
     }
 });
+
+test('CI публикует GitHub Release: contents write только у publish, draft не пересобирается', async () => {
+    const config = await workflow('ci.yml');
+    expect(config.permissions).toEqual({ contents: 'read' });
+    expect(config.jobs.check?.permissions).toBeUndefined();
+    const job = config.jobs.publish!;
+    expect(job.permissions?.contents).toBe('write');
+    expect(job.permissions?.packages).toBe('write');
+    expect(job.permissions?.deployments).toBeUndefined();
+    for (const id of ['image'])
+        expect(job.steps.find((step) => step.id === id)?.if).toBe(
+            "steps.published.outputs.build == 'true'",
+        );
+    for (const name of ['Build release', 'Upload assets'])
+        expect(job.steps.find((step) => step.name === name)?.if).toBe(
+            "steps.published.outputs.build == 'true'",
+        );
+    const register = job.steps.find((step) => step.id === 'register')!;
+    expect(register.env?.IMAGE_REF).toContain('steps.published.outputs.image_ref');
+    expect(JSON.stringify(config)).not.toContain('on: release');
+    expect(Object.keys(config.on)).not.toContain('release');
+});
+
+test('CD выкатывает выбранный Release: обязательный тег, проверка до VPS, release_id', async () => {
+    const config = await workflow('cd.yml');
+    const input = (
+        config.on.workflow_dispatch as unknown as {
+            inputs: Record<string, { required: boolean; type: string }>;
+        }
+    ).inputs.release;
+    expect(input).toMatchObject({ required: true, type: 'string' });
+    const job = config.jobs.cd!;
+    expect(job.env?.SHA).toBeUndefined();
+    const ready = job.steps.findIndex((step) => step.id === 'artifacts');
+    expect(job.steps[ready]?.run).toBe('bun run release artifacts "$RELEASE"');
+    expect(job.steps[ready]?.env?.RELEASE).toBe('${{ inputs.release }}');
+    for (const id of ['direction', 'image', 'check', 'start', 'switch'])
+        expect(ready).toBeLessThan(job.steps.findIndex((step) => step.id === id));
+    expect(job.steps.find((step) => step.id === 'start')?.env?.RELEASE_ID).toBe(
+        '${{ steps.artifacts.outputs.release_id }}',
+    );
+    expect(
+        (await workflow('rollback.yml')).jobs.rollback!.steps.find((step) => step.id === 'start')
+            ?.env?.RELEASE_ID,
+    ).toBe('${{ steps.target.outputs.release_id }}');
+});
+
+test('импорт — отдельный ручной workflow из main с доверенным путём', async () => {
+    const config = await workflow('release-import.yml');
+    expect(Object.keys(config.on)).toEqual(['workflow_dispatch']);
+    const job = config.jobs.import!;
+    expect(job.if).toContain("github.ref == 'refs/heads/main'");
+    expect(job.permissions?.contents).toBe('write');
+    expect(job.steps.at(-1)?.run).toBe('bun run release import');
+});

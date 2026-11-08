@@ -201,6 +201,164 @@
     border-radius: 12px;
 }
 
+/* Profile / Section 2FA: строка с рамкой, статус под названием, действие справа */
+.authenticator {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 16px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+
+    @media (max-width: 860px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+    }
+}
+
+.authenticatorText {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.authenticatorName {
+    font: var(--font-body-accent);
+}
+
+.authenticatorStatus {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.authenticatorAction {
+    flex: none;
+}
+
+.dialogBody {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.qrImage {
+    display: block;
+    width: 199px;
+    height: 199px;
+    border-radius: 12px;
+    image-rendering: pixelated;
+}
+
+.qrNote {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.link {
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    font: inherit;
+    color: var(--color-primary-text);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.manualKey {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+}
+
+.keyLabel {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
+.key,
+.keySelected {
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--color-code-bg);
+    font: 400 16px / 24px var(--font-mono);
+    letter-spacing: 1px;
+    color: var(--code-text);
+    user-select: all;
+}
+
+/* «Не удалось скопировать»: ключ выделен для ручного копирования */
+.keySelected {
+    padding: 10.5px;
+    border: 1.5px solid var(--color-focus);
+    background: var(--color-primary-soft);
+    color: var(--color-text-primary);
+
+    & ::selection {
+        background: rgb(164 140 255 / 0.35);
+        color: inherit;
+    }
+}
+
+.keyGroup {
+    display: inline-block;
+
+    &:not(:last-child) {
+        margin-right: 1ch;
+    }
+}
+
+.copySuccess,
+.copyError {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font: var(--font-caption);
+    color: var(--color-success);
+}
+
+.copyError {
+    color: var(--color-error);
+}
+
+.copyIcon {
+    flex: none;
+    margin-top: 2px;
+}
+
+.keySteps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font: var(--font-caption);
+}
+
+.keyHint {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}
+
 @media (max-width: 860px) {
     .page {
         padding: 12px 16px 32px;
@@ -211,7 +369,7 @@
     }
 
     .section {
-        padding: 24px 16px;
+        padding: 20px;
     }
 
     .identity {

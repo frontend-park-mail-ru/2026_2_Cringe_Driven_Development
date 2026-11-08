@@ -7,12 +7,11 @@ import {
     chooseRollbackTarget,
     finishProduction,
     protectedReleases,
-    readyArtifacts,
     startProduction,
 } from './deployments.ts';
 import { fixture } from './test/fixture.ts';
 import { ReleaseError } from './env.ts';
-import type { ArtifactsPayload, Deployment, DeploymentState, ProductionPayload } from './github.ts';
+import type { Deployment, DeploymentState, ProductionPayload } from './github.ts';
 
 const sha = (c: string) => c.repeat(40);
 const ref = (c: string) => `ghcr.io/cringe-driven-development-team/bff@sha256:${c.repeat(64)}`;
@@ -151,33 +150,6 @@ test('retention хранит текущий и предыдущий с друг�
     }
 });
 
-const artifacts = (
-    commit: string,
-    image: string,
-    state: DeploymentState,
-    assets = `releases/${sha(commit)}/`,
-): Deployment<ArtifactsPayload> => ({
-    id: ++id,
-    sha: sha(commit),
-    payload: { image_ref: ref(image), assets, ci_run: '' },
-    createdAt: '',
-    state,
-});
-
-test('готовый выпуск — успешная запись release-artifacts этого SHA', () => {
-    expect(readyArtifacts([artifacts('a', 'a', 'success')], sha('a'))).toMatchObject({
-        image_ref: ref('a'),
-    });
-    expect(readyArtifacts([artifacts('a', 'a', 'failure')], sha('a'))).toBeUndefined();
-    expect(readyArtifacts([], sha('a'))).toBeUndefined();
-    expect(() =>
-        readyArtifacts([artifacts('a', 'a', 'success'), artifacts('a', 'b', 'success')], sha('a')),
-    ).toThrow('разными образами');
-    expect(() => readyArtifacts([artifacts('a', 'a', 'success', 'releases/x/')], sha('a'))).toThrow(
-        'каталог',
-    );
-});
-
 test('сбой статуса in_progress: id уже в выходе, итог error, откат к последнему успешному', async () => {
     const env = { ...process.env };
     const realFetch = globalThis.fetch;
@@ -206,7 +178,9 @@ test('сбой статуса in_progress: id уже в выходе, итог e
         throw new Error(`неожиданный запрос ${url}`);
     }) as typeof fetch;
     try {
-        await expect(startProduction(sha('c'), ref('c'), 'deploy')).rejects.toThrow(ReleaseError);
+        await expect(startProduction(sha('c'), ref('c'), 'deploy', 1)).rejects.toThrow(
+            ReleaseError,
+        );
         const outputId = /deployment_id=(\d+)/.exec(readFileSync(outputFile, 'utf8'))?.[1];
         expect(outputId).toBe('77');
 

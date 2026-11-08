@@ -15,3 +15,6 @@ export const useTouchDevice = mediaHook('(pointer: coarse)');
 
 /** Режим системных цветов (высокая контрастность): слои подсветки под полями скрыты. */
 export const useForcedColors = mediaHook('(forced-colors: active)');
+
+/** Телефонная раскладка макета (до 860 px). */
+export const useNarrow = mediaHook('(max-width: 860px)');

@@ -4,6 +4,7 @@
     z-index: 2;
     display: grid;
     place-items: center;
+    overflow-y: auto;
     padding: 16px;
     background: var(--color-overlay);
 }
@@ -18,23 +19,22 @@
     max-width: 480px;
     margin: 0;
     padding: 32px;
-    border: none;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
     color: var(--color-text-primary);
     background: var(--color-surface-solid);
-    box-shadow:
-        inset 0 0 0 1px var(--color-border),
-        var(--shadow-popover);
+    box-shadow: var(--shadow-popover);
 }
 
+/* место под крестик справа — у всей шапки: и у заголовка, и у описания */
 .head {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-right: 44px;
 }
 
 .title {
-    padding-right: 44px;
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
 }
@@ -45,6 +45,24 @@
 
 .close {
     position: absolute;
-    top: 24px;
-    right: 24px;
+    top: 23px;
+    right: 23px;
+}
+
+.back {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-text-primary);
+    }
 }

@@ -15,6 +15,7 @@ import {
     pythonBefore,
     type TextEdit,
 } from './indentation';
+import { isEditing } from './editing';
 import styles from './Cell.module.css';
 
 // Высота редактора по содержимому: своей вертикальной прокрутки у него нет, прокручивается страница
@@ -158,13 +159,14 @@ export function Cell({
     marks = NO_MARKS,
 }: CellProps) {
     const isCode = cell.kind === 'code';
+    const isRaw = cell.kind === 'raw';
     const placeholder = isCode ? '# Код на Python' : 'Заголовок или описание — Markdown';
     const [mode, setMode] = useState<Mode>({
         value: startEditing ? 'edit' : 'view',
         refocus: startEditing,
     });
     // Больше лимита исходник не прячется за просмотром
-    const editing = !readOnly && (isCode || mode.value === 'edit' || tooLarge);
+    const editing = isEditing(cell.kind, { readOnly, edit: mode.value === 'edit', tooLarge });
     const hintId = `${cellEditorId(cell.id)}-hint`;
 
     useLayoutEffect(() => {
@@ -210,7 +212,7 @@ export function Cell({
     }, [text, cell.id, editing, isCode]);
 
     const edit = () => {
-        if (!readOnly) setMode({ value: 'edit', refocus: true });
+        if (!readOnly && !isRaw) setMode({ value: 'edit', refocus: true });
     };
 
     const editor = (
@@ -313,10 +315,24 @@ export function Cell({
             }}
         >
             <div key="gutter" className={styles.gutter}>
-                {isCode ? gutter : <span className={styles.kind}>Aa</span>}
+                {isCode ? gutter : <span className={styles.kind}>{isRaw ? 'raw' : 'Aa'}</span>}
             </div>
             <div key="body" className={styles.body}>
-                {readOnly && isCode ? (
+                {isRaw ? (
+                    // raw — буквальный текст: без подсветки, Markdown и редактирования
+                    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+                    <pre
+                        key="raw"
+                        id={cellEditorId(cell.id)}
+                        className={clsx(styles.static, styles.raw)}
+                        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                        tabIndex={0}
+                        aria-label="Raw-ячейка, только чтение"
+                        onFocus={onFocus}
+                    >
+                        {text}
+                    </pre>
+                ) : readOnly && isCode ? (
                     // фокус выбирает ячейку: её рамка показывает, какой блок прокручивать клавишами
                     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                     <pre
@@ -390,7 +406,7 @@ export function Cell({
                         )}
                     </div>
                 )}
-                {!readOnly && (
+                {!readOnly && !isRaw && (
                     <span key="hint" id={hintId} className={styles.hint}>
                         {isCode
                             ? 'Tab — отступ, Shift+Tab — убрать отступ, Esc и затем Tab — выйти из поля'

@@ -1,4 +1,5 @@
 import { createPortal, useEffect, type ReactNode } from '@cdd-team/react';
+import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import styles from './Modal.module.css';
 
@@ -15,6 +16,8 @@ interface ModalProps {
     description?: string;
     /** id элемента, который получает фокус при открытии */
     initialFocusId: string;
+    /** Ссылка «Назад» над заголовком: возврат к предыдущему шагу */
+    onBack?: () => void;
     onClose: () => void;
     children: ReactNode;
 }
@@ -49,7 +52,14 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
  * @param props свойства модалки
  * @returns модалка
  */
-export function Modal({ title, description, initialFocusId, onClose, children }: ModalProps) {
+export function Modal({
+    title,
+    description,
+    initialFocusId,
+    onBack,
+    onClose,
+    children,
+}: ModalProps) {
     useEffect(() => {
         const opener =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -98,6 +108,12 @@ export function Modal({ title, description, initialFocusId, onClose, children }:
                 aria-labelledby={TITLE_ID}
                 aria-describedby={description ? DESCRIPTION_ID : undefined}
             >
+                {onBack && (
+                    <button key="back" type="button" className={styles.back} onClick={onBack}>
+                        <Icon key="icon" name="back" />
+                        Назад
+                    </button>
+                )}
                 <div key="head" className={styles.head}>
                     <h2 key="title" id={TITLE_ID} className={styles.title}>
                         {title}

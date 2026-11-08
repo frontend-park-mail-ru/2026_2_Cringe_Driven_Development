@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pull-requests: read
   issues: read
   deployments: write
@@ -37,7 +38,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      # цель — по истории production в GitHub, до доступа к VPS (docs/release.md, «Откат»)
+      # цель — по истории production в GitHub, сверяется с её Release до доступа к VPS (docs/release.md, «Откат»)
       - name: Rollback target
         id: target
         run: bun run release target
@@ -104,6 +105,7 @@ jobs:
           RELEASE_REPORT_URL: ${{ steps.report.outputs.report_url }}
           SHA: ${{ steps.target.outputs.sha }}
           IMAGE_REF: ${{ steps.target.outputs.image_ref }}
+          RELEASE_ID: ${{ steps.target.outputs.release_id }}
         run: bun run release start "$SHA" "$IMAGE_REF" rollback
       - name: Switch BFF
         id: switch

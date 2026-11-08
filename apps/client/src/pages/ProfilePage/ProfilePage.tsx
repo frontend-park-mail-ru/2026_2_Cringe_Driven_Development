@@ -13,10 +13,11 @@ import { LoginForm } from './LoginForm';
 import { LogoutAllSection } from './LogoutAllSection';
 import { PasswordForm } from './PasswordForm';
 import { ProfileSkeleton } from './ProfileSkeleton';
+import { TwoFactorSection } from './TwoFactorSection';
 import styles from './ProfilePage.module.css';
 
 /**
- * Профиль (экран «05. Профиль»): данные из `users.me`, смена аватара, логина и пароля, выход со
+ * Профиль (экран «05. Профиль»): данные из `users.me`, смена аватара, логина и пароля, 2FA, выход со
  * всех устройств.
  * Загруженный пользователь попадает в стор сессии: страница и шапка показывают один логин.
  * @returns страница
@@ -81,6 +82,7 @@ export function ProfilePage() {
                         </StateBlock>
                     )}
                     {status === 'ready' && <LoginForm key="login" login={login} />}
+                    {status === 'ready' && <TwoFactorSection key="two-factor" />}
                     {status === 'ready' && <PasswordForm key="password" />}
                     {status === 'ready' && <LogoutAllSection key="logout-all" />}
                 </div>
