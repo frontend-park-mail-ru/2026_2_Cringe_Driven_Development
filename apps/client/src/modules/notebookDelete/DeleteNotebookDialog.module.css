@@ -54,3 +54,8 @@
         gap: 8px;
     }
 }
+
+/* порядок подключения после IconButton: при равной специфичности побеждает этот цвет */
+.trash:hover:not(:disabled) {
+    color: var(--color-error);
+}
