@@ -102,6 +102,12 @@ const BANNER: Record<
         title: 'Не удалось завершить очистку окружения',
         text: 'Новый запуск станет доступен, когда очистка завершится.',
     },
+    capacityExceeded: {
+        icon: 'alert',
+        tone: 'muted',
+        title: 'Все окружения сейчас заняты',
+        text: 'Запустите окружение ещё раз через несколько минут. Сохранённые ячейки и результаты доступны.',
+    },
     startFailed: {
         icon: 'alert',
         tone: 'error',
@@ -140,6 +146,7 @@ function bannerAction(
                 onClick: () => void stopRuntime(),
                 loading: runtime.busy === 'stop',
             };
+        case 'capacityExceeded':
         case 'startFailed':
             return {
                 label: 'Повторить запуск',
