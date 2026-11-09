@@ -153,6 +153,8 @@ vite берёт их оттуда.
   `<iframe sandbox="">` через `srcdoc`. iframe наследует CSP страницы: встроенные стили HTML-вывода на проде
   блокируются.
 - `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap; `notebook` — ячейки и сохранение; `runtime` — окружение, исполнение и единая цепочка опроса `runtime.updates`.
+- `modules/notebookDelete/` — удаление блокнота с главной и из редактора: допуск по окружению (`gate.ts`),
+  `notebooks.delete` с забыванием черновиков и опроса (`actions.ts`), корзина и общий диалог.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
 - `assets/` — SVG (знак логотипа, иконки): Vite встраивает их в бандл. Favicon — `public/apple-touch-icon.png`,

@@ -14,6 +14,10 @@ import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
+import { DeleteButton } from '@modules/notebookDelete/DeleteButton';
+import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
+import { checkDeleteGate } from '@modules/notebookDelete/actions';
+import { deleteGate, type DeleteGate } from '@modules/notebookDelete/gate';
 import {
     addCell,
     leaveNotebook,
@@ -204,6 +208,18 @@ export function NotebookPage() {
     );
     const [attempt, setAttempt] = useState(0);
     const [selected, setSelected] = useState<string | undefined>(undefined);
+    // открытый диалог удаления: допуск по окружению из стора на момент нажатия корзины
+    const [deleting, setDeleting] = useState<DeleteGate | null>(null);
+    const [checkingDelete, setCheckingDelete] = useState(false);
+    // окружение — с сервера: стор не видит запуск из другой вкладки и не опрашивает завершённую
+    // сессию с незавершённой очисткой; при сбое — последнее известное состояние стора
+    const askDelete = async () => {
+        if (checkingDelete) return;
+        setCheckingDelete(true);
+        const gate = await checkDeleteGate(id);
+        setCheckingDelete(false);
+        setDeleting(gate === 'error' ? deleteGate(useRuntimeStore.getState().session, id) : gate);
+    };
     // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
@@ -502,6 +518,7 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
+                    {ready && <DeleteButton key="delete" onClick={() => void askDelete()} />}
                     <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (
@@ -592,7 +609,18 @@ export function NotebookPage() {
                     </StateBlock>
                 )}
             </div>
-            {ready && <ConflictDialog key="dialog" />}
+            {/* конфликт остаётся в сторе и откроется, когда закроется диалог удаления */}
+            {ready && !deleting && <ConflictDialog key="dialog" />}
+            {deleting && notebook.meta && (
+                <DeleteNotebookDialog
+                    key="delete"
+                    notebook={{ id, name: notebook.meta.name }}
+                    gate={deleting}
+                    place="editor"
+                    onClose={() => setDeleting(null)}
+                    onGone={() => navigate({ to: '/' })}
+                />
+            )}
             <ScrollTop key="scroll-top" />
         </div>
     );

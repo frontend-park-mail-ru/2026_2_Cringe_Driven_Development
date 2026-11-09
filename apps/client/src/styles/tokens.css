@@ -36,6 +36,7 @@
     --color-success: #5ef0a8;
     --color-error: #ff9a9a;
     --color-error-soft: rgb(255 154 154 / 0.1);
+    --color-error-border: rgb(255 154 154 / 0.4);
     --color-warning: #ffc98a;
 
     /* Код */
