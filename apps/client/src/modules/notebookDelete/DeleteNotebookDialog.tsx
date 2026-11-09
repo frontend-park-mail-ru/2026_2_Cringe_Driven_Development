@@ -1,4 +1,4 @@
-import { useState } from '@cdd-team/react';
+import { useRef, useState } from '@cdd-team/react';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
@@ -48,9 +48,15 @@ export function DeleteNotebookDialog({
     const [gate, setGate] = useState<DeleteGate>(initial);
     const [sending, setSending] = useState(false);
     const [failed, setFailed] = useState(false);
+    // отправка видна сразу, до перерисовки: Escape или второе нажатие в тот же кадр ничего не делают
+    const sendingRef = useRef(false);
+    const close = () => {
+        if (!sendingRef.current) onClose();
+    };
 
     const submit = async () => {
-        if (sending) return;
+        if (sendingRef.current) return;
+        sendingRef.current = true;
         setSending(true);
         setFailed(false);
         const result = await deleteNotebook(notebook.id);
@@ -62,6 +68,7 @@ export function DeleteNotebookDialog({
         }
         if (result === 'inUse') setGate(await inUseGate(notebook.id));
         else setFailed(true);
+        sendingRef.current = false;
         setSending(false);
     };
 
@@ -75,7 +82,7 @@ export function DeleteNotebookDialog({
                 description="Все ячейки и сохранённые результаты будут удалены навсегда. Это действие нельзя отменить."
                 initialFocusId={CANCEL_ID}
                 locked={sending}
-                onClose={onClose}
+                onClose={close}
             >
                 <div className={styles.body}>
                     {failed && (
@@ -90,7 +97,7 @@ export function DeleteNotebookDialog({
                             id={CANCEL_ID}
                             variant="secondary"
                             disabled={sending}
-                            onClick={onClose}
+                            onClick={close}
                         >
                             Отмена
                         </Button>

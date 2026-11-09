@@ -1,20 +1,23 @@
 import { isRpcError, trpc } from '@api/trpc';
 import { flush, forgetNotebook, useNotebookStore } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
-import { closeRuntime, useRuntimeStore } from '@stores/runtime';
+import { adoptSession, closeRuntime, useRuntimeStore } from '@stores/runtime';
 import { deleteGate, type DeleteGate } from './gate';
 
 /** Итог удаления: `notFound` — чужой, отсутствующий или уже удалённый блокнот. */
 export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
 
 /**
- * Допуск к удалению по активной сессии пользователя с сервера.
+ * Допуск к удалению по активной сессии пользователя с сервера. Сессия открытого блокнота заодно
+ * обновляет его стор окружения: после 409 из другой вкладки появится «Завершить окружение».
  * @param notebookId выбранный блокнот
  * @returns допуск или `error`, если состояние окружения получить не удалось
  */
 export async function checkDeleteGate(notebookId: number): Promise<DeleteGate | 'error'> {
     try {
-        return deleteGate(await trpc.runtime.active.query(), notebookId);
+        const session = await trpc.runtime.active.query();
+        adoptSession(session);
+        return deleteGate(session, notebookId);
     } catch {
         return 'error';
     }

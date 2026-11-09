@@ -16,6 +16,7 @@ import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
 import { DeleteButton } from '@modules/notebookDelete/DeleteButton';
 import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
+import { checkDeleteGate } from '@modules/notebookDelete/actions';
 import { deleteGate, type DeleteGate } from '@modules/notebookDelete/gate';
 import {
     addCell,
@@ -209,6 +210,16 @@ export function NotebookPage() {
     const [selected, setSelected] = useState<string | undefined>(undefined);
     // открытый диалог удаления: допуск по окружению из стора на момент нажатия корзины
     const [deleting, setDeleting] = useState<DeleteGate | null>(null);
+    const [checkingDelete, setCheckingDelete] = useState(false);
+    // окружение — с сервера: стор не видит запуск из другой вкладки и не опрашивает завершённую
+    // сессию с незавершённой очисткой; при сбое — последнее известное состояние стора
+    const askDelete = async () => {
+        if (checkingDelete) return;
+        setCheckingDelete(true);
+        const gate = await checkDeleteGate(id);
+        setCheckingDelete(false);
+        setDeleting(gate === 'error' ? deleteGate(useRuntimeStore.getState().session, id) : gate);
+    };
     // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
@@ -511,14 +522,7 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
-                    {ready && (
-                        <DeleteButton
-                            key="delete"
-                            onClick={() =>
-                                setDeleting(deleteGate(useRuntimeStore.getState().session, id))
-                            }
-                        />
-                    )}
+                    {ready && <DeleteButton key="delete" onClick={() => void askDelete()} />}
                     <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (

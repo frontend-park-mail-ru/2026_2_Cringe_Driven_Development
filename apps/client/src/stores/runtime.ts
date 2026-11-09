@@ -441,6 +441,17 @@ function observe(session: RuntimeSession): void {
 }
 
 /**
+ * Активная сессия, прочитанная с сервера (проверка перед удалением блокнота): сессия открытого
+ * блокнота заменяет устаревшую в сторе и снова наблюдается — шапка покажет «Завершить окружение».
+ * @param session активная сессия пользователя в любом блокноте или null
+ */
+export function adoptSession(session: RuntimeSession | null): void {
+    const { notebookId } = get();
+    if (notebookId === null || session?.notebook_id !== notebookId) return;
+    observe(session);
+}
+
+/**
  * «Запустить окружение» Python. Подготовка не исполняет код. Повтор после сбоя сети — с прежним
  * `request_id`. Активная сессия другого блокнота не заменяется: она приходит в `session`.
  */
