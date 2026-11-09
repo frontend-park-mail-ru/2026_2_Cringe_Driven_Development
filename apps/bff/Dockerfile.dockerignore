@@ -7,6 +7,7 @@
 !apps/client/dist/pwa-512.png
 !apps/client/dist/pwa-maskable-512.png
 !apps/client/dist/apple-touch-icon.png
+!apps/client/dist/favicon.png
 !apps/client/dist/sw.js
 !apps/client/dist/offline.html
 !apps/client/dist/offline.css

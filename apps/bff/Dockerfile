@@ -9,7 +9,7 @@ COPY apps/bff/dist/bff.js /app/bff.js
 COPY apps/client/dist/index.html /app/client/index.html
 # Публичные файлы: список совпадает с PUBLIC_FILES в src/public.ts
 COPY apps/client/dist/sw.js apps/client/dist/offline.html apps/client/dist/offline.css apps/client/dist/onest-variable.woff2 apps/client/dist/manifest.webmanifest apps/client/dist/pwa-192.png apps/client/dist/pwa-512.png \
-     apps/client/dist/pwa-maskable-512.png apps/client/dist/apple-touch-icon.png /app/client/
+     apps/client/dist/pwa-maskable-512.png apps/client/dist/apple-touch-icon.png apps/client/dist/favicon.png /app/client/
 USER bun
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \

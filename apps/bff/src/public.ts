@@ -14,6 +14,7 @@ export const PUBLIC_FILES: readonly string[] = [
     'pwa-512.png',
     'pwa-maskable-512.png',
     'apple-touch-icon.png',
+    'favicon.png',
 ];
 
 /**
