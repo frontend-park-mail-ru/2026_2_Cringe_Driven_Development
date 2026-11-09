@@ -11,6 +11,38 @@ bun run check
 bun run build
 ```
 
+## Проверки перед PR
+
+Из корня репозитория выполните:
+
+```bash
+bun run check
+bun run build
+```
+
+`check` проверяет форматирование, линт и типы. CI `Check` дополнительно запускает
+`bun run test` и собирает Docker-образ BFF. Изменённое поведение проверяйте
+соответствующими тестами и вручную; проверки не выкатывают проект.
+
+## Как работать с задачами
+
+Задачи команды собраны на общей [доске](https://github.com/orgs/Cringe-Driven-Development-Team/projects/1).
+Правила оформления задач и ревью — в
+[CONTRIBUTING команды](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
+
+Формат коммита: `<тип>: <описание>` либо `<тип>(<область>): <описание>`.
+Используйте `feat`, `fix`, `refactor`, `style`, `test`, `docs` или `chore`.
+
+Перед коммитом git-хук форматирует то, что уходит в коммит (неиндексированные правки не трогает), и
+запускает `bun run check`; при ошибке
+коммит не создаётся. Хук ставит `bun install`. Если он не сработал — `bunx lefthook install`.
+После коммита `post-commit` переносит форматирование в рабочий файл, только если
+в нём нет других неиндексированных правок.
+
+Ветка задачи — `web-N`, PR в командный frontend закрывает её через `Closes #N`
+и требует ревью frontend-ментора. Порядок слияния —
+[очередь в main](release.md#очередь-слияния-в-main).
+
 ## Монорепа
 
 Репозиторий — монорепа на bun workspaces и [Turborepo](https://turborepo.com)
@@ -211,3 +243,7 @@ Cloud Mock отвечает фиксированно (раздел «BFF» вы�
 [`@cdd-team/oxlint-plugin-jsdoc`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/oxlint-plugin-jsdoc):
 в `oxlint` правил `require-jsdoc` и `check-param-names` нет. Сами теги линт не требует: `@param` и `@returns` пишутся там, где описание что-то добавляет
 к имени и типу. Сгенерированные Orval файлы линт не проверяет
+
+## Wiki кода
+
+Поиск контекста, обновление и публикация описаны в [инструкции OpenWiki](openwiki.md).
