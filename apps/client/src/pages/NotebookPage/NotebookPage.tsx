@@ -14,6 +14,9 @@ import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
+import { DeleteButton } from '@modules/notebookDelete/DeleteButton';
+import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
+import { deleteGate, type DeleteGate } from '@modules/notebookDelete/gate';
 import {
     addCell,
     leaveNotebook,
@@ -204,6 +207,8 @@ export function NotebookPage() {
     );
     const [attempt, setAttempt] = useState(0);
     const [selected, setSelected] = useState<string | undefined>(undefined);
+    // открытый диалог удаления: допуск по окружению из стора на момент нажатия корзины
+    const [deleting, setDeleting] = useState<DeleteGate | null>(null);
     // Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
@@ -506,6 +511,14 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
+                    {ready && (
+                        <DeleteButton
+                            key="delete"
+                            onClick={() =>
+                                setDeleting(deleteGate(useRuntimeStore.getState().session, id))
+                            }
+                        />
+                    )}
                     <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (
@@ -607,6 +620,16 @@ export function NotebookPage() {
                 )}
             </div>
             {ready && <ConflictDialog key="dialog" />}
+            {deleting && notebook.meta && (
+                <DeleteNotebookDialog
+                    key="delete"
+                    notebook={{ id, name: notebook.meta.name }}
+                    gate={deleting}
+                    place="editor"
+                    onClose={() => setDeleting(null)}
+                    onGone={() => navigate({ to: '/' })}
+                />
+            )}
             <ScrollTop key="scroll-top" />
         </div>
     );
