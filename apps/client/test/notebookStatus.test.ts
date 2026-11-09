@@ -151,6 +151,15 @@ test('баннер окружения по приоритету', () => {
     expect(
         bannerKind(state({ session: session({ state: 'FAILED', reason: 'environment_failed' }) })),
     ).toBe('startFailed');
+    // повторный запуск после capacity_exceeded упал иначе: показываем новую ошибку
+    expect(
+        bannerKind(
+            state({
+                session: session({ state: 'FAILED', reason: 'capacity_exceeded' }),
+                startFailed: true,
+            }),
+        ),
+    ).toBe('startFailed');
     expect(
         bannerKind(state({ session: session({ state: 'STOPPED', reason: 'idle_timeout' }) })),
     ).toBe('idle');

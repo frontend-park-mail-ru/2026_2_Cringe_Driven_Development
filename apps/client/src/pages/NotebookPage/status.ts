@@ -105,9 +105,11 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
     if (!session && sessionActive(runtime.session)) return 'busy';
     // слот занят, пока очистка не подтверждена; после STOPPED слот свободен — это не ошибка
     if (sessionActive(session) && session?.cleanup_error) return 'cleanup';
-    if (session?.state === 'FAILED' && session.reason === CAPACITY_REASON)
-        return 'capacityExceeded';
-    if (runtime.startFailed || session?.state === 'FAILED') return 'startFailed';
+    // ошибка нового запуска важнее причины прежней FAILED-сессии в сторе
+    if (runtime.startFailed) return 'startFailed';
+    if (session?.state === 'FAILED') {
+        return session.reason === CAPACITY_REASON ? 'capacityExceeded' : 'startFailed';
+    }
     if (session?.state === 'STOPPED' && session.reason === IDLE_REASON) return 'idle';
     if (sessionActive(session)) return null;
     return 'notStarted';
