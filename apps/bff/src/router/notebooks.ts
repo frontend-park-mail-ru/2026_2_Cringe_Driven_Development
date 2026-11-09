@@ -13,4 +13,8 @@ export const notebooks = router({
     create: authedProcedure
         .input(CreateNotebookBody)
         .mutation(({ ctx, input }) => ctx.go.createNotebook(input)),
+    // окончательное удаление: решение о занятом окружении (409 notebook_in_use) принимает Go
+    delete: authedProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(({ ctx, input }) => ctx.go.deleteNotebook(input.id)),
 });

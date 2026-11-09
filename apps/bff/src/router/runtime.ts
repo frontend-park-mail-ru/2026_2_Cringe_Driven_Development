@@ -47,6 +47,8 @@ export const runtime = router({
     stop: authedProcedure
         .input(session)
         .mutation(({ ctx, input }) => ctx.go.stopRuntimeSession(input.sessionId)),
+    // активная сессия пользователя в любом блокноте или null: допуск к удалению блокнота
+    active: authedProcedure.query(({ ctx }) => ctx.go.getActiveRuntimeSession()),
     activity: authedProcedure
         .input(session)
         .mutation(({ ctx, input }) => ctx.go.touchRuntimeSession(input.sessionId)),

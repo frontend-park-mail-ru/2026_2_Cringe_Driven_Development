@@ -1532,6 +1532,267 @@
         ]
       }
     },
+    "/notebooks/{id}": {
+      "delete": {
+        "summary": "Удалить блокнот",
+        "deprecated": false,
+        "description": "Удаляет целиком блокнот текущего пользователя и связанные данные. ID владельца определяется по авторизации, а не передаётся в запросе. Тело запроса и If-Match не требуются.\n\nЕсли у блокнота активная runtime-сессия, удаление отклоняется с 409 notebook_in_use даже при отсутствии исполняющейся ячейки. Сессия продолжает работу, исполнение не прерывается, блокнот и данные сохраняются. Незавершённая очистка окружения или фоновая работа с данными блокнота также блокируют удаление.\n\nУдаление не ставится в очередь и не повторяется автоматически: после штатной остановки сессии и завершения фоновой очистки владелец отправляет новый DELETE.\n\nПри успехе транзакционно удаляются блокнот, ячейки, outputs/attachments и связанные записи завершённых и очищенных runtime-сессий (executions, batches, events, projections). Удаление согласовано с параллельным запуском сессии и редактированием: ссылки на удалённый блокнот и частичное удаление недопустимы.\n\nЧужой, отсутствующий и уже удалённый блокнот возвращают одинаковый 404 not_found. Запрос не останавливает сессию и не удаляет облачные ресурсы. Корзина и восстановление не предусмотрены.\n\nBackend #86: https://github.com/Cringe-Driven-Development-Team/backend/issues/86",
+        "operationId": "deleteNotebook",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Блокнот и связанные данные удалены. Тело ответа отсутствует.",
+            "headers": {}
+          },
+          "400": {
+            "description": "validation_error: ID должен быть положительным целым int64.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "Некорректный ID блокнота."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "unauthorized: отсутствует или недействителен Bearer-токен.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "Требуется авторизация."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "s2s_forbidden: X-BFF-Key отсутствует, неверен или повторяется. Проверяется до Bearer и валидации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "not_found: блокнот отсутствует, принадлежит другому пользователю или уже удалён. Ответы одинаковы.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "Блокнот не найден."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "notebook_in_use: активная runtime-сессия, незавершённая очистка окружения или фоновая работа с данными блокнота. Удаление отклонено без изменений.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "notebook_in_use"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "code": "notebook_in_use",
+                  "message": "Нельзя удалить работающий блокнот. Сначала остановите runtime-сессию."
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "internal: внутренняя ошибка. Частичного удаления данных нет.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "Внутренняя ошибка сервера."
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "summary": "Блокнот",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getNotebook",
+        "tags": [
+          "notebooks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Блокнот",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notebook"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "Невалидный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "Нет авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "s2s_forbidden",
+                  "message": "service access forbidden"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "Внутренняя ошибка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/notebooks/{id}/cells": {
       "post": {
         "summary": "Добавление блока",
@@ -2678,118 +2939,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotebookEditingError"
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/notebooks/{id}": {
-      "get": {
-        "summary": "Блокнот",
-        "deprecated": false,
-        "description": "",
-        "operationId": "getNotebook",
-        "tags": [
-          "notebooks"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Блокнот",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Notebook"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "400": {
-            "description": "Невалидный запрос",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "401": {
-            "description": "Нет авторизации",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "403": {
-            "description": "При включённой проверке S2S заголовок X-BFF-Key отсутствует или неверен. Проверяется до Bearer и валидации запроса. BFF не должен выполнять refresh или удалять пользовательскую сессию.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "s2s_forbidden",
-                  "message": "service access forbidden"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "404": {
-            "description": "Не найдено",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "headers": {}
-          },
-          "500": {
-            "description": "Внутренняя ошибка",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             },
@@ -4446,187 +4595,6 @@
           }
         ]
       },
-      "NotebookSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          },
-          "name": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cells_count": {
-            "type": "integer",
-            "description": "Число блоков"
-          },
-          "preview_code": {
-            "type": "string",
-            "description": "Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии."
-          },
-          "has_active_session": {
-            "type": "boolean",
-            "description": "У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения."
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "updated_at",
-          "cells_count",
-          "preview_code",
-          "has_active_session"
-        ]
-      },
-      "NotebookHash": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.",
-        "examples": [
-          "h123"
-        ]
-      },
-      "Cell": {
-        "type": "object",
-        "description": "Блок блокнота",
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-zA-Z0-9_-]+$",
-            "description": "ID блока внутри блокнота"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "code",
-              "markdown",
-              "raw"
-            ],
-            "description": "Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown."
-          },
-          "source": {
-            "type": "string",
-            "description": "Содержимое блока"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "source"
-        ]
-      },
-      "NotebookContent": {
-        "type": "object",
-        "properties": {
-          "hash": {
-            "$ref": "#/components/schemas/NotebookHash"
-          },
-          "cells": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-zA-Z0-9_-]+$",
-                      "description": "ID блока внутри блокнота"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "markdown",
-                        "raw"
-                      ],
-                      "description": "Вид блока"
-                    },
-                    "source": {
-                      "type": "string",
-                      "description": "Содержимое блока"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "kind",
-                    "source"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-zA-Z0-9_-]+$",
-                      "description": "ID блока внутри блокнота"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "code"
-                      ],
-                      "description": "Вид блока"
-                    },
-                    "source": {
-                      "type": "string",
-                      "description": "Содержимое блока"
-                    },
-                    "outputs": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": true,
-                        "properties": {}
-                      },
-                      "description": "Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение."
-                    },
-                    "execution_count": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
-                      "minimum": 0,
-                      "format": "int64",
-                      "description": "Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии."
-                    },
-                    "output_truncated": {
-                      "type": "boolean",
-                      "description": "Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется."
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "kind",
-                    "source",
-                    "outputs",
-                    "execution_count",
-                    "output_truncated"
-                  ],
-                  "additionalProperties": false
-                }
-              ]
-            },
-            "maxItems": 1000
-          }
-        },
-        "required": [
-          "hash",
-          "cells"
-        ],
-        "description": "Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла."
-      },
       "Notebook": {
         "type": "object",
         "description": "Блокнот (.ipynb)",
@@ -4663,6 +4631,43 @@
           "cells",
           "created_at",
           "updated_at"
+        ]
+      },
+      "NotebookSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cells_count": {
+            "type": "integer",
+            "description": "Число блоков"
+          },
+          "preview_code": {
+            "type": "string",
+            "description": "Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии."
+          },
+          "has_active_session": {
+            "type": "boolean",
+            "description": "У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "updated_at",
+          "cells_count",
+          "preview_code",
+          "has_active_session"
         ]
       },
       "Credentials": {
@@ -5376,6 +5381,111 @@
         ],
         "additionalProperties": false
       },
+      "NotebookContent": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/NotebookHash"
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "markdown",
+                        "raw"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-zA-Z0-9_-]+$",
+                      "description": "ID блока внутри блокнота"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "code"
+                      ],
+                      "description": "Вид блока"
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "Содержимое блока"
+                    },
+                    "outputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "properties": {}
+                      },
+                      "description": "Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение."
+                    },
+                    "execution_count": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "format": "int64",
+                      "description": "Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии."
+                    },
+                    "output_truncated": {
+                      "type": "boolean",
+                      "description": "Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "source",
+                    "outputs",
+                    "execution_count",
+                    "output_truncated"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "hash",
+          "cells"
+        ],
+        "description": "Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла."
+      },
       "RuntimeExecution": {
         "type": "object",
         "properties": {
@@ -5656,6 +5766,45 @@
           "code",
           "message"
         ]
+      },
+      "NotebookHash": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.",
+        "examples": [
+          "h123"
+        ]
+      },
+      "Cell": {
+        "type": "object",
+        "description": "Блок блокнота",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "description": "ID блока внутри блокнота"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "markdown",
+              "raw"
+            ],
+            "description": "Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown."
+          },
+          "source": {
+            "type": "string",
+            "description": "Содержимое блока"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source"
+        ]
       }
     },
     "responses": {
@@ -5774,7 +5923,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Access-токен пользователя, передаваемый BFF."
+        "description": "Access-токен пользователя, передаваемый BFF. Для настройки, подтверждения и отключения 2FA требуется действующая авторизованная сессия текущего пользователя."
       }
     }
   },
