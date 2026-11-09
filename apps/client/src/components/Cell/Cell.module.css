@@ -240,11 +240,11 @@
     }
 }
 
-/* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
 .raw {
     color: var(--color-text-primary);
 }
 
+/* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
 .preview {
     min-width: 0;
     cursor: text;

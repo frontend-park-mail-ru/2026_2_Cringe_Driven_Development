@@ -10,16 +10,11 @@ interface IconButtonProps {
     /** Подсказка при наведении */
     title?: string;
     className?: string;
-    /** Действие сейчас недоступно */
     disabled?: boolean;
     onClick: () => void;
 }
 
-/**
- * Кнопка-иконка 36×36 (Components → IconButton).
- * @param props свойства кнопки
- * @returns элемент button
- */
+/** Кнопка-иконка 36×36 (Components → IconButton). */
 export function IconButton({ icon, label, title, className, disabled, onClick }: IconButtonProps) {
     return (
         <button

@@ -16,9 +16,8 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 /**
  * Данные, которые BFF положил в первый HTML. Блок должен быть ровно один, `<script>` с
  * `type="application/json"`, а в нём — `{ user: объект | null }` и, на странице своего блокнота,
- * `notebookPage`. Иначе — `BootstrapError`:
- * гостем вместо пользователя и запасным запросом дефект не прикрывается.
- * @returns пользователь или `null` для гостя
+ * `notebookPage`. Иначе — {@link BootstrapError}: гостем вместо пользователя и запасным запросом
+ * дефект не прикрывается.
  */
 export function readBootstrap(): BootstrapData {
     const found = document.querySelectorAll(`[id="${MARKER_ID}"]`);

@@ -10,7 +10,6 @@ export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
 /**
  * Допуск к удалению по активной сессии пользователя с сервера. Сессия открытого блокнота заодно
  * обновляет его стор окружения: после 409 из другой вкладки появится «Завершить окружение».
- * @param notebookId выбранный блокнот
  * @returns допуск или `error`, если состояние окружения получить не удалось
  */
 export async function checkDeleteGate(notebookId: number): Promise<DeleteGate | 'error'> {
@@ -26,14 +25,12 @@ export async function checkDeleteGate(notebookId: number): Promise<DeleteGate | 
 /**
  * Запрет после `409 notebook_in_use`. Если активной сессии не видно, сервер всё равно занят
  * фоновой очисткой или работой, недоступной фронту: показываем ожидание.
- * @param notebookId выбранный блокнот
- * @returns какой запрет показать
  */
 export async function inUseGate(notebookId: number): Promise<'stopFirst' | 'waitStop'> {
     return (await checkDeleteGate(notebookId)) === 'stopFirst' ? 'stopFirst' : 'waitStop';
 }
 
-// Блокнота больше нет: его черновики, сохранения, опрос и bootstrap-снимок не вернут данные
+/** Блокнота больше нет: его черновики, сохранения, опрос и bootstrap-снимок не вернут данные. */
 function forget(notebookId: number): void {
     forgetNotebook(notebookId);
     if (useRuntimeStore.getState().notebookId === notebookId) closeRuntime();
@@ -43,8 +40,6 @@ function forget(notebookId: number): void {
 /**
  * Окончательно удаляет блокнот. Открытый блокнот сначала дожидается своих сохранений, чтобы ни
  * одно не ушло во время удаления. Окружение не останавливается, удаление не повторяется.
- * @param notebookId выбранный блокнот
- * @returns итог удаления
  */
 export async function deleteNotebook(notebookId: number): Promise<DeleteResult> {
     // итог сохранения не важен: при удалении правки пропадут, при отказе останутся в сторе

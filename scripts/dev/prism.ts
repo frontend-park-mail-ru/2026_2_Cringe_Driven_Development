@@ -6,8 +6,10 @@ import { join } from 'node:path';
 const root = join(import.meta.dir, '../..');
 const PRISM_URL = 'http://127.0.0.1:4010';
 
-// статический режим: ответы — примеры контракта; случайные данные BFF просит только для
-// создания ячейки (Prefer: dynamic=true), чтобы у новых ячеек были разные id
+/**
+ * Статический режим: ответы — примеры контракта. Случайные данные BFF просит только для создания
+ * ячейки (Prefer: dynamic=true), чтобы у новых ячеек были разные id.
+ */
 const prism = Bun.spawn(
     ['bunx', 'prism', 'mock', '-h', '127.0.0.1', '-p', '4010', 'spec/openapi.json'],
     { cwd: root, stdio: ['ignore', 'inherit', 'inherit'] },
@@ -18,7 +20,7 @@ const dev = Bun.spawn(['bun', 'run', 'dev'], {
     env: {
         ...process.env,
         GO_API_URL: PRISM_URL,
-        // контракт требует X-BFF-Key: без него Prism отклоняет запрос; значение мок не проверяет
+        /** Контракт требует X-BFF-Key: без него Prism отклоняет запрос; значение не проверяется */
         BFF_KEY: process.env.BFF_KEY || 'local-prism',
         MOCK_PREFER: '1',
         VITE_MOCK_PREFER: '1',
@@ -26,7 +28,7 @@ const dev = Bun.spawn(['bun', 'run', 'dev'], {
     stdio: ['inherit', 'inherit', 'inherit'],
 });
 
-// на Windows kill() завершает только сам процесс: turbo, Vite и BFF остались бы занимать порты
+/** Останавливает дерево процесса: на Windows `kill()` оставил бы turbo, Vite и BFF на портах. */
 const stop = (child: Bun.Subprocess): void => {
     if (child.exitCode !== null) return;
     if (process.platform === 'win32') {
@@ -36,7 +38,7 @@ const stop = (child: Bun.Subprocess): void => {
     } else child.kill();
 };
 
-// любой из процессов завершился — завершаем и второй
+/** Код выхода процесса, завершившегося первым: второй тоже останавливается. */
 const code = await Promise.race([prism.exited, dev.exited]);
 stop(prism);
 stop(dev);

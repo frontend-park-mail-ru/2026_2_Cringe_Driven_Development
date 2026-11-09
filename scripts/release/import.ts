@@ -48,7 +48,7 @@ export function importTargets(history: Deployment<ProductionPayload>[]): string[
     return [current.sha, ...(previous ? [previous.sha] : [])];
 }
 
-/** Исходная попытка сборки: `/attempts/{n}` того же run, SHA и workflow. */
+/** Проверяет исходную попытку сборки: `/attempts/{n}` того же run, SHA и workflow `ci.yml`. */
 async function checkAttempt(id: number, attempt: unknown, sha: string): Promise<number> {
     if (typeof attempt !== 'number' || !Number.isSafeInteger(attempt) || attempt <= 0)
         throw new ReleaseError(`${sha}: в release-artifacts нет исходной попытки сборки`);

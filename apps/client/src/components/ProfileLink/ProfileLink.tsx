@@ -3,10 +3,7 @@ import { Link } from '@cdd-team/router';
 import { useSessionStore } from '@stores/session';
 import styles from './ProfileLink.module.css';
 
-/**
- * Аватар вошедшего пользователя в шапке: ссылка на профиль.
- * @returns ссылка с аватаром
- */
+/** Аватар вошедшего пользователя в шапке: ссылка на профиль. */
 export function ProfileLink() {
     const user = useSessionStore((state) => state.user);
     return (

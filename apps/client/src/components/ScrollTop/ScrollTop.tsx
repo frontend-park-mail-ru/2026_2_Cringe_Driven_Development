@@ -2,7 +2,7 @@ import { createPortal, useEffect, useState } from '@cdd-team/react';
 import { IconButton } from '@components/IconButton/IconButton';
 import styles from './ScrollTop.module.css';
 
-// Показывать, когда страница прокручена хотя бы на один экран
+/** Показывать, когда страница прокручена хотя бы на один экран. */
 const visible = (): boolean => window.scrollY >= window.innerHeight;
 
 const toTop = (): void => {
@@ -13,7 +13,6 @@ const toTop = (): void => {
 /**
  * Кнопка «Наверх» справа снизу: появляется после прокрутки на один экран. Рисуется порталом в
  * `body`, чтобы `position: fixed` не зависел от трансформаций и слоёв страницы.
- * @returns портал с кнопкой или ничего
  */
 export function ScrollTop() {
     const [shown, setShown] = useState(false);

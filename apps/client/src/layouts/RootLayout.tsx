@@ -5,10 +5,7 @@ import { useConnectionStore } from '@stores/connection';
 import { useSnackbarStore } from '@stores/snackbar';
 import { useToastStore } from '@stores/toast';
 
-/**
- * Корневой макет: `<main>` с дочерним маршрутом, тост, снекбар ошибки и предупреждение о сети.
- * @returns макет
- */
+/** Корневой макет: `<main>` с дочерним маршрутом, тост, снекбар ошибки и предупреждение о сети. */
 export const RootLayout = () => {
     const toast = useToastStore((state) => state.toast);
     const snackbar = useSnackbarStore((state) => state.snackbar);

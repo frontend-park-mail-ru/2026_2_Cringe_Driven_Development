@@ -7,6 +7,7 @@ import styles from './OtpInput.module.css';
 /** Число цифр одноразового кода 2FA. */
 export const OTP_LENGTH = 6;
 
+/** Индексы ячеек кода */
 const CELLS = Array.from({ length: OTP_LENGTH }, (_, index) => index);
 
 /** Свойства {@link OtpInput}. */
@@ -28,8 +29,10 @@ interface OtpInputProps {
 
 const cellId = (id: string, index: number): string => (index === 0 ? id : `${id}-${index}`);
 
-// Код на момент события: быстрый ввод опережает рендер, и value из прошлого рендера устаревает.
-// Новое value от родителя (сброс, ошибка) заменяет копию; своё же value её не откатывает.
+/**
+ * Код на момент события: быстрый ввод опережает рендер, и value из прошлого рендера устаревает.
+ * Новое value от родителя (сброс, ошибка) заменяет копию; своё же value её не откатывает.
+ */
 const liveCode = (initial: string) => {
     let code = initial;
     let prop = initial;
@@ -53,11 +56,10 @@ const focusCell = (id: string, index: number): void => {
 };
 
 /**
- * Поле одноразового кода 2FA (Components → OTP): 6 ячеек по одной цифре, разделитель после третьей.
- * Цифры идут подряд: фокус в пустой ячейке переходит к первой незаполненной. Вставка и автозаполнение
- * раскладывают код по ячейкам, курсор идёт к следующей ячейке, Backspace в пустой — к предыдущей.
- * @param props свойства поля
- * @returns поле кода
+ * Поле одноразового кода 2FA (Components → OTP): 6 ячеек по одной цифре, разделитель после
+ * третьей. Цифры идут подряд: фокус в пустой ячейке переходит к первой незаполненной. Вставка и
+ * автозаполнение раскладывают код по ячейкам, курсор идёт к следующей ячейке, Backspace в пустой —
+ * к предыдущей.
  */
 export function OtpInput({
     id,
@@ -72,7 +74,10 @@ export function OtpInput({
     const [live] = useState(liveCode(value));
     const current = (): string => live.read(value);
 
-    // отправка — когда ввод дошёл до последней ячейки, в том числе при повторном вводе после ошибки
+    /**
+     * Новое значение; `end` — позиция после введённых цифр. Отправка — когда ввод дошёл до
+     * последней ячейки, в том числе при повторном вводе после ошибки.
+     */
     const update = (next: string, end = 0) => {
         live.write(next);
         onValueChange(next);
@@ -82,7 +87,7 @@ export function OtpInput({
     const handleInput = (index: number) => (event: Event) => {
         const input = event.target as HTMLInputElement;
         const code = current();
-        // набор одной цифры — из data: в ячейке без выделения рядом осталась бы прежняя цифра
+        /** Набранная цифра — из data: в ячейке без выделения рядом осталась бы прежняя цифра */
         const typed =
             event instanceof InputEvent && event.inputType === 'insertText' ? event.data : null;
         const digits = (typed ?? input.value).replace(/\D/g, '');
@@ -117,7 +122,7 @@ export function OtpInput({
         }
     };
 
-    // ячейки дальше первой пустой не заполняются: цифры кода всегда подряд
+    /** Ячейки дальше первой пустой не заполняются: цифры кода всегда подряд */
     const handleFocus = (index: number) => (event: Event) => {
         const filled = current().length;
         if (index > filled) focusCell(id, filled);

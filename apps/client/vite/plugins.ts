@@ -2,10 +2,9 @@ import type { Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /**
- * Подставляет адрес static вместо `%VITE_STATIC_URL%` в CSS. var() не работает внутри url() и в
+ * Подставляет адрес static вместо `%VITE_STATIC_URL%` в CSS. `var()` не работает внутри `url()` и в
  * `@font-face`, а HTML-подстановку Vite к CSS не применяет.
  * @param staticUrl нормализованный адрес static
- * @returns плагин Vite
  */
 export const staticUrlPlugin = (staticUrl: string): Plugin => ({
     name: 'static-url',
@@ -18,8 +17,7 @@ export const staticUrlPlugin = (staticUrl: string): Plugin => ({
 
 /**
  * Добавляет в `<head>` метатег `<meta name="release">` с версией сборки.
- * @param release sha релиза или `dev`
- * @returns плагин Vite
+ * @param release SHA релиза или `dev`
  */
 export const releaseMetaPlugin = (release: string): Plugin => ({
     name: 'release-meta',
@@ -31,21 +29,23 @@ export const releaseMetaPlugin = (release: string): Plugin => ({
 /**
  * Манифест, service worker и модуль `virtual:pwa-register`. Нужен и в dev: там нет SW, но клиент
  * импортирует этот модуль.
- * @returns плагины Vite
  */
 export const vitepwaPlugin = (): Plugin[] =>
     VitePWA({
-        // манифест и иконки отдаёт BFF со своего origin (PUBLIC_FILES): с CDN манифест не примут
+        /** Манифест и иконки отдаёт BFF со своего origin (`PUBLIC_FILES`): с CDN их не примут */
         base: '/',
-        // регистрирует src/serviceWorker.ts
+        /** Регистрацию делает `src/serviceWorker.ts` */
         injectRegister: false,
         includeManifestIcons: false,
         workbox: {
-            // sw.js — один файл: его, как и манифест, отдаёт BFF
+            /** `sw.js` — один файл: его, как и манифест, отдаёт BFF */
             inlineWorkboxRuntime: true,
             sourcemap: false,
-            // кеш — только самостоятельная офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS SPA всегда с CDN, а HTML
-            // и RPC с данными пользователя не кешируются (docs: трек «Офлайн-режим»)
+            /**
+             * Кеш — только офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS
+             * SPA всегда с CDN, HTML и RPC с данными пользователя не кешируются (docs: трек
+             * «Офлайн-режим»)
+             */
             globPatterns: ['offline.html', 'offline.css', 'onest-variable.woff2'],
             navigateFallback: null,
             runtimeCaching: [
@@ -55,8 +55,10 @@ export const vitepwaPlugin = (): Plugin[] =>
                     options: { precacheFallback: { fallbackURL: '/offline.html' } },
                 },
             ],
-            // в кеше нет файлов SPA, поэтому новая версия не расходится с открытой вкладкой
-            // и вступает сразу, без перезагрузки
+            /**
+             * В кеше нет файлов SPA, поэтому новая версия не расходится с открытой вкладкой и
+             * вступает сразу, без перезагрузки
+             */
             skipWaiting: true,
             clientsClaim: true,
             cleanupOutdatedCaches: true,

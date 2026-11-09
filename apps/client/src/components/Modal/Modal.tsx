@@ -29,8 +29,6 @@ interface ModalProps {
 /**
  * Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно. Shift+Tab
  * с программно сфокусированного элемента перед первым (например, раскрытого текста) — на последний.
- * @param event нажатие клавиши
- * @param dialog элемент модалки
  */
 function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     if (event.key !== 'Tab') return;
@@ -58,9 +56,8 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 
 /**
  * Модалка по центру поверх затемнения (Components → Modal), порталом в `body`.
- * Закрывается крестиком, Escape и кликом по затемнению, если не `locked`. При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
- * @param props свойства модалки
- * @returns модалка
+ * Закрывается крестиком, Escape и кликом по затемнению, если не `locked`. При открытии фокус
+ * уходит на `initialFocusId`, при закрытии возвращается туда, где был.
  */
 export function Modal({
     title,
@@ -91,12 +88,15 @@ export function Modal({
         };
         const onOverlay = (event: MouseEvent) =>
             (event.target as Element | null)?.id === OVERLAY_ID;
-        // нажали в окне и отпустили на затемнении (выделение текста) — click тоже придёт оверлею
+        /**
+         * Нажатие началось на затемнении. Если нажали в окне и отпустили на затемнении (выделение
+         * текста), click тоже придёт оверлею — модалка не закрывается
+         */
         let pressedOnOverlay = false;
         const handleMouseDown = (event: MouseEvent) => {
             pressedOnOverlay = onOverlay(event);
         };
-        // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
+        /** Клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape */
         const handleClick = (event: MouseEvent) => {
             if (!locked && pressedOnOverlay && onOverlay(event)) onClose();
         };

@@ -6,9 +6,9 @@ import styles from './SearchBar.module.css';
 
 /** Свойства {@link SearchBar}. */
 interface SearchBarProps {
-    /** id панели: для aria-controls кнопки, которая её открывает */
+    /** Id панели: для `aria-controls` кнопки, которая её открывает */
     id: string;
-    /** id поля: для перевода в него фокуса снаружи */
+    /** Id поля: для перевода в него фокуса снаружи */
     inputId: string;
     /** Подпись и плейсхолдер поля */
     label: string;
@@ -26,8 +26,6 @@ interface SearchBarProps {
 /**
  * Панель поиска (Components → SearchBar): поле со счётчиком и очисткой, переходы и
  * закрытие. Enter и Shift+Enter в поле — следующее и предыдущее совпадение, Esc в панели закрывает.
- * @param props id, подпись, запрос, счётчик и действия
- * @returns панель
  */
 export function SearchBar({
     id,
@@ -41,7 +39,7 @@ export function SearchBar({
     onPrev,
     onClose,
 }: SearchBarProps) {
-    // Esc закрывает панель из поля и с её кнопок
+    /** Панель: Esc закрывает её из поля и с её кнопок */
     const barRef = useRef<HTMLElement>(null);
     useEffect(() => {
         const bar = barRef.current;
@@ -54,7 +52,7 @@ export function SearchBar({
         bar.addEventListener('keydown', handleKey);
         return () => bar.removeEventListener('keydown', handleKey);
     }, [onClose]);
-    // После нажатия кнопки панели ввод продолжается в поле
+    /** После нажатия кнопки панели ввод продолжается в поле */
     const focusInput = (): void => document.getElementById(inputId)?.focus();
     const status = !query ? '' : total > 0 ? `${current} из ${total}` : 'Ничего не найдено';
     return (

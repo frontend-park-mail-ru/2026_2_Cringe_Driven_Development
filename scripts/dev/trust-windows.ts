@@ -26,12 +26,11 @@ if (!ca.ca) {
     console.error(`${caFile} — не сертификат CA`);
     process.exit(1);
 }
-// Thumbprint в Windows — SHA-1 сертификата без двоеточий
+/** Thumbprint в Windows — SHA-1 сертификата без двоеточий. */
 const thumbprint = ca.fingerprint.replaceAll(':', '');
 
 /**
  * Команда PowerShell в Windows через interop WSL.
- * @param command текст команды
  * @returns вывод команды без пробелов по краям
  */
 function powershell(command: string): string {
@@ -59,7 +58,7 @@ if (!/^(y|yes|д|да)$/i.test(answer?.trim() ?? '')) {
     process.exit(1);
 }
 
-// В PowerShell уходит только публичный сертификат (DER в base64); Windows сам спросит подтверждение
+/** В PowerShell — только публичный сертификат (DER в base64); подтверждение спросит Windows. */
 const der = ca.raw.toString('base64');
 try {
     powershell(

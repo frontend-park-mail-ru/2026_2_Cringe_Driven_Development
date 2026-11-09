@@ -10,14 +10,13 @@ import styles from './NotebooksPage.module.css';
 
 const FIELD_ID = 'notebook-name';
 
-/** Ограничение из Apidog */
+/** Максимальная длина названия по контракту Go в Apidog */
 const NAME_MAX = 128;
 
 type CreateResult = { ok: true; id: number } | { ok: false; invalid: boolean };
 
 /**
  * Проверяет название блокнота.
- * @param name название
  * @returns текст ошибки или undefined, если название подходит
  */
 function validateName(name: string): string | undefined {
@@ -49,8 +48,6 @@ interface CreateNotebookDialogProps {
 
 /**
  * Модалка «Новый блокнот». Созданный блокнот сразу открывается.
- * @param props свойства модалки
- * @returns модалка
  */
 export function CreateNotebookDialog({ onClose }: CreateNotebookDialogProps) {
     const navigate = useNavigate();

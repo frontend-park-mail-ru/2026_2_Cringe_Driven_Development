@@ -23,8 +23,6 @@ const ICON: Record<SaveStatusTone, IconName> = {
  * Подпись статуса в шапке блокнота: сохранение («Сохраняем…», «Сохранено») и выполнение
  * («Выполняется», «Результат неизвестен», «Выполнение остановлено»).
  * Объявляется скринридеру при смене.
- * @param props свойства подписи
- * @returns подпись с иконкой
  */
 export function SaveStatus({ tone, text }: SaveStatusProps) {
     return (

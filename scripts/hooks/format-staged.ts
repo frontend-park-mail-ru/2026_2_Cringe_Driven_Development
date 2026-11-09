@@ -11,7 +11,10 @@ const staged = git(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z
 
 let failed = false;
 for (const path of staged) {
-    // "<mode> <sha> <stage>\t<path>"; ссылки (120000) и подмодули (160000) не форматируются
+    /**
+     * Из строки `<mode> <sha> <stage>\t<path>`; ссылки (120000) и подмодули (160000) не
+     * форматируются.
+     */
     const [mode, sha] = git(['ls-files', '--stage', '--', path]).toString().split(/\s/);
     if (!mode || !sha || mode === '120000' || mode === '160000') continue;
     const content = git(['cat-file', 'blob', sha]);

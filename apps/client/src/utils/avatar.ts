@@ -1,4 +1,4 @@
-/** Ограничения аватара по контракту Go `PUT /users/me/avatar`. */
+/** Типы файла аватара; эти ограничения и размеры ниже — по контракту Go `PUT /users/me/avatar`. */
 const AVATAR_TYPES = ['image/jpeg', 'image/png'];
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const SIDE_MIN = 200;
@@ -9,7 +9,6 @@ export const AVATAR_RULE = 'JPG или PNG, до 5 МБ, стороны от 200
 
 /**
  * Проверяет файл до чтения картинки: тип и размер.
- * @param file выбранный файл
  * @returns true, если файл можно декодировать и проверить стороны
  */
 export function isAvatarFile(file: { type: string; size: number }): boolean {
@@ -29,7 +28,6 @@ export function isAvatarSize(width: number, height: number): boolean {
 /**
  * Полная проверка аватара в браузере: тип, размер и стороны декодированной картинки.
  * Повреждённый файл не декодируется и не подходит.
- * @param file выбранный файл
  * @returns true, если файл можно отправлять
  */
 export async function checkAvatar(file: File): Promise<boolean> {

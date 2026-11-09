@@ -11,7 +11,7 @@ import styles from './DeleteNotebookDialog.module.css';
 
 const CANCEL_ID = 'delete-notebook-cancel';
 const PRIMARY_ID = 'delete-notebook-primary';
-// свой id у «Закрыть» запрета: после 409 вид меняется, и фокус переходит в новый вид
+/** Свой id у «Закрыть» запрета: после 409 вид меняется, и фокус переходит в новый вид. */
 const CLOSE_ID = 'delete-notebook-close';
 
 /** Свойства {@link DeleteNotebookDialog}. */
@@ -34,8 +34,6 @@ const STOP_FIRST = {
 /**
  * Диалог удаления блокнота для главной и редактора: подтверждение, отправка, ошибка с повтором и
  * запреты из-за окружения. Пока идёт запрос, диалог не закрывается и повторно не отправляет.
- * @param props свойства диалога
- * @returns модалка
  */
 export function DeleteNotebookDialog({
     notebook,
@@ -48,7 +46,7 @@ export function DeleteNotebookDialog({
     const [gate, setGate] = useState<DeleteGate>(initial);
     const [sending, setSending] = useState(false);
     const [failed, setFailed] = useState(false);
-    // отправка видна сразу, до перерисовки: Escape или второе нажатие в тот же кадр ничего не делают
+    /** Отправка видна сразу, до перерисовки: Escape или второе нажатие в тот же кадр ничего не делают */
     const sendingRef = useRef(false);
     const close = () => {
         if (!sendingRef.current) onClose();

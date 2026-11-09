@@ -7,8 +7,10 @@ import { registerSW } from 'virtual:pwa-register';
 export function registerServiceWorker(): void {
     registerSW({
         immediate: true,
-        // файлов SPA в кеше нет: новая версия не расходится с открытой вкладкой, а без этого
-        // обработчика регистратор перезагрузил бы её и пользователь потерял бы ввод
+        /**
+         * Файлов SPA в кеше нет: новая версия не расходится с открытой вкладкой, а без этого
+         * обработчика регистратор перезагрузил бы её и пользователь потерял бы ввод
+         */
         onNeedReload: () => undefined,
         onRegisterError: console.error,
     });

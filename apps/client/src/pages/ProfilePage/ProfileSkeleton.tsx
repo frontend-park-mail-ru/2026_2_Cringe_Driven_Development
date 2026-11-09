@@ -8,10 +8,7 @@ const field = (key: string) => (
     </div>
 );
 
-/**
- * Загрузка профиля: скелетоны на месте аватара, полей и кнопок.
- * @returns разделы со скелетонами
- */
+/** Загрузка профиля: скелетоны на месте аватара, полей и кнопок. */
 export function ProfileSkeleton() {
     return (
         <div className={styles.sections} aria-hidden="true">

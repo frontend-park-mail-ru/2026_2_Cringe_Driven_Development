@@ -23,8 +23,6 @@ const csrfInvalid = (): TRPCError =>
  * Контекст tRPC. CSRF проверяется до чтения сессии и вызовов Go: `X-CSRF: 1` на каждом RPC, у POST
  * ещё `Origin` равен `APP_ORIGIN`, а `Sec-Fetch-Site`, если есть, — `same-origin`. Отказ —
  * `FORBIDDEN` с `appCode: csrf_invalid`.
- * @param opts запрос и заголовки ответа от адаптера tRPC
- * @returns контекст процедур
  */
 export async function createContext({
     req,

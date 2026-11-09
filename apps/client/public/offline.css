@@ -1,4 +1,5 @@
-/* Самостоятельная страница без SPA: значения — из src/styles/tokens.css, разметка — Space, Header и StateBlock */
+/* Самостоятельная страница без SPA: значения — из src/styles/tokens.css, разметка — Space, Header
+   и StateBlock */
 @font-face {
     font-family: 'Onest';
     src: url('/onest-variable.woff2') format('woff2');

@@ -4,12 +4,7 @@ import { join } from 'node:path';
 /** Расширения, которые форматирует oxfmt; остальные файлы хуки не трогают. */
 const FORMATTED = /\.(?:[cm]?[jt]sx?|jsonc?|json5|mdx?|css|scss|less|html|vue|ya?ml|toml|graphql)$/;
 
-/**
- * Запускает git и возвращает stdout; ненулевой код — исключение.
- * @param args аргументы git
- * @param stdin вход команды
- * @returns stdout
- */
+/** Запускает git и возвращает stdout; ненулевой код — исключение. */
 export function git(args: string[], stdin?: Uint8Array): Buffer {
     const res = Bun.spawnSync(['git', ...args], { stdin, stderr: 'inherit' });
     if (!res.success) throw new Error(`git ${args.join(' ')}: код ${res.exitCode}`);
@@ -22,7 +17,6 @@ const oxfmtBin = join(root, 'node_modules', '.bin', 'oxfmt');
 /**
  * Файл форматирует oxfmt: по расширению, без учёта `ignorePatterns` — их учитывает сам oxfmt.
  * @param path путь от корня репозитория
- * @returns `true`, если расширение поддерживается
  */
 export function isFormatted(path: string): boolean {
     return FORMATTED.test(path);

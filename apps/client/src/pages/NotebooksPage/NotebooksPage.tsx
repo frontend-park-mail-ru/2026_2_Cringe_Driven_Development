@@ -38,11 +38,7 @@ async function loadNotebooks(): Promise<NotebookSummary[] | undefined> {
     }
 }
 
-/**
- * Подзаголовок под приветствием.
- * @param state состояние списка
- * @returns текст подзаголовка
- */
+/** Подзаголовок под приветствием. */
 function subtitle(state: ListState): string {
     switch (state.status) {
         case 'loading':
@@ -59,7 +55,6 @@ function subtitle(state: ListState): string {
 /**
  * Главная: список блокнотов.
  * Ошибка загрузки — в снекбаре: «Повторить» загружает список ещё раз.
- * @returns страница
  */
 export function NotebooksPage() {
     const [list, setList] = useState<ListState>({ status: 'loading' });
@@ -69,8 +64,10 @@ export function NotebooksPage() {
         notebook: NotebookSummary;
         gate: DeleteGate;
     } | null>(null);
-    // Идёт проверка окружения перед диалогом: повторные нажатия корзин не считаются.
-    // Кнопку не отключаем — иначе она теряет фокус, и диалог не вернёт его к ней
+    /**
+     * Идёт проверка окружения перед диалогом: повторные нажатия корзин не считаются. Кнопку не
+     * отключаем — иначе она теряет фокус, и диалог не вернёт его к ней.
+     */
     const [checking, setChecking] = useState(false);
 
     useEffect(() => {

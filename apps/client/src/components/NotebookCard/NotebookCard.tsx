@@ -15,10 +15,7 @@ interface NotebookCardProps {
     onDelete: () => void;
 }
 
-/**
- * Свечение под курсором: координаты уходят в CSS-переменные карточки.
- * @param event движение указателя над карточкой
- */
+/** Свечение под курсором: координаты уходят в CSS-переменные карточки. */
 function trackPointer(event: PointerEvent) {
     const card = event.currentTarget as HTMLElement;
     const rect = card.getBoundingClientRect();
@@ -29,8 +26,6 @@ function trackPointer(event: PointerEvent) {
 /**
  * Карточка блокнота (Components → NotebookCard). Ведёт на страницу блокнота; корзина — сосед
  * ссылки, а не её часть, поэтому нажатие на неё блокнот не открывает.
- * @param props свойства карточки
- * @returns карточка
  */
 export function NotebookCard({ notebook, onDelete }: NotebookCardProps) {
     const cells = plural(notebook.cells_count, 'ячейка', 'ячейки', 'ячеек');
@@ -75,10 +70,7 @@ export function NotebookCard({ notebook, onDelete }: NotebookCardProps) {
     );
 }
 
-/**
- * Карточка-скелетон, пока список загружается.
- * @returns скелетон карточки
- */
+/** Карточка-скелетон, пока список загружается. */
 export function NotebookCardSkeleton() {
     return (
         <div className={clsx(styles.card, styles.skeleton)} aria-hidden="true">

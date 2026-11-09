@@ -31,8 +31,6 @@ interface RuntimeActionsProps {
 
 /**
  * «Поиск», «Завершить окружение» и «Запустить всё» справа в панели шапки.
- * @param props свойства кнопок
- * @returns кнопки
  */
 export function RuntimeActions({ hasCode, search }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
@@ -128,7 +126,7 @@ const BANNER: Record<
 
 type BannerAction = { label: string; onClick: () => void; loading?: boolean; primary?: true };
 
-// Действие баннера: у «нет связи» его нет, запуск окружения — главное действие
+/** Действие баннера: у «нет связи» его нет, запуск окружения — главное действие. */
 function bannerAction(
     kind: BannerKind,
     runtime: Runtime,
@@ -174,7 +172,6 @@ interface RuntimeBannerProps {
 /**
  * Состояние окружения над ячейками: не запущено, занято другим блокнотом, ошибка запуска или
  * очистки, завершено по простою, нет связи.
- * @param props свойства баннера
  * @returns баннер или ничего
  */
 export function RuntimeBanner({ className }: RuntimeBannerProps) {
@@ -224,9 +221,8 @@ interface RunGutterProps {
 }
 
 /**
- * Левая колонка кодовой ячейки: кнопка запуска или индикатор очереди, `[execution_count]` и значок итога.
- * @param props ячейка, её счётчик и исполнение
- * @returns колонка
+ * Левая колонка кодовой ячейки: кнопка запуска или индикатор очереди, `[execution_count]` и
+ * значок итога.
  */
 export function RunGutter({ cellId, executionCount, run }: RunGutterProps) {
     const runtime = useRuntimeStore();
@@ -278,8 +274,6 @@ export function RunGutter({ cellId, executionCount, run }: RunGutterProps) {
 
 /**
  * Строка состояния исполнения под кодом: выполняется, в очереди или итог без вывода об ошибке.
- * @param props исполнение ячейки
- * @param props.run исполнение ячейки
  * @returns строка состояния или ничего
  */
 export function RunState({ run }: { run: CellRun }) {
@@ -311,7 +305,8 @@ export function RunState({ run }: { run: CellRun }) {
     );
 }
 
-// «Выполняется… N с»: секунды с начала выполнения, обновляются раз в секунду
+/** «Выполняется… N с»: секунды с начала выполнения, обновляются раз в секунду. */
+
 function Elapsed({ since }: { since: number }) {
     const [now, setNow] = useState(since);
     useEffect(() => {

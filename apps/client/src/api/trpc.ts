@@ -19,7 +19,7 @@ export type User = RouterOutputs['users']['me'];
 /** Блокнот в списке. */
 export type NotebookSummary = RouterOutputs['notebooks']['list'][number];
 
-/** Данные страницы блокнота, как их отдаёт `notebooks.get`: `{ notebook }`. */
+/** Данные страницы блокнота из `notebooks.get`: блокнот, активная сессия и очередь. */
 export type NotebookPageData = RouterOutputs['notebooks']['get'];
 
 /** Блокнот с hash и ячейками. */
@@ -31,24 +31,36 @@ export type Cell = Notebook['cells'][number];
 /** Ошибка процедуры BFF: `data.code`, `data.appCode`, `data.zodError`. */
 export type RpcError = TRPCClientError<AppRouter>;
 
-// Завершают сессию и идут через switchSession, как auth.*, но самим им сессия нужна
+/**
+ * Процедуры, которые завершают сессию и идут через {@link switchSession}, как `auth.*`, но самим
+ * им сессия нужна.
+ */
 const ENDING = new Set(['users.changePassword', 'auth.logoutAll']);
 
-// Защищённые процедуры — все, кроме смен сессии: им нужна сессия, их результаты — данные пользователя
+/**
+ * Защищённые процедуры — все, кроме смен сессии: им нужна сессия, их результаты — данные
+ * пользователя.
+ */
 const isProtected = (path: string): boolean => !path.startsWith('auth.') && !ENDING.has(path);
 
-// Идёт смена сессии: новые защищённые запросы не стартуют
+/** Идёт смена сессии: новые защищённые запросы не стартуют. */
 let closing = false;
-// Во время смены сессии защищённый запрос получил UNAUTHORIZED: BFF уже мог удалить cookie. Если
-// смена не удастся, сессия всё равно потеряна
+/**
+ * Во время смены сессии защищённый запрос получил `UNAUTHORIZED`: BFF уже мог удалить cookie.
+ * Если смена не удастся, сессия всё равно потеряна.
+ */
 let lostWhileClosing = false;
-// Очередь смен сессии: следующая начинается после завершения предыдущей, иначе её начало сбросило бы
-// lostWhileClosing, а конец — снял бы closing, пока предыдущая ещё идёт
+/**
+ * Очередь смен сессии: следующая начинается после завершения предыдущей, иначе её начало сбросило
+ * бы {@link lostWhileClosing}, а конец — снял бы {@link closing}, пока предыдущая ещё идёт.
+ */
 let switching: Promise<unknown> = Promise.resolve();
-// Номер сессии: меняется при входе, выходе и её потере. Ответ на запрос прежней сессии в интерфейс
-// не попадает
+/**
+ * Номер сессии: меняется при входе, выходе и её потере. Ответ на запрос прежней сессии в интерфейс
+ * не попадает.
+ */
 let generation = 0;
-// Незавершённые HTTP-запросы защищённых процедур — выход ждёт их
+/** Незавершённые HTTP-запросы защищённых процедур — смена сессии ждёт их. */
 const inflight = new Set<Promise<void>>();
 let sessionLost = (): void => {};
 
@@ -60,7 +72,10 @@ const sessionChanged = (): RpcError => new TRPCClientError(SESSION_CHANGED);
 const isUnauthorized = (error: unknown): boolean =>
     error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED';
 
-// Учёт защищённых запросов: выход ждёт уже отправленные, а UNAUTHORIZED — потеря сессии
+/**
+ * Учёт защищённых запросов: смена сессии ждёт уже отправленные, а `UNAUTHORIZED` — потеря
+ * сессии.
+ */
 const sessionLink: TRPCLink<AppRouter> =
     () =>
     ({ next, op }) =>
@@ -116,7 +131,10 @@ const sessionLink: TRPCLink<AppRouter> =
             };
         });
 
-// В bun run dev:prism к запросу добавляются одноразовые статусы мока для его процедур
+/**
+ * Заголовки запроса; в `bun run dev:prism` к ним добавляются одноразовые статусы мока для его
+ * процедур.
+ */
 const headers = (paths: string[]): Record<string, string> => {
     const prefer = import.meta.env.VITE_MOCK_PREFER === '1' ? takeMockPrefer(paths) : undefined;
     return prefer ? { 'X-CSRF': '1', 'X-Mock-Prefer': prefer } : { 'X-CSRF': '1' };
@@ -142,7 +160,7 @@ export const trpc = createTRPCClient<AppRouter>({
             false: httpBatchLink({
                 ...transport,
                 headers: ({ opList }) => headers(opList.map((op) => op.path)),
-                // длинный батч GET делится, чтобы не упереться в лимит URL прокси
+                /** Длинный батч GET делится, чтобы не упереться в лимит URL прокси. */
                 maxURLLength: 2000,
             }),
         }),
@@ -167,13 +185,14 @@ export function onSessionLost(handler: () => void): void {
 }
 
 /**
- * Смена сессии — вход, регистрация, выход, выход со всех устройств или смена пароля. Новые защищённые запросы не стартуют, `call`
- * отправляется после того, как ответили уже отправленные: их `Set-Cookie` браузер применяет раньше,
- * чем `call` поставит или удалит cookie, и прежняя сессия её не перезапишет. После успеха ответы
- * прежней сессии в интерфейс не попадают. Ошибка `call` — сессия остаётся прежней; но если пока
- * ждали отправленные, один из них получил `UNAUTHORIZED`, сессии уже нет — срабатывает
- * {@link onSessionLost}, ошибка `call` всё равно пробрасывается. Смены сессии идут по очереди:
- * вызов, пришедший во время другой смены, начнётся после её завершения.
+ * Смена сессии — вход, регистрация, выход, выход со всех устройств или смена пароля. Новые
+ * защищённые запросы не стартуют, `call` отправляется после того, как ответили уже отправленные:
+ * их `Set-Cookie` браузер применяет раньше, чем `call` поставит или удалит cookie, и прежняя сессия
+ * её не перезапишет. После успеха ответы прежней сессии в интерфейс не попадают. Ошибка `call` —
+ * сессия остаётся прежней; но если пока ждали отправленные, один из них получил `UNAUTHORIZED`,
+ * сессии уже нет — срабатывает {@link onSessionLost}, ошибка `call` всё равно пробрасывается.
+ * Смены сессии идут по очереди: вызов во время другой смены начнётся после её завершения.
+
  * @param call вызов `auth.login`, `auth.register`, `auth.logout`, `auth.logoutAll` или
  *   `users.changePassword`
  * @returns ответ `call`

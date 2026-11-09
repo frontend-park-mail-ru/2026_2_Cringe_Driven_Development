@@ -10,11 +10,7 @@ const dayMonthYear = new Intl.DateTimeFormat('ru', {
     year: 'numeric',
 });
 
-/**
- * Начало дня.
- * @param value момент времени
- * @returns начало его дня по местному времени, мс
- */
+/** Начало дня `value` по местному времени, мс. */
 function startOfDay(value: Date): number {
     return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
 }
@@ -23,7 +19,6 @@ function startOfDay(value: Date): number {
  * Сколько назад было время: «только что», «5 мин назад», «2 ч назад», «вчера», «3 дня назад»,
  * дальше недели — дата.
  * @param iso время в формате ISO 8601
- * @param [now] текущее время
  * @returns текст для подписи «изменён …»
  */
 export function timeAgo(iso: string, now = new Date()): string {

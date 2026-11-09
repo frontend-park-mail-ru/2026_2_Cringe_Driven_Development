@@ -3,9 +3,9 @@ import { stripRefHeaders } from './scripts/openapi/strip-ref-headers.ts';
 
 const input = { target: 'spec/openapi.json', override: { transformer: stripRefHeaders } };
 
-// Обе цели читают контракт Go — spec/openapi.json (bun run sync)
+/** Обе цели читают контракт Go — spec/openapi.json (bun run sync) */
 export default defineConfig({
-    // BFF → Go: fetch-клиент по операциям контракта; адрес Go и заголовки — в мутаторе
+    /** BFF → Go: fetch-клиент по операциям контракта; адрес Go и заголовки — в мутаторе */
     goApi: {
         input,
         output: {
@@ -13,13 +13,15 @@ export default defineConfig({
             client: 'fetch',
             override: {
                 mutator: { path: 'apps/bff/src/go/fetch.ts', name: 'bearerFetch' },
-                // по умолчанию типы ответов-компонентов получают суффикс Response и совпадают со
-                // схемами: ответ RuntimeConflict и схема RuntimeConflictResponse
+                /**
+                 * По умолчанию типы ответов-компонентов получают суффикс Response и совпадают со
+                 * схемами: ответ RuntimeConflict и схема RuntimeConflictResponse
+                 */
                 components: { responses: { suffix: 'ResponseBody' } },
             },
         },
     },
-    // zod-схемы операций — пакет @cdd/schemas: вход процедур BFF
+    /** Zod-схемы операций — пакет @cdd/schemas: вход процедур BFF */
     goZod: {
         input,
         output: {

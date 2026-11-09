@@ -39,8 +39,6 @@ interface AuthFormProps {
  * Ошибки полей видны после первой отправки или после ухода из заполненного поля.
  * Ошибки сервера и сети — в снекбаре: «Повторить» отправляет форму ещё раз.
  * Если у аккаунта 2FA (`two_factor_required`), вход продолжается шагом кода из приложения.
- * @param props свойства формы
- * @returns форма
  */
 export function AuthForm({ mode, onCodeStep }: AuthFormProps) {
     const isRegister = mode === 'register';
@@ -51,7 +49,7 @@ export function AuthForm({ mode, onCodeStep }: AuthFormProps) {
     const [submitted, setSubmitted] = useState(false);
     const [pending, setPending] = useState(false);
     const [serverErrors, setServerErrors] = useState<FieldTexts>({});
-    // Сервер не сказал, что неверно, — подсвечиваем и логин, сообщение только под паролем
+    /** Сервер не сказал, что неверно, — подсвечен и логин, сообщение только под паролем */
     const [credentialsRejected, setCredentialsRejected] = useState(false);
     const [revealed, setRevealed] = useState({ password: false, confirm: false });
     const [focusRequest, setFocusRequest] = useState<{ field: Field | 'code' }>({

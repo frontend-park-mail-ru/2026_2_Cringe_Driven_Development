@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { authedProcedure, router } from '../trpc.ts';
 
-// hash — без HTTP-кавычек: их ставит BFF в If-Match
+/** Общие поля входа: блокнот и его `hash` — без HTTP-кавычек, их ставит BFF в `If-Match` */
 const target = {
     notebookId: z.number().int().positive(),
     hash: z
@@ -18,9 +18,11 @@ const target = {
 };
 const cellId = EditNotebookCellParams.shape.cell_id;
 
-/** Ячейки блокнота: изменения по `cell_id` с проверкой hash в `If-Match`. */
+/**
+ * Ячейки блокнота: изменения по `cell_id` с проверкой hash в `If-Match`. Входы — `strictObject`:
+ * лишнее поле (опечатка) не должно молча теряться.
+ */
 export const cells = router({
-    // strictObject: лишнее поле (опечатка) не должно молча теряться
     create: authedProcedure
         .input(z.strictObject({ ...target, ...AddNotebookCellBody.shape }))
         .mutation(({ ctx, input: { notebookId, hash, ...body } }) =>

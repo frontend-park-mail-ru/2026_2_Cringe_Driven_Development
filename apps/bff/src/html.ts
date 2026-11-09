@@ -45,7 +45,7 @@ export function renderBootstrap(
         .transform(new Response(template, { status, headers }));
 }
 
-// Гостю открыты только вход, регистрация и страница 404
+/** Гостю открыты только вход, регистрация и страница 404. */
 const GUEST_PAGES = new Set<Page | undefined>(['login', 'register', 'notFound']);
 
 const redirect = (location: string, headers: Headers): Response => {
@@ -59,8 +59,11 @@ const unavailable = (headers: Headers): Response => {
     return new Response(UNAVAILABLE_HTML, { status: 503, headers });
 };
 
-/** ID блокнота из адреса `/notebooks/:id`, как его примет `notebooks.get`, или `undefined`. */
-// параметр декодируется так же, как при сопоставлении маршрута: /notebooks/%31 — блокнот 1
+/**
+ * ID блокнота из адреса `/notebooks/:id`, как его примет `notebooks.get`, или `undefined`.
+ * Параметр декодируется так же, как при сопоставлении маршрута: `/notebooks/%31` — блокнот 1.
+ */
+
 const notebookId = (pathname: string): number | undefined => {
     const id = Number(decodeSegment(pathname.split('/').filter(Boolean)[1] ?? ''));
     return Number.isSafeInteger(id) && id > 0 ? id : undefined;
@@ -70,13 +73,14 @@ const notebookId = (pathname: string): number | undefined => {
  * Обработчик HTML клиента: по прямому запросу страницы решает, можно ли её открыть.
  *
  * - Пользователь — из Go `GET /users/me` через общий слой сессии (refresh, повтор после 401). Без
- *   сессии или когда она закончилась — гость, cookie удаляется. Сбой Go — 503 без приложения, сессия
- *   не удаляется; новая cookie после удачного refresh сохраняется и в 503.
+ *   сессии или когда она закончилась — гость, cookie удаляется. Сбой Go — 503 без приложения,
+ *   сессия не удаляется; новая cookie после удачного refresh сохраняется и в 503.
  * - Гость: вход, регистрация и `/404` — приложение (`/404` со статусом 404), остальное, включая
  *   неизвестный адрес, — `302` на `/login`; блокнот у Go не запрашивается.
- * - Вошедший: неизвестный адрес — `302` на `/404`, `/404` — приложение со статусом 404. Блокнот
- *   BFF загружает метаданные и content до выдачи HTML: свой — 200 и данные блокнота в bootstrap; отсутствующий, чужой
- *   (Go отвечает 404 на оба) и некорректный ID — `302` на `/404`; сбой Go — 503.
+ * - Вошедший: неизвестный адрес — `302` на `/404`, `/404` — приложение со статусом 404. Метаданные
+ *   и content блокнота BFF загружает до выдачи HTML: свой — 200 и данные в bootstrap;
+ *   отсутствующий, чужой (Go отвечает 404 на оба) и некорректный ID — `302` на `/404`; сбой Go —
+ *   503.
  * @param template проверенный HTML-шаблон клиента
  * @returns обработчик GET-запросов страниц
  */
@@ -109,7 +113,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
                 try {
                     notebookPage = await loadNotebook(go, id);
                 } catch (err) {
-                    // отсутствующий и чужой блокнот: Go ищет по ID и владельцу и отвечает 404 на оба
+                    // отсутствующий и чужой блокнот: Go ищет по ID и владельцу, 404 на оба
                     if (!(err instanceof GoError && err.kind === 'http' && err.status === 404)) {
                         throw err;
                     }

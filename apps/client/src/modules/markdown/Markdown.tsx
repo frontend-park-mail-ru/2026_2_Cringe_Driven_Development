@@ -13,14 +13,13 @@ interface MarkdownProps {
 /**
  * Просмотр Markdown: дерево из {@link parseMarkdown} → только разрешённые элементы, текст —
  * текстовыми узлами. HTML из исходника не создаётся.
- * @param props исходник
- * @returns отформатированный текст
  */
 export function Markdown({ source }: MarkdownProps) {
     const blocks = useMemo(() => parseMarkdown(source), [source]);
     return <div className={styles.markdown}>{renderBlocks(blocks)}</div>;
 }
 
+/** Класс заголовка по уровню: h3–h6 оформлены одинаково. */
 const HEADING_CLASS = {
     1: styles.h1,
     2: styles.h2,
@@ -30,7 +29,7 @@ const HEADING_CLASS = {
     6: styles.minor,
 };
 
-// Дерево перестраивается целиком на каждый ввод: ключ — позиция среди соседей
+/** Дерево перестраивается целиком на каждый ввод: ключ — позиция среди соседей. */
 function renderBlocks(blocks: MdBlock[]): ReactNode[] {
     return blocks.map((block, index) => renderBlock(block, `b${index}`));
 }
@@ -38,7 +37,7 @@ function renderBlocks(blocks: MdBlock[]): ReactNode[] {
 function renderBlock(block: MdBlock, key: string): ReactNode {
     switch (block.type) {
         case 'heading': {
-            // тег — из фиксированного набора h1–h6 по уровню, не из исходника
+            /** Тег — из фиксированного набора h1–h6 по уровню, не из исходника */
             const Tag = `h${block.level}` as const;
             return (
                 <Tag key={key} className={HEADING_CLASS[block.level]}>

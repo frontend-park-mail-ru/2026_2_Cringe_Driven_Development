@@ -13,7 +13,7 @@ export const useConnectionStore = create<ConnectionState>()(() => ({
 
 const setLost = (lost: boolean): void => useConnectionStore.setState({ lost });
 
-// Уведомляет один раз: только на переходе от потери соединения к полученному ответу BFF
+/** Снимает потерю соединения; тост — только на переходе от потери к полученному ответу BFF */
 const confirmConnection = (): void => {
     if (useConnectionStore.getState().lost) showToast('Соединение восстановлено');
     setLost(false);
@@ -22,9 +22,6 @@ const confirmConnection = (): void => {
 /**
  * `fetch`, который следит за соединением: любой полученный целиком HTTP-ответ, в том числе ошибка,
  * означает, что BFF доступен, а отказ запроса или обрыв тела — что ответа получить не удалось.
- * @param input адрес
- * @param [init] параметры запроса
- * @returns ответ `fetch`
  */
 export async function fetchTracked(
     input: RequestInfo | URL,

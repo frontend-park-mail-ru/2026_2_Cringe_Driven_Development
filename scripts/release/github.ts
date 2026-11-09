@@ -129,10 +129,8 @@ function parsePayload(payload: unknown): unknown {
 }
 
 /**
- * Deployments окружения от новых к старым, без запросов статусов.
- * @param environment окружение
- * @param [sha] только записи этого коммита
- * @returns записи
+ * Deployments окружения от новых к старым, без запросов статусов; с `sha` — только записи этого
+ * коммита.
  */
 export async function listDeploymentRecords<P>(
     environment: string,
@@ -175,8 +173,7 @@ export async function listDeployments<P>(
 
 /**
  * Создаёт запись Deployment без автоматического слияния и проверки статусов коммита.
- * @param options окружение, полный SHA, задача и payload
- * @param options.environment окружение
+ * @param options параметры записи
  * @param options.sha полный SHA выпуска
  * @param options.task `publish`, `deploy` или `rollback`
  * @param options.payload данные выпуска
@@ -206,12 +203,7 @@ export async function createDeployment(options: {
     return created.id;
 }
 
-/**
- * Ставит статус записи Deployment.
- * @param id id записи
- * @param state новое состояние
- * @param description пояснение
- */
+/** Ставит статус записи Deployment; `description` обрезается до 140 символов. */
 export async function setDeploymentState(
     id: number,
     state: DeploymentState,
@@ -224,7 +216,7 @@ export async function setDeploymentState(
             description: description.slice(0, 140),
             log_url: runUrl(),
             environment_url: 'https://cellestial.ru',
-            // успех прежних выпусков не становится inactive: история нужна для выбора цели отката
+            /** Успех прежних выпусков не становится inactive: история нужна для выбора цели отката */
             auto_inactive: false,
         }),
     });

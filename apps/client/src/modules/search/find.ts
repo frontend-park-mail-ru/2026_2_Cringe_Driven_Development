@@ -11,11 +11,12 @@ export interface SearchRange {
     to: number;
 }
 
-// Строчная копия для поиска без учёта регистра и для каждой её позиции — позиция в исходнике,
-// чтобы подсветить найденное в исходном тексте. Переводим по одному символу: строчная буква
-// бывает длиннее заглавной ('İstanbul' → 'i̇stanbul'), и позиции копии и исходника расходятся.
-// У сигмы две строчные: 'σ' и 'ς' в конце слова. Посимвольно 'Σ' всегда даёт 'σ', поэтому
-// 'ς' тоже приводим к 'σ' — и в тексте, и в запросе
+/**
+ * Строчная копия текста для поиска без учёта регистра и для каждой её позиции — позиция в
+ * исходнике. Переводится по одному символу: строчная буква бывает длиннее заглавной
+ * ('İstanbul' → 'i̇stanbul'). Посимвольно 'Σ' всегда даёт 'σ', поэтому конечная 'ς' тоже
+ * приводится к 'σ' — и в тексте, и в запросе.
+ */
 function lowered(text: string): { lower: string; starts: number[] } {
     let lower = '';
     const starts: number[] = [];
@@ -30,7 +31,7 @@ function lowered(text: string): { lower: string; starts: number[] } {
     return { lower, starts };
 }
 
-// Граница внутри символа, который в нижнем регистре стал длиннее: в исходнике её нет
+/** Граница внутри символа, который в нижнем регистре стал длиннее: в исходнике её нет. */
 const splits = (starts: number[], index: number): boolean =>
     index > 0 && index < starts.length - 1 && starts[index] === starts[index - 1];
 
@@ -38,7 +39,6 @@ const splits = (starts: number[], index: number): boolean =>
  * Неперекрывающиеся вхождения запроса без учёта регистра: по ячейкам в порядке блокнота, внутри
  * ячейки — по позиции. Запрос — буквальная подстрока: не обрезается и не разбирается.
  * @param cells ячейки в порядке блокнота
- * @param query запрос
  * @returns вхождения; для пустого запроса — пусто
  */
 export function findMatches(cells: readonly SearchCell[], query: string): SearchRange[] {
@@ -62,9 +62,7 @@ export function findMatches(cells: readonly SearchCell[], query: string): Search
 
 /**
  * Одно ли это вхождение.
- * @param a вхождение или null
- * @param b вхождение или null
- * @returns true, если совпадают ячейка и позиции
+ * @returns true, если совпадают ячейка и позиции или оба null
  */
 export function sameRange(a: SearchRange | null, b: SearchRange | null): boolean {
     if (!a || !b) return a === b;
@@ -73,8 +71,6 @@ export function sameRange(a: SearchRange | null, b: SearchRange | null): boolean
 
 /**
  * Активное вхождение после пересчёта: прежнее, если оно осталось, иначе первое.
- * @param matches новые вхождения
- * @param previous прежнее активное
  * @returns активное вхождение или null, если вхождений нет
  */
 export function keepActive(
@@ -86,9 +82,7 @@ export function keepActive(
 
 /**
  * Соседнее вхождение по кругу: после последнего — первое, перед первым — последнее.
- * @param matches вхождения
- * @param active текущее активное
- * @param direction 1 — следующее, -1 — предыдущее
+ * `direction`: 1 — следующее, -1 — предыдущее.
  * @returns новое активное или null, если вхождений нет
  */
 export function stepActive(

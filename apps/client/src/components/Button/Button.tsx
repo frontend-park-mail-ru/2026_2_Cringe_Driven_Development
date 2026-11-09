@@ -28,29 +28,20 @@ interface ButtonProps {
     /** Иконка перед текстом (свойство Icon в макете) */
     icon?: IconName;
     className?: string;
-    /** Кнопка открывает панель: открыта ли она сейчас (aria-expanded) */
+    /** Кнопка открывает панель: открыта ли она сейчас (`aria-expanded`) */
     expanded?: boolean;
-    /** id панели, которую открывает кнопка (aria-controls) */
+    /** Id панели, которую открывает кнопка (`aria-controls`) */
     controls?: string;
     /** Нажатие; во время загрузки не вызывается */
     onClick?: (event: MouseEvent) => void;
 }
 
-/**
- * Классы кнопки: нужны и ссылке, которая выглядит как кнопка.
- * @param variant вид кнопки
- * @param [block] растянуть на ширину родителя
- * @returns строка классов
- */
+/** Классы кнопки: нужны и ссылке, которая выглядит как кнопка. */
 export function buttonClassName(variant: ButtonVariant, block = false): string {
     return clsx(styles.button, styles[variant], block && styles.block);
 }
 
-/**
- * Кнопка высотой 44 px (размер M из макета).
- * @param props свойства кнопки
- * @returns элемент button
- */
+/** Кнопка высотой 44 px (размер M из макета). */
 export function Button({
     id,
     children,

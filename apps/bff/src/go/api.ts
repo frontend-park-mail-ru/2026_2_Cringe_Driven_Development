@@ -92,7 +92,7 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
     return { ...init, headers };
 };
 
-// hash — непрозрачная строка без кавычек: в Go уходит одним сильным ETag
+/** `hash` — непрозрачная строка без кавычек: в Go уходит одним сильным ETag. */
 const ifMatch = (init: RequestInit, hash: string): RequestInit =>
     withHeader(init, 'If-Match', `"${hash}"`);
 
@@ -154,11 +154,10 @@ export type Go = {
 };
 
 /**
- * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`; кроме `logout`. Заголовки
- * браузера в Go не уходят: `init` собирает сессия.
- * @param session сессия запроса
+ * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`, кроме `logout`.
+ * Заголовки браузера в Go не уходят: `init` собирает сессия.
+ * @param session сессия текущего запроса
  * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
- * @returns вызовы Go
  */
 export function createGo(session: Session, prefer?: string): Go {
     const call: Session['call'] = (fn, refused) =>
@@ -216,11 +215,11 @@ export function createGo(session: Session, prefer?: string): Go {
                 [200],
                 RemoveNotebookCellResponse,
             ),
-        // 204 без тела: JSON не читается
+        /** 204 без тела: JSON не читается. */
         deleteNotebook: async (id) => {
             unwrap(await call((init) => deleteNotebook(id, init)), [204]);
         },
-        // мимо call: выход не обновляет токены и не повторяет запрос
+        /** Мимо `call`: выход не обновляет токены и не повторяет запрос. */
         logout: async () => {
             const pair = session.revocation();
             if (!pair) return 'unconfirmed';
@@ -239,7 +238,7 @@ export function createGo(session: Session, prefer?: string): Go {
         },
         enableTwoFactor: async () =>
             unwrap(await call(enableTwoFactorAuth), [200], EnableTwoFactorAuthResponse),
-        // 401 invalid_totp — неверный код, а не истёкший токен: без refresh и повтора тем же кодом
+        /** 401 invalid_totp — неверный код, а не истёкший токен: без refresh и повтора с ним. */
         confirmTwoFactor: async (body) => {
             unwrap(await call((init) => confirmTwoFactorAuth(body, init), isInvalidTotp), [200]);
         },
@@ -315,7 +314,6 @@ export const publicGo = {
      * Регистрация в Go.
      * @param body логин и пароль
      * @param requestId `X-Request-ID` для Go
-     * @returns пользователь и токены
      */
     register: async (body: Credentials, requestId?: string): Promise<AuthResult> =>
         unwrap(await registerUser(body, withRequestId(requestId)), [201], RegisterUserResponse),
@@ -323,7 +321,6 @@ export const publicGo = {
      * Вход в Go.
      * @param body логин, пароль и при включённой 2FA — код `user_code`
      * @param requestId `X-Request-ID` для Go
-     * @returns пользователь и токены
      */
     login: async (body: LoginRequest, requestId?: string): Promise<AuthResult> =>
         unwrap(await loginUser(body, withRequestId(requestId)), [200], LoginUserResponse),

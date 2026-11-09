@@ -1,6 +1,6 @@
 import type { AuthError } from '@stores/session';
 
-/** Ограничения из схемы Credentials в Apidog. */
+/** Символы логина; эти ограничения и длины ниже — из схемы Credentials в Apidog. */
 const LOGIN_PATTERN = /^[a-zA-Z0-9_]+$/;
 const LOGIN_MIN = 3;
 const LOGIN_MAX = 32;
@@ -20,7 +20,6 @@ export const PASSWORD_RULE = `Не меньше ${PASSWORD_MIN} символов
 
 /**
  * Проверяет логин.
- * @param login логин
  * @returns текст ошибки или undefined, если логин подходит
  */
 export function validateLogin(login: string): string | undefined {
@@ -33,7 +32,6 @@ export function validateLogin(login: string): string | undefined {
 
 /**
  * Проверяет пароль.
- * @param password пароль
  * @returns текст ошибки или undefined, если пароль подходит
  */
 export function validatePassword(password: string): string | undefined {
@@ -48,8 +46,6 @@ export function validatePassword(password: string): string | undefined {
 
 /**
  * Проверяет повтор пароля при регистрации.
- * @param password пароль
- * @param confirm повтор пароля
  * @returns текст ошибки или undefined, если пароли совпадают
  */
 export function validateConfirm(password: string, confirm: string): string | undefined {
@@ -73,7 +69,7 @@ export function validateNewPassword(current: string, next: string): string | und
  * @param current текущий пароль
  * @param next новый пароль
  * @param confirm повтор нового пароля
- * @returns текст требования и выполнено ли оно
+ * @returns список требований: текст и выполнено ли оно
  */
 export function passwordRules(current: string, next: string, confirm: string) {
     return [
@@ -86,12 +82,7 @@ export function passwordRules(current: string, next: string, confirm: string) {
     ];
 }
 
-/**
- * Текст ошибки входа или регистрации для пользователя.
- * @param error ошибка
- * @param mode вход или регистрация
- * @returns текст ошибки
- */
+/** Текст ошибки входа или регистрации для пользователя. */
 export function authErrorMessage(error: AuthError, mode: AuthMode): string {
     switch (error.code) {
         case 'invalid_credentials':

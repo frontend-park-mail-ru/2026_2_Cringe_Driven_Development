@@ -13,7 +13,7 @@ export type Shown =
     | { kind: 'html'; html: string }
     | { kind: 'unsupported'; mimes: string[] };
 
-// nbformat хранит многострочный текст строкой или массивом строк
+/** Многострочный текст nbformat: строка или массив строк. */
 const joined = (value: unknown): string | undefined => {
     if (typeof value === 'string') return value;
     if (Array.isArray(value) && value.every((part) => typeof part === 'string')) {
@@ -22,15 +22,13 @@ const joined = (value: unknown): string | undefined => {
     return undefined;
 };
 
-// Цвета IPython в traceback — управляющие последовательности ANSI, текстом они не нужны
+/** Цвета IPython в traceback — управляющие последовательности ANSI, текстом они не нужны. */
 // oxlint-disable-next-line no-control-regex
 const stripAnsi = (text: string): string => text.replace(/\u001b\[[\d;]*m/g, '');
 
 /**
  * Одно представление вывода: PNG → SVG → HTML → текст. SVG — только как картинка, HTML — только в
  * изолированном iframe, JavaScript не исполняется.
- * @param output вывод nbformat
- * @returns что показать
  */
 export function pickOutput(output: NbOutput): Shown {
     switch (output.output_type) {
@@ -67,7 +65,6 @@ export function pickOutput(output: NbOutput): Shown {
 /**
  * Представления выводов по порядку. Соседние фрагменты одного потока (stdout или stderr) — один
  * текст: граница сообщений сервера не видна. Через другие выводы текст не склеивается.
- * @param outputs выводы nbformat
  * @returns представления с индексом первого вывода — стабильным ключом
  */
 export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }[] {
@@ -93,14 +90,13 @@ export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }
 /** Свойства {@link Outputs}. */
 interface OutputsProps {
     outputs: NbOutput[];
+    /** Сервер сократил вывод */
     truncated: boolean;
 }
 
 /**
  * Выводы кодовой ячейки по порядку в общей области. Текст и traceback — текстовыми узлами,
  * разметка в них не разбирается.
- * @param props выводы и признак усечения
- * @returns выводы или ничего
  */
 export function Outputs({ outputs, truncated }: OutputsProps) {
     if (outputs.length === 0 && !truncated) return null;
@@ -118,6 +114,7 @@ export function Outputs({ outputs, truncated }: OutputsProps) {
     );
 }
 
+/** Одно представление вывода. */
 function OutputView({ shown }: { shown: Shown }) {
     switch (shown.kind) {
         case 'text':
@@ -157,8 +154,10 @@ function OutputView({ shown }: { shown: Shown }) {
     }
 }
 
-// HTML — в iframe с пустым sandbox: без скриптов, форм и доступа к origin приложения. iframe
-// создаётся вручную: sandbox ставится раньше srcdoc, а в JSX-типах @cdd-team/react тега нет
+/**
+ * HTML — в iframe с пустым sandbox: без скриптов, форм и доступа к origin приложения. iframe
+ * создаётся вручную: sandbox ставится раньше srcdoc, а в JSX-типах `@cdd-team/react` тега нет.
+ */
 function HtmlFrame({ html }: { html: string }) {
     const host = useRef<HTMLDivElement | null>(null);
     useLayoutEffect(() => {

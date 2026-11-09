@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from '@cdd-team/react';
 
-// Хук значения media query: меняется вместе с устройством и настройками без перезагрузки
+/** Хук значения media query: меняется вместе с устройством и настройками без перезагрузки */
 function mediaHook(media: string): () => boolean {
     const query = window.matchMedia(media);
     const subscribe = (onChange: () => void): (() => void) => {

@@ -11,11 +11,7 @@ interface AvatarProps {
     className?: string;
 }
 
-/**
- * Аватар пользователя 40×40 (Components → Avatar).
- * @param props свойства аватара
- * @returns аватар
- */
+/** Аватар пользователя 40×40 (Components → Avatar). */
 export function Avatar({ login, src, className }: AvatarProps) {
     const [failed, setFailed] = useState<string | null>(null);
     return (

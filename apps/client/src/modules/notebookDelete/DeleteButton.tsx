@@ -10,8 +10,6 @@ interface DeleteButtonProps {
 
 /**
  * Корзина «Удалить блокнот» на карточке и в шапке редактора: нейтральная, при наведении красная.
- * @param props свойства кнопки
- * @returns кнопка-иконка
  */
 export function DeleteButton({ className, onClick }: DeleteButtonProps) {
     return (

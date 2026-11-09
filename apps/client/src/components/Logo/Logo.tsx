@@ -1,10 +1,7 @@
 import LogoMark from '@assets/logo-mark.svg?react';
 import styles from './Logo.module.css';
 
-/**
- * Логотип (Components → Logo).
- * @returns логотип
- */
+/** Логотип (Components → Logo). */
 export function Logo() {
     return (
         <span className={styles.logo}>

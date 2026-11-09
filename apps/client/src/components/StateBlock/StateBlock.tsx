@@ -16,11 +16,7 @@ interface StateBlockProps {
     actionsClassName?: string;
 }
 
-/**
- * Заглушка пустого состояния (Components → StateBlock).
- * @param props свойства заглушки
- * @returns заглушка
- */
+/** Заглушка пустого состояния (Components → StateBlock). */
 export function StateBlock({
     title,
     description,

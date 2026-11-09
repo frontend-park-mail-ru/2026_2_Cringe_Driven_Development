@@ -15,11 +15,12 @@ type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 /** Подпись статуса в шапке: вид и текст. */
 export type Label = { tone: SaveStatusTone; text: string };
 
-// Безопасный код причины завершения по простою (backend#13)
+/** Безопасный код причины завершения по простою (backend#13). */
 const IDLE_REASON = 'idle_timeout';
-// все слоты окружений заняты (RUNTIME_MAX_ACTIVE): временно, запуск можно повторить
+/** Все слоты окружений заняты (`RUNTIME_MAX_ACTIVE`): временно, запуск можно повторить. */
 const CAPACITY_REASON = 'capacity_exceeded';
 
+/** Сессия окружения, если она принадлежит открытому блокноту. */
 const own = (runtime: Runtime) =>
     runtime.session?.notebook_id === runtime.notebookId ? runtime.session : null;
 
@@ -33,7 +34,6 @@ const RUN: Record<RunOutcome, Label> = {
 
 /**
  * Статус окружения и запуска в шапке: подготовка, связь и завершение окружения, затем запуск.
- * @param runtime состояние стора окружения
  * @returns подпись или undefined — статуса выполнения нет
  */
 export function runtimeStatus(runtime: Runtime): Label | undefined {
@@ -61,18 +61,16 @@ const SAVE: Partial<Record<SaveStatus, Label>> = {
     conflict: { tone: 'error', text: 'Конфликт сохранения: файл изменён в другой вкладке' },
 };
 
-// Результат последнего исполнения ячейки не записан: её исходник изменился или её удалили
+/** Результат последнего исполнения ячейки не записан: её исходник изменился или её удалили. */
 const resultsConflict = (runtime: Runtime): boolean =>
     Object.values(runtime.executions).some(
         (e) => e.projection === 'conflict' && runtime.latest[e.cell_id] === e.execution_id,
     );
 
 /**
- * Статус сохранения в шапке — рядом со статусом выполнения, не вместо него. Сначала исходники, затем
- * результаты. «Сохранено» не показывается, пока в шапке статус выполнения.
+ * Статус сохранения в шапке — рядом со статусом выполнения, не вместо него. Сначала исходники,
+ * затем результаты. «Сохранено» не показывается, пока в шапке статус выполнения.
  * @param status статус сохранения исходников
- * @param runtime состояние стора окружения
- * @returns подпись или undefined
  */
 export function saveStatus(status: SaveStatus, runtime: Runtime): Label | undefined {
     if (status !== 'idle' && status !== 'saved') return SAVE[status];
@@ -93,11 +91,9 @@ export type BannerKind =
     | 'notStarted';
 
 /**
- * Баннер окружения: нет связи, занято другим блокнотом, ошибка очистки, все окружения заняты, ошибка
- * запуска, завершено по
- * простою, не запущено. Живая своя сессия без проблем — без баннера: её видно по статусу в шапке.
- * @param runtime состояние стора окружения
- * @returns вид баннера или null
+ * Баннер окружения: нет связи, занято другим блокнотом, ошибка очистки, все окружения заняты,
+ * ошибка запуска, завершено по простою, не запущено. Живая своя сессия без проблем — без баннера:
+ * её видно по статусу в шапке.
  */
 export function bannerKind(runtime: Runtime): BannerKind | null {
     const session = own(runtime);
@@ -124,10 +120,8 @@ export interface RuntimeButtons {
 }
 
 /**
- * Кнопки окружения: завершить — у готовой своей сессии, «Запустить всё» — вне очереди исполнения.
- * @param runtime состояние стора окружения
- * @param hasCode в блокноте есть кодовые ячейки
- * @returns видимость и доступность кнопок
+ * Кнопки окружения: завершить — у готовой своей сессии, «Запустить всё» — вне очереди исполнения и
+ * только при `hasCode` — в блокноте есть кодовые ячейки.
  */
 export function runtimeButtons(runtime: Runtime, hasCode: boolean): RuntimeButtons {
     const state = own(runtime)?.state;
@@ -162,13 +156,8 @@ export interface CellRun {
 
 /**
  * Исполнение у ячейки: из очереди своей сессии, затем из последнего исполнения на этой странице,
- * затем из сохранённого результата. Сохранённый результат без ошибки — галочка под счётчиком.
- * @param runtime состояние стора окружения
- * @param cell id, счётчик и выводы ячейки
- * @param cell.id id ячейки
- * @param cell.executionCount сохранённый счётчик Jupyter
- * @param cell.outputs сохранённые выводы
- * @returns состояние для отображения
+ * затем из сохранённого результата: счётчика Jupyter и выводов `cell`. Сохранённый результат без
+ * ошибки — галочка под счётчиком.
  */
 export function cellRun(
     runtime: Runtime,
@@ -183,7 +172,7 @@ export function cellRun(
             indicator: 'running',
             result: null,
             message: 'Выполняется…',
-            // вывод текущей попытки, а не прежний
+            /** Вывод текущей попытки, а не прежний */
             outputs: execution?.execution_id === queued.execution_id,
             since: runtime.startedAt[queued.execution_id],
         };

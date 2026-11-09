@@ -47,11 +47,7 @@ interface MoonProps {
     className?: string;
 }
 
-/**
- * Луна 600×600 (Components → Moon). Декоративная, скринридер её не читает.
- * @param props свойства луны
- * @returns луна
- */
+/** Луна 600×600 (Components → Moon). Декоративная, скринридер её не читает. */
 export function Moon({ className }: MoonProps) {
     return (
         <div className={clsx(styles.moon, className)} aria-hidden="true">

@@ -3,10 +3,13 @@ import { z } from 'zod';
 
 import { authedProcedure, router } from '../trpc.ts';
 
-// предел файла аватара по контракту Go: 5 МиБ
+/** Предел файла аватара по контракту Go: 5 МиБ. */
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
-// multipart с единственным полем avatar: в Go уходит только файл, весь запрос — в пределах 6 МиБ
+/**
+ * Multipart с единственным полем `avatar`: в Go уходит только файл, поэтому весь запрос
+ * укладывается в предел Go 6 МиБ.
+ */
 const AvatarForm = z
     .instanceof(FormData)
     .transform((form) => ([...form.keys()].length === 1 ? form.get('avatar') : null))
@@ -21,7 +24,7 @@ export const users = router({
     uploadAvatar: authedProcedure
         .input(AvatarForm)
         .mutation(({ ctx, input }) => ctx.go.uploadCurrentUserAvatar(input)),
-    // Go отзывает все сессии пользователя, поэтому cookie больше не нужна
+    /** Go отзывает все сессии пользователя, поэтому cookie больше не нужна */
     changePassword: authedProcedure
         .input(ChangeCurrentUserPasswordBody)
         .mutation(async ({ ctx, input }) => {

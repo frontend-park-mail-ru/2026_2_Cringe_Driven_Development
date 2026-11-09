@@ -10,8 +10,6 @@ interface ClampedNameProps {
 /**
  * Название блокнота в две строки с многоточием. «Показать полностью» появляется только при
  * обрезке: раскрывает название и переводит на него фокус. Полный текст всегда в DOM.
- * @param props свойства
- * @returns название и, при обрезке, действие раскрытия
  */
 export function ClampedName({ name }: ClampedNameProps) {
     const ref = useRef<HTMLParagraphElement>(null);

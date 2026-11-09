@@ -1,7 +1,6 @@
 /**
  * Разбирает `X-Mock-Prefer: <процедура>=<код>[,<процедура>=<код>]` клиента в режиме `dev:prism`.
  * Пара с кодом не из 100–599 пропускается.
- * @param header значение заголовка или `null`
  * @returns код ответа локального мока по имени процедуры tRPC
  */
 export function parseMockPrefer(header: string | null): Map<string, number> {
@@ -13,15 +12,16 @@ export function parseMockPrefer(header: string | null): Map<string, number> {
     return rules;
 }
 
-// Prism запускается в статическом режиме (примеры контракта); случайные данные нужны только
-// созданию ячейки — иначе у всех новых ячеек был бы один id из примера
+/**
+ * Процедуры, которым нужны случайные данные Prism вместо примеров контракта: иначе у всех новых
+ * ячеек был бы один id из примера.
+ */
 const DYNAMIC = new Set(['cells.create']);
 
 /**
  * Значение `Prefer` для вызовов Go процедуры в режиме `dev:prism`.
  * @param path имя процедуры tRPC
  * @param code статус из `X-Mock-Prefer` или `undefined`
- * @returns значение заголовка или `undefined`
  */
 export function mockPreferHeader(path: string, code: number | undefined): string | undefined {
     if (code !== undefined) return `code=${code}`;

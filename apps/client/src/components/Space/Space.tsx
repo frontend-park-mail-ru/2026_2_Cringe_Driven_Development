@@ -1,11 +1,12 @@
 import { clsx } from '@cdd-team/clsx';
 import styles from './Space.module.css';
 
+/** Ширина макета, px: координата x звезды переводится в проценты от неё. */
 const WIDTH = 1440;
 const STAR_COUNT = 70;
 
 /**
- * Звёзды.
+ * Звёзды фона: псевдослучайные с постоянным seed — одинаковые при каждой загрузке.
  * @returns звёзды: x и y в px макета, диаметр, непрозрачность
  */
 function makeStars() {
@@ -32,11 +33,7 @@ interface SpaceProps {
     variant?: 'auth' | 'home' | 'plain';
 }
 
-/**
- * Фон «Космос». Декоративный.
- * @param props свойства фона
- * @returns фон
- */
+/** Фон «Космос». Декоративный. */
 export function Space({ variant = 'auth' }: SpaceProps) {
     return (
         <div className={clsx(styles.space, styles[variant])} aria-hidden="true">

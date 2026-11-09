@@ -14,11 +14,7 @@ const HIDE_AFTER_MS = 4000;
 let nextId = 1;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
-/**
- * Показывает тост и прячет его через 4 секунды.
- * @param text текст сообщения
- * @param [type] вид тоста (по умолчанию success)
- */
+/** Показывает тост и прячет его через 4 секунды. */
 export function showToast(text: string, type: ToastType = 'success'): void {
     clearTimeout(hideTimer);
     useToastStore.setState({ toast: { id: nextId++, text, type } });

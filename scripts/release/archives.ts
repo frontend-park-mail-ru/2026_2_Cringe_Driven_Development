@@ -6,12 +6,14 @@ import { ReleaseError } from './env.ts';
 import { BFF_IMAGE, configDigestOf } from './image.ts';
 import { listObjects, openBucket, readObject } from './s3.ts';
 
+/** Запускает команду; ненулевой код выхода — {@link ReleaseError} с `what` и stderr. */
 function run(args: string[], what: string): string {
     const result = Bun.spawnSync(args, { stderr: 'pipe' });
     if (result.exitCode) throw new ReleaseError(`${what}: ${result.stderr.toString().trim()}`);
     return result.stdout.toString().trim();
 }
 
+/** Скрипт bash с `set -euo pipefail`; `args` — его `$1`, `$2`… */
 const bash = (script: string, what: string, ...args: string[]): string =>
     run(['bash', '-c', `set -euo pipefail; ${script}`, 'bash', ...args], what);
 
@@ -36,7 +38,7 @@ async function downloadDist(sha: string, dir: string): Promise<void> {
  * Распакованный архив сверяется с исходным каталогом.
  * @param sha полный SHA
  * @param work рабочий каталог
- * @param [dist] локальный dist; без index.html клиент берётся из S3
+ * @param dist локальный dist; без index.html клиент берётся из S3
  * @returns путь архива
  */
 export async function distArchive(sha: string, work: string, dist?: string): Promise<string> {
@@ -92,8 +94,10 @@ export async function imageArchive(
             ],
             'docker inspect',
         );
-    // containerd image store (раннеры ubuntu-26.04): .Id — digest индекса из imageRef, а не config;
-    // config всё равно сверяется по manifest.json архива ниже
+    /**
+     * containerd image store (раннеры ubuntu-26.04): `.Id` — digest индекса из imageRef, а не
+     * config; config всё равно сверяется по manifest.json архива ниже
+     */
     const expected = [imageId, imageRef.slice(imageRef.indexOf('@') + 1)].map(
         (id) => `${id} ${sha}`,
     );

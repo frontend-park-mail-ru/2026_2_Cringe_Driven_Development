@@ -34,7 +34,6 @@ const setHas2fa = (has_2fa: boolean): void =>
  * «Подключить» — `twoFactor.setup` и окно с QR, ручным ключом и вводом кода; только успешный
  * `twoFactor.confirm` включает 2FA. «Отключить» — окно с паролем и `twoFactor.disable`.
  * Данные настройки живут в памяти, пока открыто окно.
- * @returns раздел и его окна
  */
 export function TwoFactorSection() {
     const enabled = useSessionStore((state) => state.user?.has_2fa ?? false);
@@ -120,8 +119,6 @@ interface EnableModalProps {
 /**
  * Подключение 2FA: QR-код, ручной ключ для аутентификатора на том же телефоне, затем код.
  * Шаг и ключ живут, пока окно открыто: переход в аутентификатор и обратно их не теряет.
- * @param props данные настройки и закрытие окна
- * @returns окно
  */
 function EnableModal({ setup, onClose }: EnableModalProps) {
     const isNarrow = useNarrow();
@@ -140,7 +137,7 @@ function EnableModal({ setup, onClose }: EnableModalProps) {
         [life],
     );
 
-    // ручной ключ на телефоне — без QR и с «Назад», на десктопе — под QR
+    /** Шаг ручного ключа: на телефоне — без QR и с «Назад», на десктопе — под QR */
     const keyStep = step === 'manual';
     const keyOnly = keyStep && isNarrow;
 
@@ -275,7 +272,7 @@ function EnableModal({ setup, onClose }: EnableModalProps) {
                             <p key="label" className={styles.keyLabel}>
                                 Ключ настройки
                             </p>
-                            {/* группы по 4 — отступами, а не пробелами: выделенный ключ копируется без разделителей */}
+                            {/* группы — отступами, не пробелами: ключ копируется без них */}
                             <p
                                 key="value"
                                 id={KEY_ID}
@@ -347,8 +344,6 @@ interface DisableModalProps {
 
 /**
  * Отключение 2FA по текущему паролю. Неверный пароль — ошибка у поля, окно остаётся.
- * @param props закрытие окна
- * @returns окно
  */
 function DisableModal({ onClose }: DisableModalProps) {
     const [password, setPassword] = useState('');
