@@ -1,0 +1,6 @@
+.trash {
+    /* цвет самой иконки: не зависит от порядка подключения стилей IconButton */
+    &:hover:not(:disabled) > svg {
+        color: var(--color-error);
+    }
+}

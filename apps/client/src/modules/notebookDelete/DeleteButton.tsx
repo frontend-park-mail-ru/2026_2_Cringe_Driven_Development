@@ -1,6 +1,6 @@
 import { clsx } from '@cdd-team/clsx';
 import { IconButton } from '@components/IconButton/IconButton';
-import styles from './DeleteNotebookDialog.module.css';
+import styles from './DeleteButton.module.css';
 
 /** Свойства {@link DeleteButton}. */
 interface DeleteButtonProps {

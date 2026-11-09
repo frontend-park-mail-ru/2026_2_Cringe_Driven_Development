@@ -11,6 +11,8 @@ import styles from './DeleteNotebookDialog.module.css';
 
 const CANCEL_ID = 'delete-notebook-cancel';
 const PRIMARY_ID = 'delete-notebook-primary';
+// свой id у «Закрыть» запрета: после 409 вид меняется, и фокус переходит в новый вид
+const CLOSE_ID = 'delete-notebook-close';
 
 /** Свойства {@link DeleteNotebookDialog}. */
 interface DeleteNotebookDialogProps {
@@ -118,13 +120,13 @@ export function DeleteNotebookDialog({
             description={
                 gate === 'stopFirst' ? STOP_FIRST[place] : 'После завершения повторите удаление.'
             }
-            initialFocusId={openNotebook ? CANCEL_ID : PRIMARY_ID}
+            initialFocusId={openNotebook ? CLOSE_ID : PRIMARY_ID}
             onClose={onClose}
         >
             <div className={styles.actions}>
                 {openNotebook ? (
                     <>
-                        <Button key="close" id={CANCEL_ID} variant="secondary" onClick={onClose}>
+                        <Button key="close" id={CLOSE_ID} variant="secondary" onClick={onClose}>
                             Закрыть
                         </Button>
                         <Button
