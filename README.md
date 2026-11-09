@@ -61,6 +61,30 @@ Frontend проекта «Colab» (Cellestial) команды «Cringe Driven De
   </tbody>
 </table>
 
-Менторы: [Ярослав Михалёв](https://github.com/YarikMix) — Frontend,
-[Александр Батовкин](https://github.com/blackHATred) — Backend,
-[Дарья Ченцова](https://t.me/dewon_d) — UX.
+### Менторы
+
+<table>
+  <thead>
+    <tr>
+      <th>💻 Frontend</th>
+      <th>🗄️ Backend</th>
+      <th>🎨 UX</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <a href="https://github.com/YarikMix"><img src=".github/assets/team/YarikMix.png" width="80" height="80" alt="Аватар: Ярослав Михалёв"></a><br>
+        <a href="https://github.com/YarikMix">Ярослав Михалёв</a>
+      </td>
+      <td align="center">
+        <a href="https://github.com/blackHATred"><img src=".github/assets/team/blackHATred.png" width="80" height="80" alt="Аватар: Александр Батовкин"></a><br>
+        <a href="https://github.com/blackHATred">Александр Батовкин</a>
+      </td>
+      <td align="center">
+        <a href="https://t.me/dewon_d"><img src=".github/assets/team/dewon_d.png" width="80" height="80" alt="Аватар: Дарья Ченцова"></a><br>
+        <a href="https://t.me/dewon_d">Дарья Ченцова</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
