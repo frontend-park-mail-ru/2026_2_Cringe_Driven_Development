@@ -45,8 +45,8 @@ export function renderBootstrap(
         .transform(new Response(template, { status, headers }));
 }
 
-/** Гостю открыты только вход, регистрация и страница 404. */
-const GUEST_PAGES = new Set<Page | undefined>(['login', 'register', 'notFound']);
+/** Гостю открыты только вход и регистрация. */
+const GUEST_PAGES = new Set<Page | undefined>(['login', 'register']);
 
 const redirect = (location: string, headers: Headers): Response => {
     headers.set('Cache-Control', 'private, no-store');
@@ -75,12 +75,11 @@ const notebookId = (pathname: string): number | undefined => {
  * - Пользователь — из Go `GET /users/me` через общий слой сессии (refresh, повтор после 401). Без
  *   сессии или когда она закончилась — гость, cookie удаляется. Сбой Go — 503 без приложения,
  *   сессия не удаляется; новая cookie после удачного refresh сохраняется и в 503.
- * - Гость: вход, регистрация и `/404` — приложение (`/404` со статусом 404), остальное, включая
- *   неизвестный адрес, — `302` на `/login`; блокнот у Go не запрашивается.
- * - Вошедший: неизвестный адрес — `302` на `/404`, `/404` — приложение со статусом 404. Метаданные
- *   и content блокнота BFF загружает до выдачи HTML: свой — 200 и данные в bootstrap;
- *   отсутствующий, чужой (Go отвечает 404 на оба) и некорректный ID — `302` на `/404`; сбой Go —
- *   503.
+ * - Гость: вход и регистрация — приложение, остальное, включая неизвестный адрес и `/404`, —
+ *   `302` на `/login`; блокнот у Go не запрашивается.
+ * - Вошедший: неизвестный адрес и `/404` — `302` на главную. Метаданные и content блокнота BFF
+ *   загружает до выдачи HTML: свой — 200 и данные в bootstrap; отсутствующий, чужой (Go отвечает
+ *   404 на оба) и некорректный ID — `302` на главную; сбой Go — 503.
  * @param template проверенный HTML-шаблон клиента
  * @returns обработчик GET-запросов страниц
  */
@@ -108,7 +107,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
                 const id = notebookId(pathname);
                 if (id === undefined) {
                     session.setCookies(headers);
-                    return redirect('/404', headers);
+                    return redirect('/', headers);
                 }
                 try {
                     notebookPage = await loadNotebook(go, id);
@@ -118,7 +117,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
                         throw err;
                     }
                     session.setCookies(headers);
-                    return redirect('/404', headers);
+                    return redirect('/', headers);
                 }
             }
         } catch (err) {
@@ -131,8 +130,8 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
         session.setCookies(headers);
         if (!user) {
             if (!GUEST_PAGES.has(page)) return redirect('/login', headers);
-        } else if (!page) return redirect('/404', headers);
-        const status = page === 'notFound' ? 404 : 200;
+        } else if (!page || page === 'notFound') return redirect('/', headers);
+        const status = 200;
         return renderBootstrap(
             template,
             notebookPage ? { user, notebookPage } : { user },

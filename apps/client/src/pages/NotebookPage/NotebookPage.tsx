@@ -248,9 +248,9 @@ export function NotebookPage() {
         setLoad('loading');
         void loadNotebook(id).then((page) => {
             if (!alive) return;
-            // отсутствующий и чужой блокнот (одинаковый NOT_FOUND) — как прямое открытие: на /404
+            // отсутствующий и чужой блокнот (одинаковый NOT_FOUND) — как прямое открытие: на главную
             if (page === 'missing') {
-                void navigate({ to: '/404', replace: true });
+                void navigate({ to: '/', replace: true });
                 return;
             }
             if (page) {
