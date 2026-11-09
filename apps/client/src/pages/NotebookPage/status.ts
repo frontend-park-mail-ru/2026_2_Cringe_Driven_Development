@@ -17,6 +17,8 @@ export type Label = { tone: SaveStatusTone; text: string };
 
 /** Безопасный код причины завершения по простою (backend#13). */
 const IDLE_REASON = 'idle_timeout';
+// все слоты окружений заняты (RUNTIME_MAX_ACTIVE): временно, запуск можно повторить
+const CAPACITY_REASON = 'capacity_exceeded';
 
 /** Сессия окружения, если она принадлежит открытому блокноту. */
 const own = (runtime: Runtime) =>
@@ -79,10 +81,18 @@ export function saveStatus(status: SaveStatus, runtime: Runtime): Label | undefi
 }
 
 /** Какой баннер окружения показать над ячейками. */
-export type BannerKind = 'linkLost' | 'busy' | 'cleanup' | 'startFailed' | 'idle' | 'notStarted';
+export type BannerKind =
+    | 'linkLost'
+    | 'busy'
+    | 'cleanup'
+    | 'capacityExceeded'
+    | 'startFailed'
+    | 'idle'
+    | 'notStarted';
 
 /**
- * Баннер окружения: нет связи, занято другим блокнотом, ошибка очистки или запуска, завершено по
+ * Баннер окружения: нет связи, занято другим блокнотом, ошибка очистки, все окружения заняты, ошибка
+ * запуска, завершено по
  * простою, не запущено. Живая своя сессия без проблем — без баннера: её видно по статусу в шапке.
  */
 export function bannerKind(runtime: Runtime): BannerKind | null {
@@ -91,7 +101,11 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
     if (!session && sessionActive(runtime.session)) return 'busy';
     // слот занят, пока очистка не подтверждена; после STOPPED слот свободен — это не ошибка
     if (sessionActive(session) && session?.cleanup_error) return 'cleanup';
-    if (runtime.startFailed || session?.state === 'FAILED') return 'startFailed';
+    // ошибка нового запуска важнее причины прежней FAILED-сессии в сторе
+    if (runtime.startFailed) return 'startFailed';
+    if (session?.state === 'FAILED') {
+        return session.reason === CAPACITY_REASON ? 'capacityExceeded' : 'startFailed';
+    }
     if (session?.state === 'STOPPED' && session.reason === IDLE_REASON) return 'idle';
     if (sessionActive(session)) return null;
     return 'notStarted';

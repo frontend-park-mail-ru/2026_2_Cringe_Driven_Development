@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: 'Тег выпуска release-<полный SHA> со страницы GitHub Release'
-        required: true
+        description: 'Тег release-<полный SHA>; пусто — последний опубликованный выпуск по истории main'
+        required: false
         type: string
 
 permissions:
@@ -51,7 +51,9 @@ jobs:
         id: artifacts
         env:
           RELEASE: ${{ inputs.release }}
-        run: bun run release artifacts "$RELEASE"
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          bun run release artifacts "$RELEASE"
       - name: Last confirmed release
         id: confirmed
         run: bun run release confirmed

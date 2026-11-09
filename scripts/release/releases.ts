@@ -380,20 +380,50 @@ export async function readyRelease(
     return { release, manifest: await verifyRelease(release, sha) };
 }
 
+/** Первый опубликованный выпуск основной цепочки main; время публикации порядок кода не задаёт. */
+async function latestRelease(repoDir: string): Promise<GitHubRelease> {
+    const git = Bun.spawnSync(['git', 'rev-list', '--first-parent', 'refs/remotes/origin/main'], {
+        cwd: repoDir,
+    });
+    if (git.exitCode) throw new ReleaseError('Не удалось прочитать историю main');
+    const releases = (await listReleases()).filter(
+        (release) => !release.draft && !release.prerelease,
+    );
+    const byTag = new Map(releases.map((release) => [release.tag_name, release]));
+    for (const sha of git.stdout.toString().trim().split('\n')) {
+        const tag = tagOf(sha);
+        const release = byTag.get(tag);
+        if (!release) continue;
+        if (releases.filter((row) => row.tag_name === tag).length > 1)
+            throw new ReleaseError(`У ${sha} несколько Releases: выпуск неоднозначен`);
+        return release;
+    }
+    throw new ReleaseError('Нет опубликованного Release в истории main');
+}
+
 /**
  * Выбранный Release для CD: проверка до доступа к VPS. Выходы `sha`, `image_ref`, `assets`,
  * `release_id`; SHA передаётся следующим шагам через GITHUB_ENV.
- * @param tag точный тег release-<SHA>
+ * @param tag точный тег release-<SHA>; пусто — последний опубликованный выпуск по истории main
+ * @param repoDir checkout с обновлённой origin/main
  */
-export async function artifacts(tag: string): Promise<void> {
-    const sha = shaOfTag(tag);
-    const { release, manifest } = await readyRelease(sha);
+export async function artifacts(tag: string, repoDir = process.cwd()): Promise<void> {
+    tag = tag.trim();
+    let release: GitHubRelease;
+    let manifest: ReleaseManifest;
+    if (tag) {
+        ({ release, manifest } = await readyRelease(shaOfTag(tag)));
+    } else {
+        release = await latestRelease(repoDir);
+        manifest = await verifyRelease(release, shaOfTag(release.tag_name));
+    }
+    const sha = manifest.sha;
     output('sha', sha);
     output('image_ref', manifest.image_ref);
     output('assets', manifest.assets);
     output('release_id', String(release.id));
     if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, `SHA=${sha}\n`);
-    console.log(`Готовый выпуск ${release.html_url}: ${manifest.image_ref}`);
+    console.log(`Готовый выпуск ${release.tag_name}: ${release.html_url}, ${manifest.image_ref}`);
 }
 
 /**

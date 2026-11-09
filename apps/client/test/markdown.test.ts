@@ -232,7 +232,13 @@ test('опасные ссылки — неактивный текст с исх�
         '[x](vbscript:1)',
         '[x](java\tscript:1)',
         '[x](java&#x09;script:1)',
+        '[x](java&NewLine;script:1)',
+        '[x](javascript&colon;1)',
+        '[x](&#106;avascript:1)',
+        '[x](&#1;javascript:1)',
+        '[x](<javascript:1>)',
         '[x](//evil.com)',
+        '[x](/\\evil.com)',
     ]) {
         expect(JSON.stringify(parseMarkdown(source))).not.toContain('"link"');
         expect(parseMarkdown(source)).toEqual([paragraph(text(source))]);

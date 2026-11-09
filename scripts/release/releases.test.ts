@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fixture, IMAGE, IMAGE_ID, REPO } from './test/fixture.ts';
+import { fixture, git, IMAGE, IMAGE_ID, REPO } from './test/fixture.ts';
 
 // архивы собирают docker и GNU tar; здесь — те же файлы-заглушки
 let archiveCalls: string[] = [];
@@ -257,6 +257,91 @@ test('CD принимает существующий Release с SHA, отлич�
     await expect(releases.artifacts(f.a)).rejects.toThrow('release-<полный SHA>');
     await expect(releases.artifacts(`release-${f.b}`)).rejects.toThrow('Нет опубликованного');
 });
+
+test.each(['', ' \t '])(
+    'пустой тег %j выбирает новый коммит main, а не позднюю публикацию',
+    async (tag) => {
+        const newer = f.publish(f.b, 2);
+        const older = f.publish(f.a, 1);
+        Object.assign(newer, { published_at: '2026-11-08T10:00:00Z' });
+        Object.assign(older, { published_at: '2026-11-09T10:00:00Z' });
+        process.env.GITHUB_SHA = f.a;
+        git(f.dir, 'checkout', '--detach', f.a);
+        await releases.artifacts(tag, f.dir);
+        expect(outputs()).toContain(`sha=${f.b}`);
+        expect(outputs()).toContain(`release_id=${newer.id}`);
+        expect(readFileSync(process.env.GITHUB_ENV!, 'utf8')).toBe(`SHA=${f.b}\n`);
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining(newer.html_url));
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`release-${f.b}`));
+        expect(git(f.dir, 'rev-parse', 'HEAD')).toBe(f.a);
+    },
+);
+
+test('явный тег сохраняет выбор старого выпуска при наличии нового', async () => {
+    f.publish(f.a, 1);
+    f.publish(f.b, 2);
+    await releases.artifacts(`  release-${f.a}  `, f.dir);
+    expect(outputs()).toContain(`sha=${f.a}`);
+});
+
+test.each(['draft', 'prerelease'] as const)(
+    'пустой тег пропускает %s и выпуски боковых веток',
+    async (kind) => {
+        f.publish(f.a, 1);
+        f.publish(f.b, 2)[kind] = true;
+        f.publish(f.outside, 3);
+        f.publish(git(f.dir, 'rev-parse', `${f.b}^2`), 4);
+        await releases.artifacts('', f.dir);
+        expect(outputs()).toContain(`sha=${f.a}`);
+    },
+);
+
+test('пустой тег учитывает Release на второй странице', async () => {
+    const newer = f.publish(f.b, 2);
+    const older = f.publish(f.a, 1);
+    f.releases.unshift(
+        ...Array.from({ length: 99 }, (_, i) => ({
+            ...older,
+            id: 10000 + i,
+            tag_name: `unrelated-${i}`,
+        })),
+    );
+    await releases.artifacts('', f.dir);
+    expect(outputs()).toContain(`release_id=${newer.id}`);
+    expect(
+        f.requests.some(
+            ({ url }) => url.pathname.endsWith('/releases') && url.searchParams.get('page') === '2',
+        ),
+    ).toBe(true);
+});
+
+test.each(['нет выпусков', 'нет main', 'ошибка API', 'повреждён новый', 'неоднозначный тег'])(
+    'пустой тег: %s — остановка без outputs',
+    async (scenario) => {
+        if (scenario === 'нет main') git(f.dir, 'update-ref', '-d', 'refs/remotes/origin/main');
+        if (scenario === 'ошибка API')
+            f.extra = (url) =>
+                url.pathname.endsWith('/releases')
+                    ? new Response('unavailable', { status: 503 })
+                    : undefined;
+        if (scenario === 'повреждён новый' || scenario === 'неоднозначный тег') {
+            f.publish(f.a, 1);
+            const newer = f.publish(f.b, 2);
+            if (scenario === 'повреждён новый') newer.immutable = false;
+            else f.releases.push({ ...newer, id: newer.id + 10000 });
+        }
+        const message = {
+            'нет выпусков': 'Нет опубликованного Release в истории main',
+            'нет main': 'историю main',
+            'ошибка API': '503',
+            'повреждён новый': 'immutable',
+            'неоднозначный тег': 'несколько Releases',
+        }[scenario];
+        await expect(releases.artifacts('', f.dir)).rejects.toThrow(message);
+        expect(existsSync(process.env.GITHUB_OUTPUT!)).toBe(false);
+        expect(existsSync(process.env.GITHUB_ENV!)).toBe(false);
+    },
+);
 
 test('Rollback сверяет цель с Release; старые записи без release_id — по SHA и digest', async () => {
     f.deploy(f.a, 20);
