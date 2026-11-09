@@ -2,16 +2,19 @@
 
 Фронтенд проекта «Colab» (Cellestial) команды «Cringe Driven Development».
 Монорепа на bun workspaces и Turborepo: клиент — `apps/client`, BFF — `apps/bff`,
-zod-схемы — `packages/schemas` ([README](README.md#монорепа)). Команды — из корня.
-Процесс работы с задачами, ветками, коммитами и PR — в [README.md](README.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
+zod-схемы — `packages/schemas` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
+Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
 в PR `Closes #N`, обязательное ревью ментора. Учебный frontend-park-mail-ru
 получает копию main, новые PR туда не создаются.
 
 Общепроектный контекст, действующая архитектура и планы развития проекта — в
 [Контекст проекта](https://docs.cellestial.ru/project-context).
-Спеки и планы реализации конкретной задачи размещай в репозитории, где выполняется
-работа; общие для нескольких компонентов решения отражай в `docs`.
+Спеки и планы реализации конкретной задачи храни только локально в `docs/superpowers/`
+репозитория, где выполняется работа. Не коммить их и не включай в PR; не обходи
+`.gitignore` через `git add -f`, даже если скилл или старый план требуют коммита.
+Исключение — прямое указание пользователя для конкретных файлов.
+Общие для нескольких компонентов решения отражай в `docs`.
 При внесении изменений проверяй реализацию по актуальному коду.
 
 ## Wiki и общий поиск
