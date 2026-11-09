@@ -43,6 +43,14 @@
     letter-spacing: var(--tracking-title);
 }
 
+.lead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+}
+
 .description {
     color: var(--color-text-secondary);
 }

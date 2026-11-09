@@ -12,6 +12,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
 /** Свойства {@link Modal}. */
 interface ModalProps {
     title: string;
+    /** Блок между заголовком и описанием, например название удаляемого */
+    lead?: ReactNode;
     /** Текст под заголовком */
     description?: string;
     /** id элемента, который получает фокус при открытии */
@@ -56,6 +58,7 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
  */
 export function Modal({
     title,
+    lead,
     description,
     initialFocusId,
     onBack,
@@ -121,6 +124,11 @@ export function Modal({
                     <h2 key="title" id={TITLE_ID} className={styles.title}>
                         {title}
                     </h2>
+                    {lead && (
+                        <div key="lead" className={styles.lead}>
+                            {lead}
+                        </div>
+                    )}
                     {description && (
                         <p key="description" id={DESCRIPTION_ID} className={styles.description}>
                             {description}
