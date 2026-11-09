@@ -33,6 +33,7 @@ import {
     createNotebook,
     createRuntimeExecution,
     createRuntimeExecutionBatch,
+    deleteNotebook,
     disableTwoFactorAuth,
     enableTwoFactorAuth,
     getActiveRuntimeSession,
@@ -131,6 +132,7 @@ export type Go = {
         body: MoveNotebookCellRequest,
     ): Promise<NotebookContentChange>;
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
+    deleteNotebook(id: number): Promise<void>;
     logout(): Promise<ServerRevocation>;
     logoutAll(): Promise<void>;
     enableTwoFactor(): Promise<TwoFactorSetupResponse>;
@@ -213,6 +215,10 @@ export function createGo(session: Session, prefer?: string): Go {
                 [200],
                 RemoveNotebookCellResponse,
             ),
+        /** 204 без тела: JSON не читается. */
+        deleteNotebook: async (id) => {
+            unwrap(await call((init) => deleteNotebook(id, init)), [204]);
+        },
         /** Мимо `call`: выход не обновляет токены и не повторяет запрос. */
         logout: async () => {
             const pair = session.revocation();

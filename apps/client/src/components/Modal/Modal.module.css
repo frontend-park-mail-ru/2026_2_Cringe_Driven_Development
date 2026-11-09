@@ -24,6 +24,10 @@
     color: var(--color-text-primary);
     background: var(--color-surface-solid);
     box-shadow: var(--shadow-popover);
+
+    @media (max-width: 640px) {
+        padding-inline: 16px;
+    }
 }
 
 /* место под крестик справа — у всей шапки: и у заголовка, и у описания */
@@ -37,6 +41,14 @@
 .title {
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
+}
+
+.lead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
 }
 
 .description {

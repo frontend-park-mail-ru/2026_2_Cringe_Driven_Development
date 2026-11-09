@@ -235,6 +235,18 @@ export function closeNotebook(): void {
     set(empty());
 }
 
+/**
+ * Блокнот удалён: его несохранённое забыто, а если он открыт или дорабатывает очередь после
+ * ухода — сохранения прекращаются, поздние ответы ничего не меняют. Другие блокноты не трогаются.
+ * @param id ID удалённого блокнота
+ */
+export function forgetNotebook(id: number): void {
+    unsaved.delete(id);
+    if (get().notebookId !== id) return;
+    reset();
+    set(empty());
+}
+
 const sourceOf = (cellId: string): string | undefined =>
     get().confirmed?.cells.find((c) => c.id === cellId)?.source;
 

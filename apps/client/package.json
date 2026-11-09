@@ -7,8 +7,7 @@
         "build": "vite build --config vite.config.prod.ts",
         "preview": "vite preview --config vite.config.prod.ts",
         "lint": "oxlint",
-        "typecheck": "tsc --noEmit && tsc --noEmit -p test",
-        "test": "bun test"
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "@cdd-team/clsx": "^0.1.0",

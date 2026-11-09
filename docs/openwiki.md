@@ -25,4 +25,3 @@
 он вызывает `pages.yml` в `docs/main`; для диагностики доступен ручной запуск.
 Нужен secret `DOCS_PAGES_TOKEN` с Actions: write только для репозитория docs;
 настройка и публичная wiki — в [README docs](https://github.com/Cringe-Driven-Development-Team/docs#readme).
-Локальная проверка dispatch без GitHub: `bun test scripts/openwiki-publish.test.ts`.

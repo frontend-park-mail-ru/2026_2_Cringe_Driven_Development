@@ -21,25 +21,6 @@ export interface User {
   has_2fa: boolean;
 }
 
-export interface NotebookSummary {
-  /** @minimum 1 */
-  id: number;
-  name: string;
-  updated_at: string;
-  /** Число блоков */
-  cells_count: number;
-  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
-  preview_code: string;
-  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
-  has_active_session: boolean;
-}
-
-/**
- * Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.
- * @minLength 1
- */
-export type NotebookHash = string;
-
 /**
  * Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.
  */
@@ -69,51 +50,6 @@ export interface Cell {
   source: string;
 }
 
-export type NotebookContentCellsItem = {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'markdown' | 'raw';
-  /** Содержимое блока */
-  source: string;
-} | {
-  /**
-     * ID блока внутри блокнота
-     * @minLength 1
-     * @maxLength 64
-     * @pattern ^[a-zA-Z0-9_-]+$
-     */
-  id: string;
-  /** Вид блока */
-  kind: 'code';
-  /** Содержимое блока */
-  source: string;
-  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
-  outputs: { [key: string]: unknown }[];
-  /**
-     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
-     * @minimum 0
-     * @nullable
-     */
-  execution_count: number | null;
-  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
-  output_truncated: boolean;
-};
-
-/**
- * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
- */
-export interface NotebookContent {
-  hash: NotebookHash;
-  /** @maxItems 1000 */
-  cells: NotebookContentCellsItem[];
-}
-
 /**
  * Блокнот (.ipynb)
  */
@@ -129,6 +65,19 @@ export interface Notebook {
   cells: Cell[];
   created_at: string;
   updated_at: string;
+}
+
+export interface NotebookSummary {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  updated_at: string;
+  /** Число блоков */
+  cells_count: number;
+  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
+  preview_code: string;
+  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
+  has_active_session: boolean;
 }
 
 export interface Credentials {
@@ -209,6 +158,12 @@ export interface RefreshTokenRequest {
      */
   refresh_token: string;
 }
+
+/**
+ * Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.
+ * @minLength 1
+ */
+export type NotebookHash = string;
 
 export interface NotebookCellChange {
   hash: NotebookHash;
@@ -602,6 +557,51 @@ export interface RuntimeInspection {
   reason: string | null;
 }
 
+export type NotebookContentCellsItem = {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'markdown' | 'raw';
+  /** Содержимое блока */
+  source: string;
+} | {
+  /**
+     * ID блока внутри блокнота
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-zA-Z0-9_-]+$
+     */
+  id: string;
+  /** Вид блока */
+  kind: 'code';
+  /** Содержимое блока */
+  source: string;
+  /** Сохранённые nbformat outputs. [] до первого результата. MIME/HTML/SVG недоверенные; требуется безопасное отображение. */
+  outputs: { [key: string]: unknown }[];
+  /**
+     * Сохранённый счётчик Jupyter, а не номер ячейки. null до первого исполнения; сохраняется после завершения сессии.
+     * @minimum 0
+     * @nullable
+     */
+  execution_count: number | null;
+  /** Сохранённый признак усечения соответствующего outputs. Обновляется атомарно с outputs и execution_count; при новом результате заменяется его значением. До первого результата false. Сохраняется после завершения сессии и удаления VPS. Если результат не применён из-за конфликта source, флаг актуальной ячейки не изменяется. */
+  output_truncated: boolean;
+};
+
+/**
+ * Согласованный снимок редакции, исходников и сохранённых результатов. Результаты доступны без активной runtime-сессии и после удаления VPS. hash — непрозрачная редакция, не алгоритм SHA-256 файла.
+ */
+export interface NotebookContent {
+  hash: NotebookHash;
+  /** @maxItems 1000 */
+  cells: NotebookContentCellsItem[];
+}
+
 export type RuntimeExecutionState = typeof RuntimeExecutionState[keyof typeof RuntimeExecutionState];
 
 
@@ -793,6 +793,18 @@ export type RuntimeQueueFullResponseBody = RuntimeError;
 export type UploadCurrentUserAvatarBody = {
   /** Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 200–4096 пикселей включительно. MIME части обязателен и соответствует содержимому. */
   avatar: Blob | File;
+};
+
+export type DeleteNotebook409Code = typeof DeleteNotebook409Code[keyof typeof DeleteNotebook409Code];
+
+
+export const DeleteNotebook409Code = {
+  notebook_in_use: 'notebook_in_use',
+} as const;
+
+export type DeleteNotebook409 = {
+  code: DeleteNotebook409Code;
+  message: string;
 };
 
 export type InspectRuntimeVariablesBody = {
@@ -1710,6 +1722,148 @@ return bearerFetch<disableTwoFactorAuthResponse>(getDisableTwoFactorAuthUrl(),
 
 
 
+export type deleteNotebookResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteNotebookResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type deleteNotebookResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type deleteNotebookResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type deleteNotebookResponse404 = {
+  data: Error
+  status: 404
+}
+
+export type deleteNotebookResponse409 = {
+  data: DeleteNotebook409
+  status: 409
+}
+
+export type deleteNotebookResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type deleteNotebookResponseSuccess = (deleteNotebookResponse204) & {
+  headers: Headers;
+};
+export type deleteNotebookResponseError = (deleteNotebookResponse400 | deleteNotebookResponse401 | deleteNotebookResponse403 | deleteNotebookResponse404 | deleteNotebookResponse409 | deleteNotebookResponse500) & {
+  headers: Headers;
+};
+
+export type deleteNotebookResponse = (deleteNotebookResponseSuccess | deleteNotebookResponseError)
+
+export const getDeleteNotebookUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}`
+}
+
+/**
+ * Удаляет целиком блокнот текущего пользователя и связанные данные. ID владельца определяется по авторизации, а не передаётся в запросе. Тело запроса и If-Match не требуются.
+ *
+ * Если у блокнота активная runtime-сессия, удаление отклоняется с 409 notebook_in_use даже при отсутствии исполняющейся ячейки. Сессия продолжает работу, исполнение не прерывается, блокнот и данные сохраняются. Незавершённая очистка окружения или фоновая работа с данными блокнота также блокируют удаление.
+ *
+ * Удаление не ставится в очередь и не повторяется автоматически: после штатной остановки сессии и завершения фоновой очистки владелец отправляет новый DELETE.
+ *
+ * При успехе транзакционно удаляются блокнот, ячейки, outputs/attachments и связанные записи завершённых и очищенных runtime-сессий (executions, batches, events, projections). Удаление согласовано с параллельным запуском сессии и редактированием: ссылки на удалённый блокнот и частичное удаление недопустимы.
+ *
+ * Чужой, отсутствующий и уже удалённый блокнот возвращают одинаковый 404 not_found. Запрос не останавливает сессию и не удаляет облачные ресурсы. Корзина и восстановление не предусмотрены.
+ *
+ * Backend #86: https://github.com/Cringe-Driven-Development-Team/backend/issues/86
+ * @summary Удалить блокнот
+ */
+export const deleteNotebook = async (id: number, options?: Parameters<typeof bearerFetch>[1]): Promise<deleteNotebookResponse> => {
+
+  return bearerFetch<deleteNotebookResponse>(getDeleteNotebookUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type getNotebookResponse200 = {
+  data: Notebook
+  status: 200
+}
+
+export type getNotebookResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type getNotebookResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type getNotebookResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type getNotebookResponse404 = {
+  data: Error
+  status: 404
+}
+
+export type getNotebookResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type getNotebookResponseSuccess = (getNotebookResponse200) & {
+  headers: Headers;
+};
+export type getNotebookResponseError = (getNotebookResponse400 | getNotebookResponse401 | getNotebookResponse403 | getNotebookResponse404 | getNotebookResponse500) & {
+  headers: Headers;
+};
+
+export type getNotebookResponse = (getNotebookResponseSuccess | getNotebookResponseError)
+
+export const getGetNotebookUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}`
+}
+
+/**
+ * @summary Блокнот
+ */
+export const getNotebook = async (id: number, options?: Parameters<typeof bearerFetch>[1]): Promise<getNotebookResponse> => {
+
+  return bearerFetch<getNotebookResponse>(getGetNotebookUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
 export type createCellResponse201 = {
   data: Cell
   status: 201
@@ -2251,69 +2405,6 @@ return bearerFetch<moveNotebookCellResponse>(getMoveNotebookCellUrl(id,cellId),
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(moveNotebookCellRequest)
-  }
-);}
-
-
-
-export type getNotebookResponse200 = {
-  data: Notebook
-  status: 200
-}
-
-export type getNotebookResponse400 = {
-  data: Error
-  status: 400
-}
-
-export type getNotebookResponse401 = {
-  data: Error
-  status: 401
-}
-
-export type getNotebookResponse403 = {
-  data: Error
-  status: 403
-}
-
-export type getNotebookResponse404 = {
-  data: Error
-  status: 404
-}
-
-export type getNotebookResponse500 = {
-  data: Error
-  status: 500
-}
-
-export type getNotebookResponseSuccess = (getNotebookResponse200) & {
-  headers: Headers;
-};
-export type getNotebookResponseError = (getNotebookResponse400 | getNotebookResponse401 | getNotebookResponse403 | getNotebookResponse404 | getNotebookResponse500) & {
-  headers: Headers;
-};
-
-export type getNotebookResponse = (getNotebookResponseSuccess | getNotebookResponseError)
-
-export const getGetNotebookUrl = (id: number,) => {
-
-
-
-
-  return `/notebooks/${id}`
-}
-
-/**
- * @summary Блокнот
- */
-export const getNotebook = async (id: number, options?: Parameters<typeof bearerFetch>[1]): Promise<getNotebookResponse> => {
-
-  return bearerFetch<getNotebookResponse>(getGetNotebookUrl(id),
-  {
-    ...options,
-    method: 'GET'
-
-
   }
 );}
 

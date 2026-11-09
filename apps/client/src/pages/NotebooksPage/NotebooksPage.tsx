@@ -9,6 +9,9 @@ import { ProfileLink } from '@components/ProfileLink/ProfileLink';
 import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { Link } from '@cdd-team/router';
+import { checkDeleteGate } from '@modules/notebookDelete/actions';
+import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
+import type { DeleteGate } from '@modules/notebookDelete/gate';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
@@ -57,6 +60,15 @@ export function NotebooksPage() {
     const [list, setList] = useState<ListState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
     const [creating, setCreating] = useState(false);
+    const [deleting, setDeleting] = useState<{
+        notebook: NotebookSummary;
+        gate: DeleteGate;
+    } | null>(null);
+    /**
+     * Идёт проверка окружения перед диалогом: повторные нажатия корзин не считаются. Кнопку не
+     * отключаем — иначе она теряет фокус, и диалог не вернёт его к ней.
+     */
+    const [checking, setChecking] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -82,6 +94,29 @@ export function NotebooksPage() {
 
     const isEmpty = list.status === 'ready' && list.notebooks.length === 0;
     const openCreate = () => setCreating(true);
+
+    const askDelete = async (notebook: NotebookSummary) => {
+        if (checking) return;
+        setChecking(true);
+        const gate = await checkDeleteGate(notebook.id);
+        setChecking(false);
+        if (gate === 'error') showSnackbar('Не удалось удалить блокнот. Попробуйте ещё раз');
+        else setDeleting({ notebook, gate });
+    };
+
+    const onGone = (id: number, result: 'deleted' | 'notFound') => {
+        setDeleting(null);
+        if (result === 'notFound') {
+            setList({ status: 'loading' });
+            setAttempt((current) => current + 1);
+            return;
+        }
+        setList((current) =>
+            current.status === 'ready'
+                ? { ...current, notebooks: current.notebooks.filter((n) => n.id !== id) }
+                : current,
+        );
+    };
 
     return (
         <div className={styles.page}>
@@ -131,7 +166,10 @@ export function NotebooksPage() {
                     <ul key="grid" className={styles.grid}>
                         {list.notebooks.map((notebook) => (
                             <li key={notebook.id}>
-                                <NotebookCard notebook={notebook} />
+                                <NotebookCard
+                                    notebook={notebook}
+                                    onDelete={() => void askDelete(notebook)}
+                                />
                             </li>
                         ))}
                     </ul>
@@ -149,6 +187,16 @@ export function NotebooksPage() {
                 )}
             </div>
             {creating && <CreateNotebookDialog key="create" onClose={() => setCreating(false)} />}
+            {deleting && (
+                <DeleteNotebookDialog
+                    key="delete"
+                    notebook={deleting.notebook}
+                    gate={deleting.gate}
+                    place="home"
+                    onClose={() => setDeleting(null)}
+                    onGone={(result) => onGone(deleting.notebook.id, result)}
+                />
+            )}
         </div>
     );
 }

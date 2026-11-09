@@ -7,7 +7,7 @@ import { logTrpcError } from './log.ts';
 import { appRouter } from './router/index.ts';
 
 /**
- * Обработчик запросов BFF целиком: tRPC, HTML, публичные файлы. Его отдают `Bun.serve` и тесты.
+ * Обработчик запросов BFF целиком: tRPC, HTML, публичные файлы. Его отдаёт `Bun.serve`.
  * HEAD обслуживается как GET: тело отбрасывает Bun, `Content-Length` сохраняется (Hono превращал
  * бы HEAD в ответ с `Content-Length: 0`); исходный метод — в env Hono, для access-лога.
  * @param template проверенный HTML-шаблон клиента

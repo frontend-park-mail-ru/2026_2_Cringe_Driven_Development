@@ -20,9 +20,8 @@ bun run check
 bun run build
 ```
 
-`check` проверяет форматирование, линт и типы. CI `Check` дополнительно запускает
-`bun run test` и собирает Docker-образ BFF. Изменённое поведение проверяйте
-соответствующими тестами и вручную; проверки не выкатывают проект.
+`check` проверяет форматирование, линт и типы. CI `Check` дополнительно собирает
+Docker-образ BFF. Изменённое поведение проверяйте вручную; проверки не выкатывают проект.
 
 ## Как работать с задачами
 
@@ -58,17 +57,17 @@ bun run build
 
 Все команды запускаются из корня, зависимости ставит один `bun install`
 
-| Команда                                             | Что делает                                                            |
-| --------------------------------------------------- | --------------------------------------------------------------------- |
-| `bun run dev`                                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
-| `bun run dev:pwa`                                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
-| `bun run dev:prism`                                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
-| `bun run dev:trust-windows`                         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
-| `bun run build`                                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
-| `bun run check`                                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`      |
-| `bun run lint`, `bun run typecheck`, `bun run test` | по отдельности, тоже во всех пакетах                                  |
+| Команда                             | Что делает                                                            |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
+| `bun run dev:pwa`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
+| `bun run dev:prism`                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
+| `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
+| `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
+| `bun run check`                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`      |
+| `bun run lint`, `bun run typecheck` | по отдельности, тоже во всех пакетах                                  |
 
-`build`, `lint`, `typecheck` и `test` идут через `turbo run`: пакет собирается после своих
+`build`, `lint` и `typecheck` идут через `turbo run`: пакет собирается после своих
 зависимостей, а повторный запуск без изменений берёт результат из кеша `.turbo/`
 (`>>> FULL TURBO` в выводе). Команду в одном пакете —
 `bun run --filter @cdd/client <скрипт>`
@@ -158,12 +157,8 @@ SESSION_KEY=$(openssl rand -base64 32) GO_API_URL=<адрес Cloud Mock> \
 curl localhost:3000/health
 ```
 
-Проверка Cloud Mock — `GO_API_URL=<адрес Cloud Mock> bun run mock:check` (`apps/bff/test/mock-check.ts`):
-статусы mock expectations и тела ответов по zod-схемам. Сценарии, которым нужно
-состояние Go (одновременный refresh, повтор после 401, сбои и таймауты Go), проверяют тесты
-`bun run test`: `apps/client/test/` — смена сессии в транспорте клиента на настоящем клиенте tRPC
-с управляемым `fetch`; `apps/bff/test/` — весь обработчик BFF против Go с управляемыми ответами
-(`test/fake-go.ts`), без сервера и сети.
+Сценарии, которым нужно состояние Go (одновременный refresh, повтор после 401, сбои и
+таймауты Go), Cloud Mock не воспроизводит: их проверяют вручную на реальном Go.
 
 ## Клиент через BFF
 

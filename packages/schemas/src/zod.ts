@@ -371,6 +371,74 @@ export const DisableTwoFactorAuthResponse = zod.unknown()
 
 
 /**
+ * Удаляет целиком блокнот текущего пользователя и связанные данные. ID владельца определяется по авторизации, а не передаётся в запросе. Тело запроса и If-Match не требуются.
+ *
+ * Если у блокнота активная runtime-сессия, удаление отклоняется с 409 notebook_in_use даже при отсутствии исполняющейся ячейки. Сессия продолжает работу, исполнение не прерывается, блокнот и данные сохраняются. Незавершённая очистка окружения или фоновая работа с данными блокнота также блокируют удаление.
+ *
+ * Удаление не ставится в очередь и не повторяется автоматически: после штатной остановки сессии и завершения фоновой очистки владелец отправляет новый DELETE.
+ *
+ * При успехе транзакционно удаляются блокнот, ячейки, outputs/attachments и связанные записи завершённых и очищенных runtime-сессий (executions, batches, events, projections). Удаление согласовано с параллельным запуском сессии и редактированием: ссылки на удалённый блокнот и частичное удаление недопустимы.
+ *
+ * Чужой, отсутствующий и уже удалённый блокнот возвращают одинаковый 404 not_found. Запрос не останавливает сессию и не удаляет облачные ресурсы. Корзина и восстановление не предусмотрены.
+ *
+ * Backend #86: https://github.com/Cringe-Driven-Development-Team/backend/issues/86
+ * @summary Удалить блокнот
+ */
+
+
+
+export const DeleteNotebookParams = zod.object({
+  "id": zod.int().min(1)
+})
+
+
+
+
+export const DeleteNotebookHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const DeleteNotebookResponse = zod.void()
+
+
+/**
+ * @summary Блокнот
+ */
+
+
+
+export const GetNotebookParams = zod.object({
+  "id": zod.int().min(1)
+})
+
+
+
+
+export const GetNotebookHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+
+export const getNotebookResponseCellsItemIdMax = 64;
+
+
+export const getNotebookResponseCellsItemIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const GetNotebookResponse = zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "name": zod.string().describe('Название блокнота'),
+  "cells": zod.array(zod.object({
+  "id": zod.string().min(1).max(getNotebookResponseCellsItemIdMax).regex(getNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
+  "source": zod.string().describe('Содержимое блока')
+}).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "updated_at": zod.iso.datetime({"offset":true})
+}).describe('Блокнот (.ipynb)')
+
+
+/**
  * @summary Добавление блока
  */
 
@@ -655,43 +723,6 @@ export const MoveNotebookCellBody = zod.object({
 export const MoveNotebookCellResponse = zod.object({
   "hash": zod.string().min(1).describe('Непрозрачный токен редакции всего блокнота, без HTTP-кавычек; не SHA-256 файла. Не вычислять на клиенте. В If-Match передавать в двойных кавычках.')
 })
-
-
-/**
- * @summary Блокнот
- */
-
-
-
-export const GetNotebookParams = zod.object({
-  "id": zod.int().min(1)
-})
-
-
-
-
-export const GetNotebookHeader = zod.object({
-  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
-})
-
-
-export const getNotebookResponseCellsItemIdMax = 64;
-
-
-export const getNotebookResponseCellsItemIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
-
-
-export const GetNotebookResponse = zod.object({
-  "id": zod.int().min(1).describe('ID'),
-  "name": zod.string().describe('Название блокнота'),
-  "cells": zod.array(zod.object({
-  "id": zod.string().min(1).max(getNotebookResponseCellsItemIdMax).regex(getNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
-  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
-  "source": zod.string().describe('Содержимое блока')
-}).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
-  "created_at": zod.iso.datetime({"offset":true}),
-  "updated_at": zod.iso.datetime({"offset":true})
-}).describe('Блокнот (.ipynb)')
 
 
 /**

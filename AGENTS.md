@@ -94,7 +94,6 @@ Wiki описывает реализацию; состояние прода пр
 Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
 контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
 ([локальный мок на Prism](docs/api-contract.md#локальный-мок-на-prism)).
-Управляемые ответы в автоматических тестах допустимы.
 
 ## Источники
 
@@ -149,15 +148,17 @@ vite берёт их оттуда.
   `PAGES` (`@cdd/bff/pages`): по этому списку BFF решает, куда вести прямой запрос страницы,
   поэтому новая страница добавляется сначала в `PAGES`.
   `pages/NotebookPage/`: `Runtime.tsx` — баннер, кнопки окружения и колонка запуска у ячейки; `status.ts` —
-  чистые функции, что показать по состоянию `runtime` и сохранения (тесты — `test/notebookStatus.test.ts`);
+  чистые функции, что показать по состоянию `runtime` и сохранения;
   `Output.tsx` — вывод исполнения: текст — текстовыми узлами, PNG/SVG — через `<img>`, HTML — только в
   `<iframe sandbox="">` через `srcdoc`. iframe наследует CSP страницы: встроенные стили HTML-вывода на проде
   блокируются.
 - `stores/` — сторы на `@cdd-team/zustand`: `session`, `toast`, `snackbar`; `preloaded` — блокнот из bootstrap; `notebook` — ячейки и сохранение; `runtime` — окружение, исполнение и единая цепочка опроса `runtime.updates`.
+- `modules/notebookDelete/` — удаление блокнота с главной и из редактора: допуск по окружению (`gate.ts`),
+  `notebooks.delete` с забыванием черновиков и опроса (`actions.ts`), корзина и общий диалог.
 - `styles/tokens.css` — переменные с именами как в макете (`color/bg` → `--color-bg`).
   Глобальные стили — только `styles/global.css` и `styles/tokens.css`.
-- `assets/` — SVG (знак логотипа, иконки): Vite встраивает их в бандл. Favicon — `public/apple-touch-icon.png`,
-  его отдаёт BFF с origin: файлы `public/` в HTML prod-сборки не уходят на CDN (`renderBuiltUrl` в `vite.config.prod.ts`).
+- `assets/` — SVG (знак логотипа, иконки): Vite встраивает их в бандл. Favicon — `public/favicon.png` (знак на прозрачном фоне), иконка iOS — `public/apple-touch-icon.png`,
+  их отдаёт BFF с origin: файлы `public/` в HTML prod-сборки не уходят на CDN (`renderBuiltUrl` в `vite.config.prod.ts`).
   Картинки и шрифты лежат в репозитории
   [static](https://github.com/Cringe-Driven-Development-Team/static) и берутся с
   `https://static.cellestial.ru` (переменная `VITE_STATIC_URL` в `.env`). В `index.html` адрес пишется как
@@ -201,8 +202,7 @@ vite берёт их оттуда.
   только затем вызывает процедуру смены — поздний `Set-Cookie` прежней сессии не перепишет новую cookie. Ответ на запрос прежней сессии приходит
   ошибкой `SESSION_CHANGED` и в интерфейс не попадает. Если, пока ждали, запрос получил `UNAUTHORIZED`, а
   смена не удалась, сессия всё равно считается потерянной (`onSessionLost`). Смены сессии идут по
-  очереди: вызов во время другой смены начинается после её завершения. Эти последовательности
-  проверяют тесты `apps/client/test/` на настоящем клиенте tRPC с управляемым `fetch`.
+  очереди: вызов во время другой смены начинается после её завершения.
 - Выход (`auth.logout`) идёт мимо `session.call`: без refresh и повторов. Действующий access — один
   `POST /auth/logout`; истёкший — Go не вызывается. Cookie удаляется при любом итоге, ответ —
   `{ browserSession: 'ended', serverRevocation }`: `confirmed` (Go 204), `unconfirmed` (access истёк

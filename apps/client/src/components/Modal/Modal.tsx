@@ -12,17 +12,24 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
 /** Свойства {@link Modal}. */
 interface ModalProps {
     title: string;
+    /** Блок между заголовком и описанием, например название удаляемого */
+    lead?: ReactNode;
     /** Текст под заголовком */
     description?: string;
     /** id элемента, который получает фокус при открытии */
     initialFocusId: string;
     /** Ссылка «Назад» над заголовком: возврат к предыдущему шагу */
     onBack?: () => void;
+    /** Идёт необратимое действие: крестик недоступен, Escape и клик по затемнению не закрывают */
+    locked?: boolean;
     onClose: () => void;
     children: ReactNode;
 }
 
-/** Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно. */
+/**
+ * Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно. Shift+Tab
+ * с программно сфокусированного элемента перед первым (например, раскрытого текста) — на последний.
+ */
 function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     if (event.key !== 'Tab') return;
     const items = dialog.querySelectorAll<HTMLElement>(FOCUSABLE);
@@ -33,7 +40,12 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     if (!dialog.contains(active)) {
         event.preventDefault();
         first.focus();
-    } else if (event.shiftKey && active === first) {
+    } else if (
+        event.shiftKey &&
+        active &&
+        (active === first ||
+            first.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_PRECEDING)
+    ) {
         event.preventDefault();
         last.focus();
     } else if (!event.shiftKey && active === last) {
@@ -44,14 +56,16 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 
 /**
  * Модалка по центру поверх затемнения (Components → Modal), порталом в `body`.
- * Закрывается крестиком, Escape и кликом по затемнению. При открытии фокус уходит
- * на `initialFocusId`, при закрытии возвращается туда, где был.
+ * Закрывается крестиком, Escape и кликом по затемнению, если не `locked`. При открытии фокус
+ * уходит на `initialFocusId`, при закрытии возвращается туда, где был.
  */
 export function Modal({
     title,
+    lead,
     description,
     initialFocusId,
     onBack,
+    locked = false,
     onClose,
     children,
 }: ModalProps) {
@@ -66,7 +80,7 @@ export function Modal({
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
-                onClose();
+                if (!locked) onClose();
                 return;
             }
             const dialog = document.getElementById(DIALOG_ID);
@@ -84,7 +98,7 @@ export function Modal({
         };
         /** Клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape */
         const handleClick = (event: MouseEvent) => {
-            if (pressedOnOverlay && onOverlay(event)) onClose();
+            if (!locked && pressedOnOverlay && onOverlay(event)) onClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('mousedown', handleMouseDown);
@@ -94,7 +108,7 @@ export function Modal({
             document.removeEventListener('mousedown', handleMouseDown);
             document.removeEventListener('click', handleClick);
         };
-    }, [onClose]);
+    }, [onClose, locked]);
 
     return createPortal(
         <div id={OVERLAY_ID} className={styles.overlay}>
@@ -116,6 +130,11 @@ export function Modal({
                     <h2 key="title" id={TITLE_ID} className={styles.title}>
                         {title}
                     </h2>
+                    {lead && (
+                        <div key="lead" className={styles.lead}>
+                            {lead}
+                        </div>
+                    )}
                     {description && (
                         <p key="description" id={DESCRIPTION_ID} className={styles.description}>
                             {description}
@@ -127,6 +146,7 @@ export function Modal({
                     icon="close"
                     label="Закрыть"
                     className={styles.close}
+                    disabled={locked}
                     onClick={onClose}
                 />
                 <div key="body">{children}</div>

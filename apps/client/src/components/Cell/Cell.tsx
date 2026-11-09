@@ -394,6 +394,14 @@ export function Cell({
                         aria-describedby={readOnly ? undefined : hintId}
                         onFocus={onFocus}
                         onDoubleClick={edit}
+                        // на таче двойное касание — масштаб, Enter нет: правка — одним касанием.
+                        // Прокрутка шлёт pointercancel, а не pointerup; касание ссылки её открывает
+                        onPointerUp={(event) => {
+                            if (event.pointerType !== 'touch' && event.pointerType !== 'pen')
+                                return;
+                            if ((event.target as Element).closest('a')) return;
+                            edit();
+                        }}
                         onKeyDown={(event) => {
                             // Enter на ссылке внутри просмотра открывает ссылку
                             if (event.target !== event.currentTarget) return;
