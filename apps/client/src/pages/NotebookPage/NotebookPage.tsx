@@ -208,7 +208,7 @@ export function NotebookPage() {
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     // Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода
     const [fresh, setFresh] = useState<string | undefined>(undefined);
-    // на тач-устройстве блокнот только для чтения: ячейки не создаются, не меняются и не двигаются
+    // на тач-устройстве нет поиска по блокноту: работает поиск браузера
     const touch = useTouchDevice();
     const forcedColors = useForcedColors();
     const notebook = useNotebookStore();
@@ -261,10 +261,6 @@ export function NotebookPage() {
         },
         [id],
     );
-    // стал тачем посреди ввода: редакторы пропадают, черновики отправляются сразу
-    useLayoutEffect(() => {
-        if (touch) leaveNotebook();
-    }, [touch]);
 
     // Несохранённый текст: браузер предупредит перед уходом и перезагрузкой
     const unsaved = notebook.status !== 'idle' && notebook.status !== 'saved';
@@ -313,7 +309,7 @@ export function NotebookPage() {
     const cells = ready ? notebook.confirmed!.cells : [];
     const locked = structureLocked(notebook);
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
-    const hasToolbar = load !== 'error' && !touch;
+    const hasToolbar = load !== 'error';
     const execution = ready ? runtimeStatus(runtime) : undefined;
     // проблемы и ход сохранения видны рядом со статусом выполнения, «Сохранено» его не перекрывает
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
@@ -553,7 +549,6 @@ export function NotebookPage() {
                                             canMoveDown={row.index < cells.length - 1}
                                             locked={locked}
                                             startEditing={fresh === row.cell.id}
-                                            readOnly={touch}
                                             onInput={(text, composing) =>
                                                 editSource(row.cell.id, text, composing)
                                             }
@@ -569,7 +564,7 @@ export function NotebookPage() {
                                             onMoveDown={() => handleMove(row.cell.id, 1)}
                                             onDelete={() => handleDelete(row.cell.id)}
                                         />
-                                        {!touch && row.index < cells.length - 1 && (
+                                        {row.index < cells.length - 1 && (
                                             <div key="insert" className={styles.insert}>
                                                 <AddCellChips
                                                     disabled={locked}
@@ -581,21 +576,12 @@ export function NotebookPage() {
                                 ),
                             )}
                         </ul>
-                        {!touch && (
-                            <div key="add" className={styles.add}>
-                                <AddCellChips disabled={locked} onAdd={handleAdd} />
-                            </div>
-                        )}
+                        <div key="add" className={styles.add}>
+                            <AddCellChips disabled={locked} onAdd={handleAdd} />
+                        </div>
                     </div>
                 )}
-                {isEmpty && touch && (
-                    <StateBlock
-                        key="empty-touch"
-                        title="В блокноте пусто"
-                        description="Добавлять ячейки можно на компьютере"
-                    />
-                )}
-                {isEmpty && !touch && (
+                {isEmpty && (
                     <StateBlock
                         key="empty"
                         title="В блокноте пусто"
