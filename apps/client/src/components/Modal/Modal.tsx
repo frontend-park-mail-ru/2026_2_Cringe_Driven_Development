@@ -18,6 +18,8 @@ interface ModalProps {
     initialFocusId: string;
     /** Ссылка «Назад» над заголовком: возврат к предыдущему шагу */
     onBack?: () => void;
+    /** Идёт необратимое действие: крестик недоступен, Escape и клик по затемнению не закрывают */
+    locked?: boolean;
     onClose: () => void;
     children: ReactNode;
 }
@@ -48,7 +50,7 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
 
 /**
  * Модалка по центру поверх затемнения (Components → Modal), порталом в `body`.
- * Закрывается крестиком, Escape и кликом по затемнению. При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
+ * Закрывается крестиком, Escape и кликом по затемнению, если не `locked`. При открытии фокус уходит на initialFocusId, при закрытии возвращается туда, где был.
  * @param props свойства модалки
  * @returns модалка
  */
@@ -57,6 +59,7 @@ export function Modal({
     description,
     initialFocusId,
     onBack,
+    locked = false,
     onClose,
     children,
 }: ModalProps) {
@@ -71,7 +74,7 @@ export function Modal({
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
-                onClose();
+                if (!locked) onClose();
                 return;
             }
             const dialog = document.getElementById(DIALOG_ID);
@@ -86,7 +89,7 @@ export function Modal({
         };
         // клик по затемнению, а не по самой модалке; с клавиатуры то же делает Escape
         const handleClick = (event: MouseEvent) => {
-            if (pressedOnOverlay && onOverlay(event)) onClose();
+            if (!locked && pressedOnOverlay && onOverlay(event)) onClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('mousedown', handleMouseDown);
@@ -96,7 +99,7 @@ export function Modal({
             document.removeEventListener('mousedown', handleMouseDown);
             document.removeEventListener('click', handleClick);
         };
-    }, [onClose]);
+    }, [onClose, locked]);
 
     return createPortal(
         <div id={OVERLAY_ID} className={styles.overlay}>
@@ -129,6 +132,7 @@ export function Modal({
                     icon="close"
                     label="Закрыть"
                     className={styles.close}
+                    disabled={locked}
                     onClick={onClose}
                 />
                 <div key="body">{children}</div>
