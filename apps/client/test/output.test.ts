@@ -34,6 +34,22 @@ test('ошибка — traceback без ANSI; без traceback — имя и с�
     });
 });
 
+test('поля не того типа — текст или «не поддерживается», не разметка', () => {
+    const xss = '<img src=x onerror=alert(1)>';
+    expect(pickOutput({ output_type: 'error', ename: { a: 1 }, evalue: xss })).toEqual({
+        kind: 'error',
+        text: `[object Object]: ${xss}`,
+    });
+    expect(pickOutput({ output_type: 'error', traceback: [{}, 1] })).toEqual({
+        kind: 'error',
+        text: '[object Object]\n1',
+    });
+    expect(pickOutput({ output_type: 'display_data', data: { [`text/x-${xss}`]: 1 } })).toEqual({
+        kind: 'unsupported',
+        mimes: [`text/x-${xss}`],
+    });
+});
+
 test('PNG важнее SVG, SVG важнее HTML: картинка через data URL', () => {
     const data = {
         'image/png': 'iVBO\nRw==',
@@ -78,15 +94,6 @@ test('фрагменты одного потока склеиваются без
         { key: 0, shown: { kind: 'text', text: 'ab\n\n  c\n', stream: undefined } },
     ]);
     expect(groupOutputs([])).toEqual([]);
-});
-
-test('вывод — не объект: не поддерживается, без падения', () => {
-    const outputs = [null, 'x', out('a')] as unknown as Parameters<typeof groupOutputs>[0];
-    expect(groupOutputs(outputs).map(({ shown }) => shown.kind)).toEqual([
-        'unsupported',
-        'unsupported',
-        'text',
-    ]);
 });
 
 test('текст не склеивается через stderr, результат выражения, картинку и ошибку', () => {

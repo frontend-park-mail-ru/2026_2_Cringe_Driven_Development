@@ -72,9 +72,7 @@ export function pickOutput(output: NbOutput): Shown {
  */
 export function groupOutputs(outputs: NbOutput[]): { key: number; shown: Shown }[] {
     const groups: { key: number; shown: Shown }[] = [];
-    outputs.forEach((value, index) => {
-        // вывод — не объект (null, строка): «не поддерживается», а не падение страницы
-        const output: NbOutput = typeof value === 'object' && value !== null ? value : {};
+    outputs.forEach((output, index) => {
         const shown = pickOutput(output);
         const last = groups.at(-1)?.shown;
         if (
