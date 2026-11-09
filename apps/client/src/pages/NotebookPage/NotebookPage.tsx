@@ -623,7 +623,8 @@ export function NotebookPage() {
                     </StateBlock>
                 )}
             </div>
-            {ready && <ConflictDialog key="dialog" />}
+            {/* конфликт остаётся в сторе и откроется, когда закроется диалог удаления */}
+            {ready && !deleting && <ConflictDialog key="dialog" />}
             {deleting && notebook.meta && (
                 <DeleteNotebookDialog
                     key="delete"
