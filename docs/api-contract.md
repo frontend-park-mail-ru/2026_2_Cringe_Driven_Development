@@ -4,7 +4,7 @@
 `spec/openapi.json` и сгенерированное по ней:
 
 - `apps/bff/src/go/client.ts` — fetch-клиент BFF к Go (Orval, мутатор `bearerFetch` в `apps/bff/src/go/fetch.ts`:
-  адрес Go — `GO_API_URL`, по умолчанию `http://api:8080/api/v1`; `Authorization: Bearer` передаёт вызывающий код);
+  адрес Go — обязательный `GO_API_URL` (в `bun run dev` по умолчанию Cloud Mock Apidog); `Authorization: Bearer` передаёт вызывающий код);
 - `packages/schemas/src/zod.ts` — zod-схемы операций Go (Orval), пакет `@cdd/schemas`.
 
 Клиент контракт Go не читает: он ходит только в BFF, типы процедур — `RouterInputs` / `RouterOutputs`
@@ -77,7 +77,8 @@ BFF получает `BFF_KEY=local-prism`, если ключ не задан: �
 
 - Ответы — **примеры контракта**. Своих мок-файлов нет: нужен другой пример — правь его в
   Apidog и выполни `bun run sync`. Prism проверяет запросы BFF по контракту (путь, тело,
-  `If-Match`) и отвечает `400`, если запрос не по нему.
+  `If-Match`); статус отказа валидации зависит от нарушения и ответов операции
+  в контракте (например, `400` или `422`).
 - Только `cells.create` получает случайные данные (`Prefer: dynamic=true`), чтобы у новых
   ячеек были разные id; изредка короткий id может совпасть — тогда перезагрузите страницу.
 - В консоли браузера `mock('cells.update', 409)` — следующий запрос с этой процедурой получит
