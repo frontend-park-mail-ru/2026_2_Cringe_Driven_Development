@@ -89,3 +89,61 @@
     font: var(--font-caption);
     color: var(--color-text-secondary);
 }
+
+/* Цвета ANSI (pip, IPython traceback): 0–7 обычные, 8–15 яркие, подобраны под тёмную подложку */
+.ansi0 {
+    color: var(--color-text-disabled);
+}
+.ansi1 {
+    color: var(--color-error);
+}
+.ansi2 {
+    color: var(--color-success);
+}
+.ansi3 {
+    color: var(--color-warning);
+}
+.ansi4 {
+    color: #8ab4ff;
+}
+.ansi5 {
+    color: var(--code-keyword);
+}
+.ansi6 {
+    color: #7fdbe6;
+}
+.ansi7 {
+    color: var(--code-text);
+}
+.ansi8 {
+    color: var(--code-comment);
+}
+.ansi9 {
+    color: #ffb8b8;
+}
+.ansi10 {
+    color: #9ff7c8;
+}
+.ansi11 {
+    color: #ffe0a8;
+}
+.ansi12 {
+    color: #b3cdff;
+}
+.ansi13 {
+    color: #d4c2ff;
+}
+.ansi14 {
+    color: #a8eef5;
+}
+.ansi15 {
+    color: var(--color-text-primary);
+}
+
+.bold {
+    font-weight: 700;
+}
+
+.dim {
+    opacity: 0.7;
+}

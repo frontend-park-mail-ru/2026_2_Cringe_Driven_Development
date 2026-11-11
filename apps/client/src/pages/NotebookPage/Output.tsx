@@ -1,3 +1,4 @@
+import { clsx } from '@cdd-team/clsx';
 import { useLayoutEffect, useRef } from '@cdd-team/react';
 import { Icon } from '@components/Icon/Icon';
 import styles from './Output.module.css';
@@ -22,9 +23,59 @@ const joined = (value: unknown): string | undefined => {
     return undefined;
 };
 
-/** Цвета IPython в traceback — управляющие последовательности ANSI, текстом они не нужны. */
+/** Оформление куска текста по ANSI SGR: цвет 0–15 и жирность. */
+interface AnsiStyle {
+    color?: number;
+    bold?: boolean;
+    dim?: boolean;
+}
+
+/** Кусок текста с одним оформлением. */
+export type AnsiPart = AnsiStyle & { text: string };
+
+// Управляющая последовательность CSI: цвет (`m`) применяется, остальное (курсор pip) выкидывается.
 // oxlint-disable-next-line no-control-regex
-const stripAnsi = (text: string): string => text.replace(/\u001b\[[\d;]*m/g, '');
+const CSI = /\u001b\[([\d;?]*)([A-Za-z])/g;
+
+/** Новое оформление после `ESC[…m`. 256 цветов и RGB вне 16 базовых не показываем, текст остаётся. */
+function applySgr(style: AnsiStyle, params: string): AnsiStyle {
+    const codes = params === '' ? [0] : params.split(';').map(Number);
+    let next = { ...style };
+    for (let i = 0; i < codes.length; i++) {
+        const code = codes[i]!;
+        if (code === 0) next = {};
+        else if (code === 1) next.bold = true;
+        else if (code === 2) next.dim = true;
+        else if (code === 22) next = { ...next, bold: undefined, dim: undefined };
+        else if (code >= 30 && code <= 37) next.color = code - 30;
+        else if (code >= 90 && code <= 97) next.color = code - 90 + 8;
+        else if (code === 39) next.color = undefined;
+        else if (code === 38 || code === 48) {
+            const mode = codes[i + 1];
+            if (code === 38)
+                next.color = mode === 5 && codes[i + 2]! < 16 ? codes[i + 2] : undefined;
+            i += mode === 5 ? 2 : mode === 2 ? 4 : 0;
+        }
+    }
+    return next;
+}
+
+/** Текст с ANSI-последовательностями — куски с оформлением, сами последовательности убраны. */
+export function parseAnsi(text: string): AnsiPart[] {
+    const parts: AnsiPart[] = [];
+    let style: AnsiStyle = {};
+    let from = 0;
+    const push = (to: number) => {
+        if (to > from) parts.push({ ...style, text: text.slice(from, to) });
+    };
+    for (const match of text.matchAll(CSI)) {
+        push(match.index);
+        from = match.index + match[0].length;
+        if (match[2] === 'm') style = applySgr(style, match[1]!);
+    }
+    push(text.length);
+    return parts;
+}
 
 /**
  * Одно представление вывода: PNG → SVG → HTML → текст. SVG — только как картинка, HTML — только в
@@ -43,7 +94,7 @@ export function pickOutput(output: NbOutput): Shown {
                 Array.isArray(output.traceback) ? output.traceback.map((l) => `${l}\n`) : undefined,
             );
             const title = `${String(output.ename ?? 'Error')}: ${String(output.evalue ?? '')}`;
-            return { kind: 'error', text: stripAnsi(traceback?.trimEnd() || title) };
+            return { kind: 'error', text: traceback?.trimEnd() || title };
         }
     }
     const data = (output.data ?? {}) as Record<string, unknown>;
@@ -96,7 +147,7 @@ interface OutputsProps {
 
 /**
  * Выводы кодовой ячейки по порядку в общей области. Текст и traceback — текстовыми узлами,
- * разметка в них не разбирается.
+ * разметка в них не разбирается; из ANSI берутся только цвета.
  */
 export function Outputs({ outputs, truncated }: OutputsProps) {
     if (outputs.length === 0 && !truncated) return null;
@@ -120,7 +171,7 @@ function OutputView({ shown }: { shown: Shown }) {
         case 'text':
             return (
                 <pre className={shown.stream === 'stderr' ? styles.stderr : styles.text}>
-                    {shown.text}
+                    {ansiNodes(shown.text)}
                 </pre>
             );
         case 'error':
@@ -131,7 +182,7 @@ function OutputView({ shown }: { shown: Shown }) {
                         Ошибка выполнения
                     </p>
                     <pre key="traceback" className={styles.traceback}>
-                        {shown.text}
+                        {ansiNodes(shown.text)}
                     </pre>
                 </div>
             );
@@ -153,6 +204,25 @@ function OutputView({ shown }: { shown: Shown }) {
             );
     }
 }
+
+/** Текст с цветами ANSI: куски без оформления — текстовые узлы, остальные — span с классами. */
+const ansiNodes = (text: string) =>
+    parseAnsi(text).map((part, index) =>
+        part.color === undefined && !part.bold && !part.dim ? (
+            part.text
+        ) : (
+            <span
+                key={`ansi-${index}`}
+                className={clsx(
+                    part.color !== undefined && styles[`ansi${part.color}`],
+                    part.bold && styles.bold,
+                    part.dim && styles.dim,
+                )}
+            >
+                {part.text}
+            </span>
+        ),
+    );
 
 /**
  * HTML — в iframe с пустым sandbox: без скриптов, форм и доступа к origin приложения. iframe
