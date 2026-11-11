@@ -88,7 +88,7 @@ export function createHtmlHandler(template: string): (req: Request) => Promise<R
         const { pathname } = new URL(req.url);
         const page = pageOf(pathname);
         const session = await createSession(req);
-        const headers = new Headers();
+        const headers = new Headers({ 'X-Request-ID': session.requestId });
         const go = createGo(session);
         let user: BootstrapData['user'] = null;
         let notebookPage: BootstrapData['notebookPage'];

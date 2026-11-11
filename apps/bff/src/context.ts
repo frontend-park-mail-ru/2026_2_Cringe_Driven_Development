@@ -22,7 +22,7 @@ const csrfInvalid = (): TRPCError =>
 /**
  * Контекст tRPC. CSRF проверяется до чтения сессии и вызовов Go: `X-CSRF: 1` на каждом RPC, у POST
  * ещё `Origin` равен `APP_ORIGIN`, а `Sec-Fetch-Site`, если есть, — `same-origin`. Отказ —
- * `FORBIDDEN` с `appCode: csrf_invalid`.
+ * `FORBIDDEN` с `appCode: csrf_invalid`. В ответ ставит `X-Request-ID` — тот же, что получил Go.
  */
 export async function createContext({
     req,
@@ -36,5 +36,8 @@ export async function createContext({
     }
     const mockPrefer =
         env.MOCK_PREFER === '1' ? parseMockPrefer(req.headers.get('X-Mock-Prefer')) : null;
-    return { session: await createSession(req), resHeaders, mockPrefer };
+    const session = await createSession(req);
+    // тот же id, что ушёл в Go: по нему ищут запрос в логах API
+    resHeaders.set('X-Request-ID', session.requestId);
+    return { session, resHeaders, mockPrefer };
 }
