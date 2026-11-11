@@ -35,13 +35,22 @@ export type AnsiPart = AnsiStyle & { text: string };
 
 // Управляющая последовательность CSI: цвет (`m`) применяется, остальное (курсор pip) выкидывается.
 // oxlint-disable-next-line no-control-regex
-const CSI = /\u001b\[([\d;?]*)([A-Za-z])/g;
+const CSI = /\u001b\[([\d;:?]*)([A-Za-z])/g;
 
-/** Новое оформление после `ESC[…m`. 256 цветов и RGB вне 16 базовых не показываем, текст остаётся. */
+/**
+ * Новое оформление после `ESC[…m`. 256 цветов и RGB вне 16 базовых не показываем, текст остаётся.
+ * Подпараметры через двоеточие (`38:5:1`, `38:2::r:g:b`) — одна группа, соседние коды не задевают.
+ */
 function applySgr(style: AnsiStyle, params: string): AnsiStyle {
-    const codes = params === '' ? [0] : params.split(';').map(Number);
+    const groups = params === '' ? ['0'] : params.split(';');
+    const codes = groups.map(Number);
     let next = { ...style };
     for (let i = 0; i < codes.length; i++) {
+        if (groups[i]!.includes(':')) {
+            const [code, mode, index] = groups[i]!.split(':').map(Number);
+            if (code === 38) next.color = mode === 5 && index! < 16 ? index : undefined;
+            continue;
+        }
         const code = codes[i]!;
         if (code === 0) next = {};
         else if (code === 1) next.bold = true;
@@ -205,9 +214,27 @@ function OutputView({ shown }: { shown: Shown }) {
     }
 }
 
+// Перерисовка строк, как у прогресс-бара pip: `\r` и `ESC[2K` стирают строку, `ESC[1A` — на строку выше.
+// oxlint-disable-next-line no-control-regex
+const REDRAW = /(\r\n|\n|\r|\u001b\[2K|\u001b\[1A)/;
+
+/** Текст после перерисовок: от каждой строки остаётся последний кадр. */
+export function collapseRedraws(text: string): string {
+    const lines = [''];
+    for (const token of text.split(REDRAW)) {
+        if (token === '\n' || token === '\r\n') lines.push('');
+        else if (token === '\r' || token === '\u001b[2K') lines[lines.length - 1] = '';
+        else if (token === '\u001b[1A') {
+            const rest = lines.length > 1 ? lines.pop()! : '';
+            lines[lines.length - 1] += rest;
+        } else lines[lines.length - 1] += token;
+    }
+    return lines.join('\n');
+}
+
 /** Текст с цветами ANSI: куски без оформления — текстовые узлы, остальные — span с классами. */
 const ansiNodes = (text: string) =>
-    parseAnsi(text).map((part, index) =>
+    parseAnsi(collapseRedraws(text)).map((part, index) =>
         part.color === undefined && !part.bold && !part.dim ? (
             part.text
         ) : (
