@@ -1,4 +1,4 @@
-// Локальный мок Go на Prism: ответы — из spec/openapi.json (выгрузка Apidog), без Cloud Mock и его
+// Локальный мок Go на Prism: ответы — из spec/openapi.json (копия контракта backend), без Cloud Mock и его
 // прокси. Клиент и BFF — как в bun run dev, но BFF ходит в Prism; в консоли браузера
 // mock('cells.update', 409) — следующий такой вызов получит этот ответ мока.
 import { join } from 'node:path';

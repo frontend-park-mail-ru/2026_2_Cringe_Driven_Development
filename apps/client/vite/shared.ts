@@ -2,7 +2,7 @@ import svgr from 'vite-plugin-svgr';
 import { loadEnv, type UserConfig } from 'vite';
 import { releaseMetaPlugin, staticUrlPlugin, vitepwaPlugin } from './plugins.ts';
 
-/** `.env` лежит в корне монорепы: его же читают скрипты apidog и release. */
+/** `.env` лежит в корне монорепы: его же читают скрипты release. */
 const envDir = '../..';
 
 /**

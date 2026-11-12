@@ -277,7 +277,6 @@ export type RuntimeSessionLanguage = typeof RuntimeSessionLanguage[keyof typeof 
 
 export const RuntimeSessionLanguage = {
   python: 'python',
-  r: 'r',
 } as const;
 
 /**
@@ -359,7 +358,6 @@ export type RuntimeStartRequestLanguage = typeof RuntimeStartRequestLanguage[key
 
 export const RuntimeStartRequestLanguage = {
   python: 'python',
-  r: 'r',
 } as const;
 
 export interface RuntimeStartRequest {
@@ -842,6 +840,10 @@ export type TouchRuntimeSession200 = {
 
 export type StopRuntimeSession202 = {
   accepted: true;
+};
+
+export type StopRuntimeExecutions200 = {
+  stopped: true;
 };
 
 export type updateCurrentUserResponse200 = {
@@ -3634,6 +3636,80 @@ export const getStopRuntimeSessionUrl = (id: string,) => {
 export const stopRuntimeSession = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeSessionResponse> => {
 
   return bearerFetch<stopRuntimeSessionResponse>(getStopRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type stopRuntimeExecutionsResponse200 = {
+  data: StopRuntimeExecutions200
+  status: 200
+}
+
+export type stopRuntimeExecutionsResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type stopRuntimeExecutionsResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type stopRuntimeExecutionsResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type stopRuntimeExecutionsResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type stopRuntimeExecutionsResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type stopRuntimeExecutionsResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type stopRuntimeExecutionsResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type stopRuntimeExecutionsResponseSuccess = (stopRuntimeExecutionsResponse200) & {
+  headers: Headers;
+};
+export type stopRuntimeExecutionsResponseError = (stopRuntimeExecutionsResponse400 | stopRuntimeExecutionsResponse401 | stopRuntimeExecutionsResponse403 | stopRuntimeExecutionsResponse404 | stopRuntimeExecutionsResponse409 | stopRuntimeExecutionsResponse500 | stopRuntimeExecutionsResponse503) & {
+  headers: Headers;
+};
+
+export type stopRuntimeExecutionsResponse = (stopRuntimeExecutionsResponseSuccess | stopRuntimeExecutionsResponseError)
+
+export const getStopRuntimeExecutionsUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/executions/stop`
+}
+
+/**
+ * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. Успех подтверждает остановку и отмену очереди. Пустая очередь также даёт 200. Сессия остаётся READY; kernel, generation, workspace и переменные сохраняются. Полученный вывод не теряется. Завершившаяся до прерывания команда сохраняет фактический статус, прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые запуски и параллельная остановка получают 409. Тело отсутствует.
+ * @summary Остановить все исполнения
+ */
+export const stopRuntimeExecutions = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeExecutionsResponse> => {
+
+  return bearerFetch<stopRuntimeExecutionsResponse>(getStopRuntimeExecutionsUrl(id),
   {
     ...options,
     method: 'POST'

@@ -86,10 +86,10 @@ Wiki описывает реализацию; состояние прода пр
 ## Перед работой с Go API
 
 Прочитай [порядок Spec First и работы с Cloud Mock](docs/api-contract.md#spec-first-и-cloud-mock).
-Проверь актуальный контракт в Apidog и синхронизируй его: локальная спецификация может
-отставать. Проверяй интерфейс через BFF → Cloud Mock Apidog, не дожидаясь реализации Go.
-Если мок расходится с контрактом или не покрывает нужный сценарий, сначала доработай
-его отдельным MR в Apidog; после слияния повтори проверку. Собственный dev-сервер,
+Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
+Git SHA и может отставать. Правки контракта — только PR в backend, затем
+`bun run contract:fetch <sha>` и `bun run sync`. Примеры проверяй через `bun run dev:prism`,
+состояние — на реальном Go. Собственный dev-сервер,
 имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
 Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
 контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
@@ -97,8 +97,9 @@ Wiki описывает реализацию; состояние прода пр
 
 ## Источники
 
-- API Go: контракт в Apidog, локальная копия — `spec/openapi.json`. Обновить — `bun run sync`
-  (`bun run apidog` + `bun run orval`); спеку и сгенерированное (`apps/bff/src/go/client.ts`,
+- API Go: контракт — `spec/openapi.json` в backend, локальная копия `spec/` по SHA из
+  `spec/contract-source.json`. Обновить — `bun run contract:fetch <sha>`, `bun run contract:tools`,
+  `bun run sync` (Redocly + Orval); копию `spec/` и сгенерированное (`apps/bff/src/go/client.ts`,
   `packages/schemas/src/zod.ts`) руками не править. Клиент Go не вызывает: только процедуры BFF. Orval и zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
   так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
@@ -117,6 +118,9 @@ bun run dev:prism  # как dev, но Go — локальный Prism по spec/
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
+bun run contract:fetch <sha>  # копия spec/ из backend по полному SHA, проверка Redocly до замены
+bun run contract:tools  # Redocly CLI закреплённой версии в spec/node_modules (npm ci)
+bun run sync       # Redocly по spec/, затем Orval; ревизию не меняет
 bun run orval      # spec/openapi.json → клиент BFF к Go и zod-схемы (orval.config.ts)
 ```
 
