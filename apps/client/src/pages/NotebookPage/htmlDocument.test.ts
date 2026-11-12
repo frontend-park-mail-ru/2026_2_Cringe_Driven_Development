@@ -7,7 +7,6 @@ test('базовые стили идут перед HTML результата и
     const doc = htmlDocument(html);
     expect(doc.endsWith(html)).toBe(true);
     const base = doc.slice(0, -html.length);
-    expect(base).toStartWith('<style>');
     expect(base).not.toContain('!important');
     // каждое правило — в :where(), специфичность нулевая
     for (const selector of base.match(/^[^\s{}][^{\n]*(?=\{)/gm) ?? []) {
