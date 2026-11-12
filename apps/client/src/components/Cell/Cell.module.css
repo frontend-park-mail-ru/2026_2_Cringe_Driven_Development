@@ -244,6 +244,11 @@
     color: var(--color-text-primary);
 }
 
+/* Обёртка вывода для проверки в onMouseDown: раскладку .body не меняет */
+.below {
+    display: contents;
+}
+
 /* Просмотр Markdown: фокус виден по рамке выбранной ячейки */
 .preview {
     min-width: 0;
