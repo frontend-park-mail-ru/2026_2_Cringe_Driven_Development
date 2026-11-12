@@ -495,12 +495,13 @@ export function NotebookPage() {
                         load !== 'error' && (
                             <>
                                 {hasToolbar && (
-                                    <AddCellChips
-                                        key="chips"
-                                        codeId={ADD_CODE_ID}
-                                        disabled={!ready || locked}
-                                        onAdd={handleAdd}
-                                    />
+                                    <div key="chips" className={styles.toolChips}>
+                                        <AddCellChips
+                                            codeId={ADD_CODE_ID}
+                                            disabled={!ready || locked}
+                                            onAdd={handleAdd}
+                                        />
+                                    </div>
                                 )}
                                 {ready && (
                                     <RuntimeActions

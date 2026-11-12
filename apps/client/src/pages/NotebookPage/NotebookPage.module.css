@@ -17,6 +17,21 @@
 
 .mark {
     flex: none;
+
+    /* Телефон: без знака, как в макете 360/430 */
+    @media (max-width: 860px) {
+        display: none;
+    }
+}
+
+/* «+ Код» и «+ Текст» в панели шапки; на телефоне их нет — добавление под ячейками */
+.toolChips {
+    display: flex;
+    gap: 8px;
+
+    @media (max-width: 860px) {
+        display: none;
+    }
 }
 
 .heading {

@@ -191,6 +191,11 @@
     &.unknown {
         color: var(--color-warning);
     }
+
+    &.interrupted {
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
 }
 
 /* Иконка «Выполняется» — цвета акцента, текст строки — вторичный */

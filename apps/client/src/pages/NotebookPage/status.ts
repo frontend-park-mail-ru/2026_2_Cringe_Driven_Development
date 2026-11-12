@@ -172,6 +172,8 @@ export interface CellRun {
     outputs: boolean;
     /** Начало выполнения, мс: для таймера «Выполняется… N с» */
     since?: number;
+    /** Длительность завершённого на этой странице исполнения, мс: под значком итога */
+    duration?: number;
 }
 
 /**
@@ -216,6 +218,7 @@ export function cellRun(
                             : null,
             message: MESSAGE[execution.state] ?? null,
             outputs: true,
+            duration: runtime.durations[execution.execution_id],
         };
     }
     const error = cell.outputs.some((output) => output.output_type === 'error');

@@ -299,6 +299,11 @@ export function RunGutter({ cellId, executionCount, run }: RunGutterProps) {
                 <Icon key="unknown" name="help" className={styles.unknown} />
             )}
             {run.result === 'interrupted' && <Icon key="interrupted" name="square" />}
+            {run.duration !== undefined && run.result !== 'cancelled' && (
+                <span key="duration" className={styles.count}>
+                    {formatDuration(run.duration)}
+                </span>
+            )}
         </>
     );
 }
@@ -316,6 +321,7 @@ export function RunState({ run }: { run: CellRun }) {
                 styles.state,
                 run.result === 'failed' && styles.failed,
                 run.result === 'unknown' && styles.unknown,
+                run.result === 'interrupted' && styles.interrupted,
             )}
         >
             <Icon
@@ -340,6 +346,12 @@ export function RunState({ run }: { run: CellRun }) {
         </p>
     );
 }
+
+/** «0,3 с» до 10 секунд, дальше целыми: «14 с». */
+const formatDuration = (ms: number): string =>
+    ms < 10_000
+        ? `${(ms / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с`
+        : `${Math.round(ms / 1000)} с`;
 
 const STATE_ICON: Partial<Record<NonNullable<CellRun['result']>, IconName>> = {
     unknown: 'help',

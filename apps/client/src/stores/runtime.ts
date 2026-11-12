@@ -68,6 +68,8 @@ interface RuntimeState {
     executions: Record<string, RuntimeExecution>;
     /** Когда эта страница впервые увидела исполнение в RUNNING: для таймера «Выполняется… N с» */
     startedAt: Record<string, number>;
+    /** Сколько длилось исполнение, мс: от первого RUNNING до конечного статуса на этой странице */
+    durations: Record<string, number>;
     /** Последнее исполнение ячейки по cell_id: его результат и состояние показываются у ячейки */
     latest: Record<string, string>;
     /** Полный состав наблюдаемого запуска: одна ячейка или весь Run all */
@@ -97,6 +99,7 @@ const empty = (): RuntimeState => ({
     queue: [],
     executions: {},
     startedAt: {},
+    durations: {},
     latest: {},
     run: null,
     outcome: null,
@@ -354,6 +357,13 @@ function apply(res: Updates): void {
         void showResult(execution);
     }
     const { interrupting } = before;
+    let durations = before.durations;
+    for (const execution of res.executions) {
+        const started = before.startedAt[execution.execution_id];
+        if (started !== undefined && TERMINAL.has(execution.state)) {
+            durations = { ...durations, [execution.execution_id]: Date.now() - started };
+        }
+    }
     const stillRunning = res.runtime_queue.items.some(
         (item) => item.execution_id === interrupting && item.state === 'RUNNING',
     );
@@ -362,6 +372,7 @@ function apply(res: Updates): void {
         session: res.session,
         queue: res.runtime_queue.items,
         startedAt: runningSince(res.runtime_queue.items),
+        durations,
         executions,
         ready: !wasReady && res.session.state === 'READY' ? before.ready + 1 : before.ready,
     });
