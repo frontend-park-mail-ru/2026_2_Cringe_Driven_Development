@@ -22,9 +22,12 @@
         "fmt:check": "oxfmt --check",
         "check": "bun run fmt:check && turbo run lint lint:scripts typecheck typecheck:scripts",
         "release": "bun scripts/release/index.ts",
-        "apidog": "bun scripts/openapi/apidog.ts",
+        "contract:fetch": "bun scripts/openapi/backend.ts fetch",
+        "contract:verify": "bun scripts/openapi/backend.ts verify",
+        "contract:tools": "cd spec && npm ci --no-audit --no-fund",
+        "contract:lint": "cd spec && npx --no redocly lint openapi.json --config redocly.yaml",
         "orval": "orval --config orval.config.ts",
-        "sync": "bun run apidog && bun run orval"
+        "sync": "bun run contract:lint && bun run orval"
     },
     "devDependencies": {
         "@aws-sdk/client-s3": "^3.1146.0",
