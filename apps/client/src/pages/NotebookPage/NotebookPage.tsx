@@ -119,11 +119,12 @@ const handlePaste = (event: ClipboardEvent): void => {
     if (part === pasted) return;
     event.preventDefault();
     if (part) document.execCommand('insertText', false, part);
-    const shown = showSnackbar(
-        `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
-    );
     // уведомление без действия: прячется само
-    setTimeout(() => hideSnackbar(shown), PASTE_NOTICE_MS);
+    showSnackbar(
+        `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
+        undefined,
+        PASTE_NOTICE_MS,
+    );
 };
 
 /** Свойства {@link AddCellChips}. */
