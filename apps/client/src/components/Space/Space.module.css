@@ -23,6 +23,19 @@
     filter: blur(24px);
 }
 
+.orbit {
+    position: absolute;
+    top: calc(var(--planet-top) + var(--planet-size) / 2);
+    left: 50%;
+    animation: orbit 1800s linear infinite;
+}
+
+@keyframes orbit {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .star {
     --size: 1.5px;
     --opacity: 1;
@@ -45,21 +58,17 @@
 
 .planet {
     position: absolute;
-    top: 700px;
+    top: var(--planet-top);
     left: 50%;
-    width: 2600px;
-    height: 2600px;
-    margin-left: -1300px;
+    width: var(--planet-size);
+    height: var(--planet-size);
+    margin-left: calc(var(--planet-size) / -2);
     border: 1px solid rgb(205 190 255 / 0.3);
     border-radius: 50%;
     background: var(--color-bg);
     box-shadow:
         0 -26px 90px -6px rgb(139 108 255 / 0.55),
         0 -2px 18px rgb(230 215 255 / 0.45);
-}
-
-.home .planet {
-    top: 330px;
 }
 
 .surface {
@@ -101,6 +110,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .orbit,
     .star,
     .clouds {
         animation: none;
