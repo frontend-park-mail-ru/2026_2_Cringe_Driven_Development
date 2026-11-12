@@ -120,6 +120,8 @@ export interface RuntimeButtons {
     main: 'run' | 'stop';
     /** «Запустить всё» доступна */
     canRunAll: boolean;
+    /** «Остановить всё» доступна: окружение готово и другая команда не ждёт ответа */
+    canStopAll: boolean;
     /** Ячейка, которая выполняется сейчас: к ней ведёт «К выполняемой ячейке» */
     running?: string;
 }
@@ -141,6 +143,7 @@ export function runtimeButtons(runtime: Runtime, hasCode: boolean): RuntimeButto
                   : 'disabled',
         main: queue.length > 0 ? 'stop' : 'run',
         canRunAll: hasCode && canExecute(runtime),
+        canStopAll: state === 'READY' && runtime.busy === null,
         running: queue.find((item) => item.state === 'RUNNING')?.cell_id,
     };
 }

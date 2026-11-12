@@ -39,7 +39,7 @@ interface RuntimeActionsProps {
  */
 export function RuntimeActions({ hasCode, onJump, search }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
-    const { main, canRunAll, running } = runtimeButtons(runtime, hasCode);
+    const { main, canRunAll, canStopAll, running } = runtimeButtons(runtime, hasCode);
     const stopping = runtime.busy === 'stopAll';
     return (
         <div className={styles.actions}>
@@ -65,7 +65,7 @@ export function RuntimeActions({ hasCode, onJump, search }: RuntimeActionsProps)
                     icon="stop"
                     className={clsx(styles.button, styles.main)}
                     loading={stopping}
-                    disabled={stopping}
+                    disabled={!canStopAll}
                     onClick={() => void stopExecutions()}
                 >
                     {stopping ? 'Останавливаем…' : 'Остановить всё'}
