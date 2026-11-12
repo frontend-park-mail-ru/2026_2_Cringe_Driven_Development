@@ -15,9 +15,14 @@ let nextId = 1;
  * Показывает снекбар с ошибкой. Нажатие на действие убирает снекбар.
  * @param text текст ошибки
  * @param action действие справа от текста
+ * @param durationMs через сколько миллисекунд убрать снекбар; без него висит до `hideSnackbar`
  * @returns id показа: по нему можно убрать именно этот снекбар
  */
-export function showSnackbar(text: string, action?: SnackbarMessage['action']): number {
+export function showSnackbar(
+    text: string,
+    action?: SnackbarMessage['action'],
+    durationMs?: number,
+): number {
     const id = nextId++;
     const onAction = action && {
         label: action.label,
@@ -27,6 +32,7 @@ export function showSnackbar(text: string, action?: SnackbarMessage['action']): 
         },
     };
     useSnackbarStore.setState({ snackbar: { id, text, action: onAction } });
+    if (durationMs !== undefined) setTimeout(() => hideSnackbar(id), durationMs);
     return id;
 }
 
