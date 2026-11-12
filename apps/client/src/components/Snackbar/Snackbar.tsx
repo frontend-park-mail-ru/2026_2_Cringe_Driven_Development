@@ -1,3 +1,4 @@
+import { createPortal } from '@cdd-team/react';
 import { Icon } from '@components/Icon/Icon';
 import styles from './Snackbar.module.css';
 
@@ -24,7 +25,7 @@ interface SnackbarProps {
  * о сети.
  */
 export function Snackbar({ snackbar, offline = false }: SnackbarProps) {
-    return (
+    return createPortal(
         <div className={styles.region}>
             {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role */}
             <div key="offline" role="status" aria-live="polite">
@@ -55,6 +56,7 @@ export function Snackbar({ snackbar, offline = false }: SnackbarProps) {
                     )}
                 </div>
             )}
-        </div>
+        </div>,
+        document.body,
     );
 }
