@@ -37,7 +37,7 @@ const USAGE = `Использование: bun run release <команда>
   health <sha>                    Health check: прод отдаёт выпуск через BFF
   retention                       удалить старые ассеты
   direction <deploy|rollback> <sha>       проверить направление от RELEASE_BEFORE_SHA
-  board <publish|deploy|rollback> <sha>    обновить карточки успешной операции по отчёту
+  board <publish|deploy|rollback> <sha> [deployment_id]    обновить карточки успешной операции по отчёту
   report <publish|deploy|rollback> <sha>    полный отчёт без Telegram
 `;
 
@@ -56,13 +56,20 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
                 process.cwd(),
             );
         case 'board': {
-            if (args.length !== 2 || !['publish', 'deploy', 'rollback'].includes(args[0]!))
+            if (
+                (args.length !== 2 && args.length !== 3) ||
+                !['publish', 'deploy', 'rollback'].includes(args[0]!)
+            )
                 throw new ReleaseError(USAGE);
             const kind = args[0] as ReleaseKind;
             const sha = checkSha(args[1]);
             let result: BoardResult;
             try {
-                result = await updateReleaseBoard(kind, await readOperationReport(kind, sha));
+                result = await updateReleaseBoard(
+                    kind,
+                    await readOperationReport(kind, sha),
+                    args[2] === undefined ? undefined : Number(args[2]),
+                );
             } catch (error) {
                 result = {
                     changed: 0,
