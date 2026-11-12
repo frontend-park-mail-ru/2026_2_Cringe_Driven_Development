@@ -1,4 +1,3 @@
-import { clsx } from '@cdd-team/clsx';
 import { useLayoutEffect, useRef, useState } from '@cdd-team/react';
 import { ORBIT_STARS, PLANET_SIZE, PLANET_TOP, orbitStarCount } from './orbit';
 import styles from './Space.module.css';
@@ -63,7 +62,7 @@ export function Space({ variant = 'auth' }: SpaceProps) {
     return (
         <div
             ref={root}
-            className={clsx(styles.space, styles[variant])}
+            className={styles.space}
             style={{ '--planet-top': `${planetTop}px`, '--planet-size': `${PLANET_SIZE}px` }}
             aria-hidden="true"
         >

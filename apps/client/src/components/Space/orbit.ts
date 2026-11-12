@@ -10,7 +10,7 @@ const DENSITY = 70 / (1440 * 880);
 const POOL_RADIUS = 4000;
 
 /** Звезда вращаемого поля: координаты в px от центра планеты. */
-export interface OrbitStar {
+interface OrbitStar {
     /** Смещение по x от центра планеты, px. */
     x: number;
     /** Смещение по y от центра планеты, px. */
