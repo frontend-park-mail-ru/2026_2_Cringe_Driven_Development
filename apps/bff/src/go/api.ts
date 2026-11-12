@@ -6,8 +6,10 @@ import {
     GetRuntimeExecutionResponse,
     GetRuntimeQueueResponse,
     GetRuntimeSessionResponse,
+    InterruptRuntimeKernelResponse,
     ListRuntimeEventsResponse,
     StartRuntimeSessionResponse,
+    StopRuntimeExecutionsResponse,
     StopRuntimeSessionResponse,
     TouchRuntimeSessionResponse,
     EditNotebookCellResponse,
@@ -40,8 +42,10 @@ import {
     getRuntimeExecution,
     getRuntimeQueue,
     getRuntimeSession,
+    interruptRuntimeKernel,
     listRuntimeEvents,
     startRuntimeSession,
+    stopRuntimeExecutions,
     stopRuntimeSession,
     touchRuntimeSession,
     editNotebookCell,
@@ -85,6 +89,7 @@ import {
     type User,
 } from './client.ts';
 import { unwrap } from './errors.ts';
+import { bearerFetch } from './fetch.ts';
 
 const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
     const headers = new Headers(init.headers);
@@ -133,6 +138,7 @@ export type Go = {
     ): Promise<NotebookContentChange>;
     removeCell(id: number, cellId: string, hash: string): Promise<NotebookContentChange>;
     deleteNotebook(id: number): Promise<void>;
+    renameNotebook(id: number, name: string): Promise<Notebook>;
     logout(): Promise<ServerRevocation>;
     logoutAll(): Promise<void>;
     enableTwoFactor(): Promise<TwoFactorSetupResponse>;
@@ -150,6 +156,8 @@ export type Go = {
         body: RuntimeBatchExecuteRequest,
     ): Promise<RuntimeBatchExecution>;
     stopRuntimeSession(id: string): Promise<{ accepted: true }>;
+    stopRuntimeExecutions(id: string): Promise<{ stopped: true }>;
+    interruptRuntimeKernel(id: string): Promise<{ interrupt_requested: true }>;
     touchRuntimeSession(id: string): Promise<{ accepted: true }>;
 };
 
@@ -219,6 +227,20 @@ export function createGo(session: Session, prefer?: string): Go {
         deleteNotebook: async (id) => {
             unwrap(await call((init) => deleteNotebook(id, init)), [204]);
         },
+        // shortcut: PATCH /notebooks/{id} (backend#105) ещё нет в Apidog — вызов вручную; заменить
+        // сгенерированным renameNotebook после bun run sync
+        renameNotebook: async (id, name) =>
+            unwrap(
+                await call((init) =>
+                    bearerFetch<{ status: number; data: unknown }>(`/notebooks/${id}`, {
+                        ...withHeader(init, 'Content-Type', 'application/json'),
+                        method: 'PATCH',
+                        body: JSON.stringify({ name }),
+                    }),
+                ),
+                [200],
+                GetNotebookResponse,
+            ),
         /** Мимо `call`: выход не обновляет токены и не повторяет запрос. */
         logout: async () => {
             const pair = session.revocation();
@@ -291,6 +313,18 @@ export function createGo(session: Session, prefer?: string): Go {
                 await call((init) => stopRuntimeSession(id, init)),
                 [202],
                 StopRuntimeSessionResponse,
+            ),
+        stopRuntimeExecutions: async (id) =>
+            unwrap(
+                await call((init) => stopRuntimeExecutions(id, init)),
+                [200],
+                StopRuntimeExecutionsResponse,
+            ),
+        interruptRuntimeKernel: async (id) =>
+            unwrap(
+                await call((init) => interruptRuntimeKernel(id, init)),
+                [200],
+                InterruptRuntimeKernelResponse,
             ),
         touchRuntimeSession: async (id) =>
             unwrap(

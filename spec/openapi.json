@@ -4547,6 +4547,106 @@
           }
         ]
       }
+    },
+    "/runtime-sessions/{id}/executions/stop": {
+      "post": {
+        "summary": "Остановить все исполнения",
+        "deprecated": false,
+        "description": "Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. 200 возвращается после подтверждения остановки; пустая очередь также даёт 200. Сессия остаётся READY, kernel, generation, workspace и переменные сохраняются. Уже полученный вывод сохраняется. Завершившаяся до прерывания команда сохраняет фактический статус; прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые команды и параллельная остановка получают 409. Чужая или отсутствующая сессия — 404; неготовая — 409. Недоступный агент или неподтверждённое прерывание — 503. Тело отсутствует.",
+        "operationId": "stopRuntimeExecutions",
+        "tags": [
+          "runtime-sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID runtime-сессии текущего пользователя",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "description": "Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stopped": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stopped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Некорректные параметры или JSON",
+            "headers": {}
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "Авторизация отсутствует, истекла или отозвана",
+            "headers": {}
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Неверный, отсутствующий или повторный X-BFF-Key",
+            "headers": {}
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "Сущность отсутствует или не принадлежит пользователю",
+            "headers": {}
+          },
+          "409": {
+            "$ref": "#/components/responses/RuntimeConflict",
+            "description": "Сессия не готова или остановка уже выполняется",
+            "headers": {}
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError",
+            "description": "Внутренняя ошибка, в том числе недоступность auth-хранилища Redis",
+            "headers": {}
+          },
+          "503": {
+            "$ref": "#/components/responses/RuntimeUnavailable",
+            "description": "Агент недоступен или прерывание не подтверждено",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "webhooks": {},
@@ -4631,43 +4731,6 @@
           "cells",
           "created_at",
           "updated_at"
-        ]
-      },
-      "NotebookSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          },
-          "name": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cells_count": {
-            "type": "integer",
-            "description": "Число блоков"
-          },
-          "preview_code": {
-            "type": "string",
-            "description": "Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии."
-          },
-          "has_active_session": {
-            "type": "boolean",
-            "description": "У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения."
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "updated_at",
-          "cells_count",
-          "preview_code",
-          "has_active_session"
         ]
       },
       "Credentials": {
@@ -5765,6 +5828,43 @@
         "required": [
           "code",
           "message"
+        ]
+      },
+      "NotebookSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cells_count": {
+            "type": "integer",
+            "description": "Число блоков"
+          },
+          "preview_code": {
+            "type": "string",
+            "description": "Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии."
+          },
+          "has_active_session": {
+            "type": "boolean",
+            "description": "У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "updated_at",
+          "cells_count",
+          "preview_code",
+          "has_active_session"
         ]
       },
       "NotebookHash": {

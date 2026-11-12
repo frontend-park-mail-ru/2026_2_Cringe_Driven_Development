@@ -33,7 +33,9 @@ export type RuntimeError =
     | 'unavailable'
     | 'conflict'
     | 'too_large'
-    | 'failed';
+    | 'failed'
+    | 'stopFailed'
+    | 'interruptFailed';
 
 /** Обычный интервал между обходами опроса. */
 export const POLL_INTERVAL_MS = 2000;
@@ -73,7 +75,9 @@ interface RuntimeState {
     /** Итог наблюдаемого запуска; null — нечего показывать */
     outcome: RunOutcome | null;
     /** Команда, чьё принятие ещё не разрешилось: второе нажатие не создаёт второй запуск */
-    busy: 'start' | 'execute' | 'stop' | null;
+    busy: 'start' | 'execute' | 'stop' | 'stopAll' | null;
+    /** Исполнение, чьё прерывание запрошено: ждёт конечного статуса, второй запрос не уходит */
+    interrupting: string | null;
     error: RuntimeError | null;
     /** Команда исполнения с неизвестным результатом ждёт повтора: новые запуски недоступны */
     awaitingRetry: boolean;
@@ -97,6 +101,7 @@ const empty = (): RuntimeState => ({
     run: null,
     outcome: null,
     busy: null,
+    interrupting: null,
     error: null,
     awaitingRetry: false,
     startFailed: false,
@@ -348,7 +353,12 @@ function apply(res: Updates): void {
         executions[id] = execution;
         void showResult(execution);
     }
+    const { interrupting } = before;
+    const stillRunning = res.runtime_queue.items.some(
+        (item) => item.execution_id === interrupting && item.state === 'RUNNING',
+    );
     set({
+        interrupting: stillRunning ? interrupting : null,
         session: res.session,
         queue: res.runtime_queue.items,
         startedAt: runningSince(res.runtime_queue.items),
@@ -443,6 +453,7 @@ function observe(session: RuntimeSession): void {
             run: null,
             outcome: null,
             awaitingRetry: false,
+            interrupting: null,
         });
     }
     const wasReady = get().session?.state === 'READY';
@@ -452,7 +463,7 @@ function observe(session: RuntimeSession): void {
 
 /**
  * Активная сессия, прочитанная с сервера (проверка перед удалением блокнота): сессия открытого
- * блокнота заменяет устаревшую в сторе и снова наблюдается — шапка покажет «Завершить окружение».
+ * блокнота заменяет устаревшую в сторе и снова наблюдается — меню покажет «Завершить окружение».
  * @param session активная сессия пользователя в любом блокноте или null
  */
 export function adoptSession(session: RuntimeSession | null): void {
@@ -648,6 +659,48 @@ export async function stopRuntime(): Promise<void> {
         stopUnsure = uncertain(error);
         fail(errorOf(error));
     }
+}
+
+/**
+ * «Остановить всё»: прервать текущее исполнение и отменить очередь, окружение и переменные
+ * остаются. Итоговые статусы — из опроса; при ошибке опрос сверяет фактическое состояние.
+ */
+export async function stopExecutions(): Promise<void> {
+    const session = own();
+    if (session?.state !== 'READY' || get().busy !== null) return;
+    const started = generation;
+    set({ busy: 'stopAll', error: null });
+    try {
+        await trpc.runtime.stopExecutions.mutate({ sessionId: session.id });
+        if (started !== generation) return;
+        set({ busy: null });
+    } catch {
+        if (started !== generation) return;
+        set({ busy: null });
+        fail('stopFailed');
+    }
+    kick();
+}
+
+/**
+ * ■ у выполняющейся ячейки: прерывает только её, очередь продолжается. Ответ подтверждает лишь
+ * запрос — до конечного статуса из опроса повторно не отправляется и после сбоя не повторяется.
+ */
+export async function interruptCell(cellId: string): Promise<void> {
+    const session = own();
+    const running = get().queue.find((item) => item.state === 'RUNNING');
+    if (!session || running?.cell_id !== cellId || get().interrupting !== null) return;
+    const started = generation;
+    set({ interrupting: running.execution_id, error: null });
+    try {
+        await trpc.runtime.interrupt.mutate({ sessionId: session.id });
+        if (started !== generation) return;
+    } catch {
+        if (started !== generation) return;
+        set({ interrupting: null });
+        fail('interruptFailed');
+    }
+    kick();
 }
 
 // Активность — только реальный ввод в редакторе, не чаще раза в 30 секунд, своей живой сессии

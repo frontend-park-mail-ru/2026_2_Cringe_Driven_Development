@@ -1323,3 +1323,23 @@ export const StopRuntimeSessionHeader = zod.object({
 export const StopRuntimeSessionResponse = zod.object({
   "accepted": zod.literal(true)
 })
+
+
+/**
+ * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. 200 возвращается после подтверждения остановки; пустая очередь также даёт 200. Сессия остаётся READY, kernel, generation, workspace и переменные сохраняются. Уже полученный вывод сохраняется. Завершившаяся до прерывания команда сохраняет фактический статус; прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые команды и параллельная остановка получают 409. Чужая или отсутствующая сессия — 404; неготовая — 409. Недоступный агент или неподтверждённое прерывание — 503. Тело отсутствует.
+ * @summary Остановить все исполнения
+ */
+export const StopRuntimeExecutionsParams = zod.object({
+  "id": zod.uuid().describe('UUID runtime-сессии текущего пользователя')
+})
+
+
+
+
+export const StopRuntimeExecutionsHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const StopRuntimeExecutionsResponse = zod.object({
+  "stopped": zod.literal(true)
+})

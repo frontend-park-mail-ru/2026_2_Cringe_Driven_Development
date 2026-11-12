@@ -49,6 +49,7 @@ export function runtimeStatus(runtime: Runtime): Label | undefined {
     if (state === 'STOPPING' && !session?.cleanup_error) {
         return { tone: 'progress', text: 'Завершаем окружение…' };
     }
+    if (runtime.busy === 'stopAll') return { tone: 'progress', text: 'Останавливаем выполнение…' };
     const run = runStatus(runtime);
     return run ? RUN[run] : undefined;
 }
@@ -111,31 +112,45 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
     return 'notStarted';
 }
 
-/** Кнопки окружения в панели шапки. */
+/** Кнопки окружения в шапке и меню блокнота. */
 export interface RuntimeButtons {
-    /** «Завершить окружение» видна */
-    stop: boolean;
-    /** «Запустить всё»: скрыта, пока идёт запуск, иначе доступна или нет */
-    runAll: 'hidden' | 'enabled' | 'disabled';
+    /** «Завершить окружение» в меню: доступна, недоступна или идёт завершение */
+    terminate: 'enabled' | 'disabled' | 'stopping';
+    /** Одно место в панели: «Запустить всё» или, пока есть очередь, «Остановить всё» */
+    main: 'run' | 'stop';
+    /** «Запустить всё» доступна */
+    canRunAll: boolean;
+    /** Ячейка, которая выполняется сейчас: к ней ведёт «К выполняемой ячейке» */
+    running?: string;
 }
 
 /**
- * Кнопки окружения: завершить — у готовой своей сессии, «Запустить всё» — вне очереди исполнения и
- * только при `hasCode` — в блокноте есть кодовые ячейки.
+ * Кнопки окружения: завершить — у живой своей сессии, «Остановить всё» — пока в очереди своей
+ * сессии что-то есть, «Запустить всё» — при `hasCode` (есть кодовые ячейки) и готовом окружении.
  */
 export function runtimeButtons(runtime: Runtime, hasCode: boolean): RuntimeButtons {
-    const state = own(runtime)?.state;
-    const stop = state === 'READY' || state === 'RECONNECTING';
-    if (stop && runtime.queue.length > 0) return { stop, runAll: 'hidden' };
-    return { stop, runAll: hasCode && canExecute(runtime) ? 'enabled' : 'disabled' };
+    const session = own(runtime);
+    const state = session?.state;
+    const queue = session ? runtime.queue : [];
+    return {
+        terminate:
+            runtime.busy === 'stop' || state === 'STOPPING'
+                ? 'stopping'
+                : state === 'READY' || state === 'RECONNECTING'
+                  ? 'enabled'
+                  : 'disabled',
+        main: queue.length > 0 ? 'stop' : 'run',
+        canRunAll: hasCode && canExecute(runtime),
+        running: queue.find((item) => item.state === 'RUNNING')?.cell_id,
+    };
 }
 
 const FAILED = new Set<RuntimeExecution['state']>(['FAILED', 'TIMED_OUT', 'REJECTED']);
 
 const MESSAGE: Partial<Record<RuntimeExecution['state'], string>> = {
     TIMED_OUT: 'Превышено время выполнения',
-    CANCELLED: 'Выполнение отменено',
-    INTERRUPTED: 'Выполнение прервано',
+    CANCELLED: 'Отменено',
+    INTERRUPTED: 'Прервано',
     UNKNOWN: 'Результат неизвестен — код мог выполниться, повторно не запускаем',
     REJECTED: 'Окружение отклонило выполнение',
 };
@@ -145,7 +160,9 @@ export interface CellRun {
     /** Кнопка запуска, «Выполняется» или «В очереди» */
     indicator: 'run' | 'running' | 'queued';
     /** Значок итога под счётчиком */
-    result: 'succeeded' | 'failed' | 'unknown' | null;
+    result: 'succeeded' | 'failed' | 'unknown' | 'interrupted' | 'cancelled' | null;
+    /** Прерывание запрошено, конечного статуса ещё нет */
+    interrupting?: boolean;
     /** Строка состояния под кодом */
     message: string | null;
     /** Показывать выводы: в очереди прежние уже не относятся к запуску */
@@ -175,10 +192,10 @@ export function cellRun(
             /** Вывод текущей попытки, а не прежний */
             outputs: execution?.execution_id === queued.execution_id,
             since: runtime.startedAt[queued.execution_id],
+            interrupting: runtime.interrupting === queued.execution_id,
         };
     }
-    // в очереди — только индикатор слева, без строки состояния под кодом
-    if (queued) return { indicator: 'queued', result: null, message: null, outputs: false };
+    if (queued) return { indicator: 'queued', result: null, message: 'В очереди', outputs: false };
     if (execution && execution.state !== 'QUEUED' && execution.state !== 'RUNNING') {
         return {
             indicator: 'run',
@@ -189,7 +206,11 @@ export function cellRun(
                       ? 'failed'
                       : execution.state === 'UNKNOWN'
                         ? 'unknown'
-                        : null,
+                        : execution.state === 'INTERRUPTED'
+                          ? 'interrupted'
+                          : execution.state === 'CANCELLED'
+                            ? 'cancelled'
+                            : null,
             message: MESSAGE[execution.state] ?? null,
             outputs: true,
         };

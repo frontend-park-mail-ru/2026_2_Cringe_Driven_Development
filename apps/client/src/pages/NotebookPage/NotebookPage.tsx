@@ -14,7 +14,6 @@ import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
-import { DeleteButton } from '@modules/notebookDelete/DeleteButton';
 import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
 import { checkDeleteGate } from '@modules/notebookDelete/actions';
 import { deleteGate, type DeleteGate } from '@modules/notebookDelete/gate';
@@ -38,6 +37,7 @@ import {
     closeRuntime,
     openRuntime,
     retryCommand,
+    stopExecutions,
     useRuntimeStore,
     type RuntimeError,
 } from '@stores/runtime';
@@ -45,9 +45,10 @@ import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
 import { useForcedColors, useTouchDevice } from '@utils/media';
+import { NotebookMenu, RenameDialog, TerminateDialog } from './Actions';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
-import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
+import { RunGutter, RunState, RuntimeActions, RuntimeBanner, useElapsed } from './Runtime';
 import {
     SEARCH_BUTTON_ID,
     SEARCH_INPUT_ID,
@@ -55,7 +56,7 @@ import {
     scrollToCurrent,
     useNotebookSearch,
 } from './search';
-import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
+import { cellRun, runtimeButtons, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -94,6 +95,24 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
     conflict: 'Код ячейки изменился — проверьте его и запустите снова',
     too_large: 'Превышен размер ячейки — максимум 64 КиБ',
     failed: 'Не удалось выполнить команду окружения',
+    stopFailed: 'Не удалось остановить выполнение',
+    interruptFailed: 'Не удалось остановить выполнение',
+};
+
+/** Сколько миллисекунд подсвечена ячейка после перехода «К выполняемой ячейке» */
+const HIGHLIGHT_MS = 1500;
+
+/**
+ * Прокручивает к выполняющейся ячейке: она встаёт под прилипшей шапкой и коротко подсвечивается.
+ * @param cellId ячейка, которая выполняется на момент нажатия
+ */
+const jumpToCell = (cellId: string): void => {
+    const row = document.getElementById(cellEditorId(cellId))?.closest('li');
+    if (!row) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    row.dataset.highlight = '';
+    setTimeout(() => delete row.dataset.highlight, HIGHLIGHT_MS);
 };
 
 /** Сколько миллисекунд видно уведомление об обрезанной вставке */
@@ -212,6 +231,8 @@ export function NotebookPage() {
     /** Открытый диалог удаления: допуск по окружению из стора на момент нажатия корзины */
     const [deleting, setDeleting] = useState<DeleteGate | null>(null);
     const [checkingDelete, setCheckingDelete] = useState(false);
+    /** Открытый диалог меню «Действия с блокнотом» */
+    const [dialog, setDialog] = useState<'rename' | 'terminate' | null>(null);
     /**
      * Окружение — с сервера: стор не видит запуск из другой вкладки и не опрашивает завершённую
      * сессию с незавершённой очисткой; при сбое — последнее известное состояние стора.
@@ -308,7 +329,12 @@ export function NotebookPage() {
                       label: 'Повторить',
                       onClick: () => void retryCommand(),
                   })
-                : showSnackbar(RUNTIME_ERRORS[runtime.error]);
+                : runtime.error === 'stopFailed'
+                  ? showSnackbar(RUNTIME_ERRORS.stopFailed, {
+                        label: 'Повторить',
+                        onClick: () => void stopExecutions(),
+                    })
+                  : showSnackbar(RUNTIME_ERRORS[runtime.error]);
         return () => hideSnackbar(shown);
     }, [runtime.error, runtime.failure]);
 
@@ -330,6 +356,12 @@ export function NotebookPage() {
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error';
     const execution = ready ? runtimeStatus(runtime) : undefined;
+    const buttons = runtimeButtons(runtime, false);
+    /** Время в статусе шапки — текущей ячейки: «Выполняется · 12 с» */
+    const runningSince = runtime.queue.find((item) => item.state === 'RUNNING')?.execution_id;
+    const elapsed = useElapsed(
+        buttons.running && runningSince ? runtime.startedAt[runningSince] : undefined,
+    );
     /** Ход и проблемы сохранения — рядом со статусом выполнения: «Сохранено» его не перекрывает */
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
@@ -474,6 +506,7 @@ export function NotebookPage() {
                                     <RuntimeActions
                                         key="runtime"
                                         hasCode={hasCode}
+                                        onJump={jumpToCell}
                                         search={
                                             searchEnabled
                                                 ? { open: search.open, onOpen: openSearch }
@@ -511,7 +544,12 @@ export function NotebookPage() {
                                     <SaveStatus
                                         key="run"
                                         tone={execution.tone}
-                                        text={execution.text}
+                                        text={
+                                            elapsed !== undefined &&
+                                            execution.text === 'Выполняется'
+                                                ? `${execution.text} · ${elapsed} с`
+                                                : execution.text
+                                        }
                                     />
                                 )}
                                 {status && (
@@ -524,7 +562,15 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
-                    {ready && <DeleteButton key="delete" onClick={() => void askDelete()} />}
+                    {ready && (
+                        <NotebookMenu
+                            key="menu"
+                            terminate={buttons.terminate}
+                            onRename={() => setDialog('rename')}
+                            onTerminate={() => setDialog('terminate')}
+                            onDelete={() => void askDelete()}
+                        />
+                    )}
                     <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (
@@ -616,7 +662,17 @@ export function NotebookPage() {
                 )}
             </div>
             {/* конфликт остаётся в сторе и откроется, когда закроется диалог удаления */}
-            {ready && !deleting && <ConflictDialog key="dialog" />}
+            {ready && !deleting && !dialog && <ConflictDialog key="dialog" />}
+            {dialog === 'rename' && notebook.meta && (
+                <RenameDialog
+                    key="rename"
+                    notebook={{ id, name: notebook.meta.name }}
+                    onClose={() => setDialog(null)}
+                />
+            )}
+            {dialog === 'terminate' && (
+                <TerminateDialog key="terminate" onClose={() => setDialog(null)} />
+            )}
             {deleting && notebook.meta && (
                 <DeleteNotebookDialog
                     key="delete"

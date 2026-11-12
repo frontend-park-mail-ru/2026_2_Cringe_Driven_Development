@@ -67,19 +67,6 @@ export interface Notebook {
   updated_at: string;
 }
 
-export interface NotebookSummary {
-  /** @minimum 1 */
-  id: number;
-  name: string;
-  updated_at: string;
-  /** Число блоков */
-  cells_count: number;
-  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
-  preview_code: string;
-  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
-  has_active_session: boolean;
-}
-
 export interface Credentials {
   /**
      * @minLength 3
@@ -758,6 +745,19 @@ export interface Error {
   message: string;
 }
 
+export interface NotebookSummary {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  updated_at: string;
+  /** Число блоков */
+  cells_count: number;
+  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
+  preview_code: string;
+  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
+  has_active_session: boolean;
+}
+
 export type BadRequestResponseBody = Error;
 
 export type UnauthorizedResponseBody = Error;
@@ -842,6 +842,10 @@ export type TouchRuntimeSession200 = {
 
 export type StopRuntimeSession202 = {
   accepted: true;
+};
+
+export type StopRuntimeExecutions200 = {
+  stopped: true;
 };
 
 export type updateCurrentUserResponse200 = {
@@ -3634,6 +3638,80 @@ export const getStopRuntimeSessionUrl = (id: string,) => {
 export const stopRuntimeSession = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeSessionResponse> => {
 
   return bearerFetch<stopRuntimeSessionResponse>(getStopRuntimeSessionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export type stopRuntimeExecutionsResponse200 = {
+  data: StopRuntimeExecutions200
+  status: 200
+}
+
+export type stopRuntimeExecutionsResponse400 = {
+  data: BadRequestResponseBody
+  status: 400
+}
+
+export type stopRuntimeExecutionsResponse401 = {
+  data: UnauthorizedResponseBody
+  status: 401
+}
+
+export type stopRuntimeExecutionsResponse403 = {
+  data: ForbiddenResponseBody
+  status: 403
+}
+
+export type stopRuntimeExecutionsResponse404 = {
+  data: NotFoundResponseBody
+  status: 404
+}
+
+export type stopRuntimeExecutionsResponse409 = {
+  data: RuntimeConflictResponseBody
+  status: 409
+}
+
+export type stopRuntimeExecutionsResponse500 = {
+  data: InternalErrorResponseBody
+  status: 500
+}
+
+export type stopRuntimeExecutionsResponse503 = {
+  data: RuntimeUnavailableResponseBody
+  status: 503
+}
+
+export type stopRuntimeExecutionsResponseSuccess = (stopRuntimeExecutionsResponse200) & {
+  headers: Headers;
+};
+export type stopRuntimeExecutionsResponseError = (stopRuntimeExecutionsResponse400 | stopRuntimeExecutionsResponse401 | stopRuntimeExecutionsResponse403 | stopRuntimeExecutionsResponse404 | stopRuntimeExecutionsResponse409 | stopRuntimeExecutionsResponse500 | stopRuntimeExecutionsResponse503) & {
+  headers: Headers;
+};
+
+export type stopRuntimeExecutionsResponse = (stopRuntimeExecutionsResponseSuccess | stopRuntimeExecutionsResponseError)
+
+export const getStopRuntimeExecutionsUrl = (id: string,) => {
+
+
+
+
+  return `/runtime-sessions/${id}/executions/stop`
+}
+
+/**
+ * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. 200 возвращается после подтверждения остановки; пустая очередь также даёт 200. Сессия остаётся READY, kernel, generation, workspace и переменные сохраняются. Уже полученный вывод сохраняется. Завершившаяся до прерывания команда сохраняет фактический статус; прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые команды и параллельная остановка получают 409. Чужая или отсутствующая сессия — 404; неготовая — 409. Недоступный агент или неподтверждённое прерывание — 503. Тело отсутствует.
+ * @summary Остановить все исполнения
+ */
+export const stopRuntimeExecutions = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeExecutionsResponse> => {
+
+  return bearerFetch<stopRuntimeExecutionsResponse>(getStopRuntimeExecutionsUrl(id),
   {
     ...options,
     method: 'POST'
