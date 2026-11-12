@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from '@cdd-team/react';
-import { ORBIT_STARS, PLANET_SIZE, PLANET_TOP, orbitStarCount } from './orbit';
+import { useLayoutEffect, useMemo, useRef, useState } from '@cdd-team/react';
+import { PLANET_SIZE, PLANET_TOP, orbitStars } from './orbit';
 import styles from './Space.module.css';
 
 /** Ширина макета, px: координата x звезды переводится в проценты от неё. */
@@ -46,13 +46,14 @@ interface SpaceProps {
 /** Фон «Космос». Декоративный. */
 export function Space({ variant = 'auth' }: SpaceProps) {
     const root = useRef<HTMLDivElement | null>(null);
-    const [count, setCount] = useState(0);
+    const [width, setWidth] = useState(0);
     const planetTop = variant === 'plain' ? 0 : PLANET_TOP[variant];
+    const orbit = useMemo(() => (width ? orbitStars(width, planetTop) : []), [width, planetTop]);
 
     useLayoutEffect(() => {
         const element = root.current;
         if (!element || !planetTop) return;
-        const update = () => setCount(orbitStarCount(element.clientWidth, planetTop));
+        const update = () => setWidth(element.clientWidth);
         update();
         const observer = new ResizeObserver(update);
         observer.observe(element);
@@ -83,16 +84,16 @@ export function Space({ variant = 'auth' }: SpaceProps) {
                 ))
             ) : (
                 <div key="orbit" className={styles.orbit}>
-                    {ORBIT_STARS.slice(0, count).map(({ x, y, size, opacity }, index) => (
+                    {orbit.map(({ id, x, y, size, opacity }) => (
                         <span
-                            key={`star-${index}`}
+                            key={`star-${id}`}
                             className={styles.star}
                             style={{
                                 left: `${x}px`,
                                 top: `${y}px`,
                                 '--size': `${size}px`,
                                 '--opacity': String(opacity),
-                                ...twinkle(index),
+                                ...twinkle(id),
                             }}
                         />
                     ))}
