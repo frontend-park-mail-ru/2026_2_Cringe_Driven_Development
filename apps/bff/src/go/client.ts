@@ -748,6 +748,25 @@ export interface Error {
   message: string;
 }
 
+export interface NotebookListPage {
+  items: NotebookSummary[];
+  /**
+     * Продолжение после последнего выданного элемента; null на последней странице.
+     * @nullable
+     */
+  next_cursor: string | null;
+  /**
+     * Все совпадения владельца, без cursor и limit.
+     * @minimum 0
+     */
+  matched_count: number;
+  /**
+     * Все блокноты владельца, без search, cursor и limit.
+     * @minimum 0
+     */
+  total_count: number;
+}
+
 export type BadRequestResponseBody = Error;
 
 export type UnauthorizedResponseBody = Error;
@@ -781,7 +800,7 @@ export type RuntimeUnavailableResponseBody = RuntimeError;
 export type RuntimeQueueFullResponseBody = RuntimeError;
 
 export type UploadCurrentUserAvatarBody = {
-  /** Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 200–4096 пикселей включительно. MIME части обязателен и соответствует содержимому. */
+  /** Один JPEG/PNG файл, 1–5242880 байт; каждая сторона 64–4096 пикселей включительно. MIME части обязателен и соответствует содержимому. */
   avatar: Blob | File;
 };
 
@@ -795,6 +814,24 @@ export const DeleteNotebook409Code = {
 export type DeleteNotebook409 = {
   code: DeleteNotebook409Code;
   message: string;
+};
+
+export type ListNotebooksParams = {
+/**
+ * Подстрока имени без учёта регистра; пробелы по краям обрезаются. Пустая строка означает весь список. %, _ и обратная косая черта — обычные символы.
+ */
+search?: string;
+/**
+ * Размер страницы. Явно пустое значение невалидно.
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * Непрозрачный next_cursor предыдущей страницы для того же пользователя и TrimSpace(search), включая регистр. Размер limit можно менять. Пустой, повреждённый или неподходящий курсор: 400 validation_error.
+ * @minLength 1
+ */
+cursor?: string;
 };
 
 export type InspectRuntimeVariablesBody = {
@@ -1096,7 +1133,7 @@ export const getUploadCurrentUserAvatarUrl = () => {
 }
 
 /**
- * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 200 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или любая сторона менее 200 либо более 4096 пикселей — 400 validation_error. Проверка лимитов выполняется до выделения памяти под декодирование. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; ресурсы декодирования ограничены, очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 64 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или ширина/высота вне диапазона 64–4096 пикселей — 400 validation_error. Байтовые лимиты и диапазон сторон проверяются до полного декодирования изображения. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
  * @summary Загрузить или заменить аватар
  */
 export const uploadCurrentUserAvatar = async (uploadCurrentUserAvatarBody: UploadCurrentUserAvatarBody, options?: Parameters<typeof bearerFetch>[1]): Promise<uploadCurrentUserAvatarResponse> => {
@@ -2484,8 +2521,13 @@ return bearerFetch<moveNotebookCellResponse>(getMoveNotebookCellUrl(id,cellId),
 
 
 export type listNotebooksResponse200 = {
-  data: NotebookSummary[]
+  data: NotebookListPage
   status: 200
+}
+
+export type listNotebooksResponse400 = {
+  data: Error
+  status: 400
 }
 
 export type listNotebooksResponse401 = {
@@ -2506,26 +2548,34 @@ export type listNotebooksResponse500 = {
 export type listNotebooksResponseSuccess = (listNotebooksResponse200) & {
   headers: Headers;
 };
-export type listNotebooksResponseError = (listNotebooksResponse401 | listNotebooksResponse403 | listNotebooksResponse500) & {
+export type listNotebooksResponseError = (listNotebooksResponse400 | listNotebooksResponse401 | listNotebooksResponse403 | listNotebooksResponse500) & {
   headers: Headers;
 };
 
 export type listNotebooksResponse = (listNotebooksResponseSuccess | listNotebooksResponseError)
 
-export const getListNotebooksUrl = () => {
+export const getListNotebooksUrl = (params?: ListNotebooksParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/notebooks`
+  return stringifiedParams.length > 0 ? `/notebooks?${stringifiedParams}` : `/notebooks`
 }
 
 /**
+ * Поиск собственных блокнотов по буквальной подстроке имени без учёта регистра. Порядок updated_at DESC, id DESC; курсор продолжает список. Снимок между запросами не сохраняется.
  * @summary Список блокнотов
  */
-export const listNotebooks = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<listNotebooksResponse> => {
+export const listNotebooks = async (params?: ListNotebooksParams, options?: Parameters<typeof bearerFetch>[1]): Promise<listNotebooksResponse> => {
 
-  return bearerFetch<listNotebooksResponse>(getListNotebooksUrl(),
+  return bearerFetch<listNotebooksResponse>(getListNotebooksUrl(params),
   {
     ...options,
     method: 'GET'

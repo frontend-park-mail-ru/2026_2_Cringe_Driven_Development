@@ -38,8 +38,16 @@ Docker-образ BFF. Изменённое поведение проверяй�
 После коммита `post-commit` переносит форматирование в рабочий файл, только если
 в нём нет других неиндексированных правок.
 
-Ветка задачи — `web-N`, PR в командный frontend закрывает её через `Closes #N`
-и требует ревью frontend-ментора. Порядок слияния —
+Ветка задачи — `web-N`, в PR `Closes #N` создаёт штатную связь с задачей;
+PR требует ревью frontend-ментора. Merge оставляет задачу открытой с `Ready for build`,
+проверенный Release ставит `Ready for release`. Только успешный CD после Health check
+и записи production success закрывает задачу completed и ставит `Done`. Rollback
+меняет Status на `Rollback from production` без переоткрытия; следующий CD возвращает
+`Done`. Ручной reopen после merge и закрытие not planned/duplicate защищены;
+ручное completed сохраняет Done и допускает rollback после первого подтверждённого CD.
+Сбой обновления задач восстанавливается по исходному Deployment ID через
+[Reconcile release issues](release.md#статусы-задач-и-восстановление).
+Порядок слияния —
 [очередь в main](release.md#очередь-слияния-в-main).
 
 ## Монорепа
