@@ -133,10 +133,11 @@
     inset: 0;
     mask-image: radial-gradient(
         circle,
-        transparent calc(var(--edge) - 480px),
-        rgb(0 0 0 / 0.5) calc(var(--edge) - 200px),
+        transparent calc(var(--edge) - 400px),
+        rgb(0 0 0 / 0.3) calc(var(--edge) - 170px),
         #000 calc(var(--edge) - 12px)
     );
+    opacity: 0.5;
 }
 
 /*
