@@ -689,6 +689,33 @@ export async function stopRuntime(): Promise<void> {
 }
 
 /**
+ * «Завершить блокнот» из баннера «Окружение занято»: stop сессии другого блокнота, затем опрос
+ * `runtime.active`, пока слот не освободится, — баннер сменится на «Окружение не запущено».
+ */
+export async function stopOtherRuntime(): Promise<void> {
+    const { session, busy } = get();
+    if (!session || own() || !sessionActive(session) || busy !== null) return;
+    const started = generation;
+    set({ busy: 'stop', error: null });
+    try {
+        await trpc.runtime.stop.mutate({ sessionId: session.id });
+        while (started === generation) {
+            const active = await trpc.runtime.active.query();
+            if (started !== generation) return;
+            if (active?.id !== session.id || !sessionActive(active)) {
+                set({ busy: null, session: active });
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+    } catch {
+        if (started !== generation) return;
+        set({ busy: null });
+        fail('failed');
+    }
+}
+
+/**
  * «Остановить всё»: прервать текущее исполнение и отменить очередь, окружение и переменные
  * остаются. Итоговые статусы — из опроса; при ошибке опрос сверяет фактическое состояние.
  */

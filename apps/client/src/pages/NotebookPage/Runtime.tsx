@@ -3,6 +3,9 @@ import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
 import { Icon, type IconName } from '@components/Icon/Icon';
+import { Modal } from '@components/Modal/Modal';
+import { ClampedName } from '@modules/notebookDelete/ClampedName';
+import { trpc } from '@api/trpc';
 import {
     canExecute,
     interruptCell,
@@ -10,6 +13,7 @@ import {
     runCell,
     startRuntime,
     stopExecutions,
+    stopOtherRuntime,
     stopRuntime,
     useRuntimeStore,
 } from '@stores/runtime';
@@ -145,20 +149,41 @@ const BANNER: Record<
     },
 };
 
-type BannerAction = { label: string; onClick: () => void; loading?: boolean; primary?: true };
+type BannerAction = {
+    label: string;
+    onClick: () => void;
+    loading?: boolean;
+    primary?: true;
+    danger?: true;
+};
 
-/** Действие баннера: у «нет связи» его нет, запуск окружения — главное действие. */
-function bannerAction(
+/** Действия баннера: у «нет связи» их нет, запуск окружения — главное действие. */
+function bannerActions(
     kind: BannerKind,
     runtime: Runtime,
     openNotebook: (notebookId: number) => void,
-): BannerAction | undefined {
+    confirmStop: () => void,
+): BannerAction[] {
+    const one = bannerAction(kind, runtime);
+    if (kind !== 'busy') return one ? [one] : [];
+    const notebookId = runtime.session!.notebook_id;
+    const stopping = runtime.busy === 'stop';
+    return [
+        { label: 'Перейти к блокноту', onClick: () => openNotebook(notebookId) },
+        {
+            label: stopping ? 'Завершаем…' : 'Завершить блокнот',
+            onClick: confirmStop,
+            loading: stopping,
+            danger: true,
+        },
+    ];
+}
+
+function bannerAction(kind: BannerKind, runtime: Runtime): BannerAction | undefined {
     const starting = runtime.busy === 'start';
     switch (kind) {
-        case 'busy': {
-            const notebookId = runtime.session!.notebook_id;
-            return { label: 'Перейти к блокноту', onClick: () => openNotebook(notebookId) };
-        }
+        case 'busy':
+            return undefined;
         case 'cleanup':
             return {
                 label: 'Повторить завершение',
@@ -198,15 +223,25 @@ interface RuntimeBannerProps {
 export function RuntimeBanner({ className }: RuntimeBannerProps) {
     const runtime = useRuntimeStore();
     const navigate = useNavigate();
+    const [confirm, setConfirm] = useState(false);
     const kind = bannerKind(runtime);
     if (!kind) return null;
     const shown = BANNER[kind];
-    const action = bannerAction(kind, runtime, (notebookId) =>
-        navigate({ to: '/notebooks/$notebookId', params: { notebookId: String(notebookId) } }),
+    const actions = bannerActions(
+        kind,
+        runtime,
+        (notebookId) =>
+            navigate({ to: '/notebooks/$notebookId', params: { notebookId: String(notebookId) } }),
+        () => setConfirm(true),
     );
     return (
         <div
-            className={clsx(styles.banner, shown.tone && styles[shown.tone], className)}
+            className={clsx(
+                styles.banner,
+                shown.tone && styles[shown.tone],
+                actions.length > 1 && styles.stacked,
+                className,
+            )}
             role={shown.tone === 'error' ? 'alert' : 'status'}
         >
             <Icon key="icon" name={shown.icon} className={styles.icon} />
@@ -218,18 +253,83 @@ export function RuntimeBanner({ className }: RuntimeBannerProps) {
                     {shown.text}
                 </p>
             </div>
-            {action && (
-                <Button
-                    key="action"
-                    variant={action.primary ? 'primary' : 'secondary'}
-                    className={styles.button}
-                    loading={action.loading}
-                    onClick={action.onClick}
-                >
-                    {action.label}
-                </Button>
+            {actions.length > 0 && (
+                <div key="actions" className={styles.bannerActions}>
+                    {actions.map((action) => (
+                        <Button
+                            key={action.label}
+                            variant={
+                                action.primary ? 'primary' : action.danger ? 'danger' : 'secondary'
+                            }
+                            className={styles.button}
+                            loading={action.loading}
+                            disabled={action.loading}
+                            onClick={action.onClick}
+                        >
+                            {action.label}
+                        </Button>
+                    ))}
+                </div>
+            )}
+            {confirm && kind === 'busy' && (
+                <StopOtherDialog
+                    key="confirm"
+                    notebookId={runtime.session!.notebook_id}
+                    onClose={() => setConfirm(false)}
+                />
             )}
         </div>
+    );
+}
+
+const STOP_OTHER_CANCEL_ID = 'stop-other-cancel';
+
+/**
+ * Подтверждение «Завершить окружение блокнота» с названием блокнота, который занял окружение.
+ */
+function StopOtherDialog({ notebookId, onClose }: { notebookId: number; onClose: () => void }) {
+    const busy = useRuntimeStore().busy !== null;
+    const [name, setName] = useState<string | null>(null);
+    useEffect(() => {
+        let alive = true;
+        trpc.notebooks.get
+            .query({ id: notebookId })
+            .then((page) => alive && setName(page.notebook.name))
+            .catch(() => undefined);
+        return () => {
+            alive = false;
+        };
+    }, [notebookId]);
+    return (
+        <Modal
+            title="Завершить окружение блокнота"
+            lead={name === null ? undefined : <ClampedName key={notebookId} name={name} />}
+            description="Выполнение там остановится, переменные в памяти будут потеряны. Блокнот сохранится."
+            initialFocusId={STOP_OTHER_CANCEL_ID}
+            onClose={onClose}
+        >
+            <div className={styles.dialogActions}>
+                <Button
+                    key="cancel"
+                    id={STOP_OTHER_CANCEL_ID}
+                    variant="secondary"
+                    onClick={onClose}
+                >
+                    Отмена
+                </Button>
+                <Button
+                    key="submit"
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => {
+                        onClose();
+                        void stopOtherRuntime();
+                    }}
+                >
+                    Завершить окружение
+                </Button>
+            </div>
+        </Modal>
     );
 }
 
