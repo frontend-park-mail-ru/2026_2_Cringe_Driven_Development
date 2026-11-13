@@ -53,6 +53,7 @@
 
 .banner {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     padding: 16px 20px;
@@ -220,6 +221,7 @@
 @media (max-width: 860px) {
     .banner {
         flex-wrap: wrap;
+        padding: 16px;
     }
 }
 
@@ -231,4 +233,39 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+}
+
+/* Кнопки баннера; у «Окружение занято» их две — вторым рядом под текстом */
+.bannerActions {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .stacked & {
+        flex-basis: 100%;
+        padding-left: 28px;
+    }
+
+    /* Тач: кнопки под текстом во всю ширину, текст не сжимается в узкую колонку */
+    @media (max-width: 860px) {
+        flex-basis: 100%;
+        padding-left: 28px;
+
+        & > * {
+            flex: 1 1 auto;
+            justify-content: center;
+        }
+    }
+}
+
+.dialogActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px;
+
+    @media (max-width: 640px) {
+        gap: 8px;
+    }
 }
