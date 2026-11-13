@@ -372,12 +372,15 @@ export async function updateReleaseBoard(
                 : linked,
         );
     }
+    let lastState: Awaited<ReturnType<typeof issueState>> | undefined;
+    const describeState = (state?: Awaited<ReturnType<typeof issueState>>) =>
+        `${state ? (state.closed ? 'closed' : 'open') : 'unknown'}/${state?.card?.fieldValueByName?.name ?? '?'}`;
     const processIssue = async (linked: LinkedIssue) => {
         const basis =
             kind === 'publish' ? `Release ${report.headSha}` : `Deployment ${deploymentId}`;
         const log = (reason: string, state?: Awaited<ReturnType<typeof issueState>>) =>
             console.log(
-                `issue #${linked.number}: ${basis}; ${state?.closed ? 'closed' : 'open'}/${state?.card?.fieldValueByName?.name ?? '?'} -> ${target}; ${reason}`,
+                `issue #${linked.number}: ${basis}; ${describeState(state)} -> ${target}; ${reason}`,
             );
         const skip = (reason: string, state?: Awaited<ReturnType<typeof issueState>>) => {
             log(`skip: ${reason}`, state);
@@ -449,9 +452,11 @@ export async function updateReleaseBoard(
         };
         for (let attempt = 0; attempt < 3; attempt++) {
             let state = await issueState(linked.id, context.id);
+            lastState = state;
             const eligibility = await eligible(state);
             if (typeof eligibility === 'string') return skip(eligibility, state);
             const latest = await issueState(linked.id, context.id);
+            lastState = latest;
             if (JSON.stringify(latest) !== JSON.stringify(state)) continue;
             // Перечитываем связи и production непосредственно перед первой записью.
             const rechecked = await eligible(latest);
@@ -472,6 +477,7 @@ export async function updateReleaseBoard(
                     throw new ReleaseError('Нет подтверждения закрытия completed');
                 log('closed completed; проверка Status', state);
                 state = await issueState(linked.id, context.id);
+                lastState = state;
                 if (!state.closed || state.reason !== 'COMPLETED')
                     throw new ReleaseError('Закрытие completed не подтверждено чтением');
                 const afterClose = await eligible(state);
@@ -544,10 +550,11 @@ export async function updateReleaseBoard(
         throw new ReleaseError('Issue менялась перед записью; повторите операцию');
     };
     for (const linked of issues.values()) {
+        lastState = undefined;
         try {
             await processIssue(linked);
         } catch (error) {
-            const message = `issue #${linked.number}: ${kind} ${deploymentId ?? report.headSha}: error: ${error instanceof Error ? error.message : String(error)}`;
+            const message = `issue #${linked.number}: ${kind} ${deploymentId ?? report.headSha}; ${describeState(lastState)} -> ${target}; error: ${error instanceof Error ? error.message : String(error)}`;
             console.warn(message);
             result.errors.push(message);
         }

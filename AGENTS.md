@@ -5,7 +5,15 @@
 zod-схемы — `packages/schemas` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
 Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
-в PR `Closes #N`, обязательное ревью ментора. Учебный frontend-park-mail-ru
+в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
+с `Ready for build`, проверенный Release даёт `Ready for release`. Только CD после
+Health check и сохранённого production success закрывает completed и ставит `Done`.
+Rollback меняет Status на `Rollback from production` без reopen; следующий CD возвращает
+`Done`. Ручные reopen после merge и not planned/duplicate защищены; ручное completed
+сохраняет Done и допускает rollback после первого подтверждённого CD. Сбой карточек
+восстанавливается по исходному Deployment ID через
+[Reconcile release issues](docs/release.md#статусы-задач-и-восстановление).
+Обязательное ревью ментора. Учебный frontend-park-mail-ru
 получает копию main, новые PR туда не создаются.
 
 Общепроектный контекст, действующая архитектура и планы развития проекта — в

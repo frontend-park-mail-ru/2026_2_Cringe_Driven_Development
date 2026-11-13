@@ -24,6 +24,12 @@ jobs:
     if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      issues: write
+      deployments: write
     # ограничения environment production сохраняются; запись Deployment скрипт создаёт сам
     environment:
       name: production
@@ -145,6 +151,7 @@ jobs:
         if: "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'"
         env:
           ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          RELEASE_DEPLOYMENT_ID: ${{ steps.start.outputs.deployment_id }}
           RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
         run: bun run release board deploy "$SHA"
       - name: Retention
