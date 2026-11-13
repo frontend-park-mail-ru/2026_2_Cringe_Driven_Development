@@ -46,11 +46,11 @@ Docker-образ BFF. Изменённое поведение проверяй�
 
 Репозиторий — монорепа на bun workspaces и [Turborepo](https://turborepo.com)
 
-| Каталог            | Пакет          | Что внутри                                                                                            |
-| ------------------ | -------------- | ----------------------------------------------------------------------------------------------------- |
-| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                    |
-| `apps/bff`         | `@cdd/bff`     | BFF: Hono + tRPC под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже             |
-| `packages/schemas` | `@cdd/schemas` | zod-схемы операций Go, генерирует Orval (`bun run orval`); общий `Password` — `@cdd/schemas/password` |
+| Каталог            | Пакет          | Что внутри                                                                                                    |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------- |
+| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                            |
+| `apps/bff`         | `@cdd/bff`     | BFF: Hono + tRPC под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                     |
+| `packages/schemas` | `@cdd/schemas` | zod-схемы операций Go, генерирует Orval (`bun run orval`); общие `Password` и `Login` — `@cdd/schemas/inputs` |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
 `oxlint` и `oxfmt`, `.env` — его читают и клиент, и скрипты

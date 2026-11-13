@@ -4,7 +4,7 @@
     "type": "module",
     "exports": {
         ".": "./src/zod.ts",
-        "./password": "./src/password.ts"
+        "./inputs": "./src/inputs.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"
