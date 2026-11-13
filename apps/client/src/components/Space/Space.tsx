@@ -69,7 +69,9 @@ export function Space({ anchor, edge = 'below' }: SpaceProps) {
         const element = root.current;
         const target = anchor?.current;
         if (!element || !target) return;
+        let alive = true;
         const update = () => {
+            if (!alive) return;
             const base = element.getBoundingClientRect();
             const box = target.getBoundingClientRect();
             const next = {
@@ -100,7 +102,10 @@ export function Space({ anchor, edge = 'below' }: SpaceProps) {
             if (node === element.parentElement) break;
         }
         void document.fonts?.ready.then(update);
-        return () => observer.disconnect();
+        return () => {
+            alive = false;
+            observer.disconnect();
+        };
     }, [anchor, edge]);
 
     const diameter = geometry ? planetSize(geometry.width) : 0;

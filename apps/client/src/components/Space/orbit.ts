@@ -1,5 +1,5 @@
 /** Минимальный диаметр планеты, px. */
-export const MIN_PLANET_SIZE = 2600;
+const MIN_PLANET_SIZE = 2600;
 
 /** Высота макета статичного поля, px: в ней лежали звёзды. */
 const FIELD_HEIGHT = 880;
@@ -9,6 +9,8 @@ const FIELD_STARS = 70;
 const MIN_WIDTH = 320;
 /** Глубина под верхом планеты, px: ниже диск закрывает фон целиком, звёзды там не нужны. */
 const DISC_COVER = 400;
+/** Потолок числа звёзд: на очень длинных страницах кольцо огромно, а каждая звезда — узел DOM. */
+const MAX_STARS = 1500;
 
 /** Звезда вращаемого поля: координаты в px от центра планеты. */
 interface OrbitStar {
@@ -60,7 +62,7 @@ export function orbitStars(width: number, height: number, planetTop: number): Or
     for (;;) {
         area += -Math.log(1 - random()) / density;
         const r = Math.sqrt(inner ** 2 + area / Math.PI);
-        if (r > outer) return stars;
+        if (r > outer || stars.length >= MAX_STARS) return stars;
         const angle = random() * 2 * Math.PI;
         stars.push({
             id: stars.length,
