@@ -699,7 +699,7 @@ export async function stopOtherRuntime(): Promise<void> {
     set({ busy: 'stop', error: null });
     try {
         await trpc.runtime.stop.mutate({ sessionId: session.id });
-        while (started === generation) {
+        for (;;) {
             const active = await trpc.runtime.active.query();
             if (started !== generation) return;
             if (active?.id !== session.id || !sessionActive(active)) {
