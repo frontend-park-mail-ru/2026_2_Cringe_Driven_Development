@@ -126,6 +126,9 @@ backend-VPS. Локальный Go не нужен.
       -L 127.0.0.1:18080:<PRIVATE_IP_VPS2>:8080 <USER>@<GATEWAY>
     ```
 
+    Отказ gateway ssh не завершает (`ExitOnForwardFailure` ловит только занятый локальный порт), поэтому
+    проверьте туннель: `curl -s http://127.0.0.1:18080/health` → `{"status": "alive"}`.
+
 2. В корневом `.env` (в git не попадает) или окружении запуска:
 
     ```dotenv
