@@ -748,6 +748,25 @@ export interface Error {
   message: string;
 }
 
+export interface NotebookListPage {
+  items: NotebookSummary[];
+  /**
+     * Продолжение после последнего выданного элемента; null на последней странице.
+     * @nullable
+     */
+  next_cursor: string | null;
+  /**
+     * Все совпадения владельца, без cursor и limit.
+     * @minimum 0
+     */
+  matched_count: number;
+  /**
+     * Все блокноты владельца, без search, cursor и limit.
+     * @minimum 0
+     */
+  total_count: number;
+}
+
 export type BadRequestResponseBody = Error;
 
 export type UnauthorizedResponseBody = Error;
@@ -795,6 +814,24 @@ export const DeleteNotebook409Code = {
 export type DeleteNotebook409 = {
   code: DeleteNotebook409Code;
   message: string;
+};
+
+export type ListNotebooksParams = {
+/**
+ * Подстрока имени без учёта регистра; пробелы по краям обрезаются. Пустая строка означает весь список. %, _ и обратная косая черта — обычные символы.
+ */
+search?: string;
+/**
+ * Размер страницы. Явно пустое значение невалидно.
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * Непрозрачный next_cursor предыдущей страницы для того же пользователя и TrimSpace(search), включая регистр. Размер limit можно менять. Пустой, повреждённый или неподходящий курсор: 400 validation_error.
+ * @minLength 1
+ */
+cursor?: string;
 };
 
 export type InspectRuntimeVariablesBody = {
@@ -2484,8 +2521,13 @@ return bearerFetch<moveNotebookCellResponse>(getMoveNotebookCellUrl(id,cellId),
 
 
 export type listNotebooksResponse200 = {
-  data: NotebookSummary[]
+  data: NotebookListPage
   status: 200
+}
+
+export type listNotebooksResponse400 = {
+  data: Error
+  status: 400
 }
 
 export type listNotebooksResponse401 = {
@@ -2506,26 +2548,34 @@ export type listNotebooksResponse500 = {
 export type listNotebooksResponseSuccess = (listNotebooksResponse200) & {
   headers: Headers;
 };
-export type listNotebooksResponseError = (listNotebooksResponse401 | listNotebooksResponse403 | listNotebooksResponse500) & {
+export type listNotebooksResponseError = (listNotebooksResponse400 | listNotebooksResponse401 | listNotebooksResponse403 | listNotebooksResponse500) & {
   headers: Headers;
 };
 
 export type listNotebooksResponse = (listNotebooksResponseSuccess | listNotebooksResponseError)
 
-export const getListNotebooksUrl = () => {
+export const getListNotebooksUrl = (params?: ListNotebooksParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/notebooks`
+  return stringifiedParams.length > 0 ? `/notebooks?${stringifiedParams}` : `/notebooks`
 }
 
 /**
+ * Поиск собственных блокнотов по буквальной подстроке имени без учёта регистра. Порядок updated_at DESC, id DESC; курсор продолжает список. Снимок между запросами не сохраняется.
  * @summary Список блокнотов
  */
-export const listNotebooks = async ( options?: Parameters<typeof bearerFetch>[1]): Promise<listNotebooksResponse> => {
+export const listNotebooks = async (params?: ListNotebooksParams, options?: Parameters<typeof bearerFetch>[1]): Promise<listNotebooksResponse> => {
 
-  return bearerFetch<listNotebooksResponse>(getListNotebooksUrl(),
+  return bearerFetch<listNotebooksResponse>(getListNotebooksUrl(params),
   {
     ...options,
     method: 'GET'

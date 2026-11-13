@@ -787,8 +787,21 @@ export const MoveNotebookCellResponse = zod.object({
 
 
 /**
+ * Поиск собственных блокнотов по буквальной подстроке имени без учёта регистра. Порядок updated_at DESC, id DESC; курсор продолжает список. Снимок между запросами не сохраняется.
  * @summary Список блокнотов
  */
+export const listNotebooksQueryLimitDefault = 24;
+export const listNotebooksQueryLimitMax = 100;
+
+
+
+
+export const ListNotebooksQueryParams = zod.object({
+  "search": zod.string().optional().describe('Подстрока имени без учёта регистра; пробелы по краям обрезаются. Пустая строка означает весь список. %, _ и обратная косая черта — обычные символы.'),
+  "limit": zod.int().min(1).max(listNotebooksQueryLimitMax).default(listNotebooksQueryLimitDefault).describe('Размер страницы. Явно пустое значение невалидно.'),
+  "cursor": zod.string().min(1).optional().describe('Непрозрачный next_cursor предыдущей страницы для того же пользователя и TrimSpace(search), включая регистр. Размер limit можно менять. Пустой, повреждённый или неподходящий курсор: 400 validation_error.')
+})
+
 
 
 
@@ -797,17 +810,25 @@ export const ListNotebooksHeader = zod.object({
 })
 
 
+export const listNotebooksResponseMatchedCountMin = 0;
+
+export const listNotebooksResponseTotalCountMin = 0;
 
 
-export const ListNotebooksResponseItem = zod.object({
+
+export const ListNotebooksResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.int().min(1),
   "name": zod.string(),
   "updated_at": zod.iso.datetime({"offset":true}),
   "cells_count": zod.int().describe('Число блоков'),
   "preview_code": zod.string().describe('Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии.'),
   "has_active_session": zod.boolean().describe('У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения.')
+})),
+  "next_cursor": zod.string().nullable().describe('Продолжение после последнего выданного элемента; null на последней странице.'),
+  "matched_count": zod.int().min(listNotebooksResponseMatchedCountMin).describe('Все совпадения владельца, без cursor и limit.'),
+  "total_count": zod.int().min(listNotebooksResponseTotalCountMin).describe('Все блокноты владельца, без search, cursor и limit.')
 })
-export const ListNotebooksResponse = zod.array(ListNotebooksResponseItem)
 
 
 /**

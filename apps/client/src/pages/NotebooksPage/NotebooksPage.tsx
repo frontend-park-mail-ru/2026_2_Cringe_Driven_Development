@@ -1,6 +1,6 @@
-import { useEffect, useState } from '@cdd-team/react';
+import { useEffect, useRef, useState } from '@cdd-team/react';
 
-import { trpc, type NotebookSummary } from '@api/trpc';
+import { trpc, type NotebookListPage, type NotebookSummary } from '@api/trpc';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Logo } from '@components/Logo/Logo';
@@ -15,6 +15,7 @@ import type { DeleteGate } from '@modules/notebookDelete/gate';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { plural } from '@utils/plural';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
+import { PAGE_SIZE, appendPage, fromFirstPage, removeItem, type Loaded } from './list';
 import styles from './NotebooksPage.module.css';
 
 /** Сколько скелетонов показывать, пока список загружается */
@@ -23,16 +24,22 @@ const SKELETON_COUNT = 6;
 type ListState =
     | { status: 'loading' }
     | { status: 'error' }
-    | { status: 'ready'; notebooks: NotebookSummary[] };
+    | {
+          status: 'ready';
+          loaded: Loaded;
+          more: 'idle' | 'loading' | 'error';
+          /** Номер загрузки списка: ответ догрузки прежнего списка отбрасывается */
+          attempt: number;
+      };
 
 /**
- * Загружает блокноты пользователя, недавно изменённые — первыми.
- * @returns блокноты или undefined, если загрузить не удалось
+ * Загружает страницу блокнотов в порядке backend.
+ * @param cursor `next_cursor` предыдущей страницы; без него — первая страница
+ * @returns страница или undefined, если загрузить не удалось
  */
-async function loadNotebooks(): Promise<NotebookSummary[] | undefined> {
+async function loadPage(cursor?: string): Promise<NotebookListPage | undefined> {
     try {
-        const notebooks = await trpc.notebooks.list.query();
-        return notebooks.toSorted((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+        return await trpc.notebooks.list.query({ limit: PAGE_SIZE, cursor });
     } catch {
         return undefined;
     }
@@ -46,9 +53,9 @@ function subtitle(state: ListState): string {
         case 'error':
             return 'Не удалось загрузить блокноты';
         case 'ready':
-            return state.notebooks.length === 0
+            return state.loaded.totalCount === 0
                 ? 'Пока ни одного блокнота'
-                : plural(state.notebooks.length, 'блокнот', 'блокнота', 'блокнотов');
+                : plural(state.loaded.totalCount, 'блокнот', 'блокнота', 'блокнотов');
     }
 }
 
@@ -59,6 +66,7 @@ function subtitle(state: ListState): string {
 export function NotebooksPage() {
     const [list, setList] = useState<ListState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
+    const sentinel = useRef<HTMLDivElement>(null);
     const [creating, setCreating] = useState(false);
     const [deleting, setDeleting] = useState<{
         notebook: NotebookSummary;
@@ -77,10 +85,10 @@ export function NotebooksPage() {
             setList({ status: 'loading' });
             setAttempt((current) => current + 1);
         };
-        void loadNotebooks().then((notebooks) => {
+        void loadPage().then((page) => {
             if (!alive) return;
-            if (notebooks) {
-                setList({ status: 'ready', notebooks });
+            if (page) {
+                setList({ status: 'ready', loaded: fromFirstPage(page), more: 'idle', attempt });
                 return;
             }
             setList({ status: 'error' });
@@ -92,7 +100,45 @@ export function NotebooksPage() {
         };
     }, [attempt]);
 
-    const isEmpty = list.status === 'ready' && list.notebooks.length === 0;
+    const loadMore = async () => {
+        if (list.status !== 'ready' || list.more === 'loading') return;
+        const { nextCursor: cursor } = list.loaded;
+        if (cursor === null) return;
+        const mine = list.attempt;
+        setList({ ...list, more: 'loading' });
+        const page = await loadPage(cursor);
+        setList((current) => {
+            // список перезагружен или курсор уже сдвинут — ответ устарел
+            if (
+                current.status !== 'ready' ||
+                current.attempt !== mine ||
+                current.loaded.nextCursor !== cursor
+            )
+                return current;
+            return page
+                ? { ...current, loaded: appendPage(current.loaded, page), more: 'idle' }
+                : { ...current, more: 'error' };
+        });
+    };
+
+    const canLoadMore =
+        list.status === 'ready' && list.loaded.nextCursor !== null && list.more === 'idle';
+    const loadedCount = list.status === 'ready' ? list.loaded.items.length : 0;
+    useEffect(() => {
+        const node = sentinel.current;
+        if (!canLoadMore || !node) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+        });
+        observer.observe(node);
+        return () => observer.disconnect();
+        // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [canLoadMore, loadedCount]);
+
+    const isEmpty =
+        list.status === 'ready' &&
+        list.loaded.items.length === 0 &&
+        list.loaded.nextCursor === null;
     const openCreate = () => setCreating(true);
 
     const askDelete = async (notebook: NotebookSummary) => {
@@ -113,7 +159,7 @@ export function NotebooksPage() {
         }
         setList((current) =>
             current.status === 'ready'
-                ? { ...current, notebooks: current.notebooks.filter((n) => n.id !== id) }
+                ? { ...current, loaded: removeItem(current.loaded, id) }
                 : current,
         );
     };
@@ -164,7 +210,7 @@ export function NotebooksPage() {
                 )}
                 {list.status === 'ready' && !isEmpty && (
                     <ul key="grid" className={styles.grid}>
-                        {list.notebooks.map((notebook) => (
+                        {list.loaded.items.map((notebook) => (
                             <li key={notebook.id}>
                                 <NotebookCard
                                     notebook={notebook}
@@ -172,7 +218,19 @@ export function NotebooksPage() {
                                 />
                             </li>
                         ))}
+                        {list.more === 'loading' &&
+                            Array.from({ length: 3 }, (_, index) => (
+                                <li key={`more-${index}`} aria-hidden="true">
+                                    <NotebookCardSkeleton />
+                                </li>
+                            ))}
                     </ul>
+                )}
+                {canLoadMore && <div key="sentinel" ref={sentinel} aria-hidden="true" />}
+                {list.status === 'ready' && list.more === 'error' && (
+                    <div key="more-error" className={styles.moreError}>
+                        <Button onClick={() => void loadMore()}>Повторить загрузку</Button>
+                    </div>
                 )}
                 {isEmpty && (
                     <StateBlock
