@@ -80,6 +80,14 @@ export interface NotebookSummary {
   has_active_session: boolean;
 }
 
+/**
+ * Пароль: 8–72 печатных ASCII-символа (коды 0x21–0x7E) без пробелов; спецсимволы допустимы. Каждый символ занимает один байт, поэтому длина укладывается в лимит bcrypt 72 байта. Пароль не обрезается и не нормализуется.
+ * @minLength 8
+ * @maxLength 72
+ * @pattern ^[!-~]+$
+ */
+export type Password = string;
+
 export interface Credentials {
   /**
      * @minLength 3
@@ -87,11 +95,7 @@ export interface Credentials {
      * @pattern ^[a-zA-Z0-9_]+$
      */
   login: string;
-  /**
-     * @minLength 8
-     * @maxLength 72
-     */
-  password: string;
+  password: Password;
 }
 
 /**
@@ -239,18 +243,10 @@ export interface UpdateCurrentUserRequest {
 }
 
 export interface ChangeCurrentUserPasswordRequest {
-  /**
-     * От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.
-     * @minLength 8
-     * @maxLength 72
-     */
-  current_password: string;
-  /**
-     * От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.
-     * @minLength 8
-     * @maxLength 72
-     */
-  new_password: string;
+  /** Текущий пароль пользователя. */
+  current_password: Password;
+  /** Новый пароль; должен отличаться от текущего. */
+  new_password: Password;
 }
 
 export type UserProfileErrorCode = typeof UserProfileErrorCode[keyof typeof UserProfileErrorCode];
@@ -695,11 +691,7 @@ export interface LoginRequest {
      * @pattern ^[a-zA-Z0-9_]+$
      */
   login: string;
-  /**
-     * @minLength 8
-     * @maxLength 72
-     */
-  password: string;
+  password: Password;
   /** TOTP-код: ровно 6 ASCII-цифр (0–9), ведущие нули сохраняются. Обязателен только после подтверждения 2FA. Формат проверяется после логина и пароля и только при включённой 2FA; неверный формат — 401, отсутствие поля — 412. При выключенной 2FA поле игнорируется. Общий pattern здесь намеренно отсутствует, чтобы валидатор не возвращал 400 вместо условного 401. */
   user_code?: string;
 }
@@ -729,7 +721,7 @@ export interface ConfirmTwoFactorRequest {
 
 export interface DisableTwoFactorRequest {
   /** Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password. */
-  password: string;
+  password: Password;
 }
 
 export type ErrorCode = typeof ErrorCode[keyof typeof ErrorCode];
@@ -1021,7 +1013,7 @@ export const getChangeCurrentUserPasswordUrl = () => {
 }
 
 /**
- * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: формат — общая схема Password: 8–72 печатных ASCII-символа без пробелов. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
  * @summary Сменить пароль
  */
 export const changeCurrentUserPassword = async (changeCurrentUserPasswordRequest: ChangeCurrentUserPasswordRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<changeCurrentUserPasswordResponse> => {
@@ -1861,6 +1853,85 @@ export const getNotebook = async (id: number, options?: Parameters<typeof bearer
     method: 'GET'
 
 
+  }
+);}
+
+
+
+export type renameNotebookResponse200 = {
+  data: Notebook
+  status: 200
+}
+
+export type renameNotebookResponse400 = {
+  data: Error
+  status: 400
+}
+
+export type renameNotebookResponse401 = {
+  data: Error
+  status: 401
+}
+
+export type renameNotebookResponse403 = {
+  data: Error
+  status: 403
+}
+
+export type renameNotebookResponse404 = {
+  data: Error
+  status: 404
+}
+
+export type renameNotebookResponse500 = {
+  data: Error
+  status: 500
+}
+
+export type renameNotebookResponseSuccess = (renameNotebookResponse200) & {
+  headers: Headers;
+};
+export type renameNotebookResponseError = (renameNotebookResponse400 | renameNotebookResponse401 | renameNotebookResponse403 | renameNotebookResponse404 | renameNotebookResponse500) & {
+  headers: Headers;
+};
+
+export type renameNotebookResponse = (renameNotebookResponseSuccess | renameNotebookResponseError)
+
+export const getRenameNotebookUrl = (id: number,) => {
+
+
+
+
+  return `/notebooks/${id}`
+}
+
+/**
+ * Переименовывает блокнот текущего владельца. Пробелы по краям имени обрезаются; пустое после обрезки имя отклоняется. Ограничение 1–128 Unicode-символов проверяется до обрезки, как при создании. Одинаковые имена разрешены. Повтор того же нормализованного имени успешен без изменения updated_at. If-Match не требуется и не проверяется; редакция, содержимое и runtime не меняются. Активное окружение и выполнение ячейки разрешены. Чужой и отсутствующий блокнот дают одинаковый 404.
+ * @summary Переименовать блокнот
+ */
+export const renameNotebook = async (id: number,
+    createNotebookRequest: CreateNotebookRequest, options?: Parameters<typeof bearerFetch>[1]): Promise<renameNotebookResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bearerFetch<renameNotebookResponse>(getRenameNotebookUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createNotebookRequest)
   }
 );}
 
