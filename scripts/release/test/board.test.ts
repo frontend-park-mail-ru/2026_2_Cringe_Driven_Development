@@ -1,19 +1,35 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { updateReleaseBoard } from '../board.ts';
 import { readChangeReport } from '../report.ts';
 import { fixture, REPO } from './fixture.ts';
 
 let f: ReturnType<typeof fixture>;
+let warnings: ReturnType<typeof spyOn>;
+let expectedWarnings: string[];
 beforeEach(() => {
+    expectedWarnings = [];
+    warnings = spyOn(console, 'warn').mockImplementation(() => {});
     f = fixture();
     f.publish();
     f.issues.delete(1);
     f.issues.delete(3);
 });
-afterEach(() => f.restore());
+afterEach(() => {
+    try {
+        expect(warnings.mock.calls).toEqual(expectedWarnings.map((message) => [message]));
+    } finally {
+        warnings.mockRestore();
+        f.restore();
+    }
+});
 const report = () => readChangeReport(REPO, f.root, f.b);
-const board = async (kind: 'publish' | 'deploy' | 'rollback', id?: number) =>
-    updateReleaseBoard(kind, await report(), id);
+const board = async (kind: 'publish' | 'deploy' | 'rollback', id?: number, fails = false) => {
+    const result = await updateReleaseBoard(kind, await report(), id);
+    if (fails) expect(result.errors.length).toBeGreaterThan(0);
+    else expect(result.errors).toEqual([]);
+    expectedWarnings.push(...result.errors);
+    return result;
+};
 
 test('published release keeps issue open and ready for release', async () => {
     expect((await board('publish')).errors).toEqual([]);
@@ -69,7 +85,7 @@ test('close 403 prevents Done', async () => {
         url.pathname.includes('/issues/') && init?.method === 'PATCH'
             ? new Response('denied', { status: 403 })
             : undefined;
-    expect((await board('deploy', f.production())).errors.join()).toContain('403');
+    expect((await board('deploy', f.production(), true)).errors.join()).toContain('403');
     expect(f.writes).toEqual([]);
 });
 test('Project 503 after close is repaired without a second close', async () => {
@@ -79,7 +95,7 @@ test('Project 503 after close is repaired without a second close', async () => {
             ? new Response('unavailable', { status: 503 })
             : undefined;
     const id = f.production();
-    expect((await board('deploy', id)).errors.join()).toContain('503');
+    expect((await board('deploy', id, true)).errors.join()).toContain('503');
     expect(f.issues.get(2)!.state).toBe('closed');
     fail = false;
     expect((await board('deploy', id)).errors).toEqual([]);
@@ -139,7 +155,7 @@ test.each([null, 'same'])(
                 },
             });
         };
-        expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+        expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
         expect(f.writes).toEqual([]);
     },
 );
@@ -185,7 +201,7 @@ test('production becoming pending before write cannot close', async () => {
         if (body?.query?.includes('BoardIssue') && ++reads === 2)
             f.production('deploy', f.c, f.b, 'pending');
     };
-    expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+    expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
 });
 test('new related merge before write cannot close', async () => {
@@ -212,7 +228,7 @@ test('one issue failure does not prevent the next issue', async () => {
         url.pathname.endsWith('/issues/2') && init?.method === 'PATCH'
             ? new Response('denied', { status: 403 })
             : undefined;
-    expect((await board('deploy', f.production())).errors).toHaveLength(1);
+    expect((await board('deploy', f.production(), true)).errors).toHaveLength(1);
     expect(f.issues.get(3)!.state).toBe('closed');
 });
 test.each(['environment', 'task', 'sha', 'base', 'release', 'missing id'])(
@@ -239,7 +255,7 @@ test('changed close response cannot assign Done', async () => {
         url.pathname.includes('/issues/') && init?.method === 'PATCH'
             ? Response.json({ number: 2, state: 'open', state_reason: null })
             : undefined;
-    expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+    expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
 });
 test('wrong issue number cannot close an unrelated issue', async () => {
@@ -255,6 +271,7 @@ test('wrong issue number cannot close an unrelated issue', async () => {
     r.issues = r.issues.filter((issue) => issue.id === 'I2');
     r.issues[0]!.number = 1;
     const result = await updateReleaseBoard('deploy', r, f.production());
+    expectedWarnings.push(...result.errors);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
 });
@@ -273,7 +290,7 @@ test('incomplete card pagination cannot write', async () => {
                   },
               })
             : undefined;
-    expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+    expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
 });
 test('incomplete issue state cannot close', async () => {
@@ -293,7 +310,7 @@ test('incomplete issue state cannot close', async () => {
                   },
               })
             : undefined;
-    expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+    expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
 });
 test('malformed linked issues pagination rejects report before writes', async () => {
@@ -367,6 +384,23 @@ test('missing card identity fails before closing issue', async () => {
                   },
               })
             : undefined;
-    expect((await board('deploy', f.production())).errors.length).toBeGreaterThan(0);
+    expect((await board('deploy', f.production(), true)).errors.length).toBeGreaterThan(0);
     expect(f.writes).toEqual([]);
+});
+
+test('confirmation mismatch reports the latest observed state', async () => {
+    let written = false;
+    f.extra = (_url, body) => {
+        if (body?.query?.includes('UpdateReleaseStatus')) written = true;
+        if (written && body?.query?.includes('BoardIssue')) {
+            const issue = f.issues.get(2)!;
+            issue.state = 'open';
+            issue.state_reason = null;
+            issue.card.status = 'In review';
+            issue.events.push({ kind: 'ReopenedEvent', createdAt: '2026-11-01T05:00:00Z' });
+        }
+    };
+    const result = await board('deploy', f.production(), true);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('open/In review -> Done; error: Нет подтверждения Status');
 });

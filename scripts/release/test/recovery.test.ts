@@ -25,10 +25,20 @@ test('original deployment repairs partial close after B→B and B→C without de
         if (fail && body?.query?.includes('UpdateReleaseStatus'))
             return new Response('unavailable', { status: 503 });
     };
-    const first = await updateReleaseBoard('deploy', await readChangeReport(REPO, f.a, f.b), id);
-    expect(first.errors).toHaveLength(1);
-    expect(first.errors[0]).toContain('closed/Ready for build -> Done');
-    expect(first.errors[0]).toContain('503');
+    const warn = spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+        const first = await updateReleaseBoard(
+            'deploy',
+            await readChangeReport(REPO, f.a, f.b),
+            id,
+        );
+        expect(first.errors).toHaveLength(1);
+        expect(first.errors[0]).toContain('closed/Ready for build -> Done');
+        expect(first.errors[0]).toContain('503');
+        expect(warn.mock.calls).toEqual(first.errors.map((message) => [message]));
+    } finally {
+        warn.mockRestore();
+    }
     fail = false;
     f.production('deploy', f.b, f.b);
     f.production('deploy', f.c, f.b);

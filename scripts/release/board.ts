@@ -534,6 +534,7 @@ export async function updateReleaseBoard(
             )
                 throw new ReleaseError('Нет подтверждения записи Status');
             const confirmed = await issueState(linked.id, context.id);
+            lastState = confirmed;
             if (
                 confirmed.card?.fieldValueByName?.name !== target ||
                 Date.parse(confirmed.card.fieldValueByName.updatedAt) <

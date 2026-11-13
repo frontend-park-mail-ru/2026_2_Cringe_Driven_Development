@@ -40,6 +40,7 @@ jobs:
       - run: bun run sync
       - name: Generated code is up to date
         run: git diff --exit-code -- apps/bff/src/go/client.ts packages/schemas/src/zod.ts
+      - run: bun test scripts/release/test
       - run: bun run check
       - run: bun run build
       # настоящая сборка: COPY проверяет файлы контекста; образ остаётся на runner
