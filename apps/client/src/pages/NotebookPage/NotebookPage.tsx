@@ -472,7 +472,7 @@ export function NotebookPage() {
 
     return (
         <div ref={pageRef} className={styles.page}>
-            <Space key="space" variant="plain" />
+            <Space key="space" />
             <div key="content" className={styles.content}>
                 <Header
                     key="header"
