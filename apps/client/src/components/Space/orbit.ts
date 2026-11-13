@@ -9,8 +9,11 @@ const FIELD_STARS = 70;
 const MIN_WIDTH = 320;
 /** Глубина под верхом планеты, px: ниже диск закрывает фон целиком, звёзды там не нужны. */
 const DISC_COVER = 400;
-/** Потолок числа звёзд: на очень длинных страницах кольцо огромно, а каждая звезда — узел DOM. */
-const MAX_STARS = 1500;
+/**
+ * Потолок числа звёзд: кольцо шире видимой части в разы, а каждая звезда — узел DOM. Выше потолка
+ * плотность снижается равномерно, а не обрезается дальний край: он у верха страницы.
+ */
+const MAX_STARS = 1000;
 
 /** Звезда вращаемого поля: координаты в px от центра планеты. */
 interface OrbitStar {
@@ -51,7 +54,8 @@ export function orbitStars(width: number, height: number, planetTop: number): Or
     const centerY = planetTop + inner;
     const bottom = Math.min(height, planetTop + DISC_COVER);
     const outer = Math.hypot(width / 2, Math.max(centerY, Math.abs(bottom - centerY))) + 3;
-    const density = FIELD_STARS / (Math.max(width, MIN_WIDTH) * FIELD_HEIGHT);
+    let density = FIELD_STARS / (Math.max(width, MIN_WIDTH) * FIELD_HEIGHT);
+    density *= Math.min(1, MAX_STARS / (density * Math.PI * (outer ** 2 - inner ** 2)));
     let seed = 7;
     const random = () => {
         seed = (seed * 16807) % 2147483647;
@@ -62,7 +66,7 @@ export function orbitStars(width: number, height: number, planetTop: number): Or
     for (;;) {
         area += -Math.log(1 - random()) / density;
         const r = Math.sqrt(inner ** 2 + area / Math.PI);
-        if (r > outer || stars.length >= MAX_STARS) return stars;
+        if (r > outer) return stars;
         const angle = random() * 2 * Math.PI;
         stars.push({
             id: stars.length,
