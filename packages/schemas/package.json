@@ -3,7 +3,8 @@
     "private": true,
     "type": "module",
     "exports": {
-        ".": "./src/zod.ts"
+        ".": "./src/zod.ts",
+        "./password": "./src/password.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"

@@ -10,6 +10,7 @@ import { changePassword } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import {
+    PASSWORD_RULE,
     passwordRules,
     validateConfirm,
     validateNewPassword,
@@ -32,7 +33,7 @@ export function PasswordForm() {
     const [values, setValues] = useState(EMPTY);
     const [revealed, setRevealed] = useState(HIDDEN);
     const [submitted, setSubmitted] = useState(false);
-    const [wrongCurrent, setWrongCurrent] = useState(false);
+    const [rejectedCurrent, setRejectedCurrent] = useState<string | undefined>(undefined);
     const [rejectedNext, setRejectedNext] = useState<string | undefined>(undefined);
     const navigate = useNavigate();
     const [pending, setPending] = useState(false);
@@ -74,10 +75,17 @@ export function PasswordForm() {
             if (!life.alive) return;
             setPending(false);
             const code = isRpcError(error) ? error.data?.appCode : undefined;
+            const rejected = (isRpcError(error) ? error.data?.zodError?.fieldErrors : undefined) as
+                | Partial<Record<'current_password' | 'new_password', string[]>>
+                | undefined;
             if (code === 'invalid_current_password') {
-                setWrongCurrent(true);
+                setRejectedCurrent('Неверный текущий пароль');
                 setFocusRequest({ field: 'current' });
-            } else if (code === 'validation_error') {
+            } else if (rejected?.current_password) {
+                // BFF отклонил формат до вызова Go: смены не было
+                setRejectedCurrent(PASSWORD_RULE);
+                setFocusRequest({ field: 'current' });
+            } else if (code === 'validation_error' || rejected?.new_password) {
                 setRejectedNext('Новый пароль не подходит');
                 setFocusRequest({ field: 'next' });
             } else {
@@ -113,9 +121,11 @@ export function PasswordForm() {
             value={values[field]}
             placeholder={placeholder}
             error={
-                field === 'current' && wrongCurrent
-                    ? 'Неверный текущий пароль'
-                    : ((field === 'next' ? rejectedNext : undefined) ?? errorOf(field))
+                (field === 'current'
+                    ? rejectedCurrent
+                    : field === 'next'
+                      ? rejectedNext
+                      : undefined) ?? errorOf(field)
             }
             disabled={pending}
             autocomplete={autocomplete}
@@ -125,7 +135,7 @@ export function PasswordForm() {
             }
             onValueChange={(value) => {
                 setValues((current) => ({ ...current, [field]: value }));
-                if (field === 'current') setWrongCurrent(false);
+                if (field === 'current') setRejectedCurrent(undefined);
                 if (field === 'next') setRejectedNext(undefined);
                 hideSnackbar();
             }}
