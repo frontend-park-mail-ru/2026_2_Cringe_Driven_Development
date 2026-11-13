@@ -118,19 +118,23 @@ PR требует ревью frontend-ментора. Merge оставляет �
 Неверная конфигурация или шаблон без ровно одного `<script id="bootstrap" type="application/json">`
 не дают BFF стартовать; в вывод попадают только имена переменных.
 
-Go для локального запуска — Cloud Mock Apidog: ответы ручек и ошибок заданы там mock expectations по
-контракту. Адрес — в Apidog, проект → Mock → Cloud Mock: `https://mock.apidog.com/m1/<проект>-<ветка>-default`,
-без `/api/v1` — мок отдаёт пути ручек от корня. BFF получает его переменной `GO_API_URL`; адрес
-мока main — значение по умолчанию у `bun run dev` (`apps/bff/src/dev.ts`).
+Go для BFF выбирается явно, умолчания нет:
 
-Перед задачей проверь актуальный контракт и сценарии мока по
-[порядку Spec First и работы с Cloud Mock](api-contract.md#spec-first-и-cloud-mock).
-Там же описан отдельный MR в Apidog, если мок расходится с контрактом или не покрывает сценарий.
+- **Примеры и ошибки контракта** — `bun run dev:prism`: команда сама поднимает Prism по копии
+  `spec/openapi.json` и передаёт BFF его адрес ([локальный мок на Prism](api-contract.md#локальный-мок-на-prism)).
+- **Состояние на настоящем Go** — `bun run dev` с `GO_API_URL` (адрес с `/api/v1`) и, если Go
+  проверяет `X-BFF-Key`, `BFF_KEY` в корневом `.env`: свой Go в Docker или разрешённый удалённый
+  backend команды через SSH-туннель — production Go, со своими предусловиями
+  ([реальный Go](api-contract.md#реальный-go), [туннель](api-contract.md#go-команды-через-ssh-туннель)).
+
+Без `GO_API_URL` `bun run dev` и `bun run dev:pwa` завершают BFF с подсказкой до обработки запросов
+(`apps/bff/src/dev.ts`). Перед задачей проверь актуальный контракт по
+[порядку Spec First](api-contract.md#spec-first).
 
 ```sh
 bun run build
 SESSION_KEY=$(openssl rand -base64 32) APP_ORIGIN=http://localhost:3000 \
-  GO_API_URL=<адрес Cloud Mock> HTML_TEMPLATE=apps/client/dist/index.html \
+  GO_API_URL=http://127.0.0.1:8080/api/v1 BFF_KEY=<ключ Go> HTML_TEMPLATE=apps/client/dist/index.html \
   bun apps/bff/src/index.ts
 ```
 
@@ -144,7 +148,7 @@ bun run dev:pwa   # http://localhost:4173
 
 Команда собирает клиент production-конфигом без `RELEASE_SHA` и `CDN_URL` и запускает BFF: HTML с
 bootstrap, `/api/trpc`, `/sw.js`, манифест, `/offline.html` и JS/CSS сборки идут с одного origin. Go —
-как в `bun run dev`, Docker не нужен. HMR нет: после изменений клиента запустите команду заново.
+как в `bun run dev`: явный `GO_API_URL` (и `BFF_KEY`) из корневого `.env`, без него BFF не стартует. HMR нет: после изменений клиента запустите команду заново.
 
 Вход работает: Chrome и Firefox считают `localhost` безопасным и принимают Secure-cookie сессии. Safari
 её по HTTP не принимает, проверяйте в Chrome.
@@ -160,20 +164,21 @@ worker: для этого есть флажок Offline в Application → Servi
 
 ```sh
 bun run image        # turbo run build и docker build -t cdd-bff:local
-SESSION_KEY=$(openssl rand -base64 32) GO_API_URL=<адрес Cloud Mock> \
-  docker compose -f apps/bff/compose.yml up -d
+SESSION_KEY=$(openssl rand -base64 32) GO_API_URL=http://host.docker.internal:8080/api/v1 \
+  BFF_KEY=<ключ Go> docker compose -f apps/bff/compose.yml up -d
 curl localhost:3000/health
 ```
 
 Сценарии, которым нужно состояние Go (одновременный refresh, повтор после 401, сбои и
-таймауты Go), Cloud Mock не воспроизводит: их проверяют вручную на реальном Go.
+таймауты Go), Prism не воспроизводит: их проверяют вручную на реальном Go.
 
 ## Клиент через BFF
 
 `bun run dev` из корня запускает `turbo watch dev`, а он — клиент и BFF на одном origin
 `https://localhost:5173`: Vite собирает и обновляет модули (HMR), HTML страниц и `/api/trpc` отдаёт
-BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. `.env` не нужен, разовая настройка
-сертификата — в «Первом запуске» ниже:
+BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. Нужен адрес Go: `GO_API_URL` (и при
+необходимости `BFF_KEY`) в корневом `.env`, либо вместо `bun run dev` — `bun run dev:prism` без `.env`.
+Разовая настройка сертификата — в «Первом запуске» ниже:
 
 - Vite (`apps/client`) — HTTPS, слушает `127.0.0.1:5173` (с `localhost` на Windows он недоступен);
   открывать `https://localhost:5173` — этот origin BFF ждёт в `APP_ORIGIN`. Сертификат выпускает
@@ -188,9 +193,9 @@ BFF — с пользователем в `<script id="bootstrap">` и cookie с�
   попадает в HTML страниц и может оказаться в клиентском бандле, секреты в неё не класть. Тот же адрес
   берёт `bun run build`.
 - BFF (`apps/bff`, `src/dev.ts`) — шаблон `apps/client/index.html`,
-  `APP_ORIGIN=https://localhost:5173`, Go — Cloud Mock Apidog
-  (`https://mock.apidog.com/m1/1382426-0-default`), постоянный dev-ключ сессии: она переживает
-  перезапуск BFF. Любое из этого перекрывается корневым `.env` (`GO_API_URL`, `SESSION_KEY`, …).
+  `APP_ORIGIN=https://localhost:5173`, постоянный dev-ключ сессии: она переживает перезапуск BFF. Go —
+  только `GO_API_URL` из корневого `.env` или окружения, умолчания нет. Остальное тоже перекрывается
+  корневым `.env` (`SESSION_KEY`, …).
   Перезапускает BFF `turbo watch`: при изменении файлов `apps/bff` и пакетов, которые он
   импортирует (`packages/schemas`). `bun --watch` для этого не годится: на Windows он не следит за
   файлами вне `apps/bff`. Vite при этом не перезапускается, клиент обновляет HMR.
@@ -214,9 +219,10 @@ Cookie сессии — `Secure` и с префиксом `__Host-`: нужен 
   его там нет, после подтверждения добавляет; Windows тоже покажет окно подтверждения. Повторный
   запуск ничего не меняет. Ключ CA (`rootCA-key.pem`) в Windows не копируется.
 
-Cloud Mock отвечает фиксированно (раздел «BFF» выше): `denis` / `password123` — вход,
-`wrong-password` — неверный пароль. Против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1`
-в `.env`.
+HTTPS нужен из-за cookie сессии `Secure` с префиксом `__Host-`: по HTTP браузер её не сохранит, вход
+не заработает. Откройте `https://localhost:5173` — после первого запуска сертификат доверенный, без
+предупреждения браузера. Prism принимает любые валидные логин и пароль и отвечает примером;
+против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1` в `.env`.
 
 Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
 `bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не

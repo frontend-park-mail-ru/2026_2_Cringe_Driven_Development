@@ -5,7 +5,6 @@ dist/
 .env
 .env.local
 *.log
-.apidog/
 
 # спеки и планы локальные
 docs/superpowers/
