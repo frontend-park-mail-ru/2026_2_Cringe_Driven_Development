@@ -1,11 +1,11 @@
 /** Типы файла аватара; эти ограничения и размеры ниже — по контракту Go `PUT /users/me/avatar`. */
 const AVATAR_TYPES = ['image/jpeg', 'image/png'];
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
-const SIDE_MIN = 200;
+const SIDE_MIN = 64;
 const SIDE_MAX = 4096;
 
 /** Подсказка под кнопкой смены фото и текст ошибки файла. */
-export const AVATAR_RULE = 'JPG или PNG, до 5 МБ, стороны от 200 до 4096 px';
+export const AVATAR_RULE = 'JPG или PNG, до 5 МБ, стороны от 64 до 4096 px';
 
 /**
  * Проверяет файл до чтения картинки: тип и размер.
@@ -16,7 +16,7 @@ export function isAvatarFile(file: { type: string; size: number }): boolean {
 }
 
 /**
- * Проверяет стороны картинки, включая границы 200 и 4096 px.
+ * Проверяет стороны картинки, включая границы 64 и 4096 px.
  * @param width ширина в px
  * @param height высота в px
  * @returns true, если стороны подходят

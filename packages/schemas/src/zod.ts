@@ -62,7 +62,7 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
- * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: 8–72 символа, максимум 72 байта UTF-8. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Зависит от #17 (PR #59): после успешной смены отзываются все прежние access/refresh-сессии пользователя, включая текущую. Ответ 204 без тела и без новых токенов. BFF завершает локальную сессию; нужен повторный вход с новым паролем. current_password и new_password обязательны: формат — общая схема Password: 8–72 печатных ASCII-символа без пробелов. Пароли не обрезаются и не нормализуются. Неверный текущий пароль — 400 invalid_current_password: BFF не завершает сессию и не выполняет refresh. Новый пароль, совпадающий с текущим, — 400 validation_error. Лишние поля запрещены. Ошибка хранилища — 500 без подтверждения смены и отзыва; результат записи может быть неизвестен, клиент не должен автоматически повторять запрос.
  * @summary Сменить пароль
  */
 
@@ -75,21 +75,25 @@ export const ChangeCurrentUserPasswordHeader = zod.object({
 export const changeCurrentUserPasswordBodyCurrentPasswordMin = 8;
 export const changeCurrentUserPasswordBodyCurrentPasswordMax = 72;
 
+
+export const changeCurrentUserPasswordBodyCurrentPasswordRegExp = new RegExp('^[!-~]+$');
 export const changeCurrentUserPasswordBodyNewPasswordMin = 8;
 export const changeCurrentUserPasswordBodyNewPasswordMax = 72;
 
 
+export const changeCurrentUserPasswordBodyNewPasswordRegExp = new RegExp('^[!-~]+$');
+
 
 export const ChangeCurrentUserPasswordBody = zod.object({
-  "current_password": zod.string().min(changeCurrentUserPasswordBodyCurrentPasswordMin).max(changeCurrentUserPasswordBodyCurrentPasswordMax).describe('От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.'),
-  "new_password": zod.string().min(changeCurrentUserPasswordBodyNewPasswordMin).max(changeCurrentUserPasswordBodyNewPasswordMax).describe('От 8 до 72 символов и не более 72 байт UTF-8 (ограничение bcrypt). Пароль не обрезается и не нормализуется.')
+  "current_password": zod.string().min(changeCurrentUserPasswordBodyCurrentPasswordMin).max(changeCurrentUserPasswordBodyCurrentPasswordMax).regex(changeCurrentUserPasswordBodyCurrentPasswordRegExp).describe('Текущий пароль пользователя.'),
+  "new_password": zod.string().min(changeCurrentUserPasswordBodyNewPasswordMin).max(changeCurrentUserPasswordBodyNewPasswordMax).regex(changeCurrentUserPasswordBodyNewPasswordRegExp).describe('Новый пароль; должен отличаться от текущего.')
 })
 
 export const ChangeCurrentUserPasswordResponse = zod.void()
 
 
 /**
- * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 200 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или любая сторона менее 200 либо более 4096 пикселей — 400 validation_error. Проверка лимитов выполняется до выделения памяти под декодирование. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; ресурсы декодирования ограничены, очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
+ * Операция доступна только владельцу действующей сессии. ID пользователя берётся из access-токена; идентификатор пользователя в запросе не принимается. Требуются X-BFF-Key и Authorization: Bearer <access_token>. Порядок проверки: S2S → Bearer → валидация. Cookie не читаются и не устанавливаются. Принимает multipart/form-data с единственным обязательным файловым полем avatar. Другие поля и несколько файлов запрещены (400 validation_error). Максимальный размер файла — 5 МиБ (5242880 байт), всего multipart-запроса с заголовками частей и разделителями — 6 МиБ (6291456 байт); превышение — 413 payload_too_large. Только image/jpeg и image/png. Формат проверяется по сигнатуре и декодированию и должен соответствовать MIME части; неподдерживаемый формат, отсутствующий MIME части или несоответствие — 415 unsupported_media_type. MIME всего запроса, отличный от multipart/form-data, также даёт 415. Каждая сторона изображения должна быть от 64 до 4096 пикселей включительно; квадратная форма не обязательна. Повреждённое, пустое изображение или ширина/высота вне диапазона 64–4096 пикселей — 400 validation_error. Байтовые лимиты и диапазон сторон проверяются до полного декодирования изображения. Изображение санитайзится повторным кодированием в соответствующий JPEG/PNG с удалением метаданных; альфа-канал PNG сводится на белый непрозрачный фон (#FFFFFF). Размеры сохраняются; ресайза и кропа нет. Полный исходный или очищенный файл не накапливается в памяти; очищенное изображение передаётся в S3 потоком. В PostgreSQL хранится ключ S3. Только после успешного сохранения возвращается User с новым абсолютным публичным URL CDN; при каждой замене URL новый, чтобы избежать устаревшего кеша. При ошибке загрузки прежний аватар сохраняется. CDN-домен задаётся конфигурацией; браузер получает изображение напрямую без пользовательского токена и X-BFF-Key. Согласование avatar_url и публичной выдачи CDN с frontend ещё предстоит; CDN в рамках контракта не настраивается.
  * @summary Загрузить или заменить аватар
  */
 
@@ -156,10 +160,12 @@ export const registerUserBodyPasswordMin = 8;
 export const registerUserBodyPasswordMax = 72;
 
 
+export const registerUserBodyPasswordRegExp = new RegExp('^[!-~]+$');
+
 
 export const RegisterUserBody = zod.object({
   "login": zod.string().min(registerUserBodyLoginMin).max(registerUserBodyLoginMax).regex(registerUserBodyLoginRegExp),
-  "password": zod.string().min(registerUserBodyPasswordMin).max(registerUserBodyPasswordMax)
+  "password": zod.string().min(registerUserBodyPasswordMin).max(registerUserBodyPasswordMax).regex(registerUserBodyPasswordRegExp).describe('Пароль: 8–72 печатных ASCII-символа (коды 0x21–0x7E) без пробелов; спецсимволы допустимы. Каждый символ занимает один байт, поэтому длина укладывается в лимит bcrypt 72 байта. Пароль не обрезается и не нормализуется.')
 })
 
 
@@ -209,10 +215,12 @@ export const loginUserBodyPasswordMin = 8;
 export const loginUserBodyPasswordMax = 72;
 
 
+export const loginUserBodyPasswordRegExp = new RegExp('^[!-~]+$');
+
 
 export const LoginUserBody = zod.object({
   "login": zod.string().min(loginUserBodyLoginMin).max(loginUserBodyLoginMax).regex(loginUserBodyLoginRegExp),
-  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax),
+  "password": zod.string().min(loginUserBodyPasswordMin).max(loginUserBodyPasswordMax).regex(loginUserBodyPasswordRegExp).describe('Пароль: 8–72 печатных ASCII-символа (коды 0x21–0x7E) без пробелов; спецсимволы допустимы. Каждый символ занимает один байт, поэтому длина укладывается в лимит bcrypt 72 байта. Пароль не обрезается и не нормализуется.'),
   "user_code": zod.string().optional().describe('TOTP-код: ровно 6 ASCII-цифр (0–9), ведущие нули сохраняются. Обязателен только после подтверждения 2FA. Формат проверяется после логина и пароля и только при включённой 2FA; неверный формат — 401, отсутствие поля — 412. При выключенной 2FA поле игнорируется. Общий pattern здесь намеренно отсутствует, чтобы валидатор не возвращал 400 вместо условного 401.')
 })
 
@@ -363,8 +371,15 @@ export const DisableTwoFactorAuthHeader = zod.object({
   "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
 })
 
+export const disableTwoFactorAuthBodyPasswordMin = 8;
+export const disableTwoFactorAuthBodyPasswordMax = 72;
+
+
+export const disableTwoFactorAuthBodyPasswordRegExp = new RegExp('^[!-~]+$');
+
+
 export const DisableTwoFactorAuthBody = zod.object({
-  "password": zod.string().describe('Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password.')
+  "password": zod.string().min(disableTwoFactorAuthBodyPasswordMin).max(disableTwoFactorAuthBodyPasswordMax).regex(disableTwoFactorAuthBodyPasswordRegExp).describe('Текущий пароль пользователя. Неверный пароль при включённой 2FA — 403 invalid_current_password.')
 })
 
 export const DisableTwoFactorAuthResponse = zod.unknown()
@@ -430,6 +445,52 @@ export const GetNotebookResponse = zod.object({
   "name": zod.string().describe('Название блокнота'),
   "cells": zod.array(zod.object({
   "id": zod.string().min(1).max(getNotebookResponseCellsItemIdMax).regex(getNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
+  "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
+  "source": zod.string().describe('Содержимое блока')
+}).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
+  "created_at": zod.iso.datetime({"offset":true}),
+  "updated_at": zod.iso.datetime({"offset":true})
+}).describe('Блокнот (.ipynb)')
+
+
+/**
+ * Переименовывает блокнот текущего владельца. Пробелы по краям имени обрезаются; пустое после обрезки имя отклоняется. Ограничение 1–128 Unicode-символов проверяется до обрезки, как при создании. Одинаковые имена разрешены. Повтор того же нормализованного имени успешен без изменения updated_at. If-Match не требуется и не проверяется; редакция, содержимое и runtime не меняются. Активное окружение и выполнение ячейки разрешены. Чужой и отсутствующий блокнот дают одинаковый 404.
+ * @summary Переименовать блокнот
+ */
+
+
+
+export const RenameNotebookParams = zod.object({
+  "id": zod.int().min(1)
+})
+
+
+
+
+export const RenameNotebookHeader = zod.object({
+  "X-BFF-Key": zod.string().min(1).describe('Обязательный общий секрет BFF и Go API. Принимается единственный текущий ключ. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden. Значения ключей и токенов не журналируются.')
+})
+
+export const renameNotebookBodyNameMax = 128;
+
+
+
+export const RenameNotebookBody = zod.object({
+  "name": zod.string().min(1).max(renameNotebookBodyNameMax)
+})
+
+
+export const renameNotebookResponseCellsItemIdMax = 64;
+
+
+export const renameNotebookResponseCellsItemIdRegExp = new RegExp('^[a-zA-Z0-9_-]+$');
+
+
+export const RenameNotebookResponse = zod.object({
+  "id": zod.int().min(1).describe('ID'),
+  "name": zod.string().describe('Название блокнота'),
+  "cells": zod.array(zod.object({
+  "id": zod.string().min(1).max(renameNotebookResponseCellsItemIdMax).regex(renameNotebookResponseCellsItemIdRegExp).describe('ID блока внутри блокнота'),
   "kind": zod.enum(['code', 'markdown', 'raw']).describe('Вид блока; raw сохраняется при импорте и доступен для чтения, создание поддерживает code/markdown.'),
   "source": zod.string().describe('Содержимое блока')
 }).describe('Блок блокнота')).describe('Блоки в порядке блокнота'),
