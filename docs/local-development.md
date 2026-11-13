@@ -116,7 +116,8 @@ Go для BFF выбирается явно, умолчания нет:
   `spec/openapi.json` и передаёт BFF его адрес ([локальный мок на Prism](api-contract.md#локальный-мок-на-prism)).
 - **Состояние на настоящем Go** — `bun run dev` с `GO_API_URL` (адрес с `/api/v1`) и, если Go
   проверяет `X-BFF-Key`, `BFF_KEY` в корневом `.env`: свой Go в Docker или разрешённый удалённый
-  backend команды ([реальный Go](api-contract.md#реальный-go)).
+  backend команды через SSH-туннель — production Go, со своими предусловиями
+  ([реальный Go](api-contract.md#реальный-go), [туннель](api-contract.md#go-команды-через-ssh-туннель)).
 
 Без `GO_API_URL` `bun run dev` и `bun run dev:pwa` завершают BFF с подсказкой до обработки запросов
 (`apps/bff/src/dev.ts`). Перед задачей проверь актуальный контракт по
