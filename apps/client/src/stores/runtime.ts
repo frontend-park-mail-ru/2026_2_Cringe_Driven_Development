@@ -699,19 +699,22 @@ export async function stopOtherRuntime(): Promise<void> {
     set({ busy: 'stop', error: null });
     try {
         await trpc.runtime.stop.mutate({ sessionId: session.id });
-        for (;;) {
-            const active = await trpc.runtime.active.query();
-            if (started !== generation) return;
-            if (active?.id !== session.id || !sessionActive(active)) {
-                set({ busy: null, session: active });
-                return;
-            }
-            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-        }
     } catch {
         if (started !== generation) return;
         set({ busy: null });
-        fail('failed');
+        return fail('failed');
+    }
+    for (;;) {
+        // stop принят: сбой опроса не отменяет завершение — повторяем, как основной опрос
+        const active = await trpc.runtime.active.query().catch(() => undefined);
+        if (started !== generation) return;
+        if (active !== undefined && (active?.id !== session.id || !sessionActive(active))) {
+            set({ busy: null, session: active });
+            // слот успела занять сессия этого блокнота (другая вкладка) — наблюдаем её
+            adoptSession(active);
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 }
 
