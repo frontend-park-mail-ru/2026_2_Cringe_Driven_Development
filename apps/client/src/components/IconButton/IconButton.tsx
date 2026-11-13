@@ -11,11 +11,21 @@ interface IconButtonProps {
     title?: string;
     className?: string;
     disabled?: boolean;
+    /** Кнопка открывает меню: открыто ли оно сейчас (`aria-expanded`, `aria-haspopup`) */
+    expanded?: boolean;
     onClick: () => void;
 }
 
 /** Кнопка-иконка 36×36 (Components → IconButton). */
-export function IconButton({ icon, label, title, className, disabled, onClick }: IconButtonProps) {
+export function IconButton({
+    icon,
+    label,
+    title,
+    className,
+    disabled,
+    expanded,
+    onClick,
+}: IconButtonProps) {
     return (
         <button
             className={clsx(styles.button, className)}
@@ -23,6 +33,8 @@ export function IconButton({ icon, label, title, className, disabled, onClick }:
             aria-label={label}
             title={title}
             disabled={disabled}
+            aria-haspopup={expanded === undefined ? undefined : 'menu'}
+            aria-expanded={expanded}
             onClick={onClick}
         >
             <Icon name={icon} />

@@ -33,7 +33,9 @@ export type RuntimeError =
     | 'unavailable'
     | 'conflict'
     | 'too_large'
-    | 'failed';
+    | 'failed'
+    | 'stopFailed'
+    | 'interruptFailed';
 
 /** Обычный интервал между обходами опроса. */
 export const POLL_INTERVAL_MS = 2000;
@@ -66,6 +68,8 @@ interface RuntimeState {
     executions: Record<string, RuntimeExecution>;
     /** Когда эта страница впервые увидела исполнение в RUNNING: для таймера «Выполняется… N с» */
     startedAt: Record<string, number>;
+    /** Сколько длилось исполнение, мс: от первого RUNNING до конечного статуса на этой странице */
+    durations: Record<string, number>;
     /** Последнее исполнение ячейки по cell_id: его результат и состояние показываются у ячейки */
     latest: Record<string, string>;
     /** Полный состав наблюдаемого запуска: одна ячейка или весь Run all */
@@ -73,7 +77,9 @@ interface RuntimeState {
     /** Итог наблюдаемого запуска; null — нечего показывать */
     outcome: RunOutcome | null;
     /** Команда, чьё принятие ещё не разрешилось: второе нажатие не создаёт второй запуск */
-    busy: 'start' | 'execute' | 'stop' | null;
+    busy: 'start' | 'execute' | 'stop' | 'stopAll' | null;
+    /** Исполнение, чьё прерывание запрошено: ждёт конечного статуса, второй запрос не уходит */
+    interrupting: string | null;
     error: RuntimeError | null;
     /** Команда исполнения с неизвестным результатом ждёт повтора: новые запуски недоступны */
     awaitingRetry: boolean;
@@ -93,10 +99,12 @@ const empty = (): RuntimeState => ({
     queue: [],
     executions: {},
     startedAt: {},
+    durations: {},
     latest: {},
     run: null,
     outcome: null,
     busy: null,
+    interrupting: null,
     error: null,
     awaitingRetry: false,
     startFailed: false,
@@ -143,6 +151,11 @@ let stopUnsure = false;
  */
 let replayUntil = 0;
 let lastActivity = Number.NEGATIVE_INFINITY;
+/**
+ * Ответ на прерывание потерян: запрос мог быть принят. Блокировка ■ держится до снимка очереди из
+ * опроса, начатого после сбоя, — иначе повторное нажатие прервало бы уже следующую ячейку.
+ */
+let interruptUnsure = false;
 
 type Command =
     | { kind: 'execute'; body: { execution_id: string; cell_id: string; source_hash: string } }
@@ -166,6 +179,7 @@ const resetTracking = (): void => {
     live.clear();
     unsent = null;
     stopUnsure = false;
+    interruptUnsure = false;
     replayUntil = 0;
 };
 
@@ -282,6 +296,8 @@ async function poll(): Promise<void> {
     polling = true;
     again = false;
     if (offset === 0) pass = [...live].filter(needed);
+    /** Этот запрос начат после потери ответа на прерывание: его снимок очереди — сверка */
+    const reconcile = interruptUnsure;
     let delay = POLL_INTERVAL_MS;
     let more = false;
     try {
@@ -292,6 +308,14 @@ async function poll(): Promise<void> {
         });
         if (started !== generation) return;
         apply(res);
+        if (reconcile && interruptUnsure) {
+            interruptUnsure = false;
+            // ячейка всё ещё выполняется: прерывание не дошло, ■ снова доступна
+            if (get().interrupting !== null) {
+                set({ interrupting: null });
+                fail('interruptFailed');
+            }
+        }
         cursor = res.next_cursor;
         offset += CHUNK;
         if (offset >= pass.length) offset = 0;
@@ -348,10 +372,23 @@ function apply(res: Updates): void {
         executions[id] = execution;
         void showResult(execution);
     }
+    const { interrupting } = before;
+    let durations = before.durations;
+    for (const execution of res.executions) {
+        const started = before.startedAt[execution.execution_id];
+        if (started !== undefined && TERMINAL.has(execution.state)) {
+            durations = { ...durations, [execution.execution_id]: Date.now() - started };
+        }
+    }
+    const stillRunning = res.runtime_queue.items.some(
+        (item) => item.execution_id === interrupting && item.state === 'RUNNING',
+    );
     set({
+        interrupting: stillRunning ? interrupting : null,
         session: res.session,
         queue: res.runtime_queue.items,
         startedAt: runningSince(res.runtime_queue.items),
+        durations,
         executions,
         ready: !wasReady && res.session.state === 'READY' ? before.ready + 1 : before.ready,
     });
@@ -443,6 +480,7 @@ function observe(session: RuntimeSession): void {
             run: null,
             outcome: null,
             awaitingRetry: false,
+            interrupting: null,
         });
     }
     const wasReady = get().session?.state === 'READY';
@@ -452,7 +490,7 @@ function observe(session: RuntimeSession): void {
 
 /**
  * Активная сессия, прочитанная с сервера (проверка перед удалением блокнота): сессия открытого
- * блокнота заменяет устаревшую в сторе и снова наблюдается — шапка покажет «Завершить окружение».
+ * блокнота заменяет устаревшую в сторе и снова наблюдается — меню покажет «Завершить окружение».
  * @param session активная сессия пользователя в любом блокноте или null
  */
 export function adoptSession(session: RuntimeSession | null): void {
@@ -648,6 +686,52 @@ export async function stopRuntime(): Promise<void> {
         stopUnsure = uncertain(error);
         fail(errorOf(error));
     }
+}
+
+/**
+ * «Остановить всё»: прервать текущее исполнение и отменить очередь, окружение и переменные
+ * остаются. Итоговые статусы — из опроса; при ошибке опрос сверяет фактическое состояние.
+ */
+export async function stopExecutions(): Promise<void> {
+    const session = own();
+    if (session?.state !== 'READY' || get().busy !== null) return;
+    const started = generation;
+    set({ busy: 'stopAll', error: null });
+    try {
+        await trpc.runtime.stopExecutions.mutate({ sessionId: session.id });
+        if (started !== generation) return;
+        set({ busy: null });
+    } catch {
+        if (started !== generation) return;
+        set({ busy: null });
+        fail('stopFailed');
+    }
+    kick();
+}
+
+/**
+ * ■ у выполняющейся ячейки: прерывает только её, очередь продолжается. Ответ подтверждает лишь
+ * запрос — до конечного статуса из опроса повторно не отправляется. Запрос без `execution_id`:
+ * после потери ответа ■ недоступна до свежего снимка очереди, сам запрос не повторяется.
+ */
+export async function interruptCell(cellId: string): Promise<void> {
+    const session = own();
+    const running = get().queue.find((item) => item.state === 'RUNNING');
+    if (!session || running?.cell_id !== cellId || get().interrupting !== null) return;
+    const started = generation;
+    set({ interrupting: running.execution_id, error: null });
+    try {
+        await trpc.runtime.interrupt.mutate({ sessionId: session.id });
+        if (started !== generation) return;
+    } catch (error) {
+        if (started !== generation) return;
+        if (uncertain(error)) interruptUnsure = true;
+        else {
+            set({ interrupting: null });
+            fail('interruptFailed');
+        }
+    }
+    kick();
 }
 
 // Активность — только реальный ввод в редакторе, не чаще раза в 30 секунд, своей живой сессии

@@ -21,10 +21,34 @@
     }
 }
 
+/* «Запустить всё» и «Остановить всё» на одном месте одной ширины: «Поиск» не сдвигается */
+.main {
+    min-width: 192px;
+    justify-content: center;
+}
+
 /* В панели шапки кнопки 36 px, как поиск и чипы (Header → Toolbar) */
 .actions > .button {
     height: 36px;
     padding: 0 16px 0 12px;
+}
+
+/* Телефон: «К выполняемой ячейке» — только иконка, подпись остаётся для чтения с экрана */
+.actions > .jump {
+    @media (max-width: 860px) {
+        width: 36px;
+        padding: 0;
+        justify-content: center;
+
+        & > span {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+    }
 }
 
 .banner {
@@ -115,6 +139,12 @@
     background: var(--color-surface-hover);
     color: var(--color-primary-text);
     box-shadow: inset 0 0 0 1px var(--color-focus);
+
+    /* ■ «Остановить ячейку»: при наведении — цвет остановки */
+    &:hover:not(:disabled) {
+        color: var(--color-error);
+        box-shadow: inset 0 0 0 1px var(--color-error-border);
+    }
 }
 
 .queued {
@@ -160,6 +190,11 @@
 
     &.unknown {
         color: var(--color-warning);
+    }
+
+    &.interrupted {
+        font-weight: 500;
+        color: var(--color-text-primary);
     }
 }
 
