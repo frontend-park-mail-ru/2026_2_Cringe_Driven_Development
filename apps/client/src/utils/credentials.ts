@@ -1,33 +1,20 @@
+import { Login, LOGIN_RULE, Password, PASSWORD_RULE } from '@cdd/schemas/inputs';
 import type { AuthError } from '@stores/session';
-
-/** Символы логина; эти ограничения и длины ниже — из схемы Credentials в Apidog. */
-const LOGIN_PATTERN = /^[a-zA-Z0-9_]+$/;
-const LOGIN_MIN = 3;
-const LOGIN_MAX = 32;
-const PASSWORD_MIN = 8;
-const PASSWORD_MAX = 72;
-/** Печатные символы ASCII U+0021–U+007E. */
-const PASSWORD_PATTERN = /^[\x21-\x7E]+$/;
 
 /** Вход или регистрация. */
 export type AuthMode = 'login' | 'register';
 
-/** Требование к логину: подсказка при регистрации и текст ошибки. */
-export const LOGIN_RULE = 'От 3 до 32 символов: a–z, A–Z, 0–9 и _';
-
-/** Требование к паролю: подсказка при регистрации. */
-export const PASSWORD_RULE = `Не меньше ${PASSWORD_MIN} символов`;
+export { LOGIN_RULE, PASSWORD_RULE };
 
 /**
  * Проверяет логин.
+ * @param login логин
+ * @param schema схема операции: по умолчанию вход и регистрация, в профиле — `ProfileLogin`
  * @returns текст ошибки или undefined, если логин подходит
  */
-export function validateLogin(login: string): string | undefined {
+export function validateLogin(login: string, schema = Login): string | undefined {
     if (login === '') return 'Введите логин';
-    if (login.length < LOGIN_MIN || login.length > LOGIN_MAX || !LOGIN_PATTERN.test(login)) {
-        return LOGIN_RULE;
-    }
-    return undefined;
+    return schema.safeParse(login).success ? undefined : LOGIN_RULE;
 }
 
 /**
@@ -36,12 +23,14 @@ export function validateLogin(login: string): string | undefined {
  */
 export function validatePassword(password: string): string | undefined {
     if (password === '') return 'Введите пароль';
-    if (!PASSWORD_PATTERN.test(password)) {
-        return 'Только латиница, цифры и спецсимволы';
+    const issues = Password.safeParse(password).error?.issues ?? [];
+    if (issues.length === 0) return undefined;
+    if (issues.some((issue) => issue.code === 'invalid_format')) {
+        return 'Только латиница, цифры и спецсимволы, без пробелов';
     }
-    if (password.length < PASSWORD_MIN) return `Нужно не меньше ${PASSWORD_MIN} символов`;
-    if (password.length > PASSWORD_MAX) return `Не больше ${PASSWORD_MAX} символов`;
-    return undefined;
+    return issues[0]!.code === 'too_small'
+        ? `Нужно не меньше ${Password.minLength} символов`
+        : `Не больше ${Password.maxLength} символов`;
 }
 
 /**
@@ -73,7 +62,7 @@ export function validateNewPassword(current: string, next: string): string | und
  */
 export function passwordRules(current: string, next: string, confirm: string) {
     return [
-        { text: PASSWORD_RULE, met: next.length >= PASSWORD_MIN },
+        { text: PASSWORD_RULE, met: Password.safeParse(next).success },
         {
             text: 'Отличается от текущего пароля',
             met: current !== '' && next !== '' && next !== current,

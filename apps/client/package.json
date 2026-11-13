@@ -14,6 +14,7 @@
         "@cdd-team/react": "^1.7.1",
         "@cdd-team/router": "^0.1.0",
         "@cdd-team/zustand": "^1.0.1",
+        "@cdd/schemas": "workspace:*",
         "@trpc/client": "^11.19.0",
         "@trpc/server": "^11.19.0",
         "workbox-window": "7.4.1"

@@ -11,6 +11,7 @@
 - `apps/bff/src/go/client.ts` — fetch-клиент BFF к Go (Orval, мутатор `bearerFetch` в `apps/bff/src/go/fetch.ts`:
   адрес Go — обязательный `GO_API_URL` (в `bun run dev` по умолчанию Cloud Mock Apidog); `Authorization: Bearer` передаёт вызывающий код);
 - `packages/schemas/src/zod.ts` — zod-схемы операций Go (Orval), пакет `@cdd/schemas`.
+- `packages/schemas/src/inputs.ts` — вручную поддерживаемые общие схемы входов поверх generated-кода (`@cdd/schemas/inputs`): `Password`, `Login` (регистрация и вход), `ProfileLogin` (смена логина) и тексты правил. Ими проверяют формы браузера, BFF — generated-схемами тех же операций. Длины и допустимые символы — только из контракта, своих копий ограничений не заводить.
 
 Клиент контракт Go не читает: он ходит только в BFF, типы процедур — `RouterInputs` / `RouterOutputs`
 из `@cdd/bff` ([frontend#5](https://github.com/Cringe-Driven-Development-Team/frontend/issues/5)).

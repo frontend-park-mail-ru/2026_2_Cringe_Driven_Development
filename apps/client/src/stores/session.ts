@@ -2,6 +2,7 @@ import type { RouterInputs, RouterOutputs } from '@cdd/bff';
 import { create } from '@cdd-team/zustand';
 import { isRpcError, switchSession, trpc, type User } from '@api/trpc';
 import { showSnackbar } from '@stores/snackbar';
+import { LOGIN_RULE, PASSWORD_RULE } from '@utils/credentials';
 
 /** `guest` — не вошёл, `authed` — вошёл. Известен с первого рендера: его задаёт первый HTML. */
 export type SessionStatus = 'guest' | 'authed';
@@ -60,7 +61,11 @@ function toAuthError(error: unknown): AuthError {
         const fields = zodError.fieldErrors as Partial<Record<keyof Credentials, string[]>>;
         return {
             code: 'validation_error',
-            fields: { login: fields.login?.[0], password: fields.password?.[0] },
+            // тексты zod не показываем: правило поля по-русски
+            fields: {
+                login: fields.login && LOGIN_RULE,
+                password: fields.password && PASSWORD_RULE,
+            },
         };
     }
     return { code: appCode ?? 'unknown', message: error.message };
