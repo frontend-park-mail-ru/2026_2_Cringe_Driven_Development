@@ -7,7 +7,7 @@ import { IconButton } from '@components/IconButton/IconButton';
 import { Input } from '@components/Input/Input';
 import { Modal } from '@components/Modal/Modal';
 import { renameMeta } from '@stores/notebook';
-import { stopRuntime } from '@stores/runtime';
+import { stopRuntime, useRuntimeStore } from '@stores/runtime';
 import { showToast } from '@stores/toast';
 import styles from './Actions.module.css';
 
@@ -132,7 +132,8 @@ export function NotebookMenu({ terminate, onRename, onTerminate, onDelete }: Not
                             disabled={item.disabled}
                             aria-busy={item.loading ? 'true' : undefined}
                             onClick={() => {
-                                close(false);
+                                // фокус на ⋯ до открытия диалога: Modal вернёт его сюда при закрытии
+                                close(true);
                                 item.onSelect();
                             }}
                         >
@@ -157,6 +158,8 @@ const TERMINATE_CANCEL_ID = 'terminate-cancel';
  * видно в шапке и меню.
  */
 export function TerminateDialog({ onClose }: { onClose: () => void }) {
+    /** Другая команда ждёт ответа: `stopRuntime` её не перебивает — подтвердить пока нельзя */
+    const busy = useRuntimeStore().busy !== null;
     return (
         <Modal
             title="Завершить окружение?"
@@ -171,6 +174,7 @@ export function TerminateDialog({ onClose }: { onClose: () => void }) {
                 <Button
                     key="submit"
                     variant="danger"
+                    disabled={busy}
                     onClick={() => {
                         onClose();
                         void stopRuntime();

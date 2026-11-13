@@ -406,11 +406,12 @@ export function NotebookPage() {
         if (search.jump > 0) scrollToCurrent();
     }, [search.jump]);
     const pageRef = useRef<HTMLDivElement>(null);
-    // прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
+    // прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой: её высота меняется с
+    // панелью поиска и с переносом статуса на телефоне
     useLayoutEffect(() => {
         const page = pageRef.current;
         const header = page?.querySelector('header');
-        if (!page || !header || !search.open) return;
+        if (!page || !header) return;
         const observer = new ResizeObserver(() => {
             const top = parseFloat(getComputedStyle(header).top) || 0;
             page.style.setProperty(
@@ -423,7 +424,7 @@ export function NotebookPage() {
             observer.disconnect();
             page.style.removeProperty('--search-margin');
         };
-    }, [search.open]);
+    }, []);
     const closeSearch = () => {
         // кнопка «Поиск» остаётся в шапке: фокус на неё до того, как исчезнет поле
         document.getElementById(SEARCH_BUTTON_ID)?.focus();

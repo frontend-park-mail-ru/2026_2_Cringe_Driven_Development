@@ -151,6 +151,11 @@ let stopUnsure = false;
  */
 let replayUntil = 0;
 let lastActivity = Number.NEGATIVE_INFINITY;
+/**
+ * Ответ на прерывание потерян: запрос мог быть принят. Блокировка ■ держится до снимка очереди из
+ * опроса, начатого после сбоя, — иначе повторное нажатие прервало бы уже следующую ячейку.
+ */
+let interruptUnsure = false;
 
 type Command =
     | { kind: 'execute'; body: { execution_id: string; cell_id: string; source_hash: string } }
@@ -174,6 +179,7 @@ const resetTracking = (): void => {
     live.clear();
     unsent = null;
     stopUnsure = false;
+    interruptUnsure = false;
     replayUntil = 0;
 };
 
@@ -290,6 +296,8 @@ async function poll(): Promise<void> {
     polling = true;
     again = false;
     if (offset === 0) pass = [...live].filter(needed);
+    /** Этот запрос начат после потери ответа на прерывание: его снимок очереди — сверка */
+    const reconcile = interruptUnsure;
     let delay = POLL_INTERVAL_MS;
     let more = false;
     try {
@@ -300,6 +308,14 @@ async function poll(): Promise<void> {
         });
         if (started !== generation) return;
         apply(res);
+        if (reconcile && interruptUnsure) {
+            interruptUnsure = false;
+            // ячейка всё ещё выполняется: прерывание не дошло, ■ снова доступна
+            if (get().interrupting !== null) {
+                set({ interrupting: null });
+                fail('interruptFailed');
+            }
+        }
         cursor = res.next_cursor;
         offset += CHUNK;
         if (offset >= pass.length) offset = 0;
@@ -695,7 +711,8 @@ export async function stopExecutions(): Promise<void> {
 
 /**
  * ■ у выполняющейся ячейки: прерывает только её, очередь продолжается. Ответ подтверждает лишь
- * запрос — до конечного статуса из опроса повторно не отправляется и после сбоя не повторяется.
+ * запрос — до конечного статуса из опроса повторно не отправляется. Запрос без `execution_id`:
+ * после потери ответа ■ недоступна до свежего снимка очереди, сам запрос не повторяется.
  */
 export async function interruptCell(cellId: string): Promise<void> {
     const session = own();
@@ -706,10 +723,13 @@ export async function interruptCell(cellId: string): Promise<void> {
     try {
         await trpc.runtime.interrupt.mutate({ sessionId: session.id });
         if (started !== generation) return;
-    } catch {
+    } catch (error) {
         if (started !== generation) return;
-        set({ interrupting: null });
-        fail('interruptFailed');
+        if (uncertain(error)) interruptUnsure = true;
+        else {
+            set({ interrupting: null });
+            fail('interruptFailed');
+        }
     }
     kick();
 }

@@ -114,7 +114,10 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
 
 /** Кнопки окружения в шапке и меню блокнота. */
 export interface RuntimeButtons {
-    /** «Завершить окружение» в меню: доступна, недоступна или идёт завершение */
+    /**
+     * «Завершить окружение» в меню: доступна, недоступна (нет окружения или другая команда ждёт
+     * ответа) или идёт завершение
+     */
     terminate: 'enabled' | 'disabled' | 'stopping';
     /** Одно место в панели: «Запустить всё» или, пока есть очередь, «Остановить всё» */
     main: 'run' | 'stop';
@@ -138,7 +141,7 @@ export function runtimeButtons(runtime: Runtime, hasCode: boolean): RuntimeButto
         terminate:
             runtime.busy === 'stop' || state === 'STOPPING'
                 ? 'stopping'
-                : state === 'READY' || state === 'RECONNECTING'
+                : (state === 'READY' || state === 'RECONNECTING') && runtime.busy === null
                   ? 'enabled'
                   : 'disabled',
         main: queue.length > 0 ? 'stop' : 'run',
