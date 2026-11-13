@@ -71,7 +71,8 @@ import {
     type NotebookCellChange,
     type NotebookContent,
     type NotebookContentChange,
-    type NotebookSummary,
+    type ListNotebooksParams,
+    type NotebookListPage,
     type RuntimeBatchExecuteRequest,
     type RuntimeBatchExecution,
     type RuntimeEventsResponse,
@@ -114,7 +115,9 @@ export type Go = {
     updateCurrentUser(body: UpdateCurrentUserRequest): Promise<User>;
     changeCurrentUserPassword(body: ChangeCurrentUserPasswordRequest): Promise<void>;
     uploadCurrentUserAvatar(avatar: Blob): Promise<User>;
-    listNotebooks(): Promise<NotebookSummary[]>;
+    listNotebooks(
+        params?: Pick<ListNotebooksParams, 'limit' | 'cursor'>,
+    ): Promise<NotebookListPage>;
     getNotebook(id: number): Promise<Notebook>;
     getNotebookContent(id: number): Promise<NotebookContent>;
     createNotebook(body: CreateNotebookRequest): Promise<Notebook>;
@@ -180,7 +183,8 @@ export function createGo(session: Session, prefer?: string): Go {
                 [200],
                 UploadCurrentUserAvatarResponse,
             ),
-        listNotebooks: async () => unwrap(await call(listNotebooks), [200], ListNotebooksResponse),
+        listNotebooks: async (params) =>
+            unwrap(await call((init) => listNotebooks(params, init)), [200], ListNotebooksResponse),
         getNotebook: async (id) =>
             unwrap(await call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
         getNotebookContent: async (id) =>

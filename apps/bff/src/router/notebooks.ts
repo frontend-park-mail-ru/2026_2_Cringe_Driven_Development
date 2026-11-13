@@ -6,7 +6,17 @@ import { authedProcedure, router } from '../trpc.ts';
 
 /** Блокноты пользователя. */
 export const notebooks = router({
-    list: authedProcedure.query(({ ctx }) => ctx.go.listNotebooks()),
+    /** Страница списка: `limit` и `cursor` уходят в Go, `search` — нет. */
+    list: authedProcedure
+        .input(
+            z
+                .object({
+                    limit: z.number().int().min(1).max(100).optional(),
+                    cursor: z.string().min(1).optional(),
+                })
+                .optional(),
+        )
+        .query(({ ctx, input }) => ctx.go.listNotebooks(input)),
     get: authedProcedure
         .input(z.object({ id: z.number().int().positive() }))
         .query(({ ctx, input }) => loadNotebook(ctx.go, input.id)),
