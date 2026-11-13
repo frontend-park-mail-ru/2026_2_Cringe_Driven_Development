@@ -151,7 +151,7 @@
     left: calc(50% - 5760px);
     width: 11520px;
     height: 640px;
-    background: url('%VITE_STATIC_URL%/img/clouds-horizon-1.webp') 0 0 / 3840px 640px repeat-x;
+    background: url('%VITE_STATIC_URL%/img/clouds-horizon-2.webp') 0 0 / 3840px 640px repeat-x;
     animation: drift 360s linear infinite;
 }
 
