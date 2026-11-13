@@ -17,6 +17,7 @@ import { runUrl } from './github.ts';
 import { ReleaseError, checkSha } from './env.ts';
 import { updateReleaseBoard, type BoardResult } from './board.ts';
 import { checkImage, checkImageRef } from './image.ts';
+import { recoverReleaseBoard } from './recovery.ts';
 import { retention } from './retention.ts';
 import { upload } from './upload.ts';
 import { readOperationReport, releaseBody, reportRelease, type ReleaseKind } from './report.ts';
@@ -37,7 +38,8 @@ const USAGE = `Использование: bun run release <команда>
   health <sha>                    Health check: прод отдаёт выпуск через BFF
   retention                       удалить старые ассеты
   direction <deploy|rollback> <sha>       проверить направление от RELEASE_BEFORE_SHA
-  board <publish|deploy|rollback> <sha>    обновить карточки успешной операции по отчёту
+  board <publish|deploy|rollback> <sha>    карточки операции; deploy/rollback требуют RELEASE_DEPLOYMENT_ID
+  board-recover <deployment_id>    восстановить карточки исходной операции, без выкатки
   report <publish|deploy|rollback> <sha>    полный отчёт без Telegram
 `;
 
@@ -55,14 +57,32 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
                 checkSha(args[1]),
                 process.cwd(),
             );
+        case 'board-recover':
         case 'board': {
-            if (args.length !== 2 || !['publish', 'deploy', 'rollback'].includes(args[0]!))
+            const recovery = command === 'board-recover';
+            if (
+                recovery
+                    ? args.length !== 1
+                    : args.length !== 2 || !['publish', 'deploy', 'rollback'].includes(args[0]!)
+            )
                 throw new ReleaseError(USAGE);
             const kind = args[0] as ReleaseKind;
-            const sha = checkSha(args[1]);
             let result: BoardResult;
             try {
-                result = await updateReleaseBoard(kind, await readOperationReport(kind, sha));
+                if (recovery) {
+                    result = await recoverReleaseBoard(
+                        /^[1-9][0-9]*$/.test(args[0]!) ? Number(args[0]) : NaN,
+                    );
+                } else {
+                    const sha = checkSha(args[1]);
+                    result = await updateReleaseBoard(
+                        kind,
+                        await readOperationReport(kind, sha),
+                        process.env.RELEASE_DEPLOYMENT_ID === undefined
+                            ? undefined
+                            : Number(process.env.RELEASE_DEPLOYMENT_ID),
+                    );
+                }
             } catch (error) {
                 result = {
                     changed: 0,
@@ -71,8 +91,8 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
                 };
             }
             const message = result.errors.length
-                ? 'Операция успешна, обновление карточек не завершено; проверьте их вручную по Summary'
-                : 'Операция успешна, карточки обработаны';
+                ? 'Обновление карточек не завершено; проверьте ошибки в Summary'
+                : 'Карточки обработаны';
             const detail = `${message}\n\nИзменено: ${result.changed}; пропущено: ${result.skipped}\n${result.errors.join('\n')}\n`;
             if (process.env.GITHUB_STEP_SUMMARY)
                 appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Карточки выпуска\n\n${detail}`);

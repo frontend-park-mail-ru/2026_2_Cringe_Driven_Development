@@ -40,6 +40,7 @@ jobs:
       - run: bun run sync
       - name: Generated code is up to date
         run: git diff --exit-code -- apps/bff/src/go/client.ts packages/schemas/src/zod.ts
+      - run: bun test scripts/release/test
       - run: bun run check
       - run: bun run build
       # настоящая сборка: COPY проверяет файлы контекста; образ остаётся на runner
@@ -128,7 +129,6 @@ jobs:
         run: bun run release image "$IMAGE_REF" "$SHA"
       - name: Release report
         id: report
-        if: steps.published.outputs.published != 'true'
         env:
           RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
         run: bun run release report publish "$SHA"
@@ -148,7 +148,7 @@ jobs:
         run: bun run release register "$SHA" "$IMAGE_REF"
       - name: Update release issues
         id: board
-        if: "!cancelled() && steps.register.outcome == 'success' && steps.published.outputs.published != 'true'"
+        if: "!cancelled() && steps.report.outcome == 'success' && (steps.register.outcome == 'success' || steps.published.outputs.published == 'true')"
         env:
           ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
           RELEASE_REPORT_FILE: ${{ runner.temp }}/release-report.json
