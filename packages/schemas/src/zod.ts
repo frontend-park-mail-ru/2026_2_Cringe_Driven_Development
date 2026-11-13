@@ -1020,7 +1020,7 @@ export const GetActiveRuntimeSessionResponse = zod.object({
   "active_session": zod.union([zod.object({
   "id": zod.uuid(),
   "notebook_id": zod.int().min(1),
-  "language": zod.enum(['python', 'r']),
+  "language": zod.enum(['python']),
   "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
   "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
   "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
@@ -1060,7 +1060,7 @@ export const startRuntimeSessionBodyRequestIdMax = 128;
 
 export const StartRuntimeSessionBody = zod.object({
   "request_id": zod.string().min(1).max(startRuntimeSessionBodyRequestIdMax).describe('Ключ идемпотентности в пределах пользователя. Повтор с теми же параметрами возвращает прежнюю сессию.'),
-  "language": zod.enum(['python', 'r'])
+  "language": zod.enum(['python'])
 })
 
 
@@ -1071,7 +1071,7 @@ export const startRuntimeSessionResponsePublicSeqMin = 0;
 export const StartRuntimeSessionResponse = zod.object({
   "id": zod.uuid(),
   "notebook_id": zod.int().min(1),
-  "language": zod.enum(['python', 'r']),
+  "language": zod.enum(['python']),
   "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
   "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
   "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
@@ -1109,7 +1109,7 @@ export const getRuntimeSessionResponsePublicSeqMin = 0;
 export const GetRuntimeSessionResponse = zod.object({
   "id": zod.uuid(),
   "notebook_id": zod.int().min(1),
-  "language": zod.enum(['python', 'r']),
+  "language": zod.enum(['python']),
   "state": zod.enum(['PROVISIONING', 'STARTING', 'READY', 'RECONNECTING', 'STOPPING', 'STOPPED', 'FAILED']).describe('Состояние пользовательской runtime-сессии, не состояние отдельной ячейки. Все состояния кроме STOPPED/FAILED занимают единственный слот пользователя.'),
   "stage": zod.enum(['queued', 'creating_vps', 'configuring_agent', 'verifying_agent', 'ready', 'reconnecting', 'stopping', 'deleting_environment', 'cleanup_pending', 'stopped', 'failed']).describe('Наблюдаемый этап подготовки или завершения. cleanup_pending удерживает слот пользователя до подтверждённого удаления ресурсов.'),
   "reason": zod.string().nullable().describe('Безопасный код причины остановки/ошибки. Не raw-ошибка SDK или Ansible.'),
@@ -1326,7 +1326,7 @@ export const StopRuntimeSessionResponse = zod.object({
 
 
 /**
- * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. 200 возвращается после подтверждения остановки; пустая очередь также даёт 200. Сессия остаётся READY, kernel, generation, workspace и переменные сохраняются. Уже полученный вывод сохраняется. Завершившаяся до прерывания команда сохраняет фактический статус; прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые команды и параллельная остановка получают 409. Чужая или отсутствующая сессия — 404; неготовая — 409. Недоступный агент или неподтверждённое прерывание — 503. Тело отсутствует.
+ * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. Успех подтверждает остановку и отмену очереди. Пустая очередь также даёт 200. Сессия остаётся READY; kernel, generation, workspace и переменные сохраняются. Полученный вывод не теряется. Завершившаяся до прерывания команда сохраняет фактический статус, прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые запуски и параллельная остановка получают 409. Тело отсутствует.
  * @summary Остановить все исполнения
  */
 export const StopRuntimeExecutionsParams = zod.object({

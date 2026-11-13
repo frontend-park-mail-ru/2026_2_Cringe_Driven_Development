@@ -1,9 +1,8 @@
 import { defineConfig } from 'orval';
-import { stripRefHeaders } from './scripts/openapi/strip-ref-headers.ts';
 
-const input = { target: 'spec/openapi.json', override: { transformer: stripRefHeaders } };
+const input = { target: 'spec/openapi.json' };
 
-/** Обе цели читают контракт Go — spec/openapi.json (bun run sync) */
+/** Обе цели читают копию контракта Go из backend — spec/openapi.json (bun run sync) */
 export default defineConfig({
     /** BFF → Go: fetch-клиент по операциям контракта; адрес Go и заголовки — в мутаторе */
     goApi: {

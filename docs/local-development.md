@@ -52,7 +52,7 @@ Docker-образ BFF. Изменённое поведение проверяй�
 | `apps/bff`         | `@cdd/bff`     | BFF: Hono + tRPC под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже |
 | `packages/schemas` | `@cdd/schemas` | zod-схемы операций Go, генерирует Orval (`bun run orval`)                                 |
 
-В корне остаются общее: `spec/` с контрактом, `scripts/` (выгрузка из Apidog и выкатка), конфиги
+В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
 `oxlint` и `oxfmt`, `.env` — его читают и клиент, и скрипты
 
 Все команды запускаются из корня, зависимости ставит один `bun install`
@@ -210,7 +210,8 @@ Cloud Mock отвечает фиксированно (раздел «BFF» вы�
 `wrong-password` — неверный пароль. Против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1`
 в `.env`.
 
-Контракт Go обновляется `bun run sync` (`bun run apidog && bun run orval`): клиент контракт Go не
+Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
+`bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не
 читает, типы процедур берёт из `@cdd/bff`.
 
 ## Документация кода

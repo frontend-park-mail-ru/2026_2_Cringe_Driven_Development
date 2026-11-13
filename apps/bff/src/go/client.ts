@@ -67,6 +67,19 @@ export interface Notebook {
   updated_at: string;
 }
 
+export interface NotebookSummary {
+  /** @minimum 1 */
+  id: number;
+  name: string;
+  updated_at: string;
+  /** Число блоков */
+  cells_count: number;
+  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
+  preview_code: string;
+  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
+  has_active_session: boolean;
+}
+
 export interface Credentials {
   /**
      * @minLength 3
@@ -264,7 +277,6 @@ export type RuntimeSessionLanguage = typeof RuntimeSessionLanguage[keyof typeof 
 
 export const RuntimeSessionLanguage = {
   python: 'python',
-  r: 'r',
 } as const;
 
 /**
@@ -346,7 +358,6 @@ export type RuntimeStartRequestLanguage = typeof RuntimeStartRequestLanguage[key
 
 export const RuntimeStartRequestLanguage = {
   python: 'python',
-  r: 'r',
 } as const;
 
 export interface RuntimeStartRequest {
@@ -743,19 +754,6 @@ export const ErrorCode = {
 export interface Error {
   code: ErrorCode;
   message: string;
-}
-
-export interface NotebookSummary {
-  /** @minimum 1 */
-  id: number;
-  name: string;
-  updated_at: string;
-  /** Число блоков */
-  cells_count: number;
-  /** Обычный текст: первые 6 строк первой непустой code-ячейки, максимум 1024 Unicode-символа; пустая строка при отсутствии. */
-  preview_code: string;
-  /** У текущего пользователя активна runtime-сессия этого блокнота; состояние сервиса сессий, независимо от результатов исполнения. */
-  has_active_session: boolean;
 }
 
 export type BadRequestResponseBody = Error;
@@ -3706,7 +3704,7 @@ export const getStopRuntimeExecutionsUrl = (id: string,) => {
 }
 
 /**
- * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. 200 возвращается после подтверждения остановки; пустая очередь также даёт 200. Сессия остаётся READY, kernel, generation, workspace и переменные сохраняются. Уже полученный вывод сохраняется. Завершившаяся до прерывания команда сохраняет фактический статус; прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые команды и параллельная остановка получают 409. Чужая или отсутствующая сессия — 404; неготовая — 409. Недоступный агент или неподтверждённое прерывание — 503. Тело отсутствует.
+ * Прерывает текущую команду и отменяет всю принятую очередь, включая Run all. Успех подтверждает остановку и отмену очереди. Пустая очередь также даёт 200. Сессия остаётся READY; kernel, generation, workspace и переменные сохраняются. Полученный вывод не теряется. Завершившаяся до прерывания команда сохраняет фактический статус, прерванная получает INTERRUPTED, ожидающие — CANCELLED. Во время остановки новые запуски и параллельная остановка получают 409. Тело отсутствует.
  * @summary Остановить все исполнения
  */
 export const stopRuntimeExecutions = async (id: string, options?: Parameters<typeof bearerFetch>[1]): Promise<stopRuntimeExecutionsResponse> => {
