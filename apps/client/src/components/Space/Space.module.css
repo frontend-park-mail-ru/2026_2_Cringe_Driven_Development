@@ -127,23 +127,28 @@
     overflow: hidden;
 }
 
-/* Облака видны у края диска и уходят в цвет фона по радиусу, а не по прямой */
+/* Облака видны у края диска и уходят в цвет фона по радиусу: слой цвета фона поверх них */
 .cover {
     position: absolute;
     inset: 0;
-    mask-image: radial-gradient(
+}
+
+.cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
         circle,
-        transparent calc(var(--edge) - 400px),
-        rgb(0 0 0 / 0.3) calc(var(--edge) - 170px),
-        #000 calc(var(--edge) - 12px)
+        var(--color-bg) calc(var(--edge) - 420px),
+        color-mix(in srgb, var(--color-bg) 65%, transparent) calc(var(--edge) - 190px),
+        transparent calc(var(--edge) - 12px)
     );
-    opacity: 0.5;
 }
 
 /*
- * Полоса облаков 3840×640: карта Earth Clouds, Solar System Scope, CC BY 4.0, с перспективным
- * сжатием к горизонту (обработка — в README репозитория static). Три периода, сдвиг на один —
- * без шва на повторе.
+ * Полоса облаков 3840×640 px (файл 7680×1280, без альфа-канала): карта Earth Clouds 8K, Solar
+ * System Scope, CC BY 4.0, сжатая к горизонту по профилю сферы (обработка — в README репозитория
+ * static). Три периода, сдвиг на один — без шва на повторе.
  */
 .clouds {
     position: absolute;
@@ -151,7 +156,9 @@
     left: calc(50% - 5760px);
     width: 11520px;
     height: 640px;
-    background: url('%VITE_STATIC_URL%/img/clouds-horizon-2.webp') 0 0 / 3840px 640px repeat-x;
+    background: url('%VITE_STATIC_URL%/img/clouds-horizon-3.webp') 0 0 / 3840px 640px repeat-x;
+    mix-blend-mode: screen;
+    opacity: 0.75;
     animation: drift 360s linear infinite;
 }
 
