@@ -4,6 +4,11 @@
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
+
+    /* Запас под дугой, когда якорь находится внизу длинной страницы. */
+    &:has(> .planet) {
+        min-height: calc(var(--planet-top) + 200px);
+    }
 }
 
 .glow {
