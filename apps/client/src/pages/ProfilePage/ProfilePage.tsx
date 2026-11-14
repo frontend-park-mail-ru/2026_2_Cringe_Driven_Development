@@ -1,4 +1,4 @@
-import { useEffect, useState } from '@cdd-team/react';
+import { useEffect, useRef, useState } from '@cdd-team/react';
 
 import { trpc } from '@api/trpc';
 import { Button } from '@components/Button/Button';
@@ -26,6 +26,7 @@ export function ProfilePage() {
     const login = useSessionStore((state) => state.user?.login ?? '');
     const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
     const [attempt, setAttempt] = useState(0);
+    const profile = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         let alive = true;
@@ -51,7 +52,7 @@ export function ProfilePage() {
 
     return (
         <div className={styles.page}>
-            <Space key="space" variant="home" />
+            <Space key="space" anchor={profile} edge="below" />
             <div key="content" className={styles.content}>
                 <Header key="header">
                     <Link
@@ -64,7 +65,7 @@ export function ProfilePage() {
                     </Link>
                     <ProfileLink key="profile" />
                 </Header>
-                <div key="profile" className={styles.profile}>
+                <div key="profile" ref={profile} className={styles.profile}>
                     <div key="heading" className={styles.heading}>
                         <Link key="back" to="/" className={styles.back}>
                             <Icon key="icon" name="back" />

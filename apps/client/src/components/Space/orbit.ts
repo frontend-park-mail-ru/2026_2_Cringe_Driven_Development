@@ -1,8 +1,5 @@
-/** Диаметр планеты, px. */
-export const PLANET_SIZE = 2600;
-
-/** Верх планеты в фоне по вариантам, px. */
-export const PLANET_TOP = { auth: 700, home: 330 } as const;
+/** Минимальный диаметр планеты, px. */
+const MIN_PLANET_SIZE = 2600;
 
 /** Высота макета статичного поля, px: в ней лежали звёзды. */
 const FIELD_HEIGHT = 880;
@@ -10,21 +7,22 @@ const FIELD_HEIGHT = 880;
 const FIELD_STARS = 70;
 /** Ширина, на которой плотность максимальна; уже — как на ней. */
 const MIN_WIDTH = 320;
-/** Внешний радиус пула, px: с центром на 2000 px покрывает фон шириной до ~6900 px. */
-const POOL_RADIUS = 4000;
+/** Глубина под верхом планеты, px: ниже диск закрывает фон целиком, звёзды там не нужны. */
+const DISC_COVER = 400;
+/**
+ * Потолок числа звёзд: кольцо шире видимой части в разы, а каждая звезда — узел DOM. Выше потолка
+ * плотность снижается равномерно, а не обрезается дальний край: он у верха страницы.
+ */
+const MAX_STARS = 1000;
 
 /** Звезда вращаемого поля: координаты в px от центра планеты. */
 interface OrbitStar {
-    /** Номер в пуле: ключ и сдвиг мерцания. */
+    /** Номер звезды: ключ и сдвиг мерцания. */
     id: number;
     /** Смещение по x от центра планеты, px. */
     x: number;
     /** Смещение по y от центра планеты, px. */
     y: number;
-    /** Расстояние до центра планеты, px. */
-    r: number;
-    /** Порог прореживания: звезда рисуется, если он меньше доли плотности текущей ширины. */
-    u: number;
     /** Диаметр, px. */
     size: number;
     /** Непрозрачность. */
@@ -32,51 +30,50 @@ interface OrbitStar {
 }
 
 /**
- * Пул звёзд в кольце от края планеты до {@link POOL_RADIUS}: равномерно по площади, с постоянным
- * seed, с плотностью самого узкого фона. Внутри диска звёзды не нужны — их закрывает планета.
- * @returns звёзды по возрастанию расстояния до центра
+ * Диаметр планеты для фона заданной ширины: планета всегда шире кадра вдвое, поэтому виден только
+ * её пологий верхний сегмент.
+ * @param width ширина фона, px
+ * @returns диаметр, px
  */
-function makeOrbitStars(): OrbitStar[] {
+export function planetSize(width: number): number {
+    return Math.max(MIN_PLANET_SIZE, 2 * width);
+}
+
+/**
+ * Звёзды, которые закрывают фон при любом угле поворота: кольцо от края планеты до самого дальнего
+ * угла видимой части фона. Плотность — как у прежнего поля, 70 звёзд на ширину. Звёзды — пуассоновский
+ * процесс по площади с постоянным seed: идут по возрастанию расстояния до центра, поэтому смена
+ * внешнего радиуса (высоты контента) только добавляет или убирает звёзды на краю.
+ * @param width ширина фона, px
+ * @param height высота фона, px
+ * @param planetTop верх планеты от верха фона, px
+ * @returns звёзды для рендера
+ */
+export function orbitStars(width: number, height: number, planetTop: number): OrbitStar[] {
+    const inner = planetSize(width) / 2;
+    const centerY = planetTop + inner;
+    const bottom = Math.min(height, planetTop + DISC_COVER);
+    const outer = Math.hypot(width / 2, Math.max(centerY, Math.abs(bottom - centerY))) + 3;
+    let density = FIELD_STARS / (Math.max(width, MIN_WIDTH) * FIELD_HEIGHT);
+    density *= Math.min(1, MAX_STARS / (density * Math.PI * (outer ** 2 - inner ** 2)));
     let seed = 7;
     const random = () => {
         seed = (seed * 16807) % 2147483647;
         return seed / 2147483647;
     };
-    const inner = PLANET_SIZE / 2;
-    const density = FIELD_STARS / (MIN_WIDTH * FIELD_HEIGHT);
-    const count = Math.round(density * Math.PI * (POOL_RADIUS ** 2 - inner ** 2));
-    return Array.from({ length: count }, () => {
-        const r = Math.sqrt(inner ** 2 + random() * (POOL_RADIUS ** 2 - inner ** 2));
+    const stars: OrbitStar[] = [];
+    let area = 0;
+    for (;;) {
+        area += -Math.log(1 - random()) / density;
+        const r = Math.sqrt(inner ** 2 + area / Math.PI);
+        if (r > outer) return stars;
         const angle = random() * 2 * Math.PI;
-        const u = random();
-        const size = random() < 0.85 ? 1.5 : 2.5;
-        const opacity = 0.25 + random() * 0.6;
-        return {
+        stars.push({
+            id: stars.length,
             x: Math.round(r * Math.cos(angle)),
             y: Math.round(r * Math.sin(angle)),
-            r,
-            u,
-            size,
-            opacity,
-        };
-    })
-        .toSorted((a, b) => a.r - b.r)
-        .map((star, id) => ({ ...star, id }));
-}
-
-/** Пул звёзд вращаемого поля, по возрастанию расстояния до центра. */
-const ORBIT_STARS = makeOrbitStars();
-
-/**
- * Звёзды, которые нужны фону заданной ширины, чтобы при любом угле поворота закрыть его с плотностью
- * прежнего поля: 70 звёзд на ширину. Дальше всех от центра планеты верхние углы фона; звёзды за ними
- * не нужны. Сужение ширины добавляет звёзд, расширение убирает — по порогу `u`, равномерно.
- * @param width ширина фона, px
- * @param planetTop верх планеты, px
- * @returns звёзды для рендера
- */
-export function orbitStars(width: number, planetTop: number): OrbitStar[] {
-    const radius = Math.hypot(width / 2, planetTop + PLANET_SIZE / 2) + 3;
-    const share = MIN_WIDTH / Math.max(width, MIN_WIDTH);
-    return ORBIT_STARS.filter((star) => star.r <= radius && star.u < share);
+            size: random() < 0.85 ? 1.5 : 2.5,
+            opacity: 0.25 + random() * 0.6,
+        });
+    }
 }

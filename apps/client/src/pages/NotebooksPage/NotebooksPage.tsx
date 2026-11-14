@@ -140,6 +140,11 @@ export function NotebooksPage() {
         list.loaded.items.length === 0 &&
         list.loaded.nextCursor === null;
     const openCreate = () => setCreating(true);
+    const content = useRef<HTMLDivElement>(null);
+    // Один key списка при загрузке и после неё сохраняет DOM-якорь для ResizeObserver.
+    const grid = useRef<HTMLUListElement>(null);
+    // сетки нет в пустом списке и при ошибке: горизонт — под основным блоком
+    const hasGrid = list.status === 'loading' || (list.status === 'ready' && !isEmpty);
 
     const askDelete = async (notebook: NotebookSummary) => {
         if (checking) return;
@@ -166,8 +171,12 @@ export function NotebooksPage() {
 
     return (
         <div className={styles.page}>
-            <Space key="space" variant="home" />
-            <div key="content" className={styles.content}>
+            <Space
+                key="space"
+                anchor={hasGrid ? grid : content}
+                edge={hasGrid ? 'above' : 'below'}
+            />
+            <div key="content" ref={content} className={styles.content}>
                 <Header key="header">
                     <Link
                         key="home"
@@ -200,7 +209,7 @@ export function NotebooksPage() {
                     )}
                 </div>
                 {list.status === 'loading' && (
-                    <ul key="skeletons" className={styles.grid} aria-hidden="true">
+                    <ul key="grid" ref={grid} className={styles.grid} aria-hidden="true">
                         {Array.from({ length: SKELETON_COUNT }, (_, index) => (
                             <li key={`skeleton-${index}`}>
                                 <NotebookCardSkeleton />
@@ -209,7 +218,7 @@ export function NotebooksPage() {
                     </ul>
                 )}
                 {list.status === 'ready' && !isEmpty && (
-                    <ul key="grid" className={styles.grid}>
+                    <ul key="grid" ref={grid} className={styles.grid}>
                         {list.loaded.items.map((notebook) => (
                             <li key={notebook.id}>
                                 <NotebookCard

@@ -1,10 +1,14 @@
 .space {
     position: absolute;
     inset: 0;
-    max-height: 1600px;
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
+
+    /* Запас под дугой, когда якорь находится внизу длинной страницы. */
+    &:has(> .planet) {
+        min-height: calc(var(--planet-top) + 200px);
+    }
 }
 
 .glow {
@@ -57,62 +61,112 @@
 }
 
 .planet {
+    --edge: calc(var(--planet-size) / 2);
     position: absolute;
     top: var(--planet-top);
     left: 50%;
     width: var(--planet-size);
     height: var(--planet-size);
     margin-left: calc(var(--planet-size) / -2);
-    border: 1px solid rgb(205 190 255 / 0.3);
-    border-radius: 50%;
-    background: var(--color-bg);
-    box-shadow:
-        0 -26px 90px -6px rgb(139 108 255 / 0.55),
-        0 -2px 18px rgb(230 215 255 / 0.45);
+}
+
+/* Три слоя атмосферы: радиальные градиенты вокруг центра планеты, свет — по конической маске */
+.halo,
+.aura,
+.limb {
+    --side: 0.2;
+    position: absolute;
+    inset: calc(var(--pad) * -1);
+    mask-image: conic-gradient(
+        from -45deg at 50% 50%,
+        rgb(0 0 0 / var(--side)) 0deg,
+        rgb(0 0 0 / 0.55) 28deg,
+        #000 45deg,
+        rgb(0 0 0 / 0.55) 62deg,
+        rgb(0 0 0 / var(--side)) 90deg,
+        transparent 90deg
+    );
+}
+
+.halo {
+    --pad: 460px;
+    --side: 0.35;
+    background: radial-gradient(
+        circle,
+        transparent calc(var(--edge) - 10px),
+        rgb(135 97 255 / 0.5) var(--edge),
+        rgb(105 65 230 / 0.15) calc(var(--edge) + 120px),
+        transparent calc(var(--edge) + 360px)
+    );
+}
+
+.aura {
+    --pad: 100px;
+    --side: 0.2;
+    background: radial-gradient(
+        circle,
+        transparent calc(var(--edge) - 8px),
+        rgb(183 147 255 / 0.95) var(--edge),
+        rgb(147 105 255 / 0.45) calc(var(--edge) + 16px),
+        transparent calc(var(--edge) + 90px)
+    );
+}
+
+.limb {
+    --pad: 8px;
+    --side: 0.4;
+    background: radial-gradient(
+        circle,
+        transparent calc(var(--edge) - 3px),
+        #fff5ff calc(var(--edge) - 1px),
+        #eee0ff calc(var(--edge) + 1px),
+        rgb(190 160 255 / 0.5) calc(var(--edge) + 3px),
+        transparent calc(var(--edge) + 5px)
+    );
+    filter: drop-shadow(0 0 4px rgb(222 194 255 / 0.8));
 }
 
 .surface {
     position: absolute;
-    inset: 1px;
+    inset: 0;
     border-radius: 50%;
+    background: var(--color-bg);
     overflow: hidden;
 }
 
-.clouds {
-    position: absolute;
-    top: -2px;
-    left: calc(50% - 960px);
-    width: 7680px;
-    height: 360px;
-    mask-image: linear-gradient(#000 50%, transparent);
-    mix-blend-mode: screen;
-    animation: drift 360s linear infinite;
-}
-
-.clouds::before,
-.clouds::after {
-    content: '';
+.cover {
     position: absolute;
     inset: 0;
-    background:
-        url('%VITE_STATIC_URL%/img/clouds.jpg') 0 0 / 1920px 360px no-repeat,
-        url('%VITE_STATIC_URL%/img/clouds.jpg') 3840px 0 / 1920px 360px no-repeat;
-}
 
-.clouds::after {
-    transform: scaleX(-1);
-}
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+            circle,
+            transparent calc(var(--edge) - 190px),
+            rgb(111 76 213 / 0.12) calc(var(--edge) - 80px),
+            rgb(172 137 255 / 0.5) calc(var(--edge) - 10px),
+            rgb(231 215 255 / 0.8) var(--edge)
+        );
+    }
 
-@keyframes drift {
-    to {
-        transform: translateX(-3840px);
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+            circle,
+            var(--color-bg) calc(var(--edge) - 420px),
+            color-mix(in srgb, var(--color-bg) 65%, transparent) calc(var(--edge) - 190px),
+            transparent calc(var(--edge) - 12px)
+        );
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .orbit,
-    .star,
-    .clouds {
+    .star {
         animation: none;
     }
 }

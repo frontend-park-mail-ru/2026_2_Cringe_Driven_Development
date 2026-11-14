@@ -1,4 +1,4 @@
-import { useEffect, useState } from '@cdd-team/react';
+import { useEffect, useRef, useState } from '@cdd-team/react';
 
 import { buttonClassName } from '@components/Button/Button';
 import { Logo } from '@components/Logo/Logo';
@@ -60,6 +60,7 @@ export function AuthPage() {
     }, [fading, mode, shownMode]);
 
     const showRegister = shownMode === 'register';
+    const card = useRef<HTMLDivElement>(null);
     const className = clsx(
         styles.auth,
         isRegister && styles.register,
@@ -70,9 +71,9 @@ export function AuthPage() {
 
     return (
         <div className={className} style={{ '--sweep': `${SWEEP_MS}ms` }}>
-            <Space key="space" />
+            <Space key="space" anchor={card} edge="below" />
             <Logo key="logo" />
-            <div key="card" className={styles.card}>
+            <div key="card" ref={card} className={styles.card}>
                 <Moon key="moon" className={styles.moon} />
                 <div key="form" className={styles.formPane}>
                     <AuthForm key={shownMode} mode={shownMode} onCodeStep={setCodeStep} />
