@@ -5,7 +5,7 @@ import styles from './Space.module.css';
 /** Ширина макета, px: координата x звезды переводится в проценты от неё. */
 const WIDTH = 1440;
 const STAR_COUNT = 70;
-/** Насколько верх дуги выше верхнего края якоря, когда горизонт привязан к его верху, px. */
+/** Отступ базовой дуги над верхом якоря, до дополнительного смещения горизонта, px. */
 const ARC_GAP = 24;
 
 /**
@@ -43,8 +43,8 @@ interface SpaceProps {
      */
     anchor?: RefObject<HTMLElement | null>;
     /**
-     * above — верх дуги на {@link ARC_GAP} px выше верхнего края якоря (список блокнотов);
-     * below — верх дуги сразу под нижним краем якоря (карточка, форма)
+     * Базовая привязка: above — на {@link ARC_GAP} px выше верха якоря (список блокнотов),
+     * below — к низу якоря (карточка, форма). Горизонт дополнительно опущен на 64–140 px.
      */
     edge?: 'above' | 'below';
 }
@@ -74,15 +74,18 @@ export function Space({ anchor, edge = 'below' }: SpaceProps) {
             if (!alive) return;
             const base = element.getBoundingClientRect();
             const box = target.getBoundingClientRect();
+            // Смещение входит в общую геометрию планеты и звёздного поля.
+            const offset = Math.min(140, Math.max(64, window.innerWidth * 0.1));
             const next = {
                 width: element.clientWidth,
                 height: element.clientHeight,
-                top: Math.max(
-                    0,
-                    Math.round(
-                        edge === 'above' ? box.top - base.top - ARC_GAP : box.bottom - base.top,
-                    ),
-                ),
+                top:
+                    Math.max(
+                        0,
+                        Math.round(
+                            edge === 'above' ? box.top - base.top - ARC_GAP : box.bottom - base.top,
+                        ),
+                    ) + offset,
             };
             setGeometry((prev) =>
                 prev &&
@@ -155,9 +158,7 @@ export function Space({ anchor, edge = 'below' }: SpaceProps) {
                     <div key="aura" className={styles.aura} />
                     <div key="limb" className={styles.limb} />
                     <div key="surface" className={styles.surface}>
-                        <div key="cover" className={styles.cover}>
-                            <div key="clouds" className={styles.clouds} />
-                        </div>
+                        <div key="cover" className={styles.cover} />
                     </div>
                 </div>
             )}

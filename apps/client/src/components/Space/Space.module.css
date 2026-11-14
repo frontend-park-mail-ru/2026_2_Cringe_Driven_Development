@@ -89,9 +89,9 @@
     background: radial-gradient(
         circle,
         transparent calc(var(--edge) - 10px),
-        rgb(120 90 235 / 0.2) var(--edge),
-        rgb(90 60 200 / 0.07) calc(var(--edge) + 160px),
-        transparent calc(var(--edge) + 440px)
+        rgb(135 97 255 / 0.5) var(--edge),
+        rgb(105 65 230 / 0.15) calc(var(--edge) + 120px),
+        transparent calc(var(--edge) + 360px)
     );
 }
 
@@ -101,22 +101,24 @@
     background: radial-gradient(
         circle,
         transparent calc(var(--edge) - 8px),
-        rgb(150 110 255 / 0.6) var(--edge),
-        rgb(139 108 255 / 0.2) calc(var(--edge) + 24px),
+        rgb(183 147 255 / 0.95) var(--edge),
+        rgb(147 105 255 / 0.45) calc(var(--edge) + 16px),
         transparent calc(var(--edge) + 90px)
     );
 }
 
 .limb {
     --pad: 8px;
-    --side: 0.08;
+    --side: 0.4;
     background: radial-gradient(
         circle,
         transparent calc(var(--edge) - 3px),
-        rgb(240 232 255 / 0.95) calc(var(--edge) - 1px),
-        rgb(190 160 255 / 0.5) calc(var(--edge) + 1px),
-        transparent calc(var(--edge) + 3px)
+        #fff5ff calc(var(--edge) - 1px),
+        #eee0ff calc(var(--edge) + 1px),
+        rgb(190 160 255 / 0.5) calc(var(--edge) + 3px),
+        transparent calc(var(--edge) + 5px)
     );
+    filter: drop-shadow(0 0 4px rgb(222 194 255 / 0.8));
 }
 
 .surface {
@@ -127,51 +129,39 @@
     overflow: hidden;
 }
 
-/* Облака видны у края диска и уходят в цвет фона по радиусу: слой цвета фона поверх них */
 .cover {
     position: absolute;
     inset: 0;
-}
 
-.cover::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-        circle,
-        var(--color-bg) calc(var(--edge) - 420px),
-        color-mix(in srgb, var(--color-bg) 65%, transparent) calc(var(--edge) - 190px),
-        transparent calc(var(--edge) - 12px)
-    );
-}
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+            circle,
+            transparent calc(var(--edge) - 190px),
+            rgb(111 76 213 / 0.12) calc(var(--edge) - 80px),
+            rgb(172 137 255 / 0.5) calc(var(--edge) - 10px),
+            rgb(231 215 255 / 0.8) var(--edge)
+        );
+    }
 
-/*
- * Полоса облаков 3840×640 px (файл 7680×1280, без альфа-канала): карта Earth Clouds 8K, Solar
- * System Scope, CC BY 4.0, сжатая к горизонту по профилю сферы (обработка — в README репозитория
- * static). Три периода, сдвиг на один — без шва на повторе.
- */
-.clouds {
-    position: absolute;
-    top: 0;
-    left: calc(50% - 5760px);
-    width: 11520px;
-    height: 640px;
-    background: url('%VITE_STATIC_URL%/img/clouds-horizon-3.webp') 0 0 / 3840px 640px repeat-x;
-    mix-blend-mode: screen;
-    opacity: 0.75;
-    animation: drift 360s linear infinite;
-}
-
-@keyframes drift {
-    to {
-        transform: translateX(-3840px);
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+            circle,
+            var(--color-bg) calc(var(--edge) - 420px),
+            color-mix(in srgb, var(--color-bg) 65%, transparent) calc(var(--edge) - 190px),
+            transparent calc(var(--edge) - 12px)
+        );
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .orbit,
-    .star,
-    .clouds {
+    .star {
         animation: none;
     }
 }
