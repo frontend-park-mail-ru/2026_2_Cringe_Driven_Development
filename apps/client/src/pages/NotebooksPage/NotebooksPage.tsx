@@ -141,6 +141,7 @@ export function NotebooksPage() {
         list.loaded.nextCursor === null;
     const openCreate = () => setCreating(true);
     const content = useRef<HTMLDivElement>(null);
+    // Один key списка при загрузке и после неё сохраняет DOM-якорь для ResizeObserver.
     const grid = useRef<HTMLUListElement>(null);
     // сетки нет в пустом списке и при ошибке: горизонт — под основным блоком
     const hasGrid = list.status === 'loading' || (list.status === 'ready' && !isEmpty);
@@ -208,7 +209,7 @@ export function NotebooksPage() {
                     )}
                 </div>
                 {list.status === 'loading' && (
-                    <ul key="skeletons" ref={grid} className={styles.grid} aria-hidden="true">
+                    <ul key="grid" ref={grid} className={styles.grid} aria-hidden="true">
                         {Array.from({ length: SKELETON_COUNT }, (_, index) => (
                             <li key={`skeleton-${index}`}>
                                 <NotebookCardSkeleton />
