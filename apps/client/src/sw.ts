@@ -8,7 +8,7 @@ type NavigationEvent = WaitableEvent & {
     respondWith(promise: Promise<Response>): void;
 };
 type ServiceWorkerScope = { skipWaiting(): Promise<void>; clients: { claim(): Promise<void> } };
-const sw = self as unknown as ServiceWorkerScope;
+const sw = self as typeof self & ServiceWorkerScope;
 
 /**
  * Кеш — только офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS SPA всегда
