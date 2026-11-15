@@ -5,10 +5,7 @@ const CACHE_PREFIX = 'cellestial-offline-';
 const CACHE_NAME = `${CACHE_PREFIX}v1`;
 const OFFLINE_URL = '/offline.html';
 
-/**
- * Кеш — только офлайн-страница, её стили (CSP запрещает встроенные) и шрифт; JS и CSS SPA всегда
- * с CDN, HTML и RPC с данными пользователя не кешируются (docs: трек «Офлайн-режим»).
- */
+/** В кеше только офлайн-страница, её стили и шрифт. Файлы приложения и данные пользователя не кешируем. */
 const OFFLINE_FILES = [OFFLINE_URL, '/offline.css', '/onest-variable.woff2'];
 
 // тут сохраняем оффлайн рыбу при установке sw
