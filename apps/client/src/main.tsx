@@ -16,7 +16,7 @@ const container = document.getElementById('root');
 if (!container) throw new Error('Не найден элемент #root');
 
 /**
- * Bootstrap прочитан. Пользователь — из первого HTML: первый рендер уже знает, гость это или
+ * Bootstrap прочитан. Пользователь - из первого HTML: первый рендер уже знает, гость это или
  * вошедший. Сломанный bootstrap — ошибка запуска, гостем и запасным users.me она не прикрывается.
  */
 let started = false;
@@ -38,6 +38,7 @@ onSessionLost(() => {
 });
 
 if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
+    // неожидаемый промис
     void navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .catch((error: unknown) => console.error('Failed to register service worker:', error));

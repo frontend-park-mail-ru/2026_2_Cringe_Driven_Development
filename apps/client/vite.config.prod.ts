@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
             rollupOptions: {
                 input: { index: 'index.html', sw: 'src/sw.ts' },
                 output: {
-                    /** `sw.js` отдаёт BFF со своего origin, остальные чанки релиза — с CDN. */
+                    // BFF отдаёт service worker с origin приложения, остальные файлы релиза могут лежать на CDN.
                     entryFileNames: (chunk: { name: string }) =>
                         chunk.name === 'sw' ? 'sw.js' : 'assets/[name]-[hash].js',
                 },

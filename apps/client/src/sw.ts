@@ -11,10 +11,7 @@ const OFFLINE_URL = '/offline.html';
  */
 const OFFLINE_FILES = [OFFLINE_URL, '/offline.css', '/onest-variable.woff2'];
 
-/**
- * В кеше нет файлов SPA, поэтому новая версия не расходится с открытой вкладкой и вступает сразу,
- * без перезагрузки.
- */
+// тут сохраняем оффлайн рыбу при установке sw
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches
@@ -24,7 +21,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-/** Удаляет прежние версии офлайн-кеша этого приложения и берёт открытые вкладки. */
+// при активации удаляем устаревшие кеши этого приложения (то на че совпал CACHE_NAME)
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches
@@ -40,7 +37,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-/** Навигация — только из сети; без сети — офлайн-страница. Остальные запросы SW не трогает. */
+// ток для навигации Network First и если не получилось отдаем рыбу
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     if (request.mode !== 'navigate' || request.method !== 'GET') return;
