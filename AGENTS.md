@@ -112,7 +112,7 @@ Git SHA и может отставать. Правки контракта — т
   так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
   и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `vite-plugin-pwa` — манифест PWA по задаче frontend#48, с ним `workbox-window` — регистратор service worker `virtual:pwa-register` по задаче frontend#49, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
+  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет; `bun run dev:prism` подставляет Prism,
   [локальные правила](docs/local-development.md#клиент-через-bff), [реальный Go](docs/api-contract.md#реальный-go)).
@@ -152,7 +152,7 @@ vite берёт их оттуда.
 - `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
   `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`), `SearchBar` (панель поиска). Каждый компонент — папка с `.tsx` и `.module.css`.
-- `serviceWorker.ts` — регистрация service worker; его кеш настроен в `vite.config.prod.ts`, офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`: всё в precache, без CDN.
+- `sw.ts` — service worker `/sw.js` (регистрирует `main.tsx`, кроме dev); его кеш — офлайн-страница `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`, без CDN. Манифест — `public/manifest.webmanifest`.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `router.ts` — экземпляр роутера `@cdd-team/router` (API как у TanStack Router) и регистрация его
   типов через `Register`. Импорт роутера — только из `@cdd-team/router`.

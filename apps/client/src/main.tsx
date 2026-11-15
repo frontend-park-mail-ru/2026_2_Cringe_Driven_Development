@@ -5,7 +5,6 @@ import { onSessionLost } from './api/trpc';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
 import { router } from './router';
-import { registerServiceWorker } from './serviceWorker';
 import { setPreloadedNotebook } from './stores/preloaded';
 import { watchConnection } from '@stores/connection';
 import { initSession, loseSession } from './stores/session';
@@ -38,7 +37,11 @@ onSessionLost(() => {
     void router.navigate({ to: '/login', replace: true });
 });
 
-registerServiceWorker();
+if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
+    void navigator.serviceWorker
+        .register('/sw.js', { scope: '/' })
+        .catch((error: unknown) => console.error('Failed to register service worker:', error));
+}
 watchConnection();
 // bun run dev:prism: mock(процедура, статус) в консоли — следующий вызов получит этот ответ мока
 if (import.meta.env.VITE_MOCK_PREFER === '1') installMockCommand();

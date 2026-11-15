@@ -16,7 +16,17 @@ export default defineConfig(({ mode }) => {
          * релизе.
          */
         base: sha && cdnUrl ? `${cdnUrl}/releases/${sha}/` : '/',
-        build: { outDir: 'dist' },
+        build: {
+            outDir: 'dist',
+            rollupOptions: {
+                input: { index: 'index.html', sw: 'src/sw.ts' },
+                output: {
+                    /** `sw.js` отдаёт BFF со своего origin, остальные чанки релиза — с CDN. */
+                    entryFileNames: (chunk: { name: string }) =>
+                        chunk.name === 'sw' ? 'sw.js' : 'assets/[name]-[hash].js',
+                },
+            },
+        },
         /**
          * Файлы `public/` отдаёт BFF со своего origin (`PUBLIC_FILES`): favicon — по постоянному
          * адресу, CDN закрыт для роботов в robots.txt.
