@@ -40,5 +40,7 @@
         "noUnusedLocals": false,
         "noUnusedParameters": false
     },
-    "include": ["src", "vite", "vite.config.dev.ts", "vite.config.prod.ts"]
+    "include": ["src", "vite", "vite.config.dev.ts", "vite.config.prod.ts"],
+    /** Service worker проверяет tsconfig.worker.json: у него lib WebWorker, а не DOM. */
+    "exclude": ["src/sw.ts"]
 }
