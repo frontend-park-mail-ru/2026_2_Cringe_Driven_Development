@@ -34,15 +34,19 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// ток для навигации Network First и если не получилось отдаем рыбу
+// навигация и файлы рыбы Network First, без сети отдаем рыбу из кеша
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-    if (request.mode !== 'navigate' || request.method !== 'GET') return;
+    const url = new URL(request.url);
+    const isOfflineFile =
+        url.origin === self.location.origin && OFFLINE_FILES.includes(url.pathname);
+    if (request.method !== 'GET' || (request.mode !== 'navigate' && !isOfflineFile)) return;
 
+    const fallback = isOfflineFile ? url.pathname : OFFLINE_URL;
     event.respondWith(
         fetch(request).catch(
             async () =>
-                (await caches.match(OFFLINE_URL, { cacheName: CACHE_NAME })) ?? Response.error(),
+                (await caches.match(fallback, { cacheName: CACHE_NAME })) ?? Response.error(),
         ),
     );
 });

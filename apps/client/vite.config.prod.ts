@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
         build: {
             outDir: 'dist',
             rollupOptions: {
-                input: { index: 'index.html', sw: 'src/sw.ts' },
+                input: { index: 'index.html', sw: 'sw/sw.ts' },
                 output: {
                     // BFF отдаёт service worker с origin приложения, остальные файлы релиза могут лежать на CDN.
                     entryFileNames: (chunk: { name: string }) =>

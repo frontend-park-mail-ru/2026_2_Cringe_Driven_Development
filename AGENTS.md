@@ -152,7 +152,7 @@ vite берёт их оттуда.
 - `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
   `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`), `SearchBar` (панель поиска). Каждый компонент — папка с `.tsx` и `.module.css`.
-- `main.tsx` регистрирует production service worker `/sw.js`; его логика в `sw.ts`. Офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`.
+- `main.tsx` регистрирует production service worker `/sw.js`; его логика в `apps/client/sw/sw.ts` со своим tsconfig (lib WebWorker). Офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `router.ts` — экземпляр роутера `@cdd-team/router` (API как у TanStack Router) и регистрация его
   типов через `Register`. Импорт роутера — только из `@cdd-team/router`.
