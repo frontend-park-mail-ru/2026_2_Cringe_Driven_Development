@@ -68,7 +68,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | Команда                             | Что делает                                                            |
 | ----------------------------------- | --------------------------------------------------------------------- |
 | `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
-| `bun run dev:pwa`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
+| `bun run preview`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
 | `bun run dev:prism`                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
 | `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
 | `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
@@ -94,7 +94,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | `PORT`                | порт BFF, по умолчанию `3000`                                                                                           |
 | `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                              |
 | `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                                      |
-| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run dev:pwa`; на проде они на CDN              |
+| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN              |
 | `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                                    |
 | `MOCK_PREFER`         | `1` — заголовок `X-Mock-Prefer` клиента становится `Prefer` для Prism, задаёт `bun run dev:prism`; на проде не задаётся |
 
@@ -125,9 +125,9 @@ Go для BFF выбирается явно, умолчания нет:
 - **Состояние на настоящем Go** — `bun run dev` с `GO_API_URL` (адрес с `/api/v1`) и, если Go
   проверяет `X-BFF-Key`, `BFF_KEY` в корневом `.env`: свой Go в Docker или разрешённый удалённый
   backend команды через SSH-туннель — production Go, со своими предусловиями
-  ([реальный Go](api-contract.md#реальный-go), [туннель](api-contract.md#go-команды-через-ssh-туннель)).
+  ([реальный Go](api-contract.md#реальный-go), [туннель](#фронт-с-go-команды-через-ssh-туннель)).
 
-Без `GO_API_URL` `bun run dev` и `bun run dev:pwa` завершают BFF с подсказкой до обработки запросов
+Без `GO_API_URL` `bun run dev` и `bun run preview` завершают BFF с подсказкой до обработки запросов
 (`apps/bff/src/dev.ts`). Перед задачей проверь актуальный контракт по
 [порядку Spec First](api-contract.md#spec-first).
 
@@ -143,7 +143,8 @@ SESSION_KEY=$(openssl rand -base64 32) APP_ORIGIN=http://localhost:3000 \
 `bun run dev` работает с HMR и без service worker. Для установки, service worker и офлайн-страницы:
 
 ```sh
-bun run dev:pwa   # http://localhost:4173
+bun run dev      # разработка с HMR
+bun run preview  # локальная проверка production-сборки, включая SW и PWA: http://localhost:4173
 ```
 
 Команда собирает клиент production-конфигом без `RELEASE_SHA` и `CDN_URL` и запускает BFF: HTML с
@@ -227,6 +228,76 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
 `bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не
 читает, типы процедур берёт из `@cdd/bff`.
+
+## Фронт с Go команды через SSH-туннель
+
+Локальные клиент и BFF ходят в настоящий Go команды без своего Go в Docker:
+`клиент → локальный BFF → 127.0.0.1:18080 → SSH через gateway → приватный Go API на VPS2:8080`.
+На gateway разрешён forwarding только к Go API и SSH VPS2
+([infra#155](https://github.com/Cringe-Driven-Development-Team/infra/issues/155)), Go API в интернет не
+опубликован: `https://cellestial.ru/api/v1` вместо туннеля не подходит.
+
+> [!WARNING]
+> Это **production Go**: запросы читают и меняют production-данные, окружения запускаются в общем пуле
+> runtime VPS. Заведите отдельный тестовый аккаунт и завершайте запущенные окружения.
+
+### Разовая подготовка
+
+1. **SSH-доступ к gateway.** Публичный ключ — отдельным `.pub`-файлом в `ansible/files/authorized_keys/`
+   репозитория infra через PR; после мержа владелец infra применяет `site.yml`
+   ([ansible/README.md](https://github.com/Cringe-Driven-Development-Team/infra/blob/main/ansible/README.md)).
+   Пользователь, адрес gateway и проверка host key — в
+   [командном справочнике подключения](https://github.com/Cringe-Driven-Development-Team/agent-plugins-private/blob/main/plugins/cellestial-ops/skills/cellestial-ops/SKILL.md)
+   (приватный репозиторий команды).
+2. **Приватный адрес VPS2** — в настроенном checkout `infra/pulumi`: `pulumi stack output backendPrivateIp`
+   (без `--show-secrets`). Нет доступа к стейту — спросите у владельца infra, по подсети не угадывайте.
+3. **Сервисный ключ BFF → Go.** Production Go проверяет `X-BFF-Key`: без ключа или с неверным он отвечает
+   `403 s2s_forbidden`. Ключ один для BFF (`BFF_KEY`) и Go (`BFF_API_KEY`) и лежит в infra зашифрованным
+   ansible-vault: `vault_bff_api_key` в `ansible/inventory/group_vars/all/vault.yml`. Пароль vault выдаёт
+   владелец infra, хранится он в `~/.config/cdd-vault-pass` с правами `600`. Из checkout infra:
+
+    ```sh
+    cd ansible
+    ansible-vault view --vault-password-file ~/.config/cdd-vault-pass \
+      inventory/group_vars/all/vault.yml | grep '^vault_bff_api_key:'
+    ```
+
+    Значение — только в локальном `.env` или окружении: не в Git, примерах, скриншотах и отчётах PR.
+
+### Запуск
+
+1. В отдельном терминале поднимите туннель и оставьте его работать; остановка — Ctrl+C:
+
+    ```sh
+    ssh -N -o ExitOnForwardFailure=yes \
+      -L 127.0.0.1:18080:<PRIVATE_IP_VPS2>:8080 <USER>@<GATEWAY>
+    ```
+
+    Порт слушает только loopback: не добавляйте `-g` и привязку `0.0.0.0`. Отказ gateway ssh не
+    завершает (`ExitOnForwardFailure` ловит только занятый локальный порт), поэтому проверьте туннель:
+    `curl -s http://127.0.0.1:18080/health` → `{"status": "alive"}`.
+
+2. В корневом `.env` (в Git не попадает):
+
+    ```dotenv
+    GO_API_URL=http://127.0.0.1:18080/api/v1
+    BFF_KEY=<vault_bff_api_key>
+    ```
+
+3. Запустите фронт как обычно:
+
+    ```sh
+    bun run dev      # разработка с HMR: https://localhost:5173
+    bun run preview  # локальная проверка production-сборки, включая SW и PWA: http://localhost:4173
+    ```
+
+4. Войдите тестовым аккаунтом. После работы остановите окружения блокнотов и туннель (Ctrl+C).
+   Без туннеля BFF ответит ошибкой Go, а `bun run dev:prism` к production не подключается.
+
+`403 s2s_forbidden` — неверный `BFF_KEY`; `open failed: administratively prohibited` в терминале ssh —
+неверный адрес VPS2 или на gateway не применён `PermitOpen`; отказ соединения на `127.0.0.1:18080` —
+туннель не запущен. В отчёте PR проверки на Prism и на реальном Go указываются отдельно, для Go — его
+ревизия и способ подключения.
 
 ## Документация кода
 

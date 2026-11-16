@@ -9,7 +9,7 @@
     "scripts": {
         "prepare": "lefthook install",
         "dev": "turbo watch dev",
-        "dev:pwa": "bun scripts/dev/pwa.ts",
+        "preview": "bun scripts/dev/preview.ts",
         "dev:prism": "bun scripts/dev/prism.ts",
         "dev:trust-windows": "bun scripts/dev/trust-windows.ts",
         "build": "turbo run build",
