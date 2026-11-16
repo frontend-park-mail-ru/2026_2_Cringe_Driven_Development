@@ -106,45 +106,10 @@ BFF получает `BFF_KEY=local-prism`, если ключ не задан: �
 
 ### Go команды через SSH-туннель
 
-Схема: локальный клиент → локальный BFF → `127.0.0.1:18080` → SSH через gateway → приватный Go API на
-backend-VPS. Локальный Go не нужен.
-
-> [!WARNING]
-> Это **production Go**: запросы читают и меняют production-данные, окружения запускаются в общем пуле
-> runtime VPS. Подключение в этом режиме согласовано владельцем; заводите отдельный тестовый аккаунт и
-> завершайте запущенные окружения. `https://cellestial.ru/api/v1` вместо туннеля не подходит: Go API
-> там не опубликован.
-
-Что нужно заранее: настройки gateway из [infra#155](https://github.com/Cringe-Driven-Development-Team/infra/issues/155)
-применены, у вас есть SSH-доступ к gateway по
-[командному справочнику подключения](https://github.com/Cringe-Driven-Development-Team/agent-plugins-private/blob/main/plugins/cellestial-ops/skills/cellestial-ops/SKILL.md)
-(приватный репозиторий команды: там пользователь, адрес gateway и приватный адрес backend-VPS).
-
-1. В отдельном терминале поднимите туннель и оставьте его работать; остановка — Ctrl+C:
-
-    ```sh
-    ssh -N -o ExitOnForwardFailure=yes \
-      -L 127.0.0.1:18080:<PRIVATE_IP_VPS2>:8080 <USER>@<GATEWAY>
-    ```
-
-    Отказ gateway ssh не завершает (`ExitOnForwardFailure` ловит только занятый локальный порт), поэтому
-    проверьте туннель: `curl -s http://127.0.0.1:18080/health` → `{"status": "alive"}`.
-
-2. В корневом `.env` (в git не попадает) или окружении запуска:
-
-    ```dotenv
-    GO_API_URL=http://127.0.0.1:18080/api/v1
-    BFF_KEY=<S2S-ключ выбранного Go>
-    ```
-
-    Ключ нужен локальному BFF: production Go проверяет `X-BFF-Key`. Берите его через выданный вам доступ к
-    секретам окружения; в Git, примеры и отчёты PR он не попадает.
-
-3. `bun run dev` и `https://localhost:5173`, как обычно.
-
+Production Go команды без локального Docker: туннель через gateway, сервисный ключ `BFF_KEY` из
+ansible-vault infra и запуск — в [локальной разработке](local-development.md#фронт-с-go-команды-через-ssh-туннель).
 Туннель и адрес не подставляются автоматически: обычный `bun run dev` без `GO_API_URL` к production не
-подключается. Режим Prism, локальный HTTPS, CSRF и S2S-проверка работают так же, как с локальным Go.
-Реальные адреса, пользователи и ключи в документацию и `.env.example` не переносятся.
+подключается.
 
 В отчёте PR проверки на Prism и на реальном Go указываются отдельно, для Go — его ревизия и способ
 подключения.
