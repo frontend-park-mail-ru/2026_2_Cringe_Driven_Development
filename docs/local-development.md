@@ -68,7 +68,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | Команда                             | Что делает                                                            |
 | ----------------------------------- | --------------------------------------------------------------------- |
 | `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
-| `bun run dev:pwa`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
+| `bun run preview`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
 | `bun run dev:prism`                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
 | `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
 | `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
@@ -94,7 +94,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | `PORT`                | порт BFF, по умолчанию `3000`                                                                                           |
 | `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                              |
 | `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                                      |
-| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run dev:pwa`; на проде они на CDN              |
+| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN              |
 | `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                                    |
 | `MOCK_PREFER`         | `1` — заголовок `X-Mock-Prefer` клиента становится `Prefer` для Prism, задаёт `bun run dev:prism`; на проде не задаётся |
 
@@ -127,7 +127,7 @@ Go для BFF выбирается явно, умолчания нет:
   backend команды через SSH-туннель — production Go, со своими предусловиями
   ([реальный Go](api-contract.md#реальный-go), [туннель](api-contract.md#go-команды-через-ssh-туннель)).
 
-Без `GO_API_URL` `bun run dev` и `bun run dev:pwa` завершают BFF с подсказкой до обработки запросов
+Без `GO_API_URL` `bun run dev` и `bun run preview` завершают BFF с подсказкой до обработки запросов
 (`apps/bff/src/dev.ts`). Перед задачей проверь актуальный контракт по
 [порядку Spec First](api-contract.md#spec-first).
 
@@ -143,7 +143,8 @@ SESSION_KEY=$(openssl rand -base64 32) APP_ORIGIN=http://localhost:3000 \
 `bun run dev` работает с HMR и без service worker. Для установки, service worker и офлайн-страницы:
 
 ```sh
-bun run dev:pwa   # http://localhost:4173
+bun run dev      # разработка с HMR
+bun run preview  # локальная проверка production-сборки, включая SW и PWA: http://localhost:4173
 ```
 
 Команда собирает клиент production-конфигом без `RELEASE_SHA` и `CDN_URL` и запускает BFF: HTML с

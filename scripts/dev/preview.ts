@@ -1,4 +1,4 @@
-// Локальная проверка PWA и service worker: production-сборка клиента и BFF на одном origin, без CDN
+// bun run preview — локальная проверка production-сборки, включая SW и PWA: production-сборка клиента и BFF на одном origin, без CDN
 // и Docker. В bun run dev service worker нет: там HMR. Адрес другой, чтобы режимы работали рядом.
 import { join } from 'node:path';
 

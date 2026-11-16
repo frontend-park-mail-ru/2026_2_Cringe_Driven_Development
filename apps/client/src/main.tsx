@@ -37,6 +37,7 @@ onSessionLost(() => {
     void router.navigate({ to: '/login', replace: true });
 });
 
+// в bun run dev SW не регистрируется, локально SW проверяют через bun run preview
 if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
     // неожидаемый промис
     void navigator.serviceWorker

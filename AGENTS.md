@@ -120,8 +120,8 @@ Git SHA и может отставать. Правки контракта — т
 ## Команды
 
 ```bash
-bun run dev        # клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF; Go — GO_API_URL из .env
-bun run dev:pwa    # production-сборка и BFF на http://localhost:4173: проверка PWA и service worker, без HMR
+bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF; Go — GO_API_URL из .env
+bun run preview    # локальная проверка production-сборки, включая SW и PWA: BFF на http://localhost:4173, без HMR
 bun run dev:prism  # как dev, но Go — локальный Prism по spec/openapi.json; mock(процедура, статус) в консоли
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах

@@ -18,7 +18,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// при активации удаляем устаревшие кеши этого приложения (то на че совпал CACHE_NAME)
+// при активации удаляем прежние версии офлайн-кеша, текущий CACHE_NAME оставляем
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches
