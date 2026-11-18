@@ -162,7 +162,8 @@ export class Hono<E = unknown> {
     }
 
     /**
-     * Обработать запрос; пригоден как `fetch` для `Bun.serve`.
+     * Обработать запрос; пригоден как `fetch` для `Bun.serve`. HEAD получает ответ GET-маршрута
+     * целиком: тело отбрасывает `Bun.serve`, сохраняя `Content-Length`.
      * @param request запрос
      * @param env окружение, доступное как `c.env`
      * @returns ответ
@@ -175,14 +176,7 @@ export class Hono<E = unknown> {
             (r) => (r.method === null || r.method === method) && matches(r.path, path),
         );
         await this.#dispatch(c, chain, 0);
-        const res = c.res;
-        return request.method === 'HEAD'
-            ? new Response(null, {
-                  status: res.status,
-                  statusText: res.statusText,
-                  headers: res.headers,
-              })
-            : res;
+        return c.res;
     };
 
     #add(method: string | null, path: string, handlers: AnyHandler<E>[]): this {
@@ -205,7 +199,9 @@ export class Hono<E = unknown> {
             };
             const res = await route.handler(c, next);
             if (res instanceof Response) c.res = res;
-            else if (!called) throw new Error('Handler returned no Response');
+            // next() без await: downstream ещё не задал ответ
+            else if (!called || (c.res as Response | undefined) === undefined)
+                throw new Error('Handler returned no Response');
         } catch (err) {
             c.res = await this.#handleError(err, c);
         }
