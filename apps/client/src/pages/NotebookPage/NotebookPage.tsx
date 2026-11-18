@@ -124,9 +124,6 @@ const IS_MAC = navigator.userAgent.includes('Mac');
 /** Запас в пикселях между прилипшей шапкой и совпадением, к которому прокрутили */
 const SEARCH_GAP = 16;
 
-/** Число символов для уведомления: лимит в байтах, но понятнее, сколько символов вошло: «37 090» */
-const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
-
 /**
  * Обрезает вставку по лимиту ячейки: больший исходник не сохранить. Помещающаяся часть
  * вставляется как обычный ввод — с отменой по Ctrl+Z.
@@ -140,7 +137,7 @@ const handlePaste = (event: ClipboardEvent): void => {
     if (part) document.execCommand('insertText', false, part);
     // уведомление без действия: прячется само
     showSnackbar(
-        `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
+        'Вставлена только часть текста: в ячейке максимум 64 КиБ',
         undefined,
         PASTE_NOTICE_MS,
     );
