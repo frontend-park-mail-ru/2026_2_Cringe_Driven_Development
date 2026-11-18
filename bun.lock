@@ -50,6 +50,9 @@
         "vite-plugin-svgr": "^5.2.0",
       },
     },
+    "packages/hono": {
+      "name": "@cdd-team/hono",
+    },
     "packages/schemas": {
       "name": "@cdd/schemas",
       "dependencies": {
@@ -127,6 +130,8 @@
     "@babel/types": ["@babel/types@7.29.11", "", { "dependencies": { "@babel/helper-string-parser": "^7.29.11", "@babel/helper-validator-identifier": "^7.29.7" } }, "sha512-WCsemW40Cpc6gouC1SrY6PBaZ+oLRlEVY9XBvZBI7il/HyUrb2nJ505wE1MHEFyDZNnrWDEuy4jL50WVHfTTSQ=="],
 
     "@cdd-team/clsx": ["@cdd-team/clsx@0.1.0", "", {}, "sha512-ZvH93wX1hFzVdFIFnzFqRWvDsljYa9YqZEU2SEQgTbmQ8SKNden7l8tHfwtCEto93sJd+ssg9ZuzPOxJwADSHA=="],
+
+    "@cdd-team/hono": ["@cdd-team/hono@workspace:packages/hono"],
 
     "@cdd-team/oxlint-plugin-jsdoc": ["@cdd-team/oxlint-plugin-jsdoc@0.1.2", "", { "peerDependencies": { "oxlint": ">=1.86.0" } }, "sha512-JeDHB9I0QrA7ueL8tvEEa/nw0q1+yacnOdw5Cn8iKaTFqhDhbqAaaGhYxQxUYWTPnoLcZpPs7yy1vJ8IYDPfig=="],
 
