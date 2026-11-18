@@ -3,13 +3,15 @@ import { isRpcError, trpc, type Cell, type NotebookPageData } from '@api/trpc';
 import {
     applyOp,
     exceedsBytes,
-    SOURCE_LIMIT_BYTES,
+    fitBytes,
     sameStructure,
     type CreatableKind,
     type Op,
     type Snapshot,
 } from './snapshot';
 
+/** Лимит исходника ячейки — 64 КиБ в UTF-8. */
+const SOURCE_LIMIT_BYTES = 65_536;
 /** Пауза ввода перед автосохранением. */
 export const AUTOSAVE_DELAY_MS = 500;
 /** Сколько видна подпись «Сохранено». */
@@ -279,6 +281,22 @@ const refreshStatus = (justSaved = false): void => {
     }
     if (get().status !== 'saved') setStatus('idle');
 };
+
+/**
+ * Какая часть вставки помещается в лимит исходника: больше 64 КиБ всё равно не сохранить.
+ * @param text текст ячейки до вставки
+ * @param start начало выделения
+ * @param end конец выделения: выделенное заменяется вставкой
+ * @param pasted вставляемый текст
+ * @returns вставка целиком или её помещающееся начало
+ */
+export function pastedPart(text: string, start: number, end: number, pasted: string): string {
+    const rest = text.slice(0, start) + text.slice(end);
+    const used = exceedsBytes(rest, SOURCE_LIMIT_BYTES)
+        ? SOURCE_LIMIT_BYTES
+        : new TextEncoder().encode(rest).length;
+    return fitBytes(pasted, SOURCE_LIMIT_BYTES - used);
+}
 
 /**
  * Ввод пользователя в ячейке. Сохранение — через {@link AUTOSAVE_DELAY_MS} без ввода; во время

@@ -25,12 +25,13 @@ import {
     editSource,
     moveCell,
     openNotebook,
+    pastedPart,
     retry,
     structureLocked,
     useNotebookStore,
     type Orphan,
 } from '@stores/notebook';
-import { pastedPart, type CreatableKind } from '@stores/notebook/snapshot';
+import type { CreatableKind } from '@stores/notebook/snapshot';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import {
     closeRuntime,
