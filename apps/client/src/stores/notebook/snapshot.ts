@@ -32,6 +32,25 @@ export function fitBytes(text: string, limit: number): string {
     return text.slice(0, encoder.encodeInto(text, new Uint8Array(limit)).read);
 }
 
+/** Лимит исходника ячейки — 64 КиБ в UTF-8. */
+export const SOURCE_LIMIT_BYTES = 65_536;
+
+/**
+ * Какая часть вставки помещается в лимит исходника: больше 64 КиБ всё равно не сохранить.
+ * @param text текст ячейки до вставки
+ * @param start начало выделения
+ * @param end конец выделения: выделенное заменяется вставкой
+ * @param pasted вставляемый текст
+ * @returns вставка целиком или её помещающееся начало
+ */
+export function pastedPart(text: string, start: number, end: number, pasted: string): string {
+    const rest = text.slice(0, start) + text.slice(end);
+    const used = exceedsBytes(rest, SOURCE_LIMIT_BYTES)
+        ? SOURCE_LIMIT_BYTES
+        : encoder.encode(rest).length;
+    return fitBytes(pasted, SOURCE_LIMIT_BYTES - used);
+}
+
 /** Поля кода без результата исполнения: до первого запуска и после изменения source. */
 const noOutput = () => ({ outputs: [], execution_count: null, output_truncated: false });
 
