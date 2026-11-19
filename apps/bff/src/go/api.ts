@@ -27,70 +27,39 @@ import {
     UploadCurrentUserAvatarResponse,
 } from '@cdd/schemas';
 
+import type {
+    AddNotebookCellRequest,
+    ChangeCurrentUserPasswordRequest,
+    ConfirmTwoFactorRequest,
+    CreateNotebookRequest,
+    Credentials,
+    DisableTwoFactorRequest,
+    EditNotebookCellRequest,
+    ListNotebooksParams,
+    LoginRequest,
+    MoveNotebookCellRequest,
+    Notebook,
+    NotebookCellChange,
+    NotebookContent,
+    NotebookContentChange,
+    NotebookListPage,
+    RuntimeBatchExecuteRequest,
+    RuntimeBatchExecution,
+    RuntimeEventsResponse,
+    RuntimeExecuteRequest,
+    RuntimeExecution,
+    RuntimeQueueSnapshot,
+    RuntimeSession,
+    RuntimeStartRequest,
+    TokenPair,
+    TwoFactorSetupResponse,
+    UpdateCurrentUserRequest,
+    User,
+} from '@cdd/schemas/types';
+
 import type { Session } from '../session/session.ts';
-import {
-    addNotebookCell,
-    changeCurrentUserPassword,
-    confirmTwoFactorAuth,
-    createNotebook,
-    createRuntimeExecution,
-    createRuntimeExecutionBatch,
-    deleteNotebook,
-    disableTwoFactorAuth,
-    enableTwoFactorAuth,
-    getActiveRuntimeSession,
-    getRuntimeExecution,
-    getRuntimeQueue,
-    getRuntimeSession,
-    interruptRuntimeKernel,
-    listRuntimeEvents,
-    startRuntimeSession,
-    stopRuntimeExecutions,
-    stopRuntimeSession,
-    touchRuntimeSession,
-    editNotebookCell,
-    getCurrentUser,
-    getNotebook,
-    getNotebookContent,
-    listNotebooks,
-    loginUser,
-    logoutAllUserSessions,
-    logoutUser,
-    moveNotebookCell,
-    registerUser,
-    removeNotebookCell,
-    updateCurrentUser,
-    uploadCurrentUserAvatar,
-    type AddNotebookCellRequest,
-    type ChangeCurrentUserPasswordRequest,
-    type ConfirmTwoFactorRequest,
-    type DisableTwoFactorRequest,
-    type LoginRequest,
-    type TwoFactorSetupResponse,
-    type CreateNotebookRequest,
-    type EditNotebookCellRequest,
-    type MoveNotebookCellRequest,
-    type Credentials,
-    type Notebook,
-    type NotebookCellChange,
-    type NotebookContent,
-    type NotebookContentChange,
-    type ListNotebooksParams,
-    type NotebookListPage,
-    type RuntimeBatchExecuteRequest,
-    type RuntimeBatchExecution,
-    type RuntimeEventsResponse,
-    type RuntimeExecuteRequest,
-    type RuntimeExecution,
-    type RuntimeQueueSnapshot,
-    type RuntimeSession,
-    type RuntimeStartRequest,
-    type TokenPair,
-    type UpdateCurrentUserRequest,
-    type User,
-} from './client.ts';
 import { unwrap } from './errors.ts';
-import { bearerFetch } from './fetch.ts';
+import { go } from './request.ts';
 
 const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
     const headers = new Headers(init.headers);
@@ -99,8 +68,7 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
 };
 
 /** `hash` — непрозрачная строка без кавычек: в Go уходит одним сильным ETag. */
-const ifMatch = (init: RequestInit, hash: string): RequestInit =>
-    withHeader(init, 'If-Match', `"${hash}"`);
+const ifMatch = (hash: string): { 'If-Match': string } => ({ 'If-Match': `"${hash}"` });
 
 const isInvalidTotp = (res: { status: number }): boolean => {
     const { data } = res as { data?: unknown };
@@ -175,71 +143,140 @@ export function createGo(session: Session, prefer?: string): Go {
         session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init), refused);
     return {
         getCurrentUser: async () =>
-            unwrap(await call(getCurrentUser), [200], GetCurrentUserResponse),
+            unwrap(
+                await call((init) => go('GET', '/users/me', { init })),
+                [200],
+                GetCurrentUserResponse,
+            ),
         updateCurrentUser: async (body) =>
             unwrap(
-                await call((init) => updateCurrentUser(body, init)),
+                await call((init) =>
+                    go('PATCH', '/users/me', { contentType: 'application/json', body, init }),
+                ),
                 [200],
                 UpdateCurrentUserResponse,
             ),
         changeCurrentUserPassword: async (body) => {
-            unwrap(await call((init) => changeCurrentUserPassword(body, init)), [204]);
+            unwrap(
+                await call((init) =>
+                    go('PUT', '/users/me/password', {
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
+                [204],
+            );
         },
         uploadCurrentUserAvatar: async (avatar) =>
             unwrap(
-                await call((init) => uploadCurrentUserAvatar({ avatar }, init)),
+                await call((init) =>
+                    go('PUT', '/users/me/avatar', {
+                        contentType: 'multipart/form-data',
+                        body: { avatar },
+                        init,
+                    }),
+                ),
                 [200],
                 UploadCurrentUserAvatarResponse,
             ),
         listNotebooks: async (params) =>
-            unwrap(await call((init) => listNotebooks(params, init)), [200], ListNotebooksResponse),
+            unwrap(
+                await call((init) => go('GET', '/notebooks', { params: { query: params }, init })),
+                [200],
+                ListNotebooksResponse,
+            ),
         getNotebook: async (id) =>
-            unwrap(await call((init) => getNotebook(id, init)), [200], GetNotebookResponse),
+            unwrap(
+                await call((init) =>
+                    go('GET', '/notebooks/{id}', { params: { path: { id } }, init }),
+                ),
+                [200],
+                GetNotebookResponse,
+            ),
         getNotebookContent: async (id) =>
             unwrap(
-                await call((init) => getNotebookContent(id, init)),
+                await call((init) =>
+                    go('GET', '/notebooks/{id}/content', { params: { path: { id } }, init }),
+                ),
                 [200],
                 GetNotebookContentResponse,
             ),
         createNotebook: async (body) =>
-            unwrap(await call((init) => createNotebook(body, init)), [201], CreateNotebookResponse),
+            unwrap(
+                await call((init) =>
+                    go('POST', '/notebooks', { contentType: 'application/json', body, init }),
+                ),
+                [201],
+                CreateNotebookResponse,
+            ),
         addCell: async (id, hash, body) =>
             unwrap(
-                await call((init) => addNotebookCell(id, body, ifMatch(init, hash))),
+                await call((init) =>
+                    go('POST', '/notebooks/{id}/content/cells', {
+                        params: { path: { id }, header: ifMatch(hash) },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [201],
                 AddNotebookCellResponse,
             ),
         editCell: async (id, cellId, hash, body) =>
             unwrap(
-                await call((init) => editNotebookCell(id, cellId, body, ifMatch(init, hash))),
+                await call((init) =>
+                    go('PATCH', '/notebooks/{id}/content/cells/{cell_id}', {
+                        params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [200],
                 EditNotebookCellResponse,
             ),
         moveCell: async (id, cellId, hash, body) =>
             unwrap(
-                await call((init) => moveNotebookCell(id, cellId, body, ifMatch(init, hash))),
+                await call((init) =>
+                    go('POST', '/notebooks/{id}/content/cells/{cell_id}/move', {
+                        params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [200],
                 MoveNotebookCellResponse,
             ),
         removeCell: async (id, cellId, hash) =>
             unwrap(
-                await call((init) => removeNotebookCell(id, cellId, ifMatch(init, hash))),
+                await call((init) =>
+                    go('DELETE', '/notebooks/{id}/content/cells/{cell_id}', {
+                        params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
+                        init,
+                    }),
+                ),
                 [200],
                 RemoveNotebookCellResponse,
             ),
         /** 204 без тела: JSON не читается. */
         deleteNotebook: async (id) => {
-            unwrap(await call((init) => deleteNotebook(id, init)), [204]);
+            unwrap(
+                await call((init) =>
+                    go('DELETE', '/notebooks/{id}', { params: { path: { id } }, init }),
+                ),
+                [204],
+            );
         },
-        // shortcut: PATCH /notebooks/{id} (backend#105) ещё нет в Apidog — вызов вручную; заменить
-        // сгенерированным renameNotebook после bun run sync
         renameNotebook: async (id, name) =>
             unwrap(
                 await call((init) =>
-                    bearerFetch<{ status: number; data: unknown }>(`/notebooks/${id}`, {
-                        ...withHeader(init, 'Content-Type', 'application/json'),
-                        method: 'PATCH',
-                        body: JSON.stringify({ name }),
+                    go('PATCH', '/notebooks/{id}', {
+                        params: { path: { id } },
+                        contentType: 'application/json',
+                        body: { name },
+                        init,
                     }),
                 ),
                 [200],
@@ -252,7 +289,11 @@ export function createGo(session: Session, prefer?: string): Go {
             const init = prefer ? withHeader(pair.init, 'Prefer', prefer) : pair.init;
             let status: number;
             try {
-                ({ status } = await logoutUser({ refresh_token: pair.refresh }, init));
+                ({ status } = await go('POST', '/auth/logout', {
+                    contentType: 'application/json',
+                    body: { refresh_token: pair.refresh },
+                    init,
+                }));
             } catch {
                 return 'unknown';
             }
@@ -260,79 +301,158 @@ export function createGo(session: Session, prefer?: string): Go {
             return status >= 400 && status < 500 ? 'unconfirmed' : 'unknown';
         },
         logoutAll: async () => {
-            unwrap(await call((init) => logoutAllUserSessions(init)), [204]);
+            unwrap(await call((init) => go('POST', '/auth/logout-all', { init })), [204]);
         },
         enableTwoFactor: async () =>
-            unwrap(await call(enableTwoFactorAuth), [200], EnableTwoFactorAuthResponse),
+            unwrap(
+                await call((init) => go('POST', '/auth/enable2fa', { init })),
+                [200],
+                EnableTwoFactorAuthResponse,
+            ),
         /** 401 invalid_totp — неверный код, а не истёкший токен: без refresh и повтора с ним. */
         confirmTwoFactor: async (body) => {
-            unwrap(await call((init) => confirmTwoFactorAuth(body, init), isInvalidTotp), [200]);
+            unwrap(
+                await call(
+                    (init) =>
+                        go('POST', '/auth/confirm2fa', {
+                            contentType: 'application/json',
+                            body,
+                            init,
+                        }),
+                    isInvalidTotp,
+                ),
+                [200],
+            );
         },
         disableTwoFactor: async (body) => {
-            unwrap(await call((init) => disableTwoFactorAuth(body, init)), [200]);
+            unwrap(
+                await call((init) =>
+                    go('POST', '/auth/disable2fa', { contentType: 'application/json', body, init }),
+                ),
+                [200],
+            );
         },
         getActiveRuntimeSession: async () =>
-            unwrap(await call(getActiveRuntimeSession), [200], GetActiveRuntimeSessionResponse)
-                .active_session,
+            unwrap(
+                await call((init) => go('GET', '/runtime-sessions/active', { init })),
+                [200],
+                GetActiveRuntimeSessionResponse,
+            ).active_session,
         getRuntimeSession: async (id) =>
             unwrap(
-                await call((init) => getRuntimeSession(id, init)),
+                await call((init) =>
+                    go('GET', '/runtime-sessions/{id}', { params: { path: { id } }, init }),
+                ),
                 [200],
                 GetRuntimeSessionResponse,
             ),
         getRuntimeQueue: async (id) =>
-            unwrap(await call((init) => getRuntimeQueue(id, init)), [200], GetRuntimeQueueResponse),
+            unwrap(
+                await call((init) =>
+                    go('GET', '/runtime-sessions/{id}/queue', { params: { path: { id } }, init }),
+                ),
+                [200],
+                GetRuntimeQueueResponse,
+            ),
         listRuntimeEvents: async (id, after) =>
             unwrap(
-                await call((init) => listRuntimeEvents(id, { after }, init)),
+                await call((init) =>
+                    go('GET', '/runtime-sessions/{id}/events', {
+                        params: { path: { id }, query: { after } },
+                        init,
+                    }),
+                ),
                 [200],
                 ListRuntimeEventsResponse,
             ),
         getRuntimeExecution: async (id, executionId) =>
             unwrap(
-                await call((init) => getRuntimeExecution(id, executionId, init)),
+                await call((init) =>
+                    go('GET', '/runtime-sessions/{id}/executions/{execution_id}', {
+                        params: { path: { id, execution_id: executionId } },
+                        init,
+                    }),
+                ),
                 [200],
                 GetRuntimeExecutionResponse,
             ),
         startRuntimeSession: async (notebookId, body) =>
             unwrap(
-                await call((init) => startRuntimeSession(notebookId, body, init)),
+                await call((init) =>
+                    go('POST', '/notebooks/{id}/runtime-sessions', {
+                        params: { path: { id: notebookId } },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [202],
                 StartRuntimeSessionResponse,
             ),
         createRuntimeExecution: async (id, body) =>
             unwrap(
-                await call((init) => createRuntimeExecution(id, body, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/executions', {
+                        params: { path: { id } },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [202],
                 CreateRuntimeExecutionResponse,
             ),
         createRuntimeExecutionBatch: async (id, body) =>
             unwrap(
-                await call((init) => createRuntimeExecutionBatch(id, body, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/executions/batch', {
+                        params: { path: { id } },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
                 [202],
                 CreateRuntimeExecutionBatchResponse,
             ),
         stopRuntimeSession: async (id) =>
             unwrap(
-                await call((init) => stopRuntimeSession(id, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/stop', { params: { path: { id } }, init }),
+                ),
                 [202],
                 StopRuntimeSessionResponse,
             ),
         stopRuntimeExecutions: async (id) =>
             unwrap(
-                await call((init) => stopRuntimeExecutions(id, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/executions/stop', {
+                        params: { path: { id } },
+                        init,
+                    }),
+                ),
                 [200],
                 StopRuntimeExecutionsResponse,
             ),
         interruptRuntimeKernel: async (id) =>
             unwrap(
-                await call((init) => interruptRuntimeKernel(id, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/kernel/interrupt', {
+                        params: { path: { id } },
+                        init,
+                    }),
+                ),
                 [200],
                 InterruptRuntimeKernelResponse,
             ),
         touchRuntimeSession: async (id) =>
             unwrap(
-                await call((init) => touchRuntimeSession(id, init)),
+                await call((init) =>
+                    go('POST', '/runtime-sessions/{id}/activity', {
+                        params: { path: { id } },
+                        init,
+                    }),
+                ),
                 [200],
                 TouchRuntimeSessionResponse,
             ),
@@ -354,12 +474,28 @@ export const publicGo = {
      * @param requestId `X-Request-ID` для Go
      */
     register: async (body: Credentials, requestId?: string): Promise<AuthResult> =>
-        unwrap(await registerUser(body, withRequestId(requestId)), [201], RegisterUserResponse),
+        unwrap(
+            await go('POST', '/auth/register', {
+                contentType: 'application/json',
+                body,
+                init: withRequestId(requestId),
+            }),
+            [201],
+            RegisterUserResponse,
+        ),
     /**
      * Вход в Go.
      * @param body логин, пароль и при включённой 2FA — код `user_code`
      * @param requestId `X-Request-ID` для Go
      */
     login: async (body: LoginRequest, requestId?: string): Promise<AuthResult> =>
-        unwrap(await loginUser(body, withRequestId(requestId)), [200], LoginUserResponse),
+        unwrap(
+            await go('POST', '/auth/login', {
+                contentType: 'application/json',
+                body,
+                init: withRequestId(requestId),
+            }),
+            [200],
+            LoginUserResponse,
+        ),
 };

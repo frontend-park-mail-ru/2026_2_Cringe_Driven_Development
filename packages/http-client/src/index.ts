@@ -125,7 +125,7 @@ export function createClient<P extends Paths>(config: { transport: Transport }):
         const path = toPath(template, params);
         const headers = new Headers(init?.headers);
         for (const [name, value] of Object.entries(params?.header ?? {})) headers.set(name, value);
-        let payload: BodyInit | undefined;
+        let payload: RequestInit['body'];
         if (contentType === 'application/json') {
             headers.set('Content-Type', contentType);
             payload = JSON.stringify(body);

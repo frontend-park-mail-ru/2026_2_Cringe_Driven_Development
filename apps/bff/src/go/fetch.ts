@@ -1,42 +1,22 @@
-import { env } from '../env.ts';
-import { GoError } from './errors.ts';
+import type { Transport } from '@cdd-team/http-client';
 
-const GO_TIMEOUT_MS = 5000;
+import { env } from '../env.ts';
+
+/** Таймаут вызова Go: до конца чтения тела ответа. */
+export const GO_TIMEOUT_MS = 5000;
 
 /**
- * Мутатор клиента Go, сгенерированного Orval (`orval.config.ts`): дописывает адрес Go
- * (`GO_API_URL`) к пути операции, ставит таймаут 5 с и `X-BFF-Key` (если задан `BFF_KEY`) и
- * отдаёт ответ в форме клиента. `Authorization` и `X-Request-ID` передаёт вызывающий код. Таймаут
- * и сетевой сбой — `GoError` вида `timeout` и `network`.
- * @param path путь операции из контракта Go, например `/notebooks/1/cells`
- * @returns статус, заголовки и тело ответа (JSON, иначе текст; без тела — `undefined`)
+ * Транспорт общего клиента к Go: дописывает адрес Go (`GO_API_URL`) к пути операции, ставит
+ * `X-BFF-Key` (если задан `BFF_KEY`) и таймаут 5 с вместе с сигналом вызывающего кода. Ответ не
+ * разбирает и HTTP-статусы не толкует. `Authorization` и `X-Request-ID` передаёт вызывающий код.
+ * @param path путь операции с query, например `/notebooks/1/content`
+ * @param init запрос от общего клиента
+ * @returns ответ Go как есть
  */
-export const bearerFetch = async <T>(path: string, init: RequestInit): Promise<T> => {
+export const bearerFetch: Transport = (path, init) => {
     const headers = new Headers(init.headers);
     if (env.BFF_KEY) headers.set('X-BFF-Key', env.BFF_KEY);
     const timeout = AbortSignal.timeout(GO_TIMEOUT_MS);
     const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-
-    let response: Response;
-    let text: string;
-    try {
-        response = await fetch(`${env.GO_API_URL}${path}`, { ...init, headers, signal });
-        text = await response.text();
-    } catch (err) {
-        const name = err instanceof Error ? err.name : '';
-        if (name === 'TimeoutError' || name === 'AbortError') {
-            throw new GoError('timeout', `Go не ответил за ${GO_TIMEOUT_MS} мс`);
-        }
-        throw new GoError('network', 'Go недоступен');
-    }
-
-    let data: unknown;
-    if (text !== '') {
-        try {
-            data = JSON.parse(text);
-        } catch {
-            data = text;
-        }
-    }
-    return { data, status: response.status, headers: response.headers } as T;
+    return fetch(`${env.GO_API_URL}${path}`, { ...init, headers, signal });
 };
