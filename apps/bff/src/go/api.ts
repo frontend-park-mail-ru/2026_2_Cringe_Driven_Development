@@ -59,7 +59,7 @@ import type {
 
 import type { Session } from '../session/session.ts';
 import { unwrap } from './errors.ts';
-import { go } from './request.ts';
+import { go, withRequestId } from './request.ts';
 
 const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
     const headers = new Headers(init.headers);
@@ -461,10 +461,6 @@ export function createGo(session: Session, prefer?: string): Go {
 
 /** Пользователь и пара токенов после входа или регистрации. */
 export type AuthResult = { user: User; tokens: TokenPair };
-
-const withRequestId = (requestId?: string): RequestInit => ({
-    headers: requestId ? { 'X-Request-ID': requestId } : {},
-});
 
 /** Вызовы Go без сессии — вход и регистрация. */
 export const publicGo = {

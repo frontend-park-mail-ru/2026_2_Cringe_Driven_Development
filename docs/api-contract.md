@@ -11,8 +11,7 @@
 - `packages/schemas/src/types.ts` (`@cdd/schemas/types`) — DTO и карта операций `GoPaths`: обычный
   редактируемый TypeScript, не генерация. Описаны только операции, которые вызывает приложение.
   Вызовы BFF к Go идут через общий клиент `@cdd-team/http-client` (`packages/http-client`):
-  `go(method, path, options)` из `apps/bff/src/go/request.ts`, транспорт `bearerFetch` в
-  `apps/bff/src/go/fetch.ts` (адрес Go — обязательный `GO_API_URL`, умолчания нет; `X-BFF-Key` и
+  `go(method, path, options)` и транспорт `bearerFetch` в `apps/bff/src/go/request.ts` (адрес Go — обязательный `GO_API_URL`, умолчания нет; `X-BFF-Key` и
   таймаут 5 с; `Authorization: Bearer` передаёт сессия).
 - `packages/schemas/src/zod.ts` — zod-схемы операций Go, пакет `@cdd/schemas`. Последний раз
   сгенерированы Orval, больше не перегенерируются; заменяются ручными проверками в frontend#210.
