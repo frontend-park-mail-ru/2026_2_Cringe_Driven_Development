@@ -368,7 +368,7 @@ type IfMatch = { 'If-Match': string };
 type RuntimeErrors = Errors<400 | 401 | 403 | 404 | 500, Error> & { 503: RuntimeError };
 type RuntimeConflictErrors = RuntimeErrors & { 409: RuntimeError };
 
-/** Карта операций Go, которые вызывает BFF: путь → метод → операция. */
+/** Карта операций Go, которые вызывает BFF: путь - метод - операция. */
 export type GoPaths = {
     '/users/me': {
         GET: { responses: { 200: User } & Errors<401 | 403 | 500, UserProfileError> };

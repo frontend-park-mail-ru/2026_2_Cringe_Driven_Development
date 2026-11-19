@@ -25,7 +25,7 @@ const bearerFetch: Transport = (path, init) => {
 
 const client = createClient<GoPaths>({ transport: bearerFetch });
 
-/** Сбой отправки или чтения ответа → `GoError`; внешняя отмена — как есть. */
+/** Сбой отправки или чтения ответа - `GoError`; внешняя отмена — как есть. */
 const toGoError = (err: unknown): unknown => {
     const name = err instanceof Error ? err.name : '';
     if (name === 'AbortError') return err;

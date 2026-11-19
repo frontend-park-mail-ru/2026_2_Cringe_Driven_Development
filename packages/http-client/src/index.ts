@@ -2,7 +2,7 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
 /**
- * Отправка запроса: путь операции с query и `RequestInit` → стандартный `Response`. Адрес сервера,
+ * Отправка запроса: путь операции с query и `RequestInit` - стандартный `Response`. Адрес сервера,
  * авторизация, таймаут и учёт запросов — забота транспорта, разбор тела — общего клиента.
  */
 export type Transport = (path: string, init: RequestInit) => Promise<Response>;
@@ -29,7 +29,7 @@ export interface Operation {
     responses: Record<number, unknown>;
 }
 
-/** Карта операций: шаблон пути → HTTP-метод → операция. */
+/** Карта операций: шаблон пути - HTTP-метод - операция. */
 export type Paths = Record<string, Partial<Record<HttpMethod, Operation>>>;
 
 /** `params` обязательны, только если внутри есть обязательные поля; у операции без них — нельзя. */
