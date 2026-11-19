@@ -86,6 +86,14 @@ type RawOptions = {
     init?: RequestInit;
 };
 
+/**
+ * Путь запроса: подставляет path-параметры в шаблон с `encodeURIComponent` и дописывает query через
+ * `URLSearchParams` (`undefined` пропускается, массив — повторяемыми ключами).
+ * @param template шаблон пути операции, например `/notebooks/{id}`
+ * @param params параметры вызова
+ * @returns путь с query
+ * @throws {TypeError} если для `{name}` из шаблона нет значения
+ */
 function toPath(template: string, params: RawOptions['params']): string {
     const path = template.replace(/\{(\w+)\}/g, (_, name: string) => {
         const value = params?.path?.[name];
@@ -102,6 +110,11 @@ function toPath(template: string, params: RawOptions['params']): string {
     return search ? `${path}?${search}` : path;
 }
 
+/**
+ * Тело ответа: пустое — `undefined`, JSON — значение, иначе исходный текст.
+ * @param text прочитанное тело ответа
+ * @returns разобранное тело, не проверенное
+ */
 function parse(text: string): unknown {
     if (text === '') return undefined;
     try {
@@ -119,6 +132,13 @@ function parse(text: string): unknown {
  * @returns независимый экземпляр клиента
  */
 export function createClient<P extends Paths>(config: { transport: Transport }): Client<P> {
+    /**
+     * Вызов операции без типов карты: их проверяет сигнатура `Client`.
+     * @param method HTTP-метод
+     * @param template шаблон пути операции
+     * @param options параметры, тело с content type и прочий `init`
+     * @returns статус, заголовки и разобранное тело
+     */
     const request = async (
         method: HttpMethod,
         template: string,

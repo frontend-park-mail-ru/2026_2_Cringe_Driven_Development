@@ -25,7 +25,12 @@ const bearerFetch: Transport = (path, init) => {
 
 const client = createClient<GoPaths>({ transport: bearerFetch });
 
-/** Сбой отправки или чтения ответа - `GoError`; внешняя отмена — как есть. */
+/**
+ * Ошибка вызова Go для вызывающего кода: таймаут - `GoError('timeout')`, внешняя отмена (`AbortError`)
+ * — как есть, прочие сбои отправки и чтения тела - `GoError('network')`.
+ * @param err исключение транспорта или чтения ответа
+ * @returns ошибка, которую нужно бросить
+ */
 const toGoError = (err: unknown): unknown => {
     const name = err instanceof Error ? err.name : '';
     if (name === 'AbortError') return err;

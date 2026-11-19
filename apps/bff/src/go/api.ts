@@ -67,7 +67,11 @@ const withHeader = (init: RequestInit, name: string, value: string): RequestInit
     return { ...init, headers };
 };
 
-/** `hash` — непрозрачная строка без кавычек: в Go уходит одним сильным ETag. */
+/**
+ * Заголовок `If-Match` для правки содержимого блокнота.
+ * @param hash хеш содержимого — непрозрачная строка без кавычек; в Go уходит одним сильным ETag
+ * @returns `params.header` операции
+ */
 const ifMatch = (hash: string): { 'If-Match': string } => ({ 'If-Match': `"${hash}"` });
 
 const isInvalidTotp = (res: { status: number }): boolean => {
