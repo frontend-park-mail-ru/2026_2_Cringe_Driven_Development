@@ -2,7 +2,7 @@
 
 Фронтенд проекта «Colab» (Cellestial) команды «Cringe Driven Development».
 Монорепа на bun workspaces и Turborepo: клиент — `apps/client`, BFF — `apps/bff`,
-zod-схемы — `packages/schemas` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
+типы и zod-схемы Go — `packages/schemas`, HTTP-клиент — `packages/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
 Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
 в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
@@ -85,7 +85,7 @@ Wiki описывает реализацию; состояние прода пр
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
   `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора:
-  Orval и zod (frontend#45), lefthook (frontend#24).
+  zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
 - Каждому экспорту — JSDoc: без него падает `bun run lint`. Типы в `@param` и `@returns` не
@@ -96,7 +96,7 @@ Wiki описывает реализацию; состояние прода пр
 Прочитай [порядок Spec First](docs/api-contract.md#spec-first).
 Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
 Git SHA и может отставать. Правки контракта — только PR в backend, затем
-`bun run contract:fetch <sha>` и `bun run sync`. Примеры проверяй через `bun run dev:prism`,
+`bun run contract:fetch <sha>`, `bun run sync` и правка `packages/schemas/src/types.ts`. Примеры проверяй через `bun run dev:prism`,
 состояние — на реальном Go. Собственный dev-сервер,
 имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
 Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
@@ -107,8 +107,12 @@ Git SHA и может отставать. Правки контракта — т
 
 - API Go: контракт — `spec/openapi.json` в backend, локальная копия `spec/` по SHA из
   `spec/contract-source.json`. Обновить — `bun run contract:fetch <sha>`, `bun run contract:tools`,
-  `bun run sync` (Redocly + Orval); копию `spec/` и сгенерированное (`apps/bff/src/go/client.ts`,
-  `packages/schemas/src/zod.ts`) руками не править. Клиент Go не вызывает: только процедуры BFF. Orval и zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
+  `bun run sync` (Redocly); копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
+  редактируемый TypeScript по спеке, без генератора: правятся по диффу спеки в том же изменении,
+  соответствие спеке компилятор не доказывает, риск принят (frontend#253,
+  [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
+  `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
+  (frontend#210). Клиент Go не вызывает: только процедуры BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
   так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
   и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
@@ -128,8 +132,7 @@ bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
 bun run contract:fetch <sha>  # копия spec/ из backend по полному SHA, проверка Redocly до замены
 bun run contract:tools  # Redocly CLI закреплённой версии в spec/node_modules (npm ci)
-bun run sync       # Redocly по spec/, затем Orval; ревизию не меняет
-bun run orval      # spec/openapi.json → клиент BFF к Go и zod-схемы (orval.config.ts)
+bun run sync       # Redocly по spec/; ревизию не меняет, код не генерирует
 ```
 
 Перед тем как сказать «готово» — `bun run check` и `bun run build` должны проходить.

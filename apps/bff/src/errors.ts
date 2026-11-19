@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 
-import type { RuntimeSession } from './go/client.ts';
+import type { RuntimeSession } from '@cdd/schemas/types';
 import { GoError } from './go/errors.ts';
 import { SessionEnded } from './session/refresh.ts';
 

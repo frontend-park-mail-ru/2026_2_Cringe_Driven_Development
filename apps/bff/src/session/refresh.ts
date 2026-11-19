@@ -1,7 +1,9 @@
 import { RefreshTokenResponse } from '@cdd/schemas';
 
-import { refreshToken, type TokenPair } from '../go/client.ts';
+import type { TokenPair } from '@cdd/schemas/types';
+
 import { unwrap } from '../go/errors.ts';
+import { go, withRequestId } from '../go/request.ts';
 import type { SessionData } from './crypto.ts';
 
 /** Сессия закончилась: Go отказал в refresh или повторно ответил 401. Cookie удаляется. */
@@ -50,10 +52,11 @@ export async function refreshTokens(refresh: string, requestId?: string): Promis
     if (cached) return cached;
 
     const pending = (async () => {
-        const res = await refreshToken(
-            { refresh_token: refresh },
-            { headers: requestId ? { 'X-Request-ID': requestId } : {} },
-        );
+        const res = await go('POST', '/auth/refresh', {
+            contentType: 'application/json',
+            body: { refresh_token: refresh },
+            init: withRequestId(requestId),
+        });
         if (res.status === 401) throw new SessionEnded();
         return toSessionData(unwrap(res, [200], RefreshTokenResponse));
     })();

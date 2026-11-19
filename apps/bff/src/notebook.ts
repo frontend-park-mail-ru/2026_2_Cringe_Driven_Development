@@ -1,5 +1,5 @@
 import type { Go } from './go/api.ts';
-import type { NotebookContent, RuntimeQueueSnapshot, RuntimeSession } from './go/client.ts';
+import type { NotebookContent, RuntimeQueueSnapshot, RuntimeSession } from '@cdd/schemas/types';
 
 /**
  * Данные страницы блокнота: результат `notebooks.get` и поле `notebookPage` bootstrap.
