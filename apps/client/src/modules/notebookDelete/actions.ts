@@ -1,13 +1,7 @@
 import { isRpcError, trpc } from '@api/trpc';
 import { flush, forgetNotebook, useNotebookStore } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
-import {
-    adoptSession,
-    closeRuntime,
-    sessionActive,
-    useRuntimeStore,
-    type RuntimeSession,
-} from '@stores/runtime';
+import { closeRuntime, sessionActive, useRuntimeStore, type RuntimeSession } from '@stores/runtime';
 
 /** Итог удаления: `notFound` — чужой, отсутствующий или уже удалённый блокнот. */
 export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
@@ -15,7 +9,7 @@ export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
 /**
  * Свежая сессия блокнота для диалога удаления. Активная сессия пользователя не видна после
  * STOPPED, хотя очистка ещё блокирует DELETE: известную сессию блокнота дочитываем по её ID.
- * Сессия открытого блокнота заодно обновляет его стор окружения.
+ * Стор окружения не меняет: ответ применяет вызывающий, если запрос ещё актуален.
  * @param notebookId удаляемый блокнот
  * @param known последняя известная сессия: из стора редактора или прошлой проверки
  * @returns сессия этого блокнота, null — её нет, `error` — состояние получить не удалось
@@ -39,9 +33,7 @@ export async function readSession(
                     executionIds: [],
                 }),
         ]);
-        const session = active?.notebook_id === notebookId ? active : (updated?.session ?? null);
-        adoptSession(session);
-        return session;
+        return active?.notebook_id === notebookId ? active : (updated?.session ?? null);
     } catch {
         return 'error';
     }

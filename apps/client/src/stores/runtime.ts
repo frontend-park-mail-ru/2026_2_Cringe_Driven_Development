@@ -457,8 +457,11 @@ function observe(session: RuntimeSession): void {
  * @param session активная сессия пользователя в любом блокноте или null
  */
 export function adoptSession(session: RuntimeSession | null): void {
-    const { notebookId } = get();
+    const { notebookId, session: current } = get();
     if (notebookId === null || session?.notebook_id !== notebookId) return;
+    // устаревший ответ: завершённая прежняя сессия или старый снимок той же не заменяют наблюдаемую
+    if (current && current.id !== session.id && !sessionActive(session)) return;
+    if (current?.id === session.id && session.public_seq < current.public_seq) return;
     observe(session);
 }
 

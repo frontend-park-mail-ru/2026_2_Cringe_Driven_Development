@@ -3,7 +3,7 @@ import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { Modal } from '@components/Modal/Modal';
-import { POLL_INTERVAL_MS, type RuntimeSession } from '@stores/runtime';
+import { adoptSession, POLL_INTERVAL_MS, type RuntimeSession } from '@stores/runtime';
 import { showToast } from '@stores/toast';
 import { deleteNotebook, readSession } from './actions';
 import { ClampedName } from './ClampedName';
@@ -77,6 +77,8 @@ export function DeleteNotebookDialog({
             const session = await readSession(notebook.id, sessionRef.current);
             if (!alive) return;
             if (session !== 'error' && !sendingRef.current) {
+                // только ответ живой проверки текущего round: ответ закрытого диалога стор не трогает
+                adoptSession(session);
                 sessionRef.current = session;
                 const next = deleteGate(session, notebook.id);
                 if (next !== 'confirm' || !blindRef.current) {
