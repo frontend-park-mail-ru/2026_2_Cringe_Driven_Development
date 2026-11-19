@@ -8,7 +8,7 @@ export type Handler<E = unknown> = (c: Context<E>, next: Next) => Response | Pro
 export type MiddlewareHandler<E = unknown> = (
     c: Context<E>,
     next: Next,
-) => Promise<Response | void>;
+) => Response | Promise<Response | void>;
 
 type AnyHandler<E> = Handler<E> | MiddlewareHandler<E>;
 
@@ -87,7 +87,9 @@ export class Context<E = unknown> {
         status: number,
         headers: Record<string, string> | undefined,
     ): Response {
-        return new Response(body, { status, headers: { 'Content-Type': type, ...headers } });
+        const responseHeaders = new Headers(headers);
+        if (!responseHeaders.has('Content-Type')) responseHeaders.set('Content-Type', type);
+        return new Response(body, { status, headers: responseHeaders });
     }
 }
 
@@ -162,48 +164,53 @@ export class Hono<E = unknown> {
     }
 
     /**
-     * Обработать запрос; пригоден как `fetch` для `Bun.serve`. HEAD получает ответ GET-маршрута
-     * целиком: тело отбрасывает `Bun.serve`, сохраняя `Content-Length`.
+     * Обработать запрос; пригоден как `fetch` для `Bun.serve`. HEAD использует GET-маршрут.
      * @param request запрос
      * @param env окружение, доступное как `c.env`
      * @returns ответ
      */
-    fetch = async (request: Request, env?: E): Promise<Response> => {
+    fetch = withHeadResponse<E>(async (request, env) => {
         const path = new URL(request.url).pathname;
         const c = new Context<E>(request, path, env as E);
         const method = request.method === 'HEAD' ? 'GET' : request.method;
         const chain = this.#routes.filter(
             (r) => (r.method === null || r.method === method) && matches(r.path, path),
         );
-        await this.#dispatch(c, chain, 0);
-        return c.res;
-    };
+        return this.#dispatch(c, chain, 0);
+    });
 
     #add(method: string | null, path: string, handlers: AnyHandler<E>[]): this {
         for (const handler of handlers) this.#routes.push({ method, path, handler });
         return this;
     }
 
-    async #dispatch(c: Context<E>, chain: Route<E>[], i: number): Promise<void> {
+    async #dispatch(c: Context<E>, chain: Route<E>[], i: number): Promise<Response> {
         const route = chain[i];
         try {
             if (!route) {
-                c.res = await this.#notFound(c);
-                return;
+                const res = await this.#notFound(c);
+                if (!(res instanceof Response)) throw new Error('notFound returned no Response');
+                return res;
             }
             let called = false;
+            let completed = false;
             const next: Next = () => {
-                if (called) return Promise.reject(new Error('next() called multiple times'));
+                if (called) throw new Error('next() called multiple times');
                 called = true;
-                return this.#dispatch(c, chain, i + 1);
+                // У незавершённого next свой слот ответа: поздняя запись не заменит внешний 500.
+                const downstream = new Context(c.req.raw, c.req.path, c.env);
+                return this.#dispatch(downstream, chain, i + 1).then((res) => {
+                    c.res = res;
+                    completed = true;
+                });
             };
             const res = await route.handler(c, next);
-            if (res instanceof Response) c.res = res;
-            // next() без await: downstream ещё не задал ответ
-            else if (!called || (c.res as Response | undefined) === undefined)
-                throw new Error('Handler returned no Response');
+            if (called && !completed) throw new Error('Handler did not wait for next()');
+            if (res instanceof Response) return res;
+            if (completed && c.res instanceof Response) return c.res;
+            throw new Error('Handler returned no Response');
         } catch (err) {
-            c.res = await this.#handleError(err, c);
+            return this.#handleError(err, c);
         }
     }
 
@@ -216,6 +223,17 @@ export class Hono<E = unknown> {
             return internalError();
         }
     }
+}
+
+function withHeadResponse<E>(dispatch: (request: Request, env?: E) => Promise<Response>) {
+    return async function (this: unknown, request: Request, env?: E): Promise<Response> {
+        const res = await dispatch(request, env);
+        // Bun.serve передаёт сервер и как this, и вторым аргументом. Он вычислит длину тела сам.
+        if (request.method !== 'HEAD') return res;
+        if (this === env && env && typeof env === 'object' && 'requestIP' in env) return res;
+        if (res.body) void res.body.cancel().catch(() => {});
+        return new Response(null, res);
+    };
 }
 
 function matches(pattern: string, path: string): boolean {

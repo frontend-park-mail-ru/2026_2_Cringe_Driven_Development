@@ -15,6 +15,7 @@
     },
     "dependencies": {
         "@cdd-team/hono": "workspace:*",
+        "@cdd-team/http-client": "workspace:*",
         "@cdd/schemas": "workspace:*",
         "@trpc/server": "^11.19.0",
         "serialize-javascript": "^7.1.3",

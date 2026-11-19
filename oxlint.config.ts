@@ -11,8 +11,7 @@ export default defineConfig({
     ignorePatterns: [
         '**/dist/',
         'node_modules/',
-        // сгенерированное: bun run sync
-        'apps/bff/src/go/client.ts',
+        // сгенерировано Orval до frontend#253, заменяется в frontend#210
         'packages/schemas/src/zod.ts',
     ],
     rules: {

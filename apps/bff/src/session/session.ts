@@ -1,4 +1,4 @@
-import type { TokenPair } from '../go/client.ts';
+import type { TokenPair } from '@cdd/schemas/types';
 import {
     LEGACY_COOKIE_NAMES,
     SESSION_COOKIE,

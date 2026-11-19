@@ -8,7 +8,6 @@
 !/turbo.json
 !/oxlint.config.ts
 !/oxfmt.config.ts
-!/orval.config.ts
 !/lefthook.yml
 !/.gitignore
 !/.dockerignore
@@ -43,5 +42,4 @@
 **/*.key
 **/*.p12
 **/*.pfx
-/apps/bff/src/go/client.ts
 /packages/schemas/src/zod.ts

@@ -1,0 +1,169 @@
+/** HTTP-метод операции: литерал в верхнем регистре. */
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+
+/**
+ * Отправка запроса: путь операции с query и `RequestInit` - стандартный `Response`. Адрес сервера,
+ * авторизация, таймаут и учёт запросов — забота транспорта, разбор тела — общего клиента.
+ */
+export type Transport = (path: string, init: RequestInit) => Promise<Response>;
+
+/** Значение query-параметра; массив уходит повторяемыми ключами (form/explode). */
+export type QueryValue =
+    | string
+    | number
+    | boolean
+    | undefined
+    | readonly (string | number | boolean)[];
+
+/** Описание операции в карте типов: параметры, тела по content type и ответы по статусам. */
+export interface Operation {
+    params?: {
+        path?: Record<string, string | number>;
+        query?: Record<string, QueryValue>;
+        header?: Record<string, string>;
+    };
+    body?: {
+        'application/json'?: unknown;
+        'multipart/form-data'?: Record<string, string | Blob>;
+    };
+    responses: Record<number, unknown>;
+}
+
+/** Карта операций: шаблон пути - HTTP-метод - операция. */
+export type Paths = Record<string, Partial<Record<HttpMethod, Operation>>>;
+
+/** `params` обязательны, только если внутри есть обязательные поля; у операции без них — нельзя. */
+type ParamsOption<O> = O extends { params: infer P }
+    ? {} extends P
+        ? { params?: P }
+        : { params: P }
+    : Pick<O, 'params' & keyof O>;
+
+/** `contentType` и `body` — пара из тел операции; у операции без тела их передать нельзя. */
+type BodyOption<O> = O extends { body: infer B }
+    ? { [K in keyof B]: { contentType: K; body: B[K] } }[keyof B]
+    : { contentType?: never; body?: never };
+
+/** Опции вызова операции: типизированные параметры, тело с content type и прочий `init`. */
+export type RequestOptions<O> = ParamsOption<O> &
+    BodyOption<O> & { init?: Omit<RequestInit, 'method' | 'body'> };
+
+/** Аргумент `options` можно опустить, если в нём нет обязательных полей. */
+type OptionsArg<O> =
+    {} extends RequestOptions<O> ? [options?: RequestOptions<O>] : [options: RequestOptions<O>];
+
+/** Операция метода `M` пути `Path` из карты `P` (для ответа: `Partial` в `Paths` допускает undefined). */
+type OperationOf<P extends Paths, Path extends keyof P, M extends keyof P[Path]> = P[Path][M] &
+    Operation;
+
+/** Ключ поля, которое есть только в типах: в рантайме его у ответа нет. */
+declare const responses: unique symbol;
+
+/**
+ * Разобранный ответ. `data` не проверено: тело JSON, иначе текст, без тела — `undefined`. Ответы
+ * операции по статусам привязаны к результату только в типах — для проверки ответа приложением.
+ */
+export interface ApiResponse<O extends Operation = Operation> {
+    status: number;
+    headers: Headers;
+    data: unknown;
+    readonly [responses]?: O['responses'];
+}
+
+/** Клиент по карте операций `P`. */
+export interface Client<P extends Paths> {
+    request<Path extends keyof P & string, M extends keyof P[Path] & HttpMethod>(
+        method: M,
+        path: Path,
+        ...options: OptionsArg<P[Path][M]>
+    ): Promise<ApiResponse<OperationOf<P, Path, M>>>;
+}
+
+type RawOptions = {
+    params?: Operation['params'];
+    contentType?: keyof NonNullable<Operation['body']>;
+    body?: unknown;
+    init?: RequestInit;
+};
+
+/**
+ * Путь запроса: подставляет path-параметры в шаблон с `encodeURIComponent` и дописывает query через
+ * `URLSearchParams` (`undefined` пропускается, массив — повторяемыми ключами).
+ * @param template шаблон пути операции, например `/notebooks/{id}`
+ * @param params параметры вызова
+ * @returns путь с query
+ * @throws {TypeError} если для `{name}` из шаблона нет значения
+ */
+function toPath(template: string, params: RawOptions['params']): string {
+    const path = template.replace(/\{(\w+)\}/g, (_, name: string) => {
+        const value = params?.path?.[name];
+        if (value === undefined) throw new TypeError(`Нет path-параметра ${name}`);
+        return encodeURIComponent(String(value));
+    });
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params?.query ?? {})) {
+        for (const item of Array.isArray(value) ? value : [value]) {
+            if (item !== undefined) query.append(key, String(item));
+        }
+    }
+    const search = query.toString();
+    return search ? `${path}?${search}` : path;
+}
+
+/**
+ * Тело ответа: пустое — `undefined`, JSON — значение, иначе исходный текст.
+ * @param text прочитанное тело ответа
+ * @returns разобранное тело, не проверенное
+ */
+function parse(text: string): unknown {
+    if (text === '') return undefined;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+}
+
+/**
+ * Клиент по карте операций: собирает путь, query, заголовки и тело, отправляет через транспорт и
+ * один раз разбирает ответ. HTTP-ошибки возвращаются результатом, сбои транспорта и чтения тела —
+ * исключением как есть.
+ * @param config транспорт отправки
+ * @returns независимый экземпляр клиента
+ */
+export function createClient<P extends Paths>(config: { transport: Transport }): Client<P> {
+    /**
+     * Вызов операции без типов карты: их проверяет сигнатура `Client`.
+     * @param method HTTP-метод
+     * @param template шаблон пути операции
+     * @param options параметры, тело с content type и прочий `init`
+     * @returns статус, заголовки и разобранное тело
+     */
+    const request = async (
+        method: HttpMethod,
+        template: string,
+        options: RawOptions = {},
+    ): Promise<ApiResponse> => {
+        const { params, contentType, body, init } = options;
+        const path = toPath(template, params);
+        const headers = new Headers(init?.headers);
+        for (const [name, value] of Object.entries(params?.header ?? {})) headers.set(name, value);
+        let payload: RequestInit['body'];
+        if (contentType === 'application/json') {
+            headers.set('Content-Type', contentType);
+            payload = JSON.stringify(body);
+        } else if (contentType === 'multipart/form-data') {
+            // boundary ставит fetch по FormData
+            headers.delete('Content-Type');
+            const form = new FormData();
+            for (const [name, value] of Object.entries(body as Record<string, string | Blob>)) {
+                form.append(name, value);
+            }
+            payload = form;
+        }
+        const res = await config.transport(path, { ...init, method, headers, body: payload });
+        const text = method === 'HEAD' || res.status === 204 ? '' : await res.text();
+        return { status: res.status, headers: res.headers, data: parse(text) };
+    };
+    return { request } as Client<P>;
+}

@@ -7,7 +7,7 @@ function isWikiSourcePath(path: string): boolean {
         /(^|\/)(node_modules|dist|coverage|\.turbo|\.git)(\/|$)/.test(path) ||
         /(^|\/)\.env(?:[./]|$)/.test(path) ||
         /\.(pem|key|p12|pfx)$/.test(path) ||
-        ['apps/bff/src/go/client.ts', 'packages/schemas/src/zod.ts'].includes(path)
+        path === 'packages/schemas/src/zod.ts'
     )
         return false;
     return (
@@ -24,7 +24,6 @@ function isWikiSourcePath(path: string): boolean {
             'turbo.json',
             'oxlint.config.ts',
             'oxfmt.config.ts',
-            'orval.config.ts',
             'lefthook.yml',
             '.gitignore',
             '.dockerignore',
