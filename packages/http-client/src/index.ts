@@ -36,9 +36,7 @@ type ParamsOption<O> = O extends { params: infer P }
     ? {} extends P
         ? { params?: P }
         : { params: P }
-    : O extends { params?: infer P }
-      ? { params?: P }
-      : { params?: never };
+    : Pick<O, 'params' & keyof O>;
 
 type BodyOption<O> = O extends { body: infer B }
     ? { [K in keyof B]: { contentType: K; body: B[K] } }[keyof B]
