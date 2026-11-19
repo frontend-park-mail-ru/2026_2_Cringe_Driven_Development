@@ -35,6 +35,7 @@
       "name": "@cdd/client",
       "dependencies": {
         "@cdd-team/clsx": "^0.1.0",
+        "@cdd-team/http-client": "workspace:*",
         "@cdd-team/react": "^1.7.1",
         "@cdd-team/router": "^0.1.0",
         "@cdd-team/zustand": "^1.0.1",
