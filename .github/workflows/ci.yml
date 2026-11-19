@@ -36,10 +36,8 @@ jobs:
       # копия spec/ байт в байт совпадает с backend по SHA из spec/contract-source.json
       - run: bun run contract:verify
       - run: bun run contract:tools
-      # Redocly по правилам и плагину backend, затем Orval: generated-код должен совпасть с коммитом
+      # Redocly по правилам и плагину backend; типы Go не генерируются (frontend#253)
       - run: bun run sync
-      - name: Generated code is up to date
-        run: git diff --exit-code -- apps/bff/src/go/client.ts packages/schemas/src/zod.ts
       - run: bun test scripts/release/test
       - run: bun run check
       - run: bun run build
