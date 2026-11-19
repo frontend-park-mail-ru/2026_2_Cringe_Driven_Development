@@ -32,12 +32,14 @@ export interface Operation {
 /** Карта операций: шаблон пути → HTTP-метод → операция. */
 export type Paths = Record<string, Partial<Record<HttpMethod, Operation>>>;
 
+/** `params` обязательны, только если внутри есть обязательные поля; у операции без них — нельзя. */
 type ParamsOption<O> = O extends { params: infer P }
     ? {} extends P
         ? { params?: P }
         : { params: P }
     : Pick<O, 'params' & keyof O>;
 
+/** `contentType` и `body` — пара из тел операции; у операции без тела их передать нельзя. */
 type BodyOption<O> = O extends { body: infer B }
     ? { [K in keyof B]: { contentType: K; body: B[K] } }[keyof B]
     : { contentType?: never; body?: never };
@@ -46,32 +48,35 @@ type BodyOption<O> = O extends { body: infer B }
 export type RequestOptions<O> = ParamsOption<O> &
     BodyOption<O> & { init?: Omit<RequestInit, 'method' | 'body'> };
 
-declare const operation: unique symbol;
+/** Аргумент `options` можно опустить, если в нём нет обязательных полей. */
+type OptionsArg<O> =
+    {} extends RequestOptions<O> ? [options?: RequestOptions<O>] : [options: RequestOptions<O>];
+
+/** Операция метода `M` пути `Path` из карты `P` (для ответа: `Partial` в `Paths` допускает undefined). */
+type OperationOf<P extends Paths, Path extends keyof P, M extends keyof P[Path]> = P[Path][M] &
+    Operation;
+
+/** Ключ поля, которое есть только в типах: в рантайме его у ответа нет. */
+declare const responses: unique symbol;
 
 /**
- * Разобранный ответ. `data` не проверено: тело JSON, иначе текст, без тела — `undefined`. Тип
- * ответов операции связан с результатом только на уровне типов: DTO статуса — `ResponseData`,
- * после проверки приложением.
+ * Разобранный ответ. `data` не проверено: тело JSON, иначе текст, без тела — `undefined`. Ответы
+ * операции по статусам привязаны к результату только в типах — для проверки ответа приложением.
  */
 export interface ApiResponse<O extends Operation = Operation> {
     status: number;
     headers: Headers;
     data: unknown;
-    readonly [operation]?: O['responses'];
+    readonly [responses]?: O['responses'];
 }
-
-/** Тип тела ответа операции `O` со статусом `S` по карте типов. */
-export type ResponseData<O extends Operation, S extends keyof O['responses']> = O['responses'][S];
 
 /** Клиент по карте операций `P`. */
 export interface Client<P extends Paths> {
     request<Path extends keyof P & string, M extends keyof P[Path] & HttpMethod>(
         method: M,
         path: Path,
-        ...options: {} extends RequestOptions<P[Path][M]>
-            ? [options?: RequestOptions<P[Path][M]>]
-            : [options: RequestOptions<P[Path][M]>]
-    ): Promise<ApiResponse<P[Path][M] & Operation>>;
+        ...options: OptionsArg<P[Path][M]>
+    ): Promise<ApiResponse<OperationOf<P, Path, M>>>;
 }
 
 type RawOptions = {
