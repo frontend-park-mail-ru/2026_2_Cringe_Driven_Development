@@ -1,7 +1,7 @@
 import { createRoot } from '@cdd-team/react';
 
 import { installMockCommand } from './api/mockPrefer';
-import { onSessionLost } from './api/trpc';
+import { onSessionLost } from './api/bff';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
 import { router } from './router';

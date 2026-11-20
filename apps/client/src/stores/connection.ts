@@ -34,7 +34,8 @@ export async function fetchTracked(
         confirmConnection();
         return response;
     } catch (error) {
-        setLost(true);
+        // отмена запроса — не потеря соединения
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setLost(true);
         throw error;
     }
 }

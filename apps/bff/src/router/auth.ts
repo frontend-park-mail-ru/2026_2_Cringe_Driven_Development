@@ -1,36 +1,58 @@
-import { LoginUserBody, RegisterUserBody } from '@cdd/schemas';
+import { loginInput, registerInput } from '@cdd/schemas/validate';
 
 import { publicGo } from '../go/api.ts';
-import { authedProcedure, optionalSessionProcedure, publicProcedure, router } from '../trpc.ts';
+import { route } from '../http.ts';
 
 /**
  * Вход, регистрация, выход и выход со всех устройств. Токены Go остаются в cookie сессии, клиенту —
  * только пользователь.
  */
-export const auth = router({
-    register: publicProcedure.input(RegisterUserBody).mutation(async ({ ctx, input }) => {
-        const { user, tokens } = await publicGo.register(input, ctx.session.requestId);
-        await ctx.session.start(tokens);
-        ctx.session.clearLegacy();
-        return user;
+export const auth = [
+    route({
+        method: 'POST',
+        path: '/api/auth/register',
+        access: 'public',
+        input: { from: 'json', validate: registerInput },
+        async handle({ session }, input) {
+            const { user, tokens } = await publicGo.register(input, session.requestId);
+            await session.start(tokens);
+            session.clearLegacy();
+            return user;
+        },
     }),
-    login: publicProcedure.input(LoginUserBody).mutation(async ({ ctx, input }) => {
-        const { user, tokens } = await publicGo.login(input, ctx.session.requestId);
-        await ctx.session.start(tokens);
-        ctx.session.clearLegacy();
-        return user;
+    route({
+        method: 'POST',
+        path: '/api/auth/login',
+        access: 'public',
+        input: { from: 'json', validate: loginInput },
+        async handle({ session }, input) {
+            const { user, tokens } = await publicGo.login(input, session.requestId);
+            await session.start(tokens);
+            session.clearLegacy();
+            return user;
+        },
     }),
     /** Cookie удаляется при любом итоге Go; `serverRevocation` — подтвердил ли Go отзыв. */
-    logout: optionalSessionProcedure.mutation(async ({ ctx }) => {
-        const serverRevocation = ctx.session.active ? await ctx.go.logout() : 'not_requested';
-        ctx.session.end();
-        ctx.session.clearLegacy();
-        return { browserSession: 'ended' as const, serverRevocation };
+    route({
+        method: 'POST',
+        path: '/api/auth/logout',
+        access: 'optional',
+        async handle({ session, go }) {
+            const serverRevocation = session.active ? await go.logout() : 'not_requested';
+            session.end();
+            session.clearLegacy();
+            return { browserSession: 'ended' as const, serverRevocation };
+        },
     }),
     /** Cookie удаляется только после подтверждения Go: при сбое сессии могли и не завершиться. */
-    logoutAll: authedProcedure.mutation(async ({ ctx }) => {
-        await ctx.go.logoutAll();
-        ctx.session.end();
-        return { ok: true as const };
+    route({
+        method: 'POST',
+        path: '/api/auth/logout-all',
+        access: 'authed',
+        async handle({ session, go }) {
+            await go.logoutAll();
+            session.end();
+            return { ok: true as const };
+        },
     }),
-});
+] as const;

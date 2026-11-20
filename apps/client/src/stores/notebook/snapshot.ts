@@ -1,4 +1,4 @@
-import type { Cell } from '@api/trpc';
+import type { Cell } from '@api/bff';
 
 /** Подтверждённое сервером содержимое блокнота: hash и ячейки по порядку. */
 export type Snapshot = { hash: string; cells: Cell[] };

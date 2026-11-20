@@ -1,4 +1,4 @@
-import type { Cell } from '@api/trpc';
+import type { Cell } from '@api/bff';
 
 /**
  * Открыт ли редактор ячейки. Код редактируется всегда, Markdown — в режиме правки или

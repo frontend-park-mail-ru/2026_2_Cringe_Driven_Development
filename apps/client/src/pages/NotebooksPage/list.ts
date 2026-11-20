@@ -1,4 +1,4 @@
-import type { NotebookListPage, NotebookSummary } from '@api/trpc';
+import type { NotebookListPage, NotebookSummary } from '@api/bff';
 
 /** Размер страницы списка на главной. */
 export const PAGE_SIZE = 24;

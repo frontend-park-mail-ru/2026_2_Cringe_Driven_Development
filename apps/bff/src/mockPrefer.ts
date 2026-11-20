@@ -1,29 +1,23 @@
-/**
- * Разбирает `X-Mock-Prefer: <процедура>=<код>[,<процедура>=<код>]` клиента в режиме `dev:prism`.
- * Пара с кодом не из 100–599 пропускается.
- * @returns код ответа локального мока по имени процедуры tRPC
- */
-export function parseMockPrefer(header: string | null): Map<string, number> {
-    const rules = new Map<string, number>();
-    for (const pair of header?.split(',') ?? []) {
-        const [path, code] = pair.trim().split('=');
-        if (path && code && /^[1-5]\d\d$/.test(code)) rules.set(path, Number(code));
-    }
-    return rules;
-}
+import { env } from './env.ts';
+import type { Route } from './http.ts';
 
 /**
- * Процедуры, которым нужны случайные данные Prism вместо примеров контракта: иначе у всех новых
+ * Маршруты, которым нужны случайные данные Prism вместо примеров контракта: иначе у всех новых
  * ячеек был бы один id из примера.
  */
-const DYNAMIC = new Set(['cells.create']);
+const DYNAMIC = new Set(['/api/cells/create']);
 
 /**
- * Значение `Prefer` для вызовов Go процедуры в режиме `dev:prism`.
- * @param path имя процедуры tRPC
- * @param code статус из `X-Mock-Prefer` или `undefined`
+ * Значение `Prefer` для вызовов Go маршрута с сессией, только в режиме `dev:prism`
+ * (`MOCK_PREFER=1`): статус из `X-Mock-Prefer: <код>` клиента, а без него у {@link DYNAMIC} —
+ * случайные данные. Код не из 100–599 пропускается.
+ * @param def маршрут из таблицы
+ * @param req запрос API
+ * @returns заголовок `Prefer` или `undefined`
  */
-export function mockPreferHeader(path: string, code: number | undefined): string | undefined {
-    if (code !== undefined) return `code=${code}`;
-    return DYNAMIC.has(path) ? 'dynamic=true' : undefined;
+export function mockPrefer(def: Route, req: Request): string | undefined {
+    if (env.MOCK_PREFER !== '1' || def.access !== 'authed') return undefined;
+    const code = req.headers.get('X-Mock-Prefer');
+    if (code && /^[1-5]\d\d$/.test(code)) return `code=${code}`;
+    return DYNAMIC.has(def.path) ? 'dynamic=true' : undefined;
 }

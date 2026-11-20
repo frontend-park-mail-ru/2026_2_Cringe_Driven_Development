@@ -1,6 +1,6 @@
 // Локальный мок Go на Prism: ответы — из spec/openapi.json (копия контракта backend). Клиент и BFF —
 // как в bun run dev, но BFF ходит в Prism; в консоли браузера
-// mock('cells.update', 409) — следующий такой вызов получит этот ответ мока.
+// mock('/api/cells/update', 409) — следующий запрос к маршруту получит этот ответ мока.
 import { join } from 'node:path';
 
 const root = join(import.meta.dir, '../..');

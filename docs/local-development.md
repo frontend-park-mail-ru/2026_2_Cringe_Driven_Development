@@ -57,7 +57,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | Каталог            | Пакет          | Что внутри                                                                                                                                              |
 | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                      |
-| `apps/bff`         | `@cdd/bff`     | BFF: Hono + tRPC под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                               |
+| `apps/bff`         | `@cdd/bff`     | BFF: Hono + HTTP API под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                           |
 | `packages/schemas` | `@cdd/schemas` | zod-схемы операций Go (не перегенерируются, frontend#210); типы Go `GoPaths` — `@cdd/schemas/types`; общие `Password` и `Login` — `@cdd/schemas/inputs` |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
@@ -82,7 +82,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 ## BFF
 
-`apps/bff` — сервер перед Go: процедуры tRPC на `/api/trpc`, сессия в зашифрованной cookie
+`apps/bff` — сервер перед Go: HTTP API на `/api/*` по таблице маршрутов (`src/router/`), сессия в зашифрованной cookie
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
 [BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
@@ -148,7 +148,7 @@ bun run preview  # локальная проверка production-сборки, 
 ```
 
 Команда собирает клиент production-конфигом без `RELEASE_SHA` и `CDN_URL` и запускает BFF: HTML с
-bootstrap, `/api/trpc`, `/sw.js`, манифест, `/offline.html` и JS/CSS сборки идут с одного origin. Go —
+bootstrap, `/api/*`, `/sw.js`, манифест, `/offline.html` и JS/CSS сборки идут с одного origin. Go —
 как в `bun run dev`: явный `GO_API_URL` (и `BFF_KEY`) из корневого `.env`, без него BFF не стартует. HMR нет: после изменений клиента запустите команду заново.
 
 Вход работает: Chrome и Firefox считают `localhost` безопасным и принимают Secure-cookie сессии. Safari
@@ -176,14 +176,14 @@ curl localhost:3000/health
 ## Клиент через BFF
 
 `bun run dev` из корня запускает `turbo watch dev`, а он — клиент и BFF на одном origin
-`https://localhost:5173`: Vite собирает и обновляет модули (HMR), HTML страниц и `/api/trpc` отдаёт
+`https://localhost:5173`: Vite собирает и обновляет модули (HMR), HTML страниц и `/api/*` отдаёт
 BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. Нужен адрес Go: `GO_API_URL` (и при
 необходимости `BFF_KEY`) в корневом `.env`, либо вместо `bun run dev` — `bun run dev:prism` без `.env`.
 Разовая настройка сертификата — в «Первом запуске» ниже:
 
 - Vite (`apps/client`) — HTTPS, слушает `127.0.0.1:5173` (с `localhost` на Windows он недоступен);
   открывать `https://localhost:5173` — этот origin BFF ждёт в `APP_ORIGIN`. Сертификат выпускает
-  [`vite-plugin-mkcert`](https://github.com/liuweiGL/vite-plugin-mkcert). `/api/trpc` проксируется в
+  [`vite-plugin-mkcert`](https://github.com/liuweiGL/vite-plugin-mkcert). `/api` проксируется в
   BFF; запрос страницы (`Accept: text/html`) плагин
   [`@cdd-team/vite-plugin-bff-html`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/vite-plugin-bff-html)
   отдаёт ответом BFF
@@ -227,7 +227,7 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 
 Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
 `bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не
-читает, типы процедур берёт из `@cdd/bff`.
+читает, типы маршрутов (`BffPaths`) берёт из `@cdd/bff`.
 
 ## Фронт с Go команды через SSH-туннель
 
