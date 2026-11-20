@@ -65,15 +65,14 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Все команды запускаются из корня, зависимости ставит один `bun install`
 
-| Команда                             | Что делает                                                            |
-| ----------------------------------- | --------------------------------------------------------------------- |
-| `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»         |
-| `bun run preview`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA»   |
-| `bun run dev:prism`                 | как `bun run dev`, но Go — локальный Prism — «Локальный мок на Prism» |
-| `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome            |
-| `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                    |
-| `bun run check`                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`      |
-| `bun run lint`, `bun run typecheck` | по отдельности, тоже во всех пакетах                                  |
+| Команда                             | Что делает                                                          |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»       |
+| `bun run preview`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA» |
+| `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome          |
+| `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                  |
+| `bun run check`                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`    |
+| `bun run lint`, `bun run typecheck` | по отдельности, тоже во всех пакетах                                |
 
 `build`, `lint` и `typecheck` идут через `turbo run`: пакет собирается после своих
 зависимостей, а повторный запуск без изменений берёт результат из кеша `.turbo/`
@@ -86,17 +85,16 @@ PR требует ревью frontend-ментора. Merge оставляет �
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
 [BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
-| Переменная            | Что это                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `SESSION_KEY`         | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                                   |
-| `APP_ORIGIN`          | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                             |
-| `GO_API_URL`          | адрес Go с префиксом API (`http://api:8080/api/v1`), обязателен                                                         |
-| `PORT`                | порт BFF, по умолчанию `3000`                                                                                           |
-| `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                              |
-| `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                                      |
-| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN              |
-| `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                                    |
-| `MOCK_PREFER`         | `1` — заголовок `X-Mock-Prefer` клиента становится `Prefer` для Prism, задаёт `bun run dev:prism`; на проде не задаётся |
+| Переменная            | Что это                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `SESSION_KEY`         | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                      |
+| `APP_ORIGIN`          | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                |
+| `GO_API_URL`          | адрес Go с префиксом API (`http://api:8080/api/v1`), обязателен                                            |
+| `PORT`                | порт BFF, по умолчанию `3000`                                                                              |
+| `BFF_KEY`             | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                 |
+| `HTML_TEMPLATE`       | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                         |
+| `SERVE_CLIENT_ASSETS` | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN |
+| `SKIP_PUBLIC_FILES`   | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                       |
 
 По прямому запросу страницы BFF решает, можно ли её открыть (`apps/bff/src/html.ts`). Список путей
 страниц — `PAGES` в `apps/bff/src/pages.ts` (`@cdd/bff/pages`); из него же берут `path` маршруты
@@ -120,8 +118,6 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Go для BFF выбирается явно, умолчания нет:
 
-- **Примеры и ошибки контракта** — `bun run dev:prism`: команда сама поднимает Prism по копии
-  `spec/openapi.json` и передаёт BFF его адрес ([локальный мок на Prism](api-contract.md#локальный-мок-на-prism)).
 - **Состояние на настоящем Go** — `bun run dev` с `GO_API_URL` (адрес с `/api/v1`) и, если Go
   проверяет `X-BFF-Key`, `BFF_KEY` в корневом `.env`: свой Go в Docker или разрешённый удалённый
   backend команды через SSH-туннель — production Go, со своими предусловиями
@@ -171,14 +167,14 @@ curl localhost:3000/health
 ```
 
 Сценарии, которым нужно состояние Go (одновременный refresh, повтор после 401, сбои и
-таймауты Go), Prism не воспроизводит: их проверяют вручную на реальном Go.
+таймауты Go), проверяют вручную на реальном Go.
 
 ## Клиент через BFF
 
 `bun run dev` из корня запускает `turbo watch dev`, а он — клиент и BFF на одном origin
 `https://localhost:5173`: Vite собирает и обновляет модули (HMR), HTML страниц и `/api/*` отдаёт
 BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. Нужен адрес Go: `GO_API_URL` (и при
-необходимости `BFF_KEY`) в корневом `.env`, либо вместо `bun run dev` — `bun run dev:prism` без `.env`.
+необходимости `BFF_KEY`) в корневом `.env`.
 Разовая настройка сертификата — в «Первом запуске» ниже:
 
 - Vite (`apps/client`) — HTTPS, слушает `127.0.0.1:5173` (с `localhost` на Windows он недоступен);
@@ -222,8 +218,7 @@ Cookie сессии — `Secure` и с префиксом `__Host-`: нужен 
 
 HTTPS нужен из-за cookie сессии `Secure` с префиксом `__Host-`: по HTTP браузер её не сохранит, вход
 не заработает. Откройте `https://localhost:5173` — после первого запуска сертификат доверенный, без
-предупреждения браузера. Prism принимает любые валидные логин и пароль и отвечает примером;
-против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1` в `.env`.
+предупреждения браузера. Против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1` в `.env`.
 
 Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
 `bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не
@@ -292,12 +287,11 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
     ```
 
 4. Войдите тестовым аккаунтом. После работы остановите окружения блокнотов и туннель (Ctrl+C).
-   Без туннеля BFF ответит ошибкой Go, а `bun run dev:prism` к production не подключается.
+   Без туннеля BFF ответит ошибкой Go.
 
 `403 s2s_forbidden` — неверный `BFF_KEY`; `open failed: administratively prohibited` в терминале ssh —
 неверный адрес VPS2 или на gateway не применён `PermitOpen`; отказ соединения на `127.0.0.1:18080` —
-туннель не запущен. В отчёте PR проверки на Prism и на реальном Go указываются отдельно, для Go — его
-ревизия и способ подключения.
+туннель не запущен. В отчёте PR для проверок на Go указываются его ревизия и способ подключения.
 
 ## Документация кода
 

@@ -22,11 +22,6 @@ const schema = z.object({
     HTML_TEMPLATE: z.preprocess(optional, z.string().default('/app/client/index.html')),
     SKIP_PUBLIC_FILES: z.preprocess(optional, z.literal('1').optional()),
     SERVE_CLIENT_ASSETS: z.preprocess(optional, z.literal('1').optional()),
-    /**
-     * Только `bun run dev:prism`: заголовок `X-Mock-Prefer` клиента становится `Prefer` для
-     * Prism.
-     */
-    MOCK_PREFER: z.preprocess(optional, z.literal('1').optional()),
 });
 
 function parse(): z.infer<typeof schema> & { sessionKey: Uint8Array<ArrayBuffer> } {

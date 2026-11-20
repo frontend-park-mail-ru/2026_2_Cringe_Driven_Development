@@ -96,12 +96,9 @@ Wiki описывает реализацию; состояние прода пр
 Прочитай [порядок Spec First](docs/api-contract.md#spec-first).
 Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
 Git SHA и может отставать. Правки контракта — только PR в backend, затем
-`bun run contract:fetch <sha>`, `bun run sync` и правка `packages/schemas/src/types.ts`. Примеры проверяй через `bun run dev:prism`,
-состояние — на реальном Go. Собственный dev-сервер,
-имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
-Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
-контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
-([локальный мок на Prism](docs/api-contract.md#локальный-мок-на-prism)).
+`bun run contract:fetch <sha>`, `bun run sync` и правка `packages/schemas/src/types.ts`. Ответы и
+состояние проверяй на реальном Go. Собственный dev-сервер или мок, имитирующий Go, для обхода
+неготового бэкенда не создавай.
 
 ## Источники
 
@@ -114,9 +111,9 @@ Git SHA и может отставать. Правки контракта — т
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
   (frontend#210). Клиент Go не вызывает: только HTTP API BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
   так же Hono и `serialize-javascript` в `apps/bff` — по задаче frontend#2, `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
+  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
-  BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет; `bun run dev:prism` подставляет Prism,
+  BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,
   [локальные правила](docs/local-development.md#клиент-через-bff), [реальный Go](docs/api-contract.md#реальный-go)).
 
 ## Команды
@@ -124,7 +121,6 @@ Git SHA и может отставать. Правки контракта — т
 ```bash
 bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api — через BFF; Go — GO_API_URL из .env
 bun run preview    # локальная проверка production-сборки, включая SW и PWA: BFF на http://localhost:4173, без HMR
-bun run dev:prism  # как dev, но Go — локальный Prism по spec/openapi.json; mock(путь, статус) в консоли
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/

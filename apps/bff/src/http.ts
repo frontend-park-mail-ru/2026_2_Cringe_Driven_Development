@@ -4,7 +4,6 @@ import { env } from './env.ts';
 import { ApiError, errorBody, toApiError } from './errors.ts';
 import { createGo, type Go } from './go/api.ts';
 import { logApiError } from './log.ts';
-import { mockPrefer } from './mockPrefer.ts';
 import { createSession, type Session } from './session/session.ts';
 
 /**
@@ -184,9 +183,7 @@ export async function serveRoute(def: Route, req: globalThis.Request): Promise<R
         if (def.access === 'authed' && !session.active) throw new ApiError(401, 'Нет сессии');
         const input = def.input ? await readInput(def.input, req) : undefined;
         body = await def.handle(
-            def.access === 'public'
-                ? { session }
-                : { session, go: createGo(session, mockPrefer(def, req)) },
+            def.access === 'public' ? { session } : { session, go: createGo(session) },
             input,
         );
         if (body === undefined) status = 204;
