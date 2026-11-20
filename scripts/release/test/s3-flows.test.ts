@@ -141,3 +141,16 @@ test('retention deletes nothing when a listing page is broken', () =>
             s3.requests.filter((req) => req.url.searchParams.has('continuation-token')),
         ).toHaveLength(2);
     }));
+
+test('retention deletes nothing when the last listing page is cut inside Contents', () =>
+    withProduction(async (f) => {
+        releases(f);
+        s3.override = (req) => {
+            if (req.url.searchParams.get('continuation-token') !== '12') return undefined;
+            return new Response(
+                '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>releases/README.txt</Key><LastModified>2026-11-01T00:00:00Z</LastModified></Contents><Contents><Key>releases/',
+            );
+        };
+        await expect(retention()).rejects.toThrow('ListObjectsV2 releases/');
+        expect(s3.requests.filter((req) => req.method === 'DELETE')).toHaveLength(0);
+    }));

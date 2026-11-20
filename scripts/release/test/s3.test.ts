@@ -11,7 +11,7 @@ import {
 } from '../s3.ts';
 import { fakeS3 } from './s3-fake.ts';
 
-// Эталон: https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+// Эталон: https://docs.aws.amazon.com/AmazonS3/latest/developerguide/sig-v4-header-based-auth.html
 const EMPTY = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const aws = {
     region: 'us-east-1',
@@ -195,4 +195,47 @@ test('response body failure names operation and key; requests carry a timeout si
         'GetObject releases/x: Error ECONNRESET',
     );
     expect(s3.requests[0]!.signal).toBeInstanceOf(AbortSignal);
+});
+
+test('listObjects throws on page cut inside Contents', async () => {
+    s3.override = () =>
+        listing(
+            '<IsTruncated>false</IsTruncated><Contents><Key>a</Key><LastModified>2026-11-01T00:00:00Z</LastModified></Contents><Contents><Key>b</Key>',
+        );
+    await expect(listObjects(openBucket(), 'releases/')).rejects.toThrow('ListObjectsV2');
+});
+
+test('listObjects throws on page without closing ListBucketResult', async () => {
+    s3.override = () =>
+        new Response(
+            '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>a</Key><LastModified>2026-11-01T00:00:00Z</LastModified></Contents>',
+        );
+    await expect(listObjects(openBucket(), 'releases/')).rejects.toThrow('ListObjectsV2');
+});
+
+test('transient 503 SlowDown is retried and PUT succeeds', async () => {
+    let failures = 1;
+    s3.override = () =>
+        failures-- > 0
+            ? new Response('<Error><Code>SlowDown</Code></Error>', { status: 503 })
+            : undefined;
+    await putObject(openBucket(), 'k', 'x', 'text/plain', IMMUTABLE);
+    expect(s3.requests).toHaveLength(2);
+    expect(s3.objects.has('k')).toBe(true);
+});
+
+test('access errors are not retried', async () => {
+    s3.override = () => new Response('<Error><Code>AccessDenied</Code></Error>', { status: 403 });
+    await expect(putObject(openBucket(), 'k', 'x', 'text/plain', IMMUTABLE)).rejects.toThrow(
+        'PutObject k: 403 AccessDenied',
+    );
+    expect(s3.requests).toHaveLength(1);
+});
+
+test('persistent 5xx gives up after bounded attempts', async () => {
+    s3.override = () => new Response('<Error><Code>InternalError</Code></Error>', { status: 500 });
+    await expect(deleteObject(openBucket(), 'k')).rejects.toThrow(
+        'DeleteObject k: 500 InternalError',
+    );
+    expect(s3.requests).toHaveLength(3);
 });

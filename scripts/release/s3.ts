@@ -93,25 +93,51 @@ class S3Error extends ReleaseError {
     constructor(
         message: string,
         readonly code: string,
+        /** сеть, таймаут, 5xx или 429: запрос можно повторить */
+        readonly transient: boolean,
     ) {
         super(message);
     }
 }
 
+/** Попыток на запрос: сеть, таймаут, 5xx и 429 повторяются с растущей паузой, как в прежнем SDK. */
+const ATTEMPTS = 3;
+const RETRY_DELAY = 500;
+
+type SendOptions = {
+    query?: [string, string][];
+    body?: Uint8Array;
+    headers?: Record<string, string>;
+};
+
 /**
- * Подписанный запрос к объекту бакета (path-style); возвращает байты тела ответа. Не 2xx, обрыв
- * или таймаут — {@link S3Error} с операцией, ключом (у листинга — префиксом) и кодом ответа.
+ * Подписанный запрос к объекту бакета (path-style); возвращает байты тела ответа. Временные сбои
+ * повторяются до {@link ATTEMPTS} раз; ответ не 2xx, обрыв или таймаут — {@link S3Error}
+ * с операцией, ключом (у листинга — префиксом) и кодом ответа.
  */
 async function send(
     bucket: Bucket,
     op: string,
     method: string,
     key: string,
-    {
-        query = [],
-        body = new Uint8Array(),
-        headers: extra = {},
-    }: { query?: [string, string][]; body?: Uint8Array; headers?: Record<string, string> } = {},
+    options: SendOptions = {},
+): Promise<Uint8Array> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await sendOnce(bucket, op, method, key, options);
+        } catch (err) {
+            if (!(err instanceof S3Error && err.transient) || attempt === ATTEMPTS) throw err;
+            await Bun.sleep(RETRY_DELAY * attempt);
+        }
+    }
+}
+
+async function sendOnce(
+    bucket: Bucket,
+    op: string,
+    method: string,
+    key: string,
+    { query = [], body = new Uint8Array(), headers: extra = {} }: SendOptions,
 ): Promise<Uint8Array> {
     const what = key || Object.fromEntries(query).prefix;
     const base = new URL(bucket.endpoint);
@@ -144,11 +170,16 @@ async function send(
         // тело — внутри try: обрыв или таймаут при чтении тоже называют операцию и ключ
         bytes = new Uint8Array(await res.arrayBuffer());
     } catch (err) {
-        throw new S3Error(`${op} ${what}: ${(err as Error).name} ${(err as Error).message}`, '');
+        throw new S3Error(
+            `${op} ${what}: ${(err as Error).name} ${(err as Error).message}`,
+            '',
+            true,
+        );
     }
     if (res.ok) return bytes;
     const code = tag(new TextDecoder().decode(bytes), 'Code') ?? '';
-    throw new S3Error(`${op} ${what}: ${res.status} ${code}`.trimEnd(), code);
+    const transient = res.status >= 500 || res.status === 429;
+    throw new S3Error(`${op} ${what}: ${res.status} ${code}`.trimEnd(), code, transient);
 }
 
 /** Записывает объект в бакет с заголовками Content-Type и Cache-Control. */
@@ -213,7 +244,10 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
         const page = new TextDecoder().decode(
             await send(bucket, 'ListObjectsV2', 'GET', '', { query }),
         );
-        if (!/<ListBucketResult[\s>]/.test(page)) throw bad('нет ListBucketResult');
+        if (!/<ListBucketResult[\s>][\s\S]*<\/ListBucketResult>\s*$/.test(page))
+            throw bad('нет целого ListBucketResult');
+        if (page.split('<Contents>').length !== page.split('</Contents>').length)
+            throw bad('оборванный Contents');
         const truncated = tag(page, 'IsTruncated');
         if (truncated !== 'true' && truncated !== 'false') throw bad('нет IsTruncated');
         for (const [, item = ''] of page.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
