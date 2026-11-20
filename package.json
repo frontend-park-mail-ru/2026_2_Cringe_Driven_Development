@@ -29,7 +29,6 @@
         "sync": "bun run contract:lint"
     },
     "devDependencies": {
-        "@aws-sdk/client-s3": "^3.1146.0",
         "@cdd-team/oxlint-plugin-jsdoc": "^0.1.2",
         "@stoplight/prism-cli": "5.16.0",
         "@types/bun": "^1.4.4",
