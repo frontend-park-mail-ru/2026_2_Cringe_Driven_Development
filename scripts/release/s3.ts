@@ -44,6 +44,7 @@ const encode = (value: string) =>
 const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
 const hmac = (key: string | Buffer, data: string) =>
     createHmac('sha256', key).update(data).digest();
+const tag = (xml: string, name: string) => new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1];
 const canonicalQuery = (query: [string, string][]) =>
     query
         .map(([name, value]) => `${encode(name)}=${encode(value)}`)
@@ -56,9 +57,8 @@ export interface SignInput {
     /** путь запроса, уже закодированный, как в URL */
     path: string;
     query: [string, string][];
-    /** заголовки для подписи, среди них host и x-amz-date */
+    /** заголовки для подписи в нижнем регистре, среди них host, x-amz-date и x-amz-content-sha256 */
     headers: Record<string, string>;
-    payloadHash: string;
     region: string;
     accessKey: string;
     secretKey: string;
@@ -69,9 +69,7 @@ export interface SignInput {
  * @returns значение заголовка Authorization
  */
 export function sign(req: SignInput): string {
-    const headers = Object.fromEntries(
-        Object.entries(req.headers).map(([name, value]) => [name.toLowerCase(), value.trim()]),
-    );
+    const { headers } = req;
     const names = Object.keys(headers).toSorted();
     const signed = names.join(';');
     const date = headers['x-amz-date'] ?? '';
@@ -81,15 +79,13 @@ export function sign(req: SignInput): string {
         canonicalQuery(req.query),
         names.map((name) => `${name}:${headers[name]}\n`).join(''),
         signed,
-        req.payloadHash,
+        headers['x-amz-content-sha256'],
     ].join('\n');
     const scope = `${date.slice(0, 8)}/${req.region}/s3/aws4_request`;
     let key = hmac(`AWS4${req.secretKey}`, date.slice(0, 8));
     for (const part of [req.region, 's3', 'aws4_request']) key = hmac(key, part);
-    const signature = createHmac('sha256', key)
-        .update(['AWS4-HMAC-SHA256', date, scope, sha256(canonical)].join('\n'))
-        .digest('hex');
-    return `AWS4-HMAC-SHA256 Credential=${req.accessKey}/${scope},SignedHeaders=${signed},Signature=${signature}`;
+    const signature = hmac(key, ['AWS4-HMAC-SHA256', date, scope, sha256(canonical)].join('\n'));
+    return `AWS4-HMAC-SHA256 Credential=${req.accessKey}/${scope},SignedHeaders=${signed},Signature=${signature.toString('hex')}`;
 }
 
 /** Ответ S3 с ошибкой: код из XML ответа, без ключей и заголовков. */
@@ -104,19 +100,20 @@ class S3Error extends ReleaseError {
 
 /**
  * Подписанный запрос к объекту бакета (path-style); возвращает байты тела ответа. Не 2xx, обрыв
- * или таймаут — {@link S3Error} с операцией, `what`
- * и кодом ответа.
+ * или таймаут — {@link S3Error} с операцией, ключом (у листинга — префиксом) и кодом ответа.
  */
 async function send(
     bucket: Bucket,
     op: string,
-    what: string,
     method: string,
     key: string,
-    query: [string, string][] = [],
-    body: Uint8Array = new Uint8Array(),
-    extra: Record<string, string> = {},
+    {
+        query = [],
+        body = new Uint8Array(),
+        headers: extra = {},
+    }: { query?: [string, string][]; body?: Uint8Array; headers?: Record<string, string> } = {},
 ): Promise<Uint8Array> {
+    const what = key || Object.fromEntries(query).prefix;
     const base = new URL(bucket.endpoint);
     const path = `${base.pathname.replace(/\/+$/, '')}/${encode(bucket.name)}/${key.split('/').map(encode).join('/')}`;
     const payloadHash = sha256(body);
@@ -130,7 +127,6 @@ async function send(
         path,
         query,
         headers: { ...headers, host: base.host },
-        payloadHash,
         region: bucket.region,
         accessKey: bucket.accessKey,
         secretKey: bucket.secretKey,
@@ -151,7 +147,7 @@ async function send(
         throw new S3Error(`${op} ${what}: ${(err as Error).name} ${(err as Error).message}`, '');
     }
     if (res.ok) return bytes;
-    const code = /<Code>([^<]*)<\/Code>/.exec(new TextDecoder().decode(bytes))?.[1] ?? '';
+    const code = tag(new TextDecoder().decode(bytes), 'Code') ?? '';
     throw new S3Error(`${op} ${what}: ${res.status} ${code}`.trimEnd(), code);
 }
 
@@ -164,9 +160,9 @@ export async function putObject(
     cacheControl: string,
 ): Promise<void> {
     const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
-    await send(bucket, 'PutObject', key, 'PUT', key, [], bytes, {
-        'cache-control': cacheControl,
-        'content-type': contentType,
+    await send(bucket, 'PutObject', 'PUT', key, {
+        body: bytes,
+        headers: { 'cache-control': cacheControl, 'content-type': contentType },
     });
 }
 
@@ -176,7 +172,7 @@ export async function putObject(
  */
 export async function readObject(bucket: Bucket, key: string): Promise<Uint8Array | undefined> {
     try {
-        return await send(bucket, 'GetObject', key, 'GET', key);
+        return await send(bucket, 'GetObject', 'GET', key);
     } catch (err) {
         if (err instanceof S3Error && err.code === 'NoSuchKey') return undefined;
         throw err;
@@ -196,7 +192,6 @@ const unescapeXml = (value: string) =>
             ? String.fromCodePoint(Number(entity.replace(/^#x/i, '0x').replace('#', '')))
             : ENTITIES[entity]!,
     );
-const tag = (xml: string, name: string) => new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1];
 
 /**
  * Все объекты бакета с префиксом ключей, со всех страниц ListObjectsV2. Некорректная страница,
@@ -216,7 +211,7 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
         ];
         if (token) query.push(['continuation-token', token]);
         const page = new TextDecoder().decode(
-            await send(bucket, 'ListObjectsV2', prefix, 'GET', '', query),
+            await send(bucket, 'ListObjectsV2', 'GET', '', { query }),
         );
         if (!/<ListBucketResult[\s>]/.test(page)) throw bad('нет ListBucketResult');
         const truncated = tag(page, 'IsTruncated');
@@ -239,5 +234,5 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
 
 /** Удаляет объект из бакета. */
 export async function deleteObject(bucket: Bucket, key: string): Promise<void> {
-    await send(bucket, 'DeleteObject', key, 'DELETE', key);
+    await send(bucket, 'DeleteObject', 'DELETE', key);
 }

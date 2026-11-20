@@ -96,13 +96,25 @@ const releases = (f: ReturnType<typeof fixture>) => {
     return shas;
 };
 
-test('retention keeps five newest and protected production release', async () => {
+/** Ретеншн на фикстуре GitHub: фейковый S3 по 3 объекта на страницу поверх её fetch. */
+async function withProduction(run: (f: ReturnType<typeof fixture>) => Promise<void>) {
     s3.restore();
     const f = fixture();
     s3 = fakeS3(3);
     const log = quiet();
     try {
         f.production('deploy', f.a);
+        await run(f);
+    } finally {
+        log.mockRestore();
+        s3.restore();
+        f.restore();
+        s3 = fakeS3();
+    }
+}
+
+test('retention keeps five newest and protected production release', () =>
+    withProduction(async (f) => {
         const shas = releases(f);
         await retention();
         const left = new Set([...s3.objects.keys()].map((key) => key.split('/')[1]));
@@ -112,20 +124,10 @@ test('retention keeps five newest and protected production release', async () =>
             `/bucket/releases/${shas[1]}/index.html`,
             `/bucket/releases/${shas[1]}/assets/x.js`,
         ]);
-    } finally {
-        log.mockRestore();
-        s3.restore();
-        f.restore();
-        s3 = fakeS3();
-    }
-});
+    }));
 
-test('retention deletes nothing when a listing page is broken', async () => {
-    s3.restore();
-    const f = fixture();
-    s3 = fakeS3(3);
-    try {
-        f.production('deploy', f.a);
+test('retention deletes nothing when a listing page is broken', () =>
+    withProduction(async (f) => {
         releases(f);
         s3.override = (req) =>
             req.url.searchParams.get('continuation-token') === '6'
@@ -138,9 +140,4 @@ test('retention deletes nothing when a listing page is broken', async () => {
         expect(
             s3.requests.filter((req) => req.url.searchParams.has('continuation-token')),
         ).toHaveLength(2);
-    } finally {
-        s3.restore();
-        f.restore();
-        s3 = fakeS3();
-    }
-});
+    }));

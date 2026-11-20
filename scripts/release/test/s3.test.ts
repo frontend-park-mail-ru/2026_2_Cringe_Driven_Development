@@ -17,7 +17,6 @@ const aws = {
     region: 'us-east-1',
     accessKey: 'AKIAIOSFODNN7EXAMPLE',
     secretKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    payloadHash: EMPTY,
 };
 const awsHeaders = {
     host: 'examplebucket.s3.amazonaws.com',
