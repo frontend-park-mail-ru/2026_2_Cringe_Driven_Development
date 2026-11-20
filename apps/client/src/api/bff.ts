@@ -97,15 +97,58 @@ const SESSION_CHANGED = 'Сессия сменилась';
 const isObject = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null;
 
+/** Категории ошибок BFF: `Record` заставляет компилятор сверить список с `ErrorCode`. */
+const ERROR_CODES: Record<ErrorCode, true> = {
+    BAD_REQUEST: true,
+    UNAUTHORIZED: true,
+    FORBIDDEN: true,
+    NOT_FOUND: true,
+    CONFLICT: true,
+    PRECONDITION_FAILED: true,
+    PAYLOAD_TOO_LARGE: true,
+    UNSUPPORTED_MEDIA_TYPE: true,
+    TOO_MANY_REQUESTS: true,
+    INTERNAL_SERVER_ERROR: true,
+    BAD_GATEWAY: true,
+};
+
 /**
- * Тело ошибки по протоколу: `{ error: { code, message } }` со строками.
+ * Массив строк.
+ * @param value проверяемое значение
+ */
+const isStrings = (value: unknown): value is string[] =>
+    Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+/**
+ * Ошибки полей по протоколу: `formErrors` — строки, `fieldErrors` — массивы строк по полям.
+ * @param value проверяемое значение
+ */
+const isValidationErrors = (value: unknown): value is ValidationErrors =>
+    isObject(value) &&
+    isStrings(value.formErrors) &&
+    isObject(value.fieldErrors) &&
+    Object.values(value.fieldErrors).every(isStrings);
+
+/**
+ * Тело ошибки по протоколу: известный `code`, строковые `message` и `appCode`, ошибки полей
+ * и занятая сессия нужной формы. Иначе ответ — `protocol`, а не данные для интерфейса.
  * @param data разобранное тело ответа
  */
-const isErrorBody = (data: unknown): data is ApiErrorBody =>
-    isObject(data) &&
-    isObject(data.error) &&
-    typeof data.error.code === 'string' &&
-    typeof data.error.message === 'string';
+const isErrorBody = (data: unknown): data is ApiErrorBody => {
+    if (!isObject(data) || !isObject(data.error)) return false;
+    const { code, message, appCode, validationErrors, activeSession } = data.error;
+    return (
+        typeof code === 'string' &&
+        Object.hasOwn(ERROR_CODES, code) &&
+        typeof message === 'string' &&
+        (appCode === undefined || typeof appCode === 'string') &&
+        (validationErrors === undefined || isValidationErrors(validationErrors)) &&
+        (activeSession === undefined ||
+            (isObject(activeSession) &&
+                typeof activeSession.id === 'string' &&
+                typeof activeSession.notebook_id === 'number'))
+    );
+};
 
 /** Общий клиент по карте маршрутов BFF: путь, query, JSON и multipart собирает он. */
 const client = createClient<BffPaths>({ transport: browserTransport });
@@ -134,8 +177,9 @@ async function send<P extends BffPath, M extends keyof BffPaths[P] & HttpMethod>
         throw new BffError('network', 'BFF недоступен');
     }
     const json = res.headers.get('Content-Type')?.startsWith('application/json') ?? false;
-    // общий клиент отдаёт непарсящийся JSON строкой; голых строк ни один маршрут BFF не возвращает
-    const parsed = json && typeof res.data !== 'string';
+    // общий клиент отдаёт непарсящийся JSON строкой, пустое тело — undefined; ни того, ни другого
+    // маршрут BFF с 200 не возвращает (JSON null — допустимое значение)
+    const parsed = json && res.data !== undefined && typeof res.data !== 'string';
     // тело 200 — тип ответа маршрута из BffPaths, его форму гарантирует BFF
     if (res.status === 204 || (res.status === 200 && parsed)) return res.data as Output<P, M>;
     if (res.status >= 400 && parsed && isErrorBody(res.data)) {
