@@ -12,8 +12,6 @@ export default defineConfig({
         '**/dist/**',
         '.turbo/**',
         'spec/**',
-        'openwiki/**',
-        '!openwiki/INSTRUCTIONS.md',
         'apps/bff/src/go/client.ts',
         'packages/schemas/src/zod.ts',
     ],

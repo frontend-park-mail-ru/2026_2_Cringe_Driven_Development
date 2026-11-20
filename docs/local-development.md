@@ -324,7 +324,3 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 [`@cdd-team/oxlint-plugin-jsdoc`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/oxlint-plugin-jsdoc):
 в `oxlint` правил `require-jsdoc` и `check-param-names` нет. Сами теги линт не требует: `@param` и `@returns` пишутся там, где описание что-то добавляет
 к имени и типу. `packages/schemas/src/zod.ts` (последняя генерация Orval, до frontend#210) линт не проверяет
-
-## Wiki кода
-
-Поиск контекста, обновление и публикация описаны в [инструкции OpenWiki](openwiki.md).
