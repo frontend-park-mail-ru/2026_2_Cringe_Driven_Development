@@ -303,8 +303,8 @@ export function Cell({
             )}
             onMouseDown={(event) => {
                 if (readOnly) return;
-                /** В просмотре мышь выделяет текст, фокус он получает сам */
-                const own = `button:enabled, textarea, a, .${styles.preview}`;
+                /** В просмотре и выводе мышь выделяет текст: фокус в редактор не переводится */
+                const own = `button:enabled, textarea, a, .${styles.preview}, .${styles.below}`;
                 if ((event.target as Element).closest(own)) return;
                 event.preventDefault();
                 document.getElementById(cellEditorId(cell.id))?.focus();
@@ -439,7 +439,11 @@ export function Cell({
                         Превышен размер ячейки — максимум 64 КиБ
                     </p>
                 )}
-                {below}
+                {below && (
+                    <div key="below" className={styles.below}>
+                        {below}
+                    </div>
+                )}
             </div>
             {!readOnly && (
                 <div key="actions" className={styles.actions}>

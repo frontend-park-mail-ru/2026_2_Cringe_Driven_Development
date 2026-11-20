@@ -1,0 +1,44 @@
+name: Reconcile release issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: 'Исходный успешный production Deployment ID; без повторной выкатки'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  deployments: read
+  issues: write
+
+jobs:
+  reconcile:
+    if: github.repository == 'Cringe-Driven-Development-Team/frontend' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: false
+    concurrency:
+      group: release-board
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Recover release issues
+        id: board
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+        run: bun run release board-recover "$DEPLOYMENT_ID"

@@ -48,6 +48,11 @@
     list-style: none;
 }
 
+.moreError {
+    display: flex;
+    justify-content: center;
+}
+
 .createForm {
     display: flex;
     flex-direction: column;

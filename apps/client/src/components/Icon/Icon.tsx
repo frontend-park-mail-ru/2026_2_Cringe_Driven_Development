@@ -1,5 +1,6 @@
 import { clsx } from '@cdd-team/clsx';
 import AlertIcon from '@assets/icons/alert.svg?react';
+import BanIcon from '@assets/icons/ban.svg?react';
 import BackIcon from '@assets/icons/back.svg?react';
 import CheckIcon from '@assets/icons/check.svg?react';
 import CloseIcon from '@assets/icons/close.svg?react';
@@ -11,14 +12,17 @@ import FileIcon from '@assets/icons/file.svg?react';
 import HelpIcon from '@assets/icons/help.svg?react';
 import InfoIcon from '@assets/icons/info.svg?react';
 import LogoutIcon from '@assets/icons/logout.svg?react';
+import MoreIcon from '@assets/icons/more.svg?react';
 import OrbitIcon from '@assets/icons/orbit.svg?react';
 import PencilIcon from '@assets/icons/pencil.svg?react';
 import PlayIcon from '@assets/icons/play.svg?react';
 import PlusIcon from '@assets/icons/plus.svg?react';
+import PowerIcon from '@assets/icons/power.svg?react';
 import SearchIcon from '@assets/icons/search.svg?react';
 import SpinnerIcon from '@assets/icons/spinner.svg?react';
 import SquareIcon from '@assets/icons/square.svg?react';
 import StopIcon from '@assets/icons/stop.svg?react';
+import TargetIcon from '@assets/icons/target.svg?react';
 import TrashIcon from '@assets/icons/trash.svg?react';
 import UpIcon from '@assets/icons/up.svg?react';
 import UserIcon from '@assets/icons/user.svg?react';
@@ -48,6 +52,10 @@ const ICONS = {
     square: SquareIcon,
     file: FileIcon,
     search: SearchIcon,
+    more: MoreIcon,
+    power: PowerIcon,
+    target: TargetIcon,
+    ban: BanIcon,
 };
 
 /** Имя иконки из макета. */

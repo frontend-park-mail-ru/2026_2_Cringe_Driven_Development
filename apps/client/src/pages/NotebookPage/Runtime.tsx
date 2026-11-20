@@ -3,11 +3,17 @@ import { clsx } from '@cdd-team/clsx';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
 import { Icon, type IconName } from '@components/Icon/Icon';
+import { Modal } from '@components/Modal/Modal';
+import { ClampedName } from '@modules/notebookDelete/ClampedName';
+import { trpc } from '@api/trpc';
 import {
     canExecute,
+    interruptCell,
     runAll,
     runCell,
     startRuntime,
+    stopExecutions,
+    stopOtherRuntime,
     stopRuntime,
     useRuntimeStore,
 } from '@stores/runtime';
@@ -21,6 +27,8 @@ type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 interface RuntimeActionsProps {
     /** В блокноте есть кодовые ячейки */
     hasCode: boolean;
+    /** «К выполняемой ячейке»: прокрутить к ячейке, которая выполняется сейчас */
+    onJump: (cellId: string) => void;
     /** Кнопка «Поиск»: нет — кнопки нет (тач) */
     search?: {
         /** Панель поиска открыта */
@@ -30,13 +38,54 @@ interface RuntimeActionsProps {
 }
 
 /**
- * «Поиск», «Завершить окружение» и «Запустить всё» справа в панели шапки.
+ * Справа в панели шапки: «К выполняемой ячейке», на одном месте «Запустить всё» или «Остановить
+ * всё», затем «Поиск».
  */
-export function RuntimeActions({ hasCode, search }: RuntimeActionsProps) {
+export function RuntimeActions({ hasCode, onJump, search }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
-    const { stop, runAll: all } = runtimeButtons(runtime, hasCode);
+    const { main, canRunAll, canStopAll, running } = runtimeButtons(runtime, hasCode);
+    const stopping = runtime.busy === 'stopAll';
     return (
         <div className={styles.actions}>
+            {running && (
+                <Button
+                    key="jump"
+                    variant="secondary"
+                    icon="target"
+                    className={clsx(styles.button, styles.jump)}
+                    onClick={() => {
+                        // по актуальному состоянию на момент нажатия, а не на момент отрисовки
+                        const now = runtimeButtons(useRuntimeStore.getState(), hasCode).running;
+                        if (now) onJump(now);
+                    }}
+                >
+                    К выполняемой ячейке
+                </Button>
+            )}
+            {main === 'stop' ? (
+                <Button
+                    key="stop-all"
+                    variant="danger"
+                    icon="stop"
+                    className={clsx(styles.button, styles.main)}
+                    loading={stopping}
+                    disabled={!canStopAll}
+                    onClick={() => void stopExecutions()}
+                >
+                    {stopping ? 'Останавливаем…' : 'Остановить всё'}
+                </Button>
+            ) : (
+                <Button
+                    key="run-all"
+                    icon="play"
+                    className={clsx(styles.button, styles.main)}
+                    loading={runtime.busy === 'execute'}
+                    disabled={!canRunAll}
+                    onClick={() => void runAll()}
+                >
+                    Запустить всё
+                </Button>
+            )}
             {search && (
                 <Button
                     key="search"
@@ -49,30 +98,6 @@ export function RuntimeActions({ hasCode, search }: RuntimeActionsProps) {
                     onClick={search.onOpen}
                 >
                     Поиск
-                </Button>
-            )}
-            {stop && (
-                <Button
-                    key="stop"
-                    variant="danger"
-                    icon="stop"
-                    className={styles.button}
-                    loading={runtime.busy === 'stop'}
-                    onClick={() => void stopRuntime()}
-                >
-                    Завершить окружение
-                </Button>
-            )}
-            {all !== 'hidden' && (
-                <Button
-                    key="run-all"
-                    icon="play"
-                    className={styles.button}
-                    loading={runtime.busy === 'execute'}
-                    disabled={all === 'disabled'}
-                    onClick={() => void runAll()}
-                >
-                    Запустить всё
                 </Button>
             )}
         </div>
@@ -124,20 +149,41 @@ const BANNER: Record<
     },
 };
 
-type BannerAction = { label: string; onClick: () => void; loading?: boolean; primary?: true };
+type BannerAction = {
+    label: string;
+    onClick: () => void;
+    loading?: boolean;
+    primary?: true;
+    danger?: true;
+};
 
-/** Действие баннера: у «нет связи» его нет, запуск окружения — главное действие. */
-function bannerAction(
+/** Действия баннера: у «нет связи» их нет, запуск окружения — главное действие. */
+function bannerActions(
     kind: BannerKind,
     runtime: Runtime,
     openNotebook: (notebookId: number) => void,
-): BannerAction | undefined {
+    confirmStop: () => void,
+): BannerAction[] {
+    const one = bannerAction(kind, runtime);
+    if (kind !== 'busy') return one ? [one] : [];
+    const notebookId = runtime.session!.notebook_id;
+    const stopping = runtime.busy === 'stop';
+    return [
+        { label: 'Перейти к блокноту', onClick: () => openNotebook(notebookId) },
+        {
+            label: stopping ? 'Завершаем…' : 'Завершить блокнот',
+            onClick: confirmStop,
+            loading: stopping,
+            danger: true,
+        },
+    ];
+}
+
+function bannerAction(kind: BannerKind, runtime: Runtime): BannerAction | undefined {
     const starting = runtime.busy === 'start';
     switch (kind) {
-        case 'busy': {
-            const notebookId = runtime.session!.notebook_id;
-            return { label: 'Перейти к блокноту', onClick: () => openNotebook(notebookId) };
-        }
+        case 'busy':
+            return undefined;
         case 'cleanup':
             return {
                 label: 'Повторить завершение',
@@ -177,15 +223,25 @@ interface RuntimeBannerProps {
 export function RuntimeBanner({ className }: RuntimeBannerProps) {
     const runtime = useRuntimeStore();
     const navigate = useNavigate();
+    const [confirm, setConfirm] = useState(false);
     const kind = bannerKind(runtime);
     if (!kind) return null;
     const shown = BANNER[kind];
-    const action = bannerAction(kind, runtime, (notebookId) =>
-        navigate({ to: '/notebooks/$notebookId', params: { notebookId: String(notebookId) } }),
+    const actions = bannerActions(
+        kind,
+        runtime,
+        (notebookId) =>
+            navigate({ to: '/notebooks/$notebookId', params: { notebookId: String(notebookId) } }),
+        () => setConfirm(true),
     );
     return (
         <div
-            className={clsx(styles.banner, shown.tone && styles[shown.tone], className)}
+            className={clsx(
+                styles.banner,
+                shown.tone && styles[shown.tone],
+                actions.length > 1 && styles.stacked,
+                className,
+            )}
             role={shown.tone === 'error' ? 'alert' : 'status'}
         >
             <Icon key="icon" name={shown.icon} className={styles.icon} />
@@ -197,18 +253,83 @@ export function RuntimeBanner({ className }: RuntimeBannerProps) {
                     {shown.text}
                 </p>
             </div>
-            {action && (
-                <Button
-                    key="action"
-                    variant={action.primary ? 'primary' : 'secondary'}
-                    className={styles.button}
-                    loading={action.loading}
-                    onClick={action.onClick}
-                >
-                    {action.label}
-                </Button>
+            {actions.length > 0 && (
+                <div key="actions" className={styles.bannerActions}>
+                    {actions.map((action) => (
+                        <Button
+                            key={action.label}
+                            variant={
+                                action.primary ? 'primary' : action.danger ? 'danger' : 'secondary'
+                            }
+                            className={styles.button}
+                            loading={action.loading}
+                            disabled={action.loading}
+                            onClick={action.onClick}
+                        >
+                            {action.label}
+                        </Button>
+                    ))}
+                </div>
+            )}
+            {confirm && kind === 'busy' && (
+                <StopOtherDialog
+                    key="confirm"
+                    notebookId={runtime.session!.notebook_id}
+                    onClose={() => setConfirm(false)}
+                />
             )}
         </div>
+    );
+}
+
+const STOP_OTHER_CANCEL_ID = 'stop-other-cancel';
+
+/**
+ * Подтверждение «Завершить окружение блокнота» с названием блокнота, который занял окружение.
+ */
+function StopOtherDialog({ notebookId, onClose }: { notebookId: number; onClose: () => void }) {
+    const busy = useRuntimeStore().busy !== null;
+    const [name, setName] = useState<string | null>(null);
+    useEffect(() => {
+        let alive = true;
+        trpc.notebooks.get
+            .query({ id: notebookId })
+            .then((page) => alive && setName(page.notebook.name))
+            .catch(() => undefined);
+        return () => {
+            alive = false;
+        };
+    }, [notebookId]);
+    return (
+        <Modal
+            title="Завершить окружение блокнота"
+            lead={name === null ? undefined : <ClampedName key={notebookId} name={name} />}
+            description="Выполнение там остановится, переменные в памяти будут потеряны. Блокнот сохранится."
+            initialFocusId={STOP_OTHER_CANCEL_ID}
+            onClose={onClose}
+        >
+            <div className={styles.dialogActions}>
+                <Button
+                    key="cancel"
+                    id={STOP_OTHER_CANCEL_ID}
+                    variant="secondary"
+                    onClick={onClose}
+                >
+                    Отмена
+                </Button>
+                <Button
+                    key="submit"
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => {
+                        onClose();
+                        void stopOtherRuntime();
+                    }}
+                >
+                    Завершить окружение
+                </Button>
+            </div>
+        </Modal>
     );
 }
 
@@ -229,12 +350,21 @@ export function RunGutter({ cellId, executionCount, run }: RunGutterProps) {
     return (
         <>
             {run.indicator === 'running' ? (
-                <span key="running" className={clsx(styles.indicator, styles.running)}>
-                    <Icon key="icon" name="orbit" size={24} className={styles.spin} />
-                    <span key="label" className={styles.srOnly}>
-                        Выполняется
-                    </span>
-                </span>
+                <button
+                    key="interrupt"
+                    type="button"
+                    className={clsx(styles.run, styles.running)}
+                    aria-label="Остановить ячейку"
+                    title="Остановить ячейку"
+                    disabled={run.interrupting}
+                    onClick={() => void interruptCell(cellId)}
+                >
+                    <Icon
+                        name={run.interrupting ? 'spinner' : 'stop'}
+                        size={14}
+                        className={clsx(run.interrupting && styles.spin)}
+                    />
+                </button>
             ) : run.indicator === 'queued' ? (
                 <span key="queued" className={clsx(styles.indicator, styles.queued)}>
                     <Icon key="icon" name="dot" size={14} />
@@ -268,6 +398,12 @@ export function RunGutter({ cellId, executionCount, run }: RunGutterProps) {
             {run.result === 'unknown' && (
                 <Icon key="unknown" name="help" className={styles.unknown} />
             )}
+            {run.result === 'interrupted' && <Icon key="interrupted" name="square" />}
+            {run.duration !== undefined && run.result !== 'cancelled' && (
+                <span key="duration" className={styles.count}>
+                    {formatDuration(run.duration)}
+                </span>
+            )}
         </>
     );
 }
@@ -285,6 +421,7 @@ export function RunState({ run }: { run: CellRun }) {
                 styles.state,
                 run.result === 'failed' && styles.failed,
                 run.result === 'unknown' && styles.unknown,
+                run.result === 'interrupted' && styles.interrupted,
             )}
         >
             <Icon
@@ -294,26 +431,51 @@ export function RunState({ run }: { run: CellRun }) {
                         ? 'orbit'
                         : progress
                           ? 'dot'
-                          : run.result === 'unknown'
-                            ? 'help'
-                            : 'alert'
+                          : (STATE_ICON[run.result ?? 'failed'] ?? 'alert')
                 }
                 className={clsx(run.indicator === 'running' && styles.spin)}
             />
-            {run.since === undefined ? run.message : <Elapsed since={run.since} />}
+            {run.since === undefined ? (
+                run.message
+            ) : (
+                <Elapsed
+                    prefix={run.interrupting ? 'Останавливаем…' : 'Выполняется…'}
+                    since={run.since}
+                />
+            )}
         </p>
     );
 }
 
-/** «Выполняется… N с»: секунды с начала выполнения, обновляются раз в секунду. */
+/** «0,3 с» до 10 секунд, дальше целыми: «14 с». */
+const formatDuration = (ms: number): string =>
+    ms < 10_000
+        ? `${(ms / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} с`
+        : `${Math.round(ms / 1000)} с`;
 
-function Elapsed({ since }: { since: number }) {
-    const [now, setNow] = useState(since);
+const STATE_ICON: Partial<Record<NonNullable<CellRun['result']>, IconName>> = {
+    unknown: 'help',
+    interrupted: 'square',
+    cancelled: 'ban',
+};
+
+/**
+ * Секунды с `since`, обновляются раз в секунду.
+ * @param since начало отсчёта, мс; без него — undefined
+ */
+export function useElapsed(since: number | undefined): number | undefined {
+    const [now, setNow] = useState(since ?? 0);
     useEffect(() => {
+        if (since === undefined) return;
         const tick = () => setNow(Date.now());
         tick();
         const timer = setInterval(tick, 1000);
         return () => clearInterval(timer);
-    }, []);
-    return <>{`Выполняется… ${Math.max(0, Math.floor((now - since) / 1000))} с`}</>;
+    }, [since]);
+    return since === undefined ? undefined : Math.max(0, Math.floor((now - since) / 1000));
+}
+
+/** «Выполняется… N с» или «Останавливаем… N с» у ячейки. */
+function Elapsed({ prefix, since }: { prefix: string; since: number }) {
+    return <>{`${prefix} ${useElapsed(since)} с`}</>;
 }

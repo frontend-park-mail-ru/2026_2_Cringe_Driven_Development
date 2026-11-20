@@ -5,7 +5,6 @@ import { onSessionLost } from './api/trpc';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
 import { router } from './router';
-import { registerServiceWorker } from './serviceWorker';
 import { setPreloadedNotebook } from './stores/preloaded';
 import { watchConnection } from '@stores/connection';
 import { initSession, loseSession } from './stores/session';
@@ -17,7 +16,7 @@ const container = document.getElementById('root');
 if (!container) throw new Error('Не найден элемент #root');
 
 /**
- * Bootstrap прочитан. Пользователь — из первого HTML: первый рендер уже знает, гость это или
+ * Bootstrap прочитан. Пользователь - из первого HTML: первый рендер уже знает, гость это или
  * вошедший. Сломанный bootstrap — ошибка запуска, гостем и запасным users.me она не прикрывается.
  */
 let started = false;
@@ -38,7 +37,13 @@ onSessionLost(() => {
     void router.navigate({ to: '/login', replace: true });
 });
 
-registerServiceWorker();
+// в bun run dev SW не регистрируется, локально SW проверяют через bun run preview
+if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
+    // неожидаемый промис
+    void navigator.serviceWorker
+        .register('/sw.js', { scope: '/' })
+        .catch((error: unknown) => console.error('Failed to register service worker:', error));
+}
 watchConnection();
 // bun run dev:prism: mock(процедура, статус) в консоли — следующий вызов получит этот ответ мока
 if (import.meta.env.VITE_MOCK_PREFER === '1') installMockCommand();

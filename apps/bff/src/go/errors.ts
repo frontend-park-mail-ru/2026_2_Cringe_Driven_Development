@@ -1,7 +1,7 @@
 import { GetRuntimeSessionResponse } from '@cdd/schemas';
 import type { z } from 'zod';
 
-import type { RuntimeSession } from './client.ts';
+import type { RuntimeSession } from '@cdd/schemas/types';
 
 /** Вид сбоя обращения к Go. */
 export type GoErrorKind = 'http' | 'network' | 'timeout' | 'unexpected';
@@ -40,11 +40,11 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null;
 
 /**
- * Достаёт тело успешного ответа Orval-клиента и проверяет его zod-схемой ответа операции из
+ * Достаёт тело успешного ответа общего клиента Go и проверяет его zod-схемой ответа операции из
  * `@cdd/schemas`. Статус вне `ok` — `GoError('http')` с `code` из тела `Error`; статус из `ok`, но
  * тело не по схеме — `GoError('unexpected')`. Без схемы (ответ 204) возвращает `undefined`. Лишние
  * поля ответа схема отбрасывает.
- * @param res ответ Orval-клиента
+ * @param res ответ общего клиента Go
  * @param ok успешные статусы операции по контракту
  * @param schema схема тела успешного ответа
  * @returns тело ответа, проверенное схемой

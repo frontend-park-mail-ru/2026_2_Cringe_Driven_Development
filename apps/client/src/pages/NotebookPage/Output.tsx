@@ -1,6 +1,7 @@
 import { clsx } from '@cdd-team/clsx';
 import { useLayoutEffect, useRef } from '@cdd-team/react';
 import { Icon } from '@components/Icon/Icon';
+import { htmlDocument } from './htmlDocument';
 import styles from './Output.module.css';
 
 /** Вывод ячейки в формате nbformat: недоверенные данные. */
@@ -262,7 +263,7 @@ function HtmlFrame({ html }: { html: string }) {
         frame.setAttribute('sandbox', '');
         frame.title = 'HTML-вывод ячейки';
         frame.className = styles.html!;
-        frame.srcdoc = html;
+        frame.srcdoc = htmlDocument(html);
         host.current?.replaceChildren(frame);
         return () => frame.remove();
     }, [html]);

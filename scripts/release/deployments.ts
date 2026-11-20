@@ -3,6 +3,7 @@
 import { ReleaseError, output } from './env.ts';
 import {
     PRODUCTION_ENV,
+    api,
     type Deployment,
     type ProductionPayload,
     type NotificationMetadata,
@@ -13,7 +14,8 @@ import {
 } from './github.ts';
 import { checkImageRef } from './image.ts';
 import { checkSha } from './env.ts';
-import { assetsOf, readyRelease, runAttempt } from './releases.ts';
+import { readTrustedRun } from './catalog.ts';
+import { assetsOf, readyRelease, runAttempt, runIdOf } from './releases.ts';
 
 /** Проверяет локальный граф: выкатка идёт к потомку, откат — к предку; тот же SHA допустим. */
 export async function assertReleaseDirection(
@@ -205,4 +207,70 @@ export async function finishProduction(id: string, state: string): Promise<void>
               ? 'Проверка после переключения не прошла'
               : 'Выкатка прервана до проверки результата';
     await setDeploymentState(Number(id), state, description);
+}
+
+/** Проверенные исходная и последняя production-операции; незавершённый или неуспешный прод запрещает запись. */
+export async function readBoardProduction(
+    id: number,
+): Promise<{ operation: Deployment<ProductionPayload>; current: Deployment<ProductionPayload> }> {
+    if (!Number.isSafeInteger(id) || id <= 0)
+        throw new ReleaseError('Нужен корректный Deployment ID');
+    const history = await listDeployments<ProductionPayload>(PRODUCTION_ENV);
+    const current = history[0];
+    if (!current || current.state !== 'success')
+        throw new ReleaseError('Последняя production-попытка не success');
+    const operation = await readProduction(id);
+    return { operation, current: id === current.id ? operation : await readProduction(current.id) };
+}
+
+async function readProduction(recordId: number): Promise<Deployment<ProductionPayload>> {
+    const record = await api<{
+        id: number;
+        sha: string;
+        environment: string;
+        task: string;
+        created_at: string;
+        payload: ProductionPayload | string;
+    }>(`/deployments/${recordId}`);
+    const payload =
+        typeof record.payload === 'string'
+            ? (JSON.parse(record.payload) as ProductionPayload)
+            : record.payload;
+    const statuses = await api<{ state: string }[]>(`/deployments/${recordId}/statuses?per_page=1`);
+    if (
+        record.id !== recordId ||
+        record.environment !== PRODUCTION_ENV ||
+        statuses[0]?.state !== 'success' ||
+        !Number.isFinite(Date.parse(record.created_at)) ||
+        !payload ||
+        !['deploy', 'rollback'].includes(payload.action) ||
+        record.task !== payload.action
+    )
+        throw new ReleaseError(`Некорректная успешная production-запись ${recordId}`);
+    checkSha(record.sha);
+    checkSha(payload.notification?.base_sha ?? '');
+    const run = await readTrustedRun(runIdOf(payload.run));
+    if (
+        run.kind !== payload.action ||
+        !Number.isSafeInteger(payload.notification?.run_attempt) ||
+        payload.notification!.run_attempt <= 0 ||
+        payload.notification!.run_attempt > run.attempt ||
+        (payload.notification!.report_url !== null &&
+            payload.notification!.report_url !== `${payload.run}#summary`)
+    )
+        throw new ReleaseError(`Недоверенный production run ${recordId}`);
+    const { release, manifest } = await readyRelease(record.sha);
+    if (
+        payload.release_id !== release.id ||
+        payload.image_ref !== manifest.image_ref ||
+        payload.assets !== manifest.assets
+    )
+        throw new ReleaseError(`Production ${recordId} не совпадает с Release`);
+    return {
+        id: recordId,
+        sha: record.sha,
+        payload,
+        createdAt: record.created_at,
+        state: 'success',
+    };
 }

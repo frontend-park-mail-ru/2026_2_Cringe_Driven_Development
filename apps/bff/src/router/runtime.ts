@@ -48,6 +48,14 @@ export const runtime = router({
     stop: authedProcedure
         .input(session)
         .mutation(({ ctx, input }) => ctx.go.stopRuntimeSession(input.sessionId)),
+    /** «Остановить всё»: прервать текущее исполнение и отменить очередь, окружение остаётся. */
+    stopExecutions: authedProcedure
+        .input(session)
+        .mutation(({ ctx, input }) => ctx.go.stopRuntimeExecutions(input.sessionId)),
+    /** Прервать текущее исполнение; итог — из событий, очередь продолжается. */
+    interrupt: authedProcedure
+        .input(session)
+        .mutation(({ ctx, input }) => ctx.go.interruptRuntimeKernel(input.sessionId)),
     /** Активная сессия пользователя в любом блокноте или null: допуск к удалению блокнота. */
     active: authedProcedure.query(({ ctx }) => ctx.go.getActiveRuntimeSession()),
     activity: authedProcedure

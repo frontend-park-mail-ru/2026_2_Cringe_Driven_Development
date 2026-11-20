@@ -9,7 +9,7 @@ interface DeleteButtonProps {
 }
 
 /**
- * Корзина «Удалить блокнот» на карточке и в шапке редактора: нейтральная, при наведении красная.
+ * Корзина «Удалить блокнот» на карточке главной: нейтральная, при наведении красная.
  */
 export function DeleteButton({ className, onClick }: DeleteButtonProps) {
     return (

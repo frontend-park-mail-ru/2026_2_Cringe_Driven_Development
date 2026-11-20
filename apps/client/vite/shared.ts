@@ -1,8 +1,8 @@
 import svgr from 'vite-plugin-svgr';
 import { loadEnv, type UserConfig } from 'vite';
-import { releaseMetaPlugin, staticUrlPlugin, vitepwaPlugin } from './plugins.ts';
+import { releaseMetaPlugin, staticUrlPlugin } from './plugins.ts';
 
-/** `.env` лежит в корне монорепы: его же читают скрипты apidog и release. */
+/** `.env` лежит в корне монорепы: его же читают скрипты release. */
 const envDir = '../..';
 
 /**
@@ -36,7 +36,6 @@ export const sharedConfig = (env: Record<string, string>, release: string): User
         plugins: [
             staticUrlPlugin(staticUrl),
             releaseMetaPlugin(release),
-            vitepwaPlugin(),
             // *.svg?react — компонент; обычный импорт .svg остаётся URL (empty-planet)
             svgr({
                 svgrOptions: { jsxRuntime: 'automatic' },

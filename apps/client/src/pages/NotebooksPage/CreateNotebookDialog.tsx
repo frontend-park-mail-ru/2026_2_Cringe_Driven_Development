@@ -10,7 +10,7 @@ import styles from './NotebooksPage.module.css';
 
 const FIELD_ID = 'notebook-name';
 
-/** Максимальная длина названия по контракту Go в Apidog */
+/** Максимальная длина названия по контракту Go */
 const NAME_MAX = 128;
 
 type CreateResult = { ok: true; id: number } | { ok: false; invalid: boolean };

@@ -10,6 +10,7 @@ import { OTP_LENGTH, OtpInput } from '@components/OtpInput/OtpInput';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
+import { validatePassword } from '@utils/credentials';
 import { useNarrow } from '@utils/media';
 import styles from './ProfilePage.module.css';
 
@@ -343,7 +344,8 @@ interface DisableModalProps {
 }
 
 /**
- * Отключение 2FA по текущему паролю. Неверный пароль — ошибка у поля, окно остаётся.
+ * Отключение 2FA по текущему паролю. Формат пароля проверяется до отправки; неверный пароль и
+ * отказ проверки запроса — ошибка у поля, окно и значение остаются, `has_2fa` не меняется.
  */
 function DisableModal({ onClose }: DisableModalProps) {
     const [password, setPassword] = useState('');
@@ -359,8 +361,24 @@ function DisableModal({ onClose }: DisableModalProps) {
         [life],
     );
 
+    // фокус — после снятия pending: отключённое поле его не принимает
+    const [focusRequest, setFocusRequest] = useState(0);
+    useEffect(() => {
+        if (focusRequest) document.getElementById(PASSWORD_ID)?.focus();
+    }, [focusRequest]);
+
+    const fieldError = (message: string) => {
+        setError(message);
+        setFocusRequest((count) => count + 1);
+    };
+
     const disable = async () => {
         if (pending || password === '') return;
+        const invalid = validatePassword(password);
+        if (invalid) {
+            fieldError(invalid);
+            return;
+        }
         setPending(true);
         setError(undefined);
         hideSnackbar();
@@ -374,12 +392,13 @@ function DisableModal({ onClose }: DisableModalProps) {
             setPending(false);
             const code = appCodeOf(failure);
             if (code === 'invalid_current_password') {
-                setError('Неверный пароль');
-                document.getElementById(PASSWORD_ID)?.focus();
-            } else if (code === 'validation_error') {
-                setHas2fa(false);
-                onClose();
-                showSnackbar('2FA уже отключена');
+                fieldError('Неверный пароль');
+            } else if (
+                code === 'validation_error' ||
+                (isRpcError(failure) && failure.data?.code === 'BAD_REQUEST')
+            ) {
+                // отказ проверки запроса (BFF или Go) не подтверждает, что 2FA уже отключена
+                fieldError('Запрос не прошёл проверку. Проверьте пароль и попробуйте ещё раз');
             } else {
                 showSnackbar('Не удалось отключить 2FA', {
                     label: 'Повторить',

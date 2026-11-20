@@ -16,8 +16,11 @@ import { takeMockPrefer } from './mockPrefer';
 /** Пользователь, как его отдаёт `users.me`. */
 export type User = RouterOutputs['users']['me'];
 
+/** Страница списка блокнотов из `notebooks.list`. */
+export type NotebookListPage = RouterOutputs['notebooks']['list'];
+
 /** Блокнот в списке. */
-export type NotebookSummary = RouterOutputs['notebooks']['list'][number];
+export type NotebookSummary = NotebookListPage['items'][number];
 
 /** Данные страницы блокнота из `notebooks.get`: блокнот, активная сессия и очередь. */
 export type NotebookPageData = RouterOutputs['notebooks']['get'];

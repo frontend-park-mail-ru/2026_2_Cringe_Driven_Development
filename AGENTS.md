@@ -2,10 +2,18 @@
 
 Фронтенд проекта «Colab» (Cellestial) команды «Cringe Driven Development».
 Монорепа на bun workspaces и Turborepo: клиент — `apps/client`, BFF — `apps/bff`,
-zod-схемы — `packages/schemas` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
+типы и zod-схемы Go — `packages/schemas`, HTTP-клиент — `packages/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
 Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
-в PR `Closes #N`, обязательное ревью ментора. Учебный frontend-park-mail-ru
+в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
+с `Ready for build`, проверенный Release даёт `Ready for release`. Только CD после
+Health check и сохранённого production success закрывает completed и ставит `Done`.
+Rollback меняет Status на `Rollback from production` без reopen; следующий CD возвращает
+`Done`. Ручные reopen после merge и not planned/duplicate защищены; ручное completed
+сохраняет Done и допускает rollback после первого подтверждённого CD. Сбой карточек
+восстанавливается по исходному Deployment ID через
+[Reconcile release issues](docs/release.md#статусы-задач-и-восстановление).
+Обязательное ревью ментора. Учебный frontend-park-mail-ru
 получает копию main, новые PR туда не создаются.
 
 Общепроектный контекст, действующая архитектура и планы развития проекта — в
@@ -17,39 +25,16 @@ zod-схемы — `packages/schemas` ([локальная разработка]
 Общие для нескольких компонентов решения отражай в `docs`.
 При внесении изменений проверяй реализацию по актуальному коду.
 
-## Wiki и общий поиск
+## Где искать контекст
 
-Когда нужен контекст о клиенте или BFF, начни с `openwiki_search`, затем прочитай
-нужный раздел через `openwiki_read` с ID wiki из результата. Если ответа достаточно
-и нет противоречий, остановись. При обычном чтении опубликованная wiki считается
-актуальной; её актуальность обеспечивает процесс обновления и публикации.
-Не проверяй свежесть, не сравнивай SHA и не делай `git fetch` или grep по исходникам
-ради перепроверки ответа. Конкретный исходник нужен при пробеле, противоречии
-или для внесения изменений; явные ошибки инструментов не игнорируй.
-Не загружай wiki в начале каждой задачи; для простой правки известного файла поиск не обязателен.
-Корень текущего checkout получи через `git rev-parse --show-toplevel` и проверь
-`origin`: `Cringe-Driven-Development-Team/frontend`.
-Wiki описывает реализацию; состояние прода прямо сейчас требует отдельного свидетельства.
-Если wiki ещё не создана, читай README, локальные инструкции и исходники.
+Начни с [README](README.md). Запуск и устройство монорепы описаны в
+[руководстве по локальной разработке](docs/local-development.md), взаимодействие с Go — в
+[контракте API](docs/api-contract.md), CI и выкатка — в [руководстве по релизам](docs/release.md).
+Реализацию проверяй в исходниках [клиента](apps/client) и [BFF](apps/bff).
 
-Для межрепозиторных вопросов используй общий OpenWiki workspace четырёх соседних
-клонов `docs`, `frontend`, `backend`, `infra`: настройка — в README docs.
-При нескольких пространствах проверь `openwiki workspace current` и выбери нужное
-через `openwiki workspace use`. В MCP ищи через `openwiki_search`, затем передавай
-в `openwiki_read` ID wiki из результата: не считай чужой результат локальным.
-Карту владения ищи в docs, Go — в backend, инфраструктуру — в infra;
-внутренности `@cdd-team/*` — в исходниках frontend-packages по карте docs.
-
-Без MCP читай `openwiki/quickstart.md` и нужную Markdown-страницу клона или GitHub
-с тем же правилом остановки при достаточном ответе.
-Соседний docs относительно основного checkout (включая worktree):
-`git -C "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/../docs" rev-parse --show-toplevel`.
-Проверь его `origin`: `Cringe-Driven-Development-Team/docs`; если клона нет,
-используй https://github.com/Cringe-Driven-Development-Team/docs/tree/main/openwiki.
-Проверки свежести (`bun scripts/openwiki-check.ts --against <SHA>` у владельца)
-относятся к обслуживанию, генерации, CI и явной диагностике по запросу пользователя.
-Пути определяй заново, не полагайся на память. Состояние прода прямо сейчас проверяй
-по свидетельствам или стенду; будущие фичи — в `/modules/` docs.
+Для межрепозиторных вопросов используй карту владения в контексте проекта. Код Go ищи
+в `backend`, инфраструктуру — в `infra`, пакеты `@cdd-team/*` — в `frontend-packages`.
+Состояние прода проверяй на стенде или по актуальным свидетельствам.
 
 ## Учебный проект: совместимость и прод
 
@@ -76,8 +61,8 @@ Wiki описывает реализацию; состояние прода пр
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора:
-  Orval и zod (frontend#45), lefthook (frontend#24).
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/hono` (локальный `packages/hono`, frontend#255). Исключения — по задачам ментора:
+  zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
 - Каждому экспорту — JSDoc: без него падает `bun run lint`. Типы в `@param` и `@returns` не
@@ -85,11 +70,11 @@ Wiki описывает реализацию; состояние прода пр
 
 ## Перед работой с Go API
 
-Прочитай [порядок Spec First и работы с Cloud Mock](docs/api-contract.md#spec-first-и-cloud-mock).
-Проверь актуальный контракт в Apidog и синхронизируй его: локальная спецификация может
-отставать. Проверяй интерфейс через BFF → Cloud Mock Apidog, не дожидаясь реализации Go.
-Если мок расходится с контрактом или не покрывает нужный сценарий, сначала доработай
-его отдельным MR в Apidog; после слияния повтори проверку. Собственный dev-сервер,
+Прочитай [порядок Spec First](docs/api-contract.md#spec-first).
+Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
+Git SHA и может отставать. Правки контракта — только PR в backend, затем
+`bun run contract:fetch <sha>`, `bun run sync` и правка `packages/schemas/src/types.ts`. Примеры проверяй через `bun run dev:prism`,
+состояние — на реальном Go. Собственный dev-сервер,
 имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
 Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
 контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
@@ -97,27 +82,34 @@ Wiki описывает реализацию; состояние прода пр
 
 ## Источники
 
-- API Go: контракт в Apidog, локальная копия — `spec/openapi.json`. Обновить — `bun run sync`
-  (`bun run apidog` + `bun run orval`); спеку и сгенерированное (`apps/bff/src/go/client.ts`,
-  `packages/schemas/src/zod.ts`) руками не править. Клиент Go не вызывает: только процедуры BFF. Orval и zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
-  так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
+- API Go: контракт — `spec/openapi.json` в backend, локальная копия `spec/` по SHA из
+  `spec/contract-source.json`. Обновить — `bun run contract:fetch <sha>`, `bun run contract:tools`,
+  `bun run sync` (Redocly); копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
+  редактируемый TypeScript по спеке, без генератора: правятся по диффу спеки в том же изменении,
+  соответствие спеке компилятор не доказывает, риск принят (frontend#253,
+  [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
+  `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
+  (frontend#210). Клиент Go не вызывает: только процедуры BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
+  так же `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
   и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `vite-plugin-pwa` — манифест PWA по задаче frontend#48, с ним `workbox-window` — регистратор service worker `virtual:pwa-register` по задаче frontend#49, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
+  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
-  BFF — в Go по `GO_API_URL` (локально по умолчанию — Cloud Mock Apidog,
-  [локальные правила](docs/local-development.md#клиент-через-bff)).
+  BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет; `bun run dev:prism` подставляет Prism,
+  [локальные правила](docs/local-development.md#клиент-через-bff), [реальный Go](docs/api-contract.md#реальный-go)).
 
 ## Команды
 
 ```bash
-bun run dev        # клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF
-bun run dev:pwa    # production-сборка и BFF на http://localhost:4173: проверка PWA и service worker, без HMR
+bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF; Go — GO_API_URL из .env
+bun run preview    # локальная проверка production-сборки, включая SW и PWA: BFF на http://localhost:4173, без HMR
 bun run dev:prism  # как dev, но Go — локальный Prism по spec/openapi.json; mock(процедура, статус) в консоли
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
-bun run orval      # spec/openapi.json → клиент BFF к Go и zod-схемы (orval.config.ts)
+bun run contract:fetch <sha>  # копия spec/ из backend по полному SHA, проверка Redocly до замены
+bun run contract:tools  # Redocly CLI закреплённой версии в spec/node_modules (npm ci)
+bun run sync       # Redocly по spec/; ревизию не меняет, код не генерирует
 ```
 
 Перед тем как сказать «готово» — `bun run check` и `bun run build` должны проходить.
@@ -140,14 +132,15 @@ vite берёт их оттуда.
 - `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
   `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`), `SearchBar` (панель поиска). Каждый компонент — папка с `.tsx` и `.module.css`.
-- `serviceWorker.ts` — регистрация service worker; его кеш настроен в `vite.config.prod.ts`, офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`: всё в precache, без CDN.
+- `main.tsx` регистрирует production service worker `/sw.js`; его логика в `apps/client/sw/sw.ts` со своим tsconfig (lib WebWorker). Офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`.
 - `layouts/RootLayout.tsx` — `<main>` с `<Outlet />`, тост и снекбар. Второй `<main>` на страницах не нужен.
 - `router.ts` — экземпляр роутера `@cdd-team/router` (API как у TanStack Router) и регистрация его
   типов через `Register`. Импорт роутера — только из `@cdd-team/router`.
 - `pages/` — страницы. `routes/` — маршруты и дерево `routeTree.ts`. `path` маршрута берётся из
   `PAGES` (`@cdd/bff/pages`): по этому списку BFF решает, куда вести прямой запрос страницы,
   поэтому новая страница добавляется сначала в `PAGES`.
-  `pages/NotebookPage/`: `Runtime.tsx` — баннер, кнопки окружения и колонка запуска у ячейки; `status.ts` —
+  `pages/NotebookPage/`: `Runtime.tsx` — баннер, кнопки выполнения в шапке и колонка запуска/остановки у ячейки;
+  `Actions.tsx` — меню `⋯` блокнота, подтверждение завершения окружения и переименование; `status.ts` —
   чистые функции, что показать по состоянию `runtime` и сохранения;
   `Output.tsx` — вывод исполнения: текст — текстовыми узлами, PNG/SVG — через `<img>`, HTML — только в
   `<iframe sandbox="">` через `srcdoc`. iframe наследует CSP страницы: встроенные стили HTML-вывода на проде

@@ -2,7 +2,7 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { linkedIssues, type LinkedIssue } from './catalog.ts';
 import { checkSha, isSha, need, output, ReleaseError } from './env.ts';
 import { api, runUrl } from './github.ts';
-import { listReleases, tagOf, verifyRelease } from './releases.ts';
+import { findRelease, listReleases, tagOf, verifyRelease } from './releases.ts';
 
 /** Состав конкретного диапазона, независимо от Telegram и доски. */
 export interface ChangeReport {
@@ -233,6 +233,9 @@ export function releaseBody(
 
 /** Ближайший first-parent предок с опубликованным Release и проверенным manifest. */
 async function publicationBase(sha: string, repoDir: string): Promise<string | null> {
+    const published = await findRelease(sha);
+    if (published && !published.draft)
+        return (await verifyRelease(published, sha)).notification.base_sha;
     const git = Bun.spawnSync(['git', 'rev-list', '--first-parent', checkSha(sha)], {
         cwd: repoDir,
     });

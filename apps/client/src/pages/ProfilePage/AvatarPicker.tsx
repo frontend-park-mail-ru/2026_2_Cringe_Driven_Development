@@ -4,12 +4,14 @@ import { Avatar } from '@components/Avatar/Avatar';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { uploadAvatar, useSessionStore } from '@stores/session';
-import { showSnackbar } from '@stores/snackbar';
+import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { AVATAR_RULE, checkAvatar } from '@utils/avatar';
 import styles from './ProfilePage.module.css';
 
 const INPUT_ID = 'profile-avatar-file';
+/** Сколько висит ошибка выбора или загрузки */
+const ERROR_MS = 4000;
 
 /**
  * Аватар и логин профиля с кнопкой «Изменить фото»: выбор одного JPEG/PNG, проверка и загрузка.
@@ -19,12 +21,21 @@ export function AvatarPicker() {
     const user = useSessionStore((state) => state.user);
     const [pending, setPending] = useState(false);
     const [life] = useState({ alive: true });
+    /** id показа последней ошибки: убирается именно он, а не чужой снэкбар */
+    const [errorId, setErrorId] = useState<number | undefined>(undefined);
 
     useEffect(
         () => () => {
             life.alive = false;
         },
         [life],
+    );
+    // смена id или уход со страницы убирает прежнюю ошибку
+    useEffect(
+        () => () => {
+            if (errorId !== undefined) hideSnackbar(errorId);
+        },
+        [errorId],
     );
 
     const pick = async (event: Event) => {
@@ -33,13 +44,17 @@ export function AvatarPicker() {
         // сброс: тот же файл можно выбрать снова
         input.value = '';
         if (!file) return;
+        if (errorId !== undefined) hideSnackbar(errorId);
         setPending(true);
         const error = (await checkAvatar(file)) ? await uploadAvatar(file) : 'file';
         if (!life.alive) return;
         setPending(false);
-        if (error === 'file') showSnackbar(`Файл не подходит: ${AVATAR_RULE}`);
-        else if (error === 'upload') showSnackbar('Не удалось загрузить фото. Попробуйте ещё раз');
-        else showToast('Аватар обновлён');
+        const text =
+            error === 'file'
+                ? `Файл не подходит: ${AVATAR_RULE}`
+                : error === 'upload' && 'Не удалось загрузить фото. Попробуйте ещё раз';
+        if (!text) return showToast('Аватар обновлён');
+        setErrorId(showSnackbar(text, undefined, ERROR_MS));
     };
 
     return (

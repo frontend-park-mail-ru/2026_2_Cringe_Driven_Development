@@ -1,9 +1,12 @@
-import { clsx } from '@cdd-team/clsx';
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from '@cdd-team/react';
+import { orbitStars, planetSize } from './orbit';
 import styles from './Space.module.css';
 
 /** Ширина макета, px: координата x звезды переводится в проценты от неё. */
 const WIDTH = 1440;
 const STAR_COUNT = 70;
+/** Отступ базовой дуги над верхом якоря, до дополнительного смещения горизонта, px. */
+const ARC_GAP = 24;
 
 /**
  * Звёзды фона: псевдослучайные с постоянным seed — одинаковые при каждой загрузке.
@@ -24,38 +27,138 @@ function makeStars() {
 
 const STARS = makeStars();
 
+/**
+ * Мерцание звезды: свои длительность и фаза.
+ * @param index номер звезды
+ * @returns CSS-переменные анимации
+ */
+function twinkle(index: number) {
+    return { '--duration': `${3 + (index % 7) * 0.5}s`, '--delay': `${-((index * 0.37) % 3)}s` };
+}
+
 /** Свойства {@link Space}. */
 interface SpaceProps {
     /**
-     * Вариант из макета: auth — планета ниже карточки входа, home — под заголовком главной,
-     * plain — без планеты
+     * Элемент, к которому привязан горизонт. Без него планеты нет: вариант plain редактора
      */
-    variant?: 'auth' | 'home' | 'plain';
+    anchor?: RefObject<HTMLElement | null>;
+    /**
+     * Базовая привязка: above — на {@link ARC_GAP} px выше верха якоря (список блокнотов),
+     * below — к низу якоря (карточка, форма). Горизонт дополнительно опущен на 64–140 px.
+     */
+    edge?: 'above' | 'below';
+}
+
+/** Положение планеты в фоне, px. */
+interface Geometry {
+    width: number;
+    height: number;
+    top: number;
 }
 
 /** Фон «Космос». Декоративный. */
-export function Space({ variant = 'auth' }: SpaceProps) {
+export function Space({ anchor, edge = 'below' }: SpaceProps) {
+    const root = useRef<HTMLDivElement | null>(null);
+    const [geometry, setGeometry] = useState<Geometry | null>(null);
+    const orbit = useMemo(
+        () => (geometry ? orbitStars(geometry.width, geometry.height, geometry.top) : []),
+        [geometry],
+    );
+
+    useLayoutEffect(() => {
+        const element = root.current;
+        const target = anchor?.current;
+        if (!element || !target) return;
+        let alive = true;
+        const update = () => {
+            if (!alive) return;
+            const base = element.getBoundingClientRect();
+            const box = target.getBoundingClientRect();
+            // Смещение входит в общую геометрию планеты и звёздного поля.
+            const offset = Math.min(140, Math.max(64, window.innerWidth * 0.1));
+            const next = {
+                width: element.clientWidth,
+                height: element.clientHeight,
+                top:
+                    Math.max(
+                        0,
+                        Math.round(
+                            edge === 'above' ? box.top - base.top - ARC_GAP : box.bottom - base.top,
+                        ),
+                    ) + offset,
+            };
+            setGeometry((prev) =>
+                prev &&
+                prev.width === next.width &&
+                prev.height === next.height &&
+                prev.top === next.top
+                    ? prev
+                    : next,
+            );
+        };
+        update();
+        // верх якоря сдвигают и соседи выше него: следим за всеми предками до родителя фона
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+        for (let node: HTMLElement | null = target; node; node = node.parentElement) {
+            observer.observe(node);
+            if (node === element.parentElement) break;
+        }
+        void document.fonts?.ready.then(update);
+        return () => {
+            alive = false;
+            observer.disconnect();
+        };
+    }, [anchor, edge]);
+
+    const diameter = geometry ? planetSize(geometry.width) : 0;
+
     return (
-        <div className={clsx(styles.space, styles[variant])} aria-hidden="true">
+        <div
+            ref={root}
+            className={styles.space}
+            style={{ '--planet-top': `${geometry?.top ?? 0}px`, '--planet-size': `${diameter}px` }}
+            aria-hidden="true"
+        >
             <div key="glow" className={styles.glow} />
-            {STARS.map(({ x, y, size, opacity }, index) => (
-                <span
-                    key={`star-${index}`}
-                    className={styles.star}
-                    style={{
-                        left: `${(x / WIDTH) * 100}%`,
-                        top: `${y}px`,
-                        '--size': `${size}px`,
-                        '--opacity': String(opacity),
-                        '--duration': `${3 + (index % 7) * 0.5}s`,
-                        '--delay': `${-((index * 0.37) % 3)}s`,
-                    }}
-                />
-            ))}
-            {variant !== 'plain' && (
+            {!anchor ? (
+                STARS.map(({ x, y, size, opacity }, index) => (
+                    <span
+                        key={`star-${index}`}
+                        className={styles.star}
+                        style={{
+                            left: `${(x / WIDTH) * 100}%`,
+                            top: `${y}px`,
+                            '--size': `${size}px`,
+                            '--opacity': String(opacity),
+                            ...twinkle(index),
+                        }}
+                    />
+                ))
+            ) : (
+                <div key="orbit" className={styles.orbit}>
+                    {orbit.map(({ id, x, y, size, opacity }) => (
+                        <span
+                            key={`star-${id}`}
+                            className={styles.star}
+                            style={{
+                                left: `${x}px`,
+                                top: `${y}px`,
+                                '--size': `${size}px`,
+                                '--opacity': String(opacity),
+                                ...twinkle(id),
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+            {anchor && geometry && (
                 <div key="planet" className={styles.planet}>
+                    <div key="halo" className={styles.halo} />
+                    <div key="aura" className={styles.aura} />
+                    <div key="limb" className={styles.limb} />
                     <div key="surface" className={styles.surface}>
-                        <div key="clouds" className={styles.clouds} />
+                        <div key="cover" className={styles.cover} />
                     </div>
                 </div>
             )}

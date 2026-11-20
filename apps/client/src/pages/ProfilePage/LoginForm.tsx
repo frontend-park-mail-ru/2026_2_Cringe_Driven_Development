@@ -6,6 +6,7 @@ import { Input } from '@components/Input/Input';
 import { useSessionStore } from '@stores/session';
 import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
+import { ProfileLogin } from '@cdd/schemas/inputs';
 import { LOGIN_RULE, validateLogin } from '@utils/credentials';
 import { AvatarPicker } from './AvatarPicker';
 import styles from './ProfilePage.module.css';
@@ -68,7 +69,7 @@ export function LoginForm({ login }: LoginFormProps) {
         event.preventDefault();
         if (pending || value === login) return;
         setSubmitted(true);
-        if (validateLogin(value)) {
+        if (validateLogin(value, ProfileLogin)) {
             document.getElementById(FIELD_ID)?.focus();
             return;
         }
@@ -95,7 +96,7 @@ export function LoginForm({ login }: LoginFormProps) {
                 value={value}
                 placeholder="Введите логин"
                 hint={LOGIN_RULE}
-                error={submitted ? validateLogin(value) : undefined}
+                error={submitted ? validateLogin(value, ProfileLogin) : undefined}
                 invalid={taken}
                 disabled={pending}
                 autocomplete="username"

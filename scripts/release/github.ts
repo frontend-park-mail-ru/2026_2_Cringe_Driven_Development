@@ -1,4 +1,4 @@
-import { ReleaseError, need } from './env.ts';
+import { ReleaseError, need, isSha } from './env.ts';
 
 /** Окружение истории выкаток и откатов на прод; готовые выпуски — GitHub Releases (releases.ts). */
 export const PRODUCTION_ENV = 'production';
@@ -140,9 +140,27 @@ export async function listDeploymentRecords<P>(
     if (sha) query.set('sha', sha);
     // вся история: цель отката и защита ассетов могут лежать дальше первой страницы
     const raw: RawDeployment[] = [];
+    const seen = new Set<number>();
     for (let page = 1; ; page++) {
         query.set('page', String(page));
         const batch = await api<RawDeployment[]>(`/deployments?${query}`);
+        if (!Array.isArray(batch)) throw new ReleaseError('Некорректный список Deployments');
+        for (const record of batch) {
+            const payload = record && parsePayload(record.payload);
+            if (
+                !record ||
+                !Number.isSafeInteger(record.id) ||
+                record.id <= 0 ||
+                typeof record.sha !== 'string' ||
+                !isSha(record.sha) ||
+                !Number.isFinite(Date.parse(record.created_at)) ||
+                !payload ||
+                typeof payload !== 'object'
+            )
+                throw new ReleaseError('Неполная запись Deployment');
+            if (seen.has(record.id)) throw new ReleaseError('Deployments: повтор ID или страницы');
+            seen.add(record.id);
+        }
         raw.push(...batch);
         if (batch.length < PAGE_SIZE) break;
     }

@@ -14,7 +14,6 @@ import { Space } from '@components/Space/Space';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
-import { DeleteButton } from '@modules/notebookDelete/DeleteButton';
 import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
 import {
     addCell,
@@ -36,6 +35,7 @@ import {
     closeRuntime,
     openRuntime,
     retryCommand,
+    stopExecutions,
     useRuntimeStore,
     type RuntimeError,
 } from '@stores/runtime';
@@ -43,9 +43,10 @@ import { hideSnackbar, showSnackbar } from '@stores/snackbar';
 import { showToast } from '@stores/toast';
 import { plural } from '@utils/plural';
 import { useForcedColors, useTouchDevice } from '@utils/media';
+import { NotebookMenu, RenameDialog, TerminateDialog } from './Actions';
 import { ConflictBanner, ConflictDialog, OrphanDraft } from './Conflict';
 import { Outputs, type NbOutput } from './Output';
-import { RunGutter, RunState, RuntimeActions, RuntimeBanner } from './Runtime';
+import { RunGutter, RunState, RuntimeActions, RuntimeBanner, useElapsed } from './Runtime';
 import {
     SEARCH_BUTTON_ID,
     SEARCH_INPUT_ID,
@@ -53,7 +54,7 @@ import {
     scrollToCurrent,
     useNotebookSearch,
 } from './search';
-import { cellRun, runtimeStatus, saveStatus, type CellRun } from './status';
+import { cellRun, runtimeButtons, runtimeStatus, saveStatus, type CellRun } from './status';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -92,6 +93,24 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
     conflict: 'Код ячейки изменился — проверьте его и запустите снова',
     too_large: 'Превышен размер ячейки — максимум 64 КиБ',
     failed: 'Не удалось выполнить команду окружения',
+    stopFailed: 'Не удалось остановить выполнение',
+    interruptFailed: 'Не удалось остановить выполнение',
+};
+
+/** Сколько миллисекунд подсвечена ячейка после перехода «К выполняемой ячейке» */
+const HIGHLIGHT_MS = 1500;
+
+/**
+ * Прокручивает к выполняющейся ячейке: она встаёт под прилипшей шапкой и коротко подсвечивается.
+ * @param cellId ячейка, которая выполняется на момент нажатия
+ */
+const jumpToCell = (cellId: string): void => {
+    const row = document.getElementById(cellEditorId(cellId))?.closest('li');
+    if (!row) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    row.dataset.highlight = '';
+    setTimeout(() => delete row.dataset.highlight, HIGHLIGHT_MS);
 };
 
 /** Сколько миллисекунд видно уведомление об обрезанной вставке */
@@ -102,9 +121,6 @@ const IS_MAC = navigator.userAgent.includes('Mac');
 
 /** Запас в пикселях между прилипшей шапкой и совпадением, к которому прокрутили */
 const SEARCH_GAP = 16;
-
-/** Число символов для уведомления: лимит в байтах, но понятнее, сколько символов вошло: «37 090» */
-const countChars = (text: string): string => [...text].length.toLocaleString('ru-RU');
 
 /**
  * Обрезает вставку по лимиту ячейки: больший исходник не сохранить. Помещающаяся часть
@@ -117,11 +133,12 @@ const handlePaste = (event: ClipboardEvent): void => {
     if (part === pasted) return;
     event.preventDefault();
     if (part) document.execCommand('insertText', false, part);
-    const shown = showSnackbar(
-        `Вставлено символов: ${countChars(part)} из ${countChars(pasted)} — остальное не помещается в ячейку`,
-    );
     // уведомление без действия: прячется само
-    setTimeout(() => hideSnackbar(shown), PASTE_NOTICE_MS);
+    showSnackbar(
+        'Вставлена только часть текста: в ячейке максимум 64 КиБ',
+        undefined,
+        PASTE_NOTICE_MS,
+    );
 };
 
 /** Свойства {@link AddCellChips}. */
@@ -209,6 +226,8 @@ export function NotebookPage() {
     const [selected, setSelected] = useState<string | undefined>(undefined);
     /** Открытый диалог удаления: открывается сразу по сессии из стора, сервер уточняет её в фоне */
     const [deleting, setDeleting] = useState(false);
+    /** Открытый диалог меню «Действия с блокнотом» */
+    const [dialog, setDialog] = useState<'rename' | 'terminate' | null>(null);
     /** Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления */
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     /** Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода */
@@ -294,7 +313,12 @@ export function NotebookPage() {
                       label: 'Повторить',
                       onClick: () => void retryCommand(),
                   })
-                : showSnackbar(RUNTIME_ERRORS[runtime.error]);
+                : runtime.error === 'stopFailed'
+                  ? showSnackbar(RUNTIME_ERRORS.stopFailed, {
+                        label: 'Повторить',
+                        onClick: () => void stopExecutions(),
+                    })
+                  : showSnackbar(RUNTIME_ERRORS[runtime.error]);
         return () => hideSnackbar(shown);
     }, [runtime.error, runtime.failure]);
 
@@ -316,6 +340,12 @@ export function NotebookPage() {
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error';
     const execution = ready ? runtimeStatus(runtime) : undefined;
+    const buttons = runtimeButtons(runtime, false);
+    /** Время в статусе шапки — текущей ячейки: «Выполняется · 12 с» */
+    const runningSince = runtime.queue.find((item) => item.state === 'RUNNING')?.execution_id;
+    const elapsed = useElapsed(
+        buttons.running && runningSince ? runtime.startedAt[runningSince] : undefined,
+    );
     /** Ход и проблемы сохранения — рядом со статусом выполнения: «Сохранено» его не перекрывает */
     const status = ready ? saveStatus(notebook.status, runtime) : undefined;
     const hasCode = cells.some((cell) => cell.kind === 'code');
@@ -360,11 +390,12 @@ export function NotebookPage() {
         if (search.jump > 0) scrollToCurrent();
     }, [search.jump]);
     const pageRef = useRef<HTMLDivElement>(null);
-    // прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой с панелью
+    // прокрутка к совпадению и ячейке не прячет их под прилипшей шапкой: её высота меняется с
+    // панелью поиска и с переносом статуса на телефоне
     useLayoutEffect(() => {
         const page = pageRef.current;
         const header = page?.querySelector('header');
-        if (!page || !header || !search.open) return;
+        if (!page || !header) return;
         const observer = new ResizeObserver(() => {
             const top = parseFloat(getComputedStyle(header).top) || 0;
             page.style.setProperty(
@@ -377,7 +408,7 @@ export function NotebookPage() {
             observer.disconnect();
             page.style.removeProperty('--search-margin');
         };
-    }, [search.open]);
+    }, []);
     const closeSearch = () => {
         // кнопка «Поиск» остаётся в шапке: фокус на неё до того, как исчезнет поле
         document.getElementById(SEARCH_BUTTON_ID)?.focus();
@@ -424,7 +455,7 @@ export function NotebookPage() {
 
     return (
         <div ref={pageRef} className={styles.page}>
-            <Space key="space" variant="plain" />
+            <Space key="space" />
             <div key="content" className={styles.content}>
                 <Header
                     key="header"
@@ -449,17 +480,19 @@ export function NotebookPage() {
                         load !== 'error' && (
                             <>
                                 {hasToolbar && (
-                                    <AddCellChips
-                                        key="chips"
-                                        codeId={ADD_CODE_ID}
-                                        disabled={!ready || locked}
-                                        onAdd={handleAdd}
-                                    />
+                                    <div key="chips" className={styles.toolChips}>
+                                        <AddCellChips
+                                            codeId={ADD_CODE_ID}
+                                            disabled={!ready || locked}
+                                            onAdd={handleAdd}
+                                        />
+                                    </div>
                                 )}
                                 {ready && (
                                     <RuntimeActions
                                         key="runtime"
                                         hasCode={hasCode}
+                                        onJump={jumpToCell}
                                         search={
                                             searchEnabled
                                                 ? { open: search.open, onOpen: openSearch }
@@ -497,7 +530,12 @@ export function NotebookPage() {
                                     <SaveStatus
                                         key="run"
                                         tone={execution.tone}
-                                        text={execution.text}
+                                        text={
+                                            elapsed !== undefined &&
+                                            execution.text === 'Выполняется'
+                                                ? `${execution.text} · ${elapsed} с`
+                                                : execution.text
+                                        }
                                     />
                                 )}
                                 {status && (
@@ -510,7 +548,15 @@ export function NotebookPage() {
                             </p>
                         )}
                     </div>
-                    {ready && <DeleteButton key="delete" onClick={() => setDeleting(true)} />}
+                    {ready && (
+                        <NotebookMenu
+                            key="menu"
+                            terminate={buttons.terminate}
+                            onRename={() => setDialog('rename')}
+                            onTerminate={() => setDialog('terminate')}
+                            onDelete={() => setDeleting(true)}
+                        />
+                    )}
                     <ProfileLink key="profile" />
                 </Header>
                 {load === 'loading' && (
@@ -602,7 +648,17 @@ export function NotebookPage() {
                 )}
             </div>
             {/* конфликт остаётся в сторе и откроется, когда закроется диалог удаления */}
-            {ready && !deleting && <ConflictDialog key="dialog" />}
+            {ready && !deleting && !dialog && <ConflictDialog key="dialog" />}
+            {dialog === 'rename' && notebook.meta && (
+                <RenameDialog
+                    key="rename"
+                    notebook={{ id, name: notebook.meta.name }}
+                    onClose={() => setDialog(null)}
+                />
+            )}
+            {dialog === 'terminate' && (
+                <TerminateDialog key="terminate" onClose={() => setDialog(null)} />
+            )}
             {deleting && notebook.meta && (
                 <DeleteNotebookDialog
                     key="delete"
