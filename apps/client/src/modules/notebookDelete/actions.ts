@@ -1,33 +1,41 @@
 import { isBffError, api } from '@api/bff';
 import { flush, forgetNotebook, useNotebookStore } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
-import { adoptSession, closeRuntime, useRuntimeStore } from '@stores/runtime';
-import { deleteGate, type DeleteGate } from './gate';
+import { closeRuntime, sessionActive, useRuntimeStore, type RuntimeSession } from '@stores/runtime';
 
 /** Итог удаления: `notFound` — чужой, отсутствующий или уже удалённый блокнот. */
 export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
 
 /**
- * Допуск к удалению по активной сессии пользователя с сервера. Сессия открытого блокнота заодно
- * обновляет его стор окружения: после 409 из другой вкладки появится «Завершить окружение».
- * @returns допуск или `error`, если состояние окружения получить не удалось
+ * Свежая сессия блокнота для диалога удаления. Активная сессия пользователя не видна после
+ * STOPPED, хотя очистка ещё блокирует DELETE: известную сессию блокнота дочитываем по её ID.
+ * Стор окружения не меняет: ответ применяет вызывающий, если запрос ещё актуален.
+ * @param notebookId удаляемый блокнот
+ * @param known последняя известная сессия: из стора редактора или прошлой проверки
+ * @returns сессия этого блокнота, null — её нет, `error` — состояние получить не удалось
  */
-export async function checkDeleteGate(notebookId: number): Promise<DeleteGate | 'error'> {
+export async function readSession(
+    notebookId: number,
+    known: RuntimeSession | null,
+): Promise<RuntimeSession | null | 'error'> {
+    // завершённая и очищенная сессия уже не изменится
+    const own =
+        known?.notebook_id === notebookId && (sessionActive(known) || known.cleanup_error)
+            ? known
+            : null;
     try {
-        const session = await api('GET', '/api/runtime/active');
-        adoptSession(session);
-        return deleteGate(session, notebookId);
+        const [active, updated] = await Promise.all([
+            api('GET', '/api/runtime/active'),
+            own &&
+                api('POST', '/api/runtime/updates', {
+                    contentType: 'application/json',
+                    body: { sessionId: own.id, after: own.public_seq, executionIds: [] },
+                }),
+        ]);
+        return active?.notebook_id === notebookId ? active : (updated?.session ?? null);
     } catch {
         return 'error';
     }
-}
-
-/**
- * Запрет после `409 notebook_in_use`. Если активной сессии не видно, сервер всё равно занят
- * фоновой очисткой или работой, недоступной фронту: показываем ожидание.
- */
-export async function inUseGate(notebookId: number): Promise<'stopFirst' | 'waitStop'> {
-    return (await checkDeleteGate(notebookId)) === 'stopFirst' ? 'stopFirst' : 'waitStop';
 }
 
 /** Блокнота больше нет: его черновики, сохранения, опрос и bootstrap-снимок не вернут данные. */

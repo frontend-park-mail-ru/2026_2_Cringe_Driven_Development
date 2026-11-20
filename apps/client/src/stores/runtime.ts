@@ -335,12 +335,13 @@ async function poll(): Promise<void> {
 }
 
 /**
- * Сессия завершена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
+ * Сессия завершена, очищена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
  * неизвестный результат, а не вечное «выполняется».
  */
 function finished(): boolean {
     const session = own();
-    if (session && !ENDED.has(session.state)) return false;
+    // Go отдаёт STOPPED до удаления облачных ресурсов: очистку дочитываем, удаление блокнота ждёт её
+    if (session && (!ENDED.has(session.state) || session.cleanup_error)) return false;
     // результат ещё сохраняется: дочитать, иначе «Сохраняем результаты…» навсегда
     if (resultsPending(get())) return false;
     const { run, outcome, executions } = get();
@@ -495,8 +496,11 @@ function observe(session: RuntimeSession): void {
  * @param session активная сессия пользователя в любом блокноте или null
  */
 export function adoptSession(session: RuntimeSession | null): void {
-    const { notebookId } = get();
+    const { notebookId, session: current } = get();
     if (notebookId === null || session?.notebook_id !== notebookId) return;
+    // устаревший ответ: завершённая прежняя сессия или старый снимок той же не заменяют наблюдаемую
+    if (current && current.id !== session.id && !sessionActive(session)) return;
+    if (current?.id === session.id && session.public_seq < current.public_seq) return;
     observe(session);
 }
 
