@@ -84,7 +84,7 @@ Wiki описывает реализацию; состояние прода пр
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора:
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/hono` (локальный `packages/hono`, frontend#255). Исключения — по задачам ментора:
   zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
@@ -110,7 +110,7 @@ Git SHA и может отставать. Правки контракта — т
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
   (frontend#210). Клиент Go не вызывает: только HTTP API BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
-  так же Hono и `serialize-javascript` в `apps/bff` — по задаче frontend#2, `vite-plugin-mkcert` — локальный
+  так же `serialize-javascript` в `apps/bff` — по задаче frontend#2, `vite-plugin-mkcert` — локальный
   HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,

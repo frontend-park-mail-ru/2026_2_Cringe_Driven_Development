@@ -1,11 +1,11 @@
 ---
 type: concept
-title: PWA и потеря соединения
-description: Как service worker даёт самостоятельную офлайн-страницу, а открытая SPA отслеживает ответы BFF без кеширования личных данных.
-tags: [frontend, pwa, offline, connection, cache]
+title: "PWA и потеря соединения"
+description: "Кеш офлайн-страницы в service worker и предупреждение о недоступности BFF в открытом приложении."
+tags: [pwa, service-worker, offline, connection]
 verified:
   - by: openwiki/0.7.2
-    at: 2026-11-02T21:50:56.050Z
+    at: 2026-11-20T16:46:35.226Z
 sources:
   - id: openwiki-source-f9ef5639537da6fed9ffbf89
     resource: repo://apps/bff/src/app.ts
@@ -13,43 +13,41 @@ sources:
     resource: repo://apps/bff/src/public.ts
   - id: openwiki-source-b078c46af746a6b2d1e173d3
     resource: repo://apps/client/src/api/trpc.ts
-  - id: openwiki-source-60278d1b2092265a52c54f9e
-    resource: repo://apps/client/src/components/OfflineBanner/OfflineBanner.tsx
+  - id: openwiki-source-9835042e798f44f53d3a543b
+    resource: repo://apps/client/src/components/Snackbar/Snackbar.tsx
   - id: openwiki-source-03b8d984a7c354ece6e0a3be
     resource: repo://apps/client/src/layouts/RootLayout.tsx
-  - id: openwiki-source-09f8e9b6681692c71bd5a800
-    resource: repo://apps/client/src/serviceWorker.ts
+  - id: openwiki-source-bf47c30b7933f3e39a4ad225
+    resource: repo://apps/client/src/main.tsx
   - id: openwiki-source-685a23fe7d7e5be9fde9e9fa
     resource: repo://apps/client/src/stores/connection.ts
-  - id: openwiki-source-1a24bbcbef761adbf3654cda
-    resource: repo://apps/client/vite/plugins.ts
-  - id: openwiki-source-e930a7680374d071dc2088af
-    resource: repo://scripts/dev/pwa.ts
-generated: { by: "codex", at: "2026-11-02T21:50:56.050Z" }
+  - id: openwiki-source-b73fdb809a71fd814f05f6cd
+    resource: repo://apps/client/sw/sw.ts
+  - id: openwiki-source-5b54a58d1b51cd490b0e7162
+    resource: repo://package.json
+  - id: openwiki-source-8ed39f8987052529a3fb597d
+    resource: repo://scripts/dev/preview.ts
+generated: { by: "codex", at: "2026-11-20T16:46:35.226Z" }
 ---
 
 # PWA и потеря соединения
 
-На исходном SHA `d6bdf92f45c039c28dd82c69b1402485b995c222` есть два независимых механизма: fallback для навигации браузера и предупреждение поверх уже открытой SPA. Наличие этой конфигурации не подтверждает установку приложения или состояние стенда.
+## Открытие страницы без сети
 
-## Что происходит при открытии страницы
+Vite собирает отдельную точку входа `sw/sw.ts` как `/sw.js`. Клиент регистрирует её с областью `/` вне dev, если браузер поддерживает service worker. Ошибка регистрации остаётся в консоли. Статический манифест подключён из HTML приложения. [vite.config.prod.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/vite.config.prod.ts#L18-L37), [main.tsx](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/main.tsx#L40-L47), [index.html](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/index.html#L5-L12).
 
-`vitepwaPlugin` собирает манифест и единый `sw.js`. Для навигации задан `NetworkOnly`: при отказе сети Workbox возвращает `/offline.html` из precache. В precache входят только `offline.html` и `offline.css`. Пользовательский HTML, RPC, JS и CSS SPA туда не включены; навигационного fallback на `index.html` нет. Офлайн-страница сообщает, что блокноты и личные данные недоступны, и повторяет исходный адрес ссылкой без скриптов. [Политика кеша](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite/plugins.ts#L36-L63), [страница](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/public/offline.html#L1-L16).
+При установке SW сохраняет `offline.html`, `offline.css` и `onest-variable.woff2`, затем вызывает `skipWaiting`. При активации удаляет прежние версии своего кеша и принимает управление текущими клиентами через `clients.claim`. После изменения любого из трёх файлов версия кеша меняется в `sw.ts`. [apps/client/sw/sw.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/sw/sw.ts#L3-L35).
 
-Манифест, SW, иконки и офлайн-файлы BFF отдаёт с origin приложения через `PUBLIC_FILES`, до HTML handler и чтения сессии. `loadPublicFiles` останавливает запуск, если обязательного файла нет; Dockerfile копирует тот же список. Манифест задаёт `start_url` и `scope` `/`, режим `standalone` и обычные и maskable иконки. [Список и загрузка](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/public.ts#L3-L45), [порядок маршрутов](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/app.ts#L39-L55), [упаковка](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/Dockerfile#L8-L12), [манифест](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite/plugins.ts#L64-L84).
+Для GET-навигации и трёх офлайн-файлов SW сначала обращается к сети. Если `fetch` отклонён, навигация получает кешированную офлайн-страницу, а запрос к офлайн-файлу получает соответствующий файл. Возвращённый HTTP-ответ, включая ошибку, проходит к браузеру. HTML пользователя, RPC и ассеты SPA отсутствуют в офлайн-кеше. [apps/client/sw/sw.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/sw/sw.ts#L37-L52).
 
-`main.tsx` вызывает `registerServiceWorker`. Регистрация немедленная, ошибка только логируется. `skipWaiting` и `clientsClaim` включены, `onNeedReload` не перезагружает вкладку: обновление SW не должно уничтожать введённые данные. В обычном dev SW не регистрируется. [Регистратор](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/serviceWorker.ts#L1-L15), [подключение](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/main.tsx#L38-L41).
+BFF выдаёт SW, манифест, иконки и офлайн-файлы с origin приложения до обработки HTML. Отсутствие файла из `PUBLIC_FILES` прерывает загрузку этого набора. Список копируемых файлов задаёт Dockerfile. [public.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/public.ts#L3-L18), [загрузка](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/public.ts#L34-L47), [app.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/app.ts#L46-L57), [Dockerfile](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/Dockerfile#L8-L13).
 
-## Открытая SPA при потере связи
+## Потеря связи в открытой SPA
 
-Единственный клиент tRPC использует `fetchTracked`. Он читает копию тела ответа целиком и только затем подтверждает доступность BFF. Отказ fetch и обрыв тела устанавливают `lost: true` и пробрасывают ошибку; полностью полученный 503 или невалидный JSON подтверждает соединение, но не успех RPC. Это отделяет сетевой сбой от ошибки процедуры. [Транспорт](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/api/trpc.ts#L113-L123), [отслеживание](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/stores/connection.ts#L22-L43).
+Транспорт tRPC использует `fetchTracked`. Полностью прочитанное тело HTTP-ответа подтверждает доступность BFF даже при статусе ошибки. Отклонение `fetch` или обрыв тела устанавливает `lost` и пробрасывает исключение. Событие `offline` поднимает предупреждение, а `online` запускает проверку через `/robots.txt` с `cache: 'no-store'`. Первый полный ответ после сбоя снимает предупреждение и показывает тост восстановления. Корневой макет оставляет текущий маршрут смонтированным и показывает сообщение о сети в `Snackbar`. [trpc.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/api/trpc.ts#L145-L155), [connection.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/stores/connection.ts#L9-L48), [RootLayout.tsx](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/layouts/RootLayout.tsx#L8-L23), [Snackbar.tsx](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/components/Snackbar/Snackbar.tsx#L27-L41).
 
-Начальное состояние учитывает `navigator.onLine`. Событие `offline` поднимает предупреждение; `online` лишь запускает запрос `/robots.txt` с `cache: 'no-store'`. Первый полный ответ после потери связи снимает предупреждение и показывает один тост восстановления. `OfflineBanner` находится в корневом макете рядом с `<main>`, поэтому текущий экран остаётся смонтированным. [Переходы состояния](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/stores/connection.ts#L9-L51), [баннер](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/components/OfflineBanner/OfflineBanner.tsx#L4-L16), [макет](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/layouts/RootLayout.tsx#L13-L26).
+## Локальная проверка
 
-Сетевой сбой сам по себе не завершает [сессию](session.md). Обычный путь выдачи HTML и bootstrap описан в [маршрутах](../architecture/request-flow.md).
+`bun run preview` собирает production-клиент с локальным base и запускает BFF с локальными `assets/` и публичными файлами. Для проверки изменений сборку запускают повторно. Настройки origin и порта находятся в сценарии preview. [scripts/dev/preview.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/scripts/dev/preview.ts#L1-L30).
 
-## Где проверять и расширять
-
-`bun run dev:pwa` собирает клиент без CDN base и запускает BFF с публичными файлами и локальными `assets/`. HMR в этом режиме нет; после правки клиента команду запускают заново. Настройки порта и origin находятся в `scripts/dev/pwa.ts`. [Сценарий запуска](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/scripts/dev/pwa.ts#L1-L30).
-
-Тесты соединения покрывают отказ fetch, HTTP-ошибку, обрыв тела, невалидный JSON и единственный тост восстановления. BFF-тесты проверяют выдачу offline HTML/CSS без Go, а `public.test.ts` — согласованность списка с упаковкой и ограничение локальных ассетов каталогом `assets/`. Это проверки кода, а не браузерная проверка установленной PWA. [Соединение](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/connection.test.ts#L18-L68), [offline HTTP](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/test/bff.test.ts#L466-L485), [упаковка](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/test/public.test.ts#L7-L32). Другие команды — в [разработке](../operations/development.md).
+См. также [первый HTML](../architecture/request-flow.md), [сессию](session.md), [сохранение блокнота](../workflows/notebook.md) и [режимы разработки](../operations/development.md).

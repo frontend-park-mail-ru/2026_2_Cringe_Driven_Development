@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from '@cdd-team/hono';
 
 import type { ApiError } from './errors.ts';
 
@@ -14,7 +14,7 @@ export const accessLog: MiddlewareHandler = async (c, next) => {
     console.log(
         JSON.stringify({
             time: new Date().toISOString(),
-            /** HEAD приходит в Hono как GET (bff.ts), исходный метод — в env. */
+            /** HEAD приходит в приложение как GET (bff.ts), исходный метод — в env. */
             method: (c.env as { method?: string } | undefined)?.method ?? c.req.method,
             path: c.req.path,
             status: c.res.status,

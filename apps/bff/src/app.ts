@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono } from '@cdd-team/hono';
 
 import { errorBody, ApiError } from './errors.ts';
 import { serveRoute } from './http.ts';
@@ -24,8 +24,8 @@ const notFound = (): Response =>
     new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
 
 /**
- * Приложение Hono. Порядок маршрутов: `/health`, HTTP API по таблице маршрутов, остальные `/api` и
- * `/api/*` (JSON 404, в Go не уходят; так же неверный метод известного пути и `/api/trpc`),
+ * Приложение `@cdd-team/hono`. Порядок маршрутов: `/health`, HTTP API по таблице маршрутов,
+ * остальные `/api` и `/api/*` (JSON 404, в Go не уходят; так же неверный метод известного пути),
  * `/robots.txt` (без сессии и Go, при любом `Accept`), публичные файлы, HTML для GET/HEAD
  * с `Accept: text/html` (на неизвестный адрес — со статусом 404), остальное — 404. HEAD сюда
  * приходит как GET (`bff.ts`), тело отбрасывает Bun.
@@ -37,7 +37,10 @@ export function createApp(deps: AppDeps): Hono {
 
     app.get('/health', (c) => c.text('ok'));
 
-    for (const r of routes) app.on(r.method, r.path, (c) => serveRoute(r, c.req.raw));
+    for (const r of routes) {
+        if (r.method === 'GET') app.get(r.path, (c) => serveRoute(r, c.req.raw));
+        else app.post(r.path, (c) => serveRoute(r, c.req.raw));
+    }
     app.all('/api', apiNotFound);
     app.all('/api/*', apiNotFound);
 
@@ -50,7 +53,7 @@ export function createApp(deps: AppDeps): Hono {
     );
 
     for (const [name, file] of deps.publicFiles) {
-        /** Заголовки явно: HEAD Hono собирает из ответа GET, и тип и размер BunFile теряются */
+        /** Заголовки явно: у HEAD нет тела, и тип и размер BunFile без них теряются */
         const headers = { 'Content-Type': file.type, 'Content-Length': String(file.size) };
         app.get(`/${name}`, () => new Response(file, { headers }));
     }

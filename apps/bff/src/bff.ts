@@ -3,9 +3,8 @@ import { createHtmlHandler } from './html.ts';
 
 /**
  * Обработчик запросов BFF целиком: HTTP API, HTML, публичные файлы. Его отдаёт `Bun.serve`.
- * HEAD обслуживается как GET: тело отбрасывает Bun, `Content-Length` сохраняется (Hono превращал
- * бы HEAD в ответ с `Content-Length: 0`); исходный метод — в env Hono, для access-лога. HEAD
- * POST-маршрута API — 404: у него нет GET.
+ * HEAD обслуживается как GET: тело отбрасывает Bun, `Content-Length` сохраняется; исходный метод —
+ * в env приложения, для access-лога. HEAD POST-маршрута API — 404: у него нет GET.
  * @param template проверенный HTML-шаблон клиента
  * @param publicFiles публичные файлы по имени
  * @returns функция `fetch` для `Bun.serve`
