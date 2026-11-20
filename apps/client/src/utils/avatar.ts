@@ -1,6 +1,7 @@
+import { AVATAR_MAX_BYTES } from '@cdd/schemas/validate';
+
 /** Типы файла аватара; эти ограничения и размеры ниже — по контракту Go `PUT /users/me/avatar`. */
 const AVATAR_TYPES = ['image/jpeg', 'image/png'];
-const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const SIDE_MIN = 64;
 const SIDE_MAX = 4096;
 

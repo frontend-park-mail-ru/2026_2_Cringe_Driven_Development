@@ -3,7 +3,8 @@ import { fetchTracked } from '@stores/connection';
 
 /**
  * Транспорт общего клиента к BFF своего origin: `X-CSRF: 1`, cookie сессии
- * (`credentials: 'same-origin'`) и учёт соединения через `fetchTracked`. Ответ не разбирает.
+ * (`credentials: 'same-origin'`) и учёт соединения через `fetchTracked`; `signal` из `init`
+ * отменяет fetch. Ответ не разбирает.
  * @param path путь BFF с query
  * @param init запрос от общего клиента
  * @returns ответ BFF как есть

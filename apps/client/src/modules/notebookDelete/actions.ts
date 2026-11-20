@@ -1,4 +1,4 @@
-import { isRpcError, trpc } from '@api/trpc';
+import { isBffError, api } from '@api/bff';
 import { flush, forgetNotebook, useNotebookStore } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import { closeRuntime, sessionActive, useRuntimeStore, type RuntimeSession } from '@stores/runtime';
@@ -25,12 +25,11 @@ export async function readSession(
             : null;
     try {
         const [active, updated] = await Promise.all([
-            trpc.runtime.active.query(),
+            api('GET', '/api/runtime/active'),
             own &&
-                trpc.runtime.updates.query({
-                    sessionId: own.id,
-                    after: own.public_seq,
-                    executionIds: [],
+                api('POST', '/api/runtime/updates', {
+                    contentType: 'application/json',
+                    body: { sessionId: own.id, after: own.public_seq, executionIds: [] },
                 }),
         ]);
         return active?.notebook_id === notebookId ? active : (updated?.session ?? null);
@@ -54,14 +53,17 @@ export async function deleteNotebook(notebookId: number): Promise<DeleteResult> 
     // итог сохранения не важен: при удалении правки пропадут, при отказе останутся в сторе
     if (useNotebookStore.getState().notebookId === notebookId) await flush();
     try {
-        await trpc.notebooks.delete.mutate({ id: notebookId });
+        await api('POST', '/api/notebooks/delete', {
+            contentType: 'application/json',
+            body: { id: notebookId },
+        });
     } catch (error) {
-        if (!isRpcError(error)) return 'failed';
-        if (error.data?.code === 'NOT_FOUND') {
+        if (!isBffError(error)) return 'failed';
+        if (error.code === 'NOT_FOUND') {
             forget(notebookId);
             return 'notFound';
         }
-        return error.data?.appCode === 'notebook_in_use' ? 'inUse' : 'failed';
+        return error.appCode === 'notebook_in_use' ? 'inUse' : 'failed';
     }
     forget(notebookId);
     return 'deleted';

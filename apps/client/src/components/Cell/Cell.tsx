@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type ReactNode } from '@cdd-team/react';
-import type { Cell as CellData } from '@api/trpc';
+import type { Cell as CellData } from '@api/bff';
 import { Icon } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
 import { Markdown } from '@modules/markdown/Markdown';

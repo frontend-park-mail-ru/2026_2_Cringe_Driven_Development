@@ -95,7 +95,7 @@ export async function releaseCheck(sha: string): Promise<void> {
  * BFF, S2S и обработчик входа. Такой логин не создаёт ни пользователя, ни сессии.
  */
 async function checkGo(site: string): Promise<void> {
-    const url = `${site}/api/trpc/auth.login`;
+    const url = `${site}/api/auth/login`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF': '1', Origin: site },
@@ -106,9 +106,9 @@ async function checkGo(site: string): Promise<void> {
         signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => undefined)) as
-        | { error?: { data?: { code?: string; appCode?: string } } }
+        | { error?: { code?: string; appCode?: string } }
         | undefined;
-    const { code, appCode } = body?.error?.data ?? {};
+    const { code, appCode } = body?.error ?? {};
     if (res.status !== 400 || code !== 'BAD_REQUEST' || appCode !== 'invalid_credentials') {
         throw new Error(
             `${url}: ${res.status} ${code ?? ''} ${appCode ?? ''}, нужен отказ Go invalid_credentials`,
@@ -137,17 +137,15 @@ async function healthOnce(sha: string): Promise<string> {
         throw new Error(`${site}/login: release='${releaseOf(html) ?? ''}', ждём '${sha}'`);
     }
     const assets = await checkAssets(html, base, `${site}/login`);
-    const rpc = await fetch(`${site}/api/trpc/users.me`, {
+    const me = await fetch(`${site}/api/users/me`, {
         headers: { 'X-CSRF': '1' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    const body = (await rpc.json().catch(() => undefined)) as
-        | { error?: { data?: { code?: string } } }
+    const body = (await me.json().catch(() => undefined)) as
+        | { error?: { code?: string } }
         | undefined;
-    if (rpc.status !== 401 || body?.error?.data?.code !== 'UNAUTHORIZED') {
-        throw new Error(
-            `${site}/api/trpc/users.me без сессии: ${rpc.status}, нужен tRPC UNAUTHORIZED`,
-        );
+    if (me.status !== 401 || body?.error?.code !== 'UNAUTHORIZED') {
+        throw new Error(`${site}/api/users/me без сессии: ${me.status}, нужен UNAUTHORIZED`);
     }
     const unknown = await fetch(`${site}/api/unknown`, {
         headers: { Accept: 'text/html' },
@@ -166,7 +164,7 @@ async function healthOnce(sha: string): Promise<string> {
 
 /**
  * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, его JS и CSS с CDN,
- * tRPC UNAUTHORIZED без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
+ * UNAUTHORIZED API без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
  * вход со случайными данными. Выполняется после переключения; образ, healthy и внутренний
  * `/health` проверяет Ansible (`deploy-bff.yml`).
  */

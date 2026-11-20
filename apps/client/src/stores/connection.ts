@@ -20,6 +20,14 @@ const confirmConnection = (): void => {
 };
 
 /**
+ * Запрос отменён через `AbortSignal`: это не потеря соединения.
+ * @param error пойманная ошибка
+ */
+export function isAbort(error: unknown): boolean {
+    return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/**
  * `fetch`, который следит за соединением: любой полученный целиком HTTP-ответ, в том числе ошибка,
  * означает, что BFF доступен, а отказ запроса или обрыв тела — что ответа получить не удалось.
  */
@@ -34,7 +42,8 @@ export async function fetchTracked(
         confirmConnection();
         return response;
     } catch (error) {
-        setLost(true);
+        // отмена запроса — не потеря соединения
+        if (!isAbort(error)) setLost(true);
         throw error;
     }
 }

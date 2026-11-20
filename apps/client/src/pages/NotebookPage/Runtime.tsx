@@ -5,7 +5,7 @@ import { Button } from '@components/Button/Button';
 import { Icon, type IconName } from '@components/Icon/Icon';
 import { Modal } from '@components/Modal/Modal';
 import { ClampedName } from '@modules/notebookDelete/ClampedName';
-import { trpc } from '@api/trpc';
+import { api } from '@api/bff';
 import {
     canExecute,
     interruptCell,
@@ -292,8 +292,7 @@ function StopOtherDialog({ notebookId, onClose }: { notebookId: number; onClose:
     const [name, setName] = useState<string | null>(null);
     useEffect(() => {
         let alive = true;
-        trpc.notebooks.get
-            .query({ id: notebookId })
+        api('GET', '/api/notebooks/get', { params: { query: { id: notebookId } } })
             .then((page) => alive && setName(page.notebook.name))
             .catch(() => undefined);
         return () => {

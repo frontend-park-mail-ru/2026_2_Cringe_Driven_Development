@@ -67,14 +67,14 @@ export default defineConfig(({ mode }) => {
                 host: '127.0.0.1',
                 port: 5173,
                 strictPort: true,
-                proxy: { '/api/trpc': bffUrl },
+                proxy: { '/api': bffUrl },
             },
             plugins: [
                 // локальный HTTPS: cookie сессии BFF — Secure; сертификат выпускает и доверяет
                 // mkcert
                 mkcert({ hosts: ['localhost', '127.0.0.1'] }),
                 // HTML страниц — от BFF (пользователь в bootstrap и Set-Cookie сессии, как на
-                // проде), Vite добавляет в него клиент HMR; /api/trpc из server.proxy плагин не
+                // проде), Vite добавляет в него клиент HMR; /api из server.proxy плагин не
                 // трогает
                 bffHtml(bffUrl),
             ],

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from '@cdd-team/react';
 
-import { trpc, type NotebookListPage, type NotebookSummary } from '@api/trpc';
+import { api, type NotebookListPage, type NotebookSummary } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Logo } from '@components/Logo/Logo';
@@ -37,7 +37,9 @@ type ListState =
  */
 async function loadPage(cursor?: string): Promise<NotebookListPage | undefined> {
     try {
-        return await trpc.notebooks.list.query({ limit: PAGE_SIZE, cursor });
+        return await api('GET', '/api/notebooks/list', {
+            params: { query: { limit: PAGE_SIZE, cursor } },
+        });
     } catch {
         return undefined;
     }

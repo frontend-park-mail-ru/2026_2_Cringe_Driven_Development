@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
+import { isBffError, api, type Cell as CellData, type NotebookPageData } from '@api/bff';
 import LogoMark from '@assets/logo-mark.svg?react';
 import { Cell, CellSkeleton, cellEditorId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
@@ -68,9 +68,9 @@ const SKELETON_COUNT = 4;
 async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
     try {
-        return await trpc.notebooks.get.query({ id });
+        return await api('GET', '/api/notebooks/get', { params: { query: { id } } });
     } catch (error) {
-        const code = isRpcError(error) ? error.data?.code : undefined;
+        const code = isBffError(error) ? error.code : undefined;
         return code === 'NOT_FOUND' || code === 'BAD_REQUEST' ? 'missing' : undefined;
     }
 }

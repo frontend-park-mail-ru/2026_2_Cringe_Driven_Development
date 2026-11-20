@@ -1,11 +1,10 @@
 // Локальный запуск — `bun run dev` из корня (turbo watch запускает и клиент): BFF за Vite на
-// https://localhost:5173. Go — только явный GO_API_URL (корневой .env или окружение); примеры
-// контракта без Go — `bun run dev:prism`. Переменные из корневого .env важнее этих.
+// https://localhost:5173. Go — только явный GO_API_URL (корневой .env или окружение). Переменные из
+// корневого .env важнее этих.
 if (!process.env.GO_API_URL) {
     console.error(
         'GO_API_URL не задан: укажите адрес Go с префиксом API в корневом .env, например ' +
-            'GO_API_URL=http://127.0.0.1:8080/api/v1 (и BFF_KEY, если Go проверяет X-BFF-Key), ' +
-            'или запустите bun run dev:prism — вместо Go будет Prism по копии контракта.',
+            'GO_API_URL=http://127.0.0.1:8080/api/v1 (и BFF_KEY, если Go проверяет X-BFF-Key).',
     );
     process.exit(1);
 }

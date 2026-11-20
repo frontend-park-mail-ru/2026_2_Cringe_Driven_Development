@@ -1,7 +1,6 @@
 import { useEffect, useState } from '@cdd-team/react';
 
-import type { RouterOutputs } from '@cdd/bff';
-import { isRpcError, trpc } from '@api/trpc';
+import { api, isBffError, type Output } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { Input } from '@components/Input/Input';
@@ -14,7 +13,7 @@ import { validatePassword } from '@utils/credentials';
 import { useNarrow } from '@utils/media';
 import styles from './ProfilePage.module.css';
 
-type Setup = RouterOutputs['twoFactor']['setup'];
+type Setup = Output<'/api/two-factor/setup'>;
 type Step = 'qr' | 'manual' | 'code';
 type Copy = 'idle' | 'copied' | 'failed';
 
@@ -25,7 +24,7 @@ const KEY_ID = 'two-factor-key';
 const INVALID_CODE = 'Неверный код. Попробуйте ещё раз';
 
 const appCodeOf = (error: unknown): string | undefined =>
-    isRpcError(error) ? error.data?.appCode : undefined;
+    isBffError(error) ? error.appCode : undefined;
 
 const setHas2fa = (has_2fa: boolean): void =>
     useSessionStore.setState((state) => ({ user: state.user && { ...state.user, has_2fa } }));
@@ -57,7 +56,7 @@ export function TwoFactorSection() {
         setPending(true);
         hideSnackbar(snackbarId);
         try {
-            const data = await trpc.twoFactor.setup.mutate();
+            const data = await api('POST', '/api/two-factor/setup');
             if (life.alive) setSetup(data);
         } catch (error) {
             if (!life.alive) return;
@@ -160,7 +159,10 @@ function EnableModal({ setup, onClose }: EnableModalProps) {
         setError(undefined);
         hideSnackbar();
         try {
-            await trpc.twoFactor.confirm.mutate({ user_code: value });
+            await api('POST', '/api/two-factor/confirm', {
+                contentType: 'application/json',
+                body: { user_code: value },
+            });
             setHas2fa(true);
             showToast('2FA подключена');
             onClose();
@@ -383,7 +385,10 @@ function DisableModal({ onClose }: DisableModalProps) {
         setError(undefined);
         hideSnackbar();
         try {
-            await trpc.twoFactor.disable.mutate({ password });
+            await api('POST', '/api/two-factor/disable', {
+                contentType: 'application/json',
+                body: { password },
+            });
             setHas2fa(false);
             showToast('2FA отключена');
             onClose();
@@ -395,7 +400,7 @@ function DisableModal({ onClose }: DisableModalProps) {
                 fieldError('Неверный пароль');
             } else if (
                 code === 'validation_error' ||
-                (isRpcError(failure) && failure.data?.code === 'BAD_REQUEST')
+                (isBffError(failure) && failure.code === 'BAD_REQUEST')
             ) {
                 // отказ проверки запроса (BFF или Go) не подтверждает, что 2FA уже отключена
                 fieldError('Запрос не прошёл проверку. Проверьте пароль и попробуйте ещё раз');

@@ -49,7 +49,7 @@ export type RequestOptions<O> = ParamsOption<O> &
     BodyOption<O> & { init?: Omit<RequestInit, 'method' | 'body'> };
 
 /** Аргумент `options` можно опустить, если в нём нет обязательных полей. */
-type OptionsArg<O> =
+export type OptionsArg<O> =
     {} extends RequestOptions<O> ? [options?: RequestOptions<O>] : [options: RequestOptions<O>];
 
 /** Операция метода `M` пути `Path` из карты `P` (для ответа: `Partial` в `Paths` допускает undefined). */

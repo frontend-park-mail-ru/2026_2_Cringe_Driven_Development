@@ -1,4 +1,4 @@
-import type { NotebookSummary } from '@api/trpc';
+import type { NotebookSummary } from '@api/bff';
 import { clsx } from '@cdd-team/clsx';
 import { Link } from '@cdd-team/router';
 import { Icon } from '@components/Icon/Icon';
