@@ -7,6 +7,7 @@ export interface S3Request {
     url: URL;
     headers: Headers;
     body: Uint8Array;
+    signal: AbortSignal | null | undefined;
 }
 
 const xml = (value: string) =>
@@ -64,6 +65,7 @@ export function fakeS3(pageSize = 1000) {
             url,
             headers: new Headers(init?.headers),
             body: new Uint8Array(await new Response(init?.body ?? null).arrayBuffer()),
+            signal: init?.signal,
         };
         s3.requests.push(req);
         const replaced = s3.override?.(req);

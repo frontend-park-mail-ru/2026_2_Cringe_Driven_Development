@@ -103,7 +103,8 @@ class S3Error extends ReleaseError {
 }
 
 /**
- * Подписанный запрос к объекту бакета (path-style). Не 2xx — {@link S3Error} с операцией, `what`
+ * Подписанный запрос к объекту бакета (path-style); возвращает байты тела ответа. Не 2xx, обрыв
+ * или таймаут — {@link S3Error} с операцией, `what`
  * и кодом ответа.
  */
 async function send(
@@ -115,7 +116,7 @@ async function send(
     query: [string, string][] = [],
     body: Uint8Array = new Uint8Array(),
     extra: Record<string, string> = {},
-): Promise<Response> {
+): Promise<Uint8Array> {
     const base = new URL(bucket.endpoint);
     const path = `${base.pathname.replace(/\/+$/, '')}/${encode(bucket.name)}/${key.split('/').map(encode).join('/')}`;
     const payloadHash = sha256(body);
@@ -136,6 +137,7 @@ async function send(
     });
     const search = canonicalQuery(query);
     let res: Response;
+    let bytes: Uint8Array;
     try {
         res = await fetch(`${base.origin}${path}${search ? `?${search}` : ''}`, {
             method,
@@ -143,11 +145,13 @@ async function send(
             body: method === 'PUT' ? body : undefined,
             signal: AbortSignal.timeout(TIMEOUT),
         });
+        // тело — внутри try: обрыв или таймаут при чтении тоже называют операцию и ключ
+        bytes = new Uint8Array(await res.arrayBuffer());
     } catch (err) {
         throw new S3Error(`${op} ${what}: ${(err as Error).name} ${(err as Error).message}`, '');
     }
-    if (res.ok) return res;
-    const code = /<Code>([^<]*)<\/Code>/.exec(await res.text())?.[1] ?? '';
+    if (res.ok) return bytes;
+    const code = /<Code>([^<]*)<\/Code>/.exec(new TextDecoder().decode(bytes))?.[1] ?? '';
     throw new S3Error(`${op} ${what}: ${res.status} ${code}`.trimEnd(), code);
 }
 
@@ -172,8 +176,7 @@ export async function putObject(
  */
 export async function readObject(bucket: Bucket, key: string): Promise<Uint8Array | undefined> {
     try {
-        const res = await send(bucket, 'GetObject', key, 'GET', key);
-        return new Uint8Array(await res.arrayBuffer());
+        return await send(bucket, 'GetObject', key, 'GET', key);
     } catch (err) {
         if (err instanceof S3Error && err.code === 'NoSuchKey') return undefined;
         throw err;
@@ -212,7 +215,9 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
             ['prefix', prefix],
         ];
         if (token) query.push(['continuation-token', token]);
-        const page = await (await send(bucket, 'ListObjectsV2', prefix, 'GET', '', query)).text();
+        const page = new TextDecoder().decode(
+            await send(bucket, 'ListObjectsV2', prefix, 'GET', '', query),
+        );
         if (!/<ListBucketResult[\s>]/.test(page)) throw bad('нет ListBucketResult');
         const truncated = tag(page, 'IsTruncated');
         if (truncated !== 'true' && truncated !== 'false') throw bad('нет IsTruncated');

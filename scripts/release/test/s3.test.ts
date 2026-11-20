@@ -184,3 +184,16 @@ test('deleteObject throws on S3 error', async () => {
         'DeleteObject k: 403 AccessDenied',
     );
 });
+
+test('response body failure names operation and key; requests carry a timeout signal', async () => {
+    s3.override = () =>
+        new Response(
+            new ReadableStream({
+                pull: (controller) => controller.error(new Error('ECONNRESET')),
+            }),
+        );
+    await expect(readObject(openBucket(), 'releases/x')).rejects.toThrow(
+        'GetObject releases/x: Error ECONNRESET',
+    );
+    expect(s3.requests[0]!.signal).toBeInstanceOf(AbortSignal);
+});
