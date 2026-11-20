@@ -1,6 +1,8 @@
 // Ручные проверки входов BFF без zod: ограничения, strip/strict и пути ошибок прежних схем.
 // Пределы — из контракта Go (spec/openapi.json), как в прежних схемах zod.ts.
 
+import type { RuntimeSession } from './types.ts';
+
 /** Проблема входа: путь до поля и сообщение. */
 export type Issue = { path: (string | number)[]; message: string };
 
@@ -145,6 +147,24 @@ const optional =
     <T, W>(check: Check<T, W>): Check<T | undefined, W | undefined> =>
     (value, path, issues) =>
         value === undefined ? undefined : check(value, path, issues);
+
+/**
+ * Значение или `null`.
+ * @param check проверка значения, кроме `null`
+ */
+const nullable =
+    <T, W>(check: Check<T, W>): Check<T | null, W | null> =>
+    (value, path, issues) =>
+        value === null ? null : check(value, path, issues);
+
+/**
+ * Логическое значение.
+ * @param value проверяемое значение
+ * @param path путь до поля
+ * @param issues накопитель проблем
+ */
+const boolean: Check<boolean> = (value, path, issues) =>
+    typeof value === 'boolean' ? value : fail(issues, path, 'Ожидалось true или false');
 
 /**
  * Значение с умолчанием: вместо `undefined` — `fallback`; клиент поле может не передавать.
@@ -418,4 +438,46 @@ const file =
  */
 export const avatarInput = validator(
     object({ avatar: file({ min: 1, max: AVATAR_MAX_BYTES }) }, 'strict'),
+);
+
+/**
+ * Runtime-сессия блокнота, как её отдаёт BFF (`activeRuntimeSession` в ошибке
+ * `409 active_session_exists`): все поля `RuntimeSession` по контракту Go, лишние отбрасываются.
+ * Тип `Validator<RuntimeSession>` заставляет компилятор сверить проверку с DTO.
+ */
+export const runtimeSessionValue: Validator<RuntimeSession> = validator(
+    object({
+        id: sessionId,
+        notebook_id: notebookId,
+        language: oneOf(['python']),
+        state: oneOf([
+            'PROVISIONING',
+            'STARTING',
+            'READY',
+            'RECONNECTING',
+            'STOPPING',
+            'STOPPED',
+            'FAILED',
+        ]),
+        stage: oneOf([
+            'queued',
+            'creating_vps',
+            'configuring_agent',
+            'verifying_agent',
+            'ready',
+            'reconnecting',
+            'stopping',
+            'deleting_environment',
+            'cleanup_pending',
+            'stopped',
+            'failed',
+        ]),
+        reason: nullable(string()),
+        generation: nullable(string({ pattern: UUID })),
+        created_at: string(),
+        last_activity_at: string(),
+        public_seq: int({ min: 0 }),
+        journal_incomplete: boolean,
+        cleanup_error: nullable(string()),
+    }),
 );

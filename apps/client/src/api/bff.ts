@@ -1,6 +1,7 @@
 import type { ApiErrorBody, BffPaths, ErrorCode, ValidationErrors } from '@cdd/bff';
 import { createClient, type HttpMethod, type OptionsArg } from '@cdd-team/http-client';
 import type { RuntimeSession } from '@cdd/schemas/types';
+import { runtimeSessionValue } from '@cdd/schemas/validate';
 import { isAbort } from '@stores/connection';
 import { browserTransport } from './transport';
 
@@ -53,7 +54,7 @@ export class BffError extends Error {
     readonly code?: ErrorCode;
     readonly appCode?: string;
     readonly validationErrors?: ValidationErrors;
-    readonly activeSession?: RuntimeSession;
+    readonly activeRuntimeSession?: RuntimeSession;
 
     /**
      * @param kind вид сбоя
@@ -72,7 +73,7 @@ export class BffError extends Error {
         this.code = details.code;
         this.appCode = details.appCode;
         this.validationErrors = details.validationErrors;
-        this.activeSession = details.activeSession;
+        this.activeRuntimeSession = details.activeRuntimeSession;
     }
 }
 
@@ -131,22 +132,20 @@ const isValidationErrors = (value: unknown): value is ValidationErrors =>
 
 /**
  * Тело ошибки по протоколу: известный `code`, строковые `message` и `appCode`, ошибки полей
- * и занятая сессия нужной формы. Иначе ответ — `protocol`, а не данные для интерфейса.
+ * и занятая runtime-сессия целиком по форме `RuntimeSession`. Иначе ответ — `protocol`, а не данные
+ * для интерфейса.
  * @param data разобранное тело ответа
  */
 const isErrorBody = (data: unknown): data is ApiErrorBody => {
     if (!isObject(data) || !isObject(data.error)) return false;
-    const { code, message, appCode, validationErrors, activeSession } = data.error;
+    const { code, message, appCode, validationErrors, activeRuntimeSession } = data.error;
     return (
         typeof code === 'string' &&
         Object.hasOwn(ERROR_CODES, code) &&
         typeof message === 'string' &&
         (appCode === undefined || typeof appCode === 'string') &&
         (validationErrors === undefined || isValidationErrors(validationErrors)) &&
-        (activeSession === undefined ||
-            (isObject(activeSession) &&
-                typeof activeSession.id === 'string' &&
-                typeof activeSession.notebook_id === 'number'))
+        (activeRuntimeSession === undefined || runtimeSessionValue(activeRuntimeSession).success)
     );
 };
 

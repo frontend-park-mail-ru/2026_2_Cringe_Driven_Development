@@ -524,7 +524,7 @@ export async function startRuntime(): Promise<void> {
         set({ busy: null });
         if (uncertain(error)) return fail('network');
         startRequest = undefined;
-        const current = isBffError(error) ? error.activeSession : undefined;
+        const current = isBffError(error) ? error.activeRuntimeSession : undefined;
         // состояние могло измениться после первоначальной загрузки: показываем занятую сессию
         if (current) return observe(current);
         set({ startFailed: true });

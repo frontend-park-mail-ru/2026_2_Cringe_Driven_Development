@@ -36,7 +36,7 @@ export type ApiErrorBody = {
         appCode?: string;
         validationErrors?: ValidationErrors;
         /** Занятая сессия из `409 active_session_exists` */
-        activeSession?: RuntimeSession;
+        activeRuntimeSession?: RuntimeSession;
     };
 };
 
@@ -44,7 +44,7 @@ export type ApiErrorBody = {
 export class ApiError extends Error {
     readonly status: ErrorStatus;
     readonly appCode?: string;
-    readonly activeSession?: RuntimeSession;
+    readonly activeRuntimeSession?: RuntimeSession;
     readonly issues?: Issue[];
 
     /**
@@ -57,7 +57,7 @@ export class ApiError extends Error {
         message: string,
         details: {
             appCode?: string;
-            activeSession?: RuntimeSession;
+            activeRuntimeSession?: RuntimeSession;
             issues?: Issue[];
             cause?: unknown;
         } = {},
@@ -66,7 +66,7 @@ export class ApiError extends Error {
         this.name = 'ApiError';
         this.status = status;
         this.appCode = details.appCode;
-        this.activeSession = details.activeSession;
+        this.activeRuntimeSession = details.activeRuntimeSession;
         this.issues = details.issues;
     }
 
@@ -101,7 +101,10 @@ const fromGo = (err: GoError): ApiError => {
                 ? err.status
                 : undefined;
     return status
-        ? new ApiError(status, err.message, { appCode: err.code, activeSession: err.activeSession })
+        ? new ApiError(status, err.message, {
+              appCode: err.code,
+              activeRuntimeSession: err.activeSession,
+          })
         : new ApiError(502, 'Go недоступен или ответил с ошибкой', {
               appCode: err.code,
               cause: err,
@@ -146,7 +149,7 @@ export function errorBody(error: ApiError): ApiErrorBody {
             message: error.message,
             appCode: error.appCode,
             validationErrors: error.issues && flatten(error.issues),
-            activeSession: error.activeSession,
+            activeRuntimeSession: error.activeRuntimeSession,
         },
     };
 }
