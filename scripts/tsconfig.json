@@ -18,5 +18,5 @@
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true
     },
-    "include": ["release", "openapi", "hooks", "dev", "openwiki-*.ts"]
+    "include": ["release", "openapi", "hooks", "dev"]
 }

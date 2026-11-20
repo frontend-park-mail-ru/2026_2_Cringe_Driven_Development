@@ -22,7 +22,6 @@ Frontend проекта «Colab» (Cellestial) команды «Cringe Driven De
   - [CI и выкатка](docs/release.md)
   - [Статусы задач и восстановление после выкатки](docs/release.md#статусы-задач-и-восстановление)
   - [Архитектура проекта](https://docs.cellestial.ru/documentation/architecture/)
-  - [Wiki кода](openwiki/quickstart.md)
 - 🛠 Разработка
   - [Клиент](apps/client)
   - [BFF](apps/bff)
