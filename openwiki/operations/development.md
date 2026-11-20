@@ -1,13 +1,14 @@
 ---
 type: operations
-title: Разработка, сборка и проверки
-description: Команды монорепозитория, dev-связка Vite и BFF, конфигурация запуска, тестовые границы и артефакты сборки.
-tags: [development, testing, build, vite, bun]
+title: "Разработка, сборка и проверки"
+description: "Команды Bun и Turbo, настройка Vite и BFF, границы локальных проверок и CI Check."
+tags: [development, bun, vite, ci, testing]
+verified:
+  - by: openwiki/0.7.2
+    at: 2026-11-20T16:46:35.226Z
 sources:
   - id: openwiki-source-164e2da859b5277df81c7d94
     resource: repo://.github/workflows/ci.yml
-  - id: openwiki-source-6cc5e0fbf176f199e8324f4d
-    resource: repo://apps/bff/bunfig.toml
   - id: openwiki-source-d912ecf3140dc3a8b821e706
     resource: repo://apps/bff/package.json
   - id: openwiki-source-910a4012648246d8f86752dd
@@ -16,14 +17,8 @@ sources:
     resource: repo://apps/bff/src/env.ts
   - id: openwiki-source-1a2d1d18ed01a2b88ddb7cd3
     resource: repo://apps/bff/src/index.ts
-  - id: openwiki-source-7cd80694ee035fce8b8e9b73
-    resource: repo://apps/bff/test/bff.test.ts
-  - id: openwiki-source-4d2c2665072104dafecdc82b
-    resource: repo://apps/client/test/connection.test.ts
-  - id: openwiki-source-6cfb53ae8b37ef7f9a48d846
-    resource: repo://apps/client/test/credentials.test.ts
-  - id: openwiki-source-6ad8af232827e763157fb593
-    resource: repo://apps/client/test/session.test.ts
+  - id: openwiki-source-3a2720e73343741beb2422cd
+    resource: repo://apps/client/src/api/mockPrefer.ts
   - id: openwiki-source-9015e7a0ae6d197733d3d6dc
     resource: repo://apps/client/vite.config.dev.ts
   - id: openwiki-source-8aea975fb646f0975aee1831
@@ -32,56 +27,45 @@ sources:
     resource: repo://apps/client/vite/shared.ts
   - id: openwiki-source-5b54a58d1b51cd490b0e7162
     resource: repo://package.json
-  - id: openwiki-source-e930a7680374d071dc2088af
-    resource: repo://scripts/dev/pwa.ts
-generated: { by: "codex", at: "2026-11-02T21:57:05.254Z" }
-verified:
-  - by: openwiki/0.7.2
-    at: 2026-11-02T21:57:05.254Z
+  - id: openwiki-source-8ed39f8987052529a3fb597d
+    resource: repo://scripts/dev/preview.ts
+  - id: openwiki-source-dbdde4eeae22f36f2a34532f
+    resource: repo://scripts/dev/prism.ts
+  - id: openwiki-source-440ae1e215cb02721dda855c
+    resource: repo://turbo.json
+generated: { by: "codex", at: "2026-11-20T16:46:35.226Z" }
 ---
 
 # Разработка, сборка и проверки
 
-Команды и поведение описаны по исходному SHA `d6bdf92f45c039c28dd82c69b1402485b995c222`. Наличие команды или зелёного CI не подтверждает её выполнение на проде.
-
 ## Запуск из корня
 
-Монорепозиторий использует Bun workspaces `apps/*`, `packages/*` и Turborepo. В `package.json` указаны Bun не ниже 1.4.0, Node не ниже 22.19.0 и package manager Bun 1.4.4; CI устанавливает 1.4.4. Node нужен инструментам Vite. [Манифест](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/package.json#L1-L47), [локальные требования](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/docs/local-development.md#L1-L12).
+Монорепозиторий использует Bun workspaces `apps/*`, `packages/*` и Turborepo. Манифест требует Bun 1.4.0 и Node 22.19.0 или новее и закрепляет Bun 1.4.4. После `bun install` команда `bun run dev` запускает `turbo watch dev` для клиента и BFF. [package.json](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/package.json#L1-L47), [turbo.json](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/turbo.json#L18-L33).
 
-```sh
-bun install
-bun run dev
-```
-
-`dev` запускает `turbo watch dev`: клиентский Vite и Bun BFF. Клиентская dev-конфигурация включает HTTPS через mkcert, прокси `/api/trpc` на BFF и `bffHtml(bffUrl)` для HTML. BFF dev-entrypoint задаёт локальные defaults и затем импортирует обычный `index.ts`. Значения адресов и ключей смотрят в конфигурации, не копируют из wiki. [Vite dev](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite.config.dev.ts#L57-L84), [BFF dev](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/dev.ts#L1-L11). В WSL отдельная команда `bun run dev:trust-windows` доверяет сертификат Windows; инструкция первого запуска — в `docs/local-development.md`.
-
-## Проверки по области изменения
-
-| Область | Команда из корня | Что проверяет |
+| Режим | Команда | Что запускается |
 | --- | --- | --- |
-| Формат, lint, типы | `bun run check` | oxfmt, oxlint и tsc, включая scripts |
-| Весь тестовый набор | `bun run test` | Пакетные тесты и scripts через Turbo |
-| Сессия браузера | `bun run --filter @cdd/client test` | tRPC-клиент с управляемым fetch |
-| HTML, CSRF, сессия BFF, Go-ошибки | `bun run --filter @cdd/bff test` | Обработчик BFF против fake Go |
-| Служебные скрипты | `bun run test:scripts` | Bun-тесты scripts, включая wiki-checker |
-| Сборка | `bun run build` | Сборки client и BFF |
+| Разработка | `bun run dev` | Vite с HMR и BFF с явно заданным `GO_API_URL` |
+| Примеры API | `bun run dev:prism` | Те же клиент и BFF с локальным Prism по закреплённой копии контракта |
+| Проверка сборки и PWA | `bun run preview` | Production-сборка клиента и BFF с локальными ассетами, без HMR |
+| Доверие сертификату из WSL | `bun run dev:trust-windows` | Установка доверия Windows к локальному CA mkcert |
 
-Команды заданы в [корневом манифесте](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/package.json#L9-L29). BFF-тесты используют preload окружения из `apps/bff/bunfig.toml`, поэтому пакетная команда сохраняет правильный контекст запуска. [BFF scripts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/package.json#L9-L18), [preload](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/bunfig.toml#L1-L3).
+Dev-конфигурация Vite включает HTTPS через mkcert, проксирует `/api/trpc` на BFF и получает HTML через `bffHtml`. BFF entrypoint для dev проверяет `GO_API_URL`, задаёт локальные значения по умолчанию для остальных настроек и импортирует обычный entrypoint. Скрипт Prism задаёт окружение обоих процессов, в том числе флаги для одноразового выбора статуса ответа через команду `mock` в консоли клиента. `preview` очищает параметры CDN для сборки и включает отдачу публичных файлов и `assets/` через BFF. [vite.config.dev.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/vite.config.dev.ts#L53-L84), [dev.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/dev.ts#L1-L19), [prism.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/scripts/dev/prism.ts#L13-L27), [mockPrefer.ts клиента](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/api/mockPrefer.ts#L1-L38), [preview.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/scripts/dev/preview.ts#L1-L30), [локальные команды](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/docs/local-development.md#L68-L81).
 
-Тесты BFF проходят через `createBff` и fake Go, проверяют HTML, CSRF и RPC; это не проверка реального Go или стенда. Клиентские тесты управляют `fetch`, чтобы воспроизводить перекрывающиеся смены сессии. Для изменения порядка авторизации особенно важны [сценарии клиента](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/session.test.ts#L1-L46) и [сценарии BFF](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/test/bff.test.ts#L1-L23). `mock:check` — отдельная команда интеграции с mock, не замена обычному test.
+## Конфигурация и выходы сборки
 
-## Конфигурация и сборка
+`env.ts` валидирует конфигурацию BFF и при ошибке выводит имена полей. BFF начинает принимать запросы после загрузки шаблона и публичных файлов. `SKIP_PUBLIC_FILES` отключает загрузку публичных файлов в обычном dev, а `SERVE_CLIENT_ASSETS` добавляет файлы из `assets/` в preview. Имена переменных и условия их применения приведены в конфигурации. [env.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/env.ts#L6-L50), [index.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/src/index.ts#L12-L29).
 
-BFF валидирует `SESSION_KEY`, `APP_ORIGIN`, `GO_API_URL`, порт и другие параметры при импорте `env.ts`. Неверная конфигурация завершает процесс и выводит только имена переменных. Перед `Bun.serve` entrypoint загружает и проверяет HTML-шаблон и публичные файлы; ошибка прерывает запуск. `SKIP_PUBLIC_FILES` позволяет пропустить список в обычном dev, `SERVE_CLIENT_ASSETS` добавляет файлы `assets/` при локальной проверке сборки. [Проверка конфигурации](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/env.ts#L6-L42), [старт BFF](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/src/index.ts#L11-L28).
+Vite берёт алиасы из tsconfig, применяет `VITE_STATIC_URL` в HTML и CSS и добавляет release-метатег. При наличии `RELEASE_SHA` и `CDN_URL` base клиентской сборки указывает на `releases/<sha>/`, иначе равен `/`. Сборка клиента попадает в `apps/client/dist/`, BFF — в `apps/bff/dist/bff.js`. [shared.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/vite/shared.ts#L19-L45), [vite.config.prod.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/vite.config.prod.ts#L4-L29), [apps/bff/package.json](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/bff/package.json#L9-L15).
 
-Vite получает алиасы из tsconfig, нормализует `VITE_STATIC_URL` для HTML/CSS и добавляет release-метатег. При наличии `RELEASE_SHA` и `CDN_URL` production-сборка использует base `releases/<sha>/`; иначе base остаётся `/`. Выход клиента — `dist`, с sourcemap; BFF собирается Bun в `dist/bff.js`. [Общий Vite config](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite/shared.ts#L20-L40), [prod config](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/vite.config.prod.ts#L4-L14), [BFF build](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/package.json#L9-L18).
+## Проверки
 
-CI `Check` выполняет frozen install, check, test и build. Публикация артефактов отделена от этой проверки и включается только для push main командного репозитория при `PRODUCTION_ENABLED`. Она собирает ассеты и образ BFF; наличие выпуска не доказывает его выкладку. [Check и условие публикации](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/.github/workflows/ci.yml#L23-L52), [описание артефактов](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/docs/release.md#L25-L43). Механизмы выпуска, выкатки, отката и доски разобраны в [автоматизации выпусков](releases.md); реализация переключения сервера принадлежит infra.
+| Область | Команда из корня |
+| --- | --- |
+| Формат, линт и типы | `bun run check` |
+| Сборка клиента и BFF | `bun run build` |
+| Доска задач, восстановление и соглашения workflow | `bun test scripts/release/test` |
+| Шаблон HTML-вывода ячейки | `bun test apps/client/src/pages/NotebookPage/htmlDocument.test.ts` |
 
-Смежные страницы: [quickstart](../quickstart.md), [HTML и маршруты](../architecture/request-flow.md), [сессия](../concepts/session.md), [контракты и frontend-packages](../integrations/contracts.md).
+CI Check ставит зависимости с frozen lockfile, сверяет и проверяет закреплённый контракт, запускает release-тесты, `check`, `build` и проверяет упаковку образа BFF. Job публикации зависит от Check и доступен при push в main командного репозитория. [package.json](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/package.json#L9-L29), [CI](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/.github/workflows/ci.yml#L23-L67), [htmlDocument.test.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/apps/client/src/pages/NotebookPage/htmlDocument.test.ts#L1-L15), [recovery.test.ts](https://github.com/Cringe-Driven-Development-Team/frontend/blob/847eba337b76531681ab40f0831c6fe6988aea23/scripts/release/test/recovery.test.ts#L18-L50).
 
-## Проверка PWA и новых сценариев
-
-`bun run dev:pwa` собирает клиент без CDN base и запускает BFF с локальными ассетами, SW и манифестом. В этом режиме нет HMR, после изменений клиента нужен повторный запуск. Обычный `bun run dev` сохраняет HMR и не регистрирует SW. [PWA-скрипт](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/scripts/dev/pwa.ts#L1-L30), [регистрация](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/src/serviceWorker.ts#L1-L15). Конфигурация кеша и проверка соединения описаны в [PWA](../concepts/offline.md).
-
-`connection.test.ts` проверяет сетевые отказы и полное получение тела, `credentials.test.ts` — требования нового пароля и его отличие от текущего. Дополнительно `session.test.ts` проверяет очередь смены пароля, а `bff.test.ts` — профиль и выдачу offline-файлов. [Клиентские проверки соединения](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/connection.test.ts#L18-L68), [правила нового пароля](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/credentials.test.ts#L1-L21), [сессия](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/client/test/session.test.ts#L155-L210), [BFF](https://github.com/Cringe-Driven-Development-Team/frontend/blob/d6bdf92f45c039c28dd82c69b1402485b995c222/apps/bff/test/bff.test.ts#L466-L576).
+См. [контракты](../integrations/contracts.md) для границ Prism и Go, [PWA](../concepts/offline.md) для правил SW и [выпуски](releases.md) для границы публикации и выкладки.
