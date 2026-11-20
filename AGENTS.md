@@ -84,7 +84,7 @@ Wiki описывает реализацию; состояние прода пр
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора:
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/hono` (локальный `packages/hono`, frontend#255). Исключения — по задачам ментора:
   zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
@@ -113,7 +113,7 @@ Git SHA и может отставать. Правки контракта — т
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
   (frontend#210). Клиент Go не вызывает: только процедуры BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
-  так же Hono, `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
+  так же `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
   `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
   и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
   HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.

@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono } from '@cdd-team/hono';
 
 import { accessLog } from './log.ts';
 import { pageOf } from './pages.ts';
@@ -18,7 +18,7 @@ const notFound = (): Response =>
     new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
 
 /**
- * Приложение Hono. Порядок маршрутов: `/health`, tRPC, остальные `/api` (404, в Go не уходят),
+ * Приложение `@cdd-team/hono`. Порядок маршрутов: `/health`, tRPC, остальные `/api` (404, в Go не уходят),
  * `/robots.txt` (без сессии и Go, при любом `Accept`), публичные файлы, HTML для GET/HEAD
  * с `Accept: text/html` (на неизвестный адрес — со статусом 404), остальное — 404. HEAD сюда
  * приходит как GET (`bff.ts`), тело отбрасывает Bun.
@@ -44,7 +44,7 @@ export function createApp(deps: AppDeps): Hono {
     );
 
     for (const [name, file] of deps.publicFiles) {
-        /** Заголовки явно: HEAD Hono собирает из ответа GET, и тип и размер BunFile теряются */
+        /** Заголовки явно: у HEAD нет тела, и тип и размер BunFile без них теряются */
         const headers = { 'Content-Type': file.type, 'Content-Length': String(file.size) };
         app.get(`/${name}`, () => new Response(file, { headers }));
     }
