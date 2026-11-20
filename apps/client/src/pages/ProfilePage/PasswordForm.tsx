@@ -1,6 +1,6 @@
 import { useEffect, useState } from '@cdd-team/react';
 
-import { isRpcError } from '@api/trpc';
+import { isBffError } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { Input } from '@components/Input/Input';
@@ -74,10 +74,8 @@ export function PasswordForm() {
         } catch (error) {
             if (!life.alive) return;
             setPending(false);
-            const code = isRpcError(error) ? error.data?.appCode : undefined;
-            const rejected = (isRpcError(error) ? error.data?.zodError?.fieldErrors : undefined) as
-                | Partial<Record<'current_password' | 'new_password', string[]>>
-                | undefined;
+            const code = isBffError(error) ? error.appCode : undefined;
+            const rejected = isBffError(error) ? error.validationErrors?.fieldErrors : undefined;
             if (code === 'invalid_current_password') {
                 setRejectedCurrent('Неверный текущий пароль');
                 setFocusRequest({ field: 'current' });

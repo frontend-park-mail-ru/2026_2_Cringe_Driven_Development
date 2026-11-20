@@ -1,6 +1,6 @@
 import { useEffect, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc } from '@api/trpc';
+import { isBffError, api } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Input } from '@components/Input/Input';
 import { useSessionStore } from '@stores/session';
@@ -42,7 +42,10 @@ export function LoginForm({ login }: LoginFormProps) {
         setPending(true);
         hideSnackbar();
         try {
-            const { login: saved } = await trpc.users.updateLogin.mutate({ login: value });
+            const { login: saved } = await api('POST', '/api/users/update-login', {
+                contentType: 'application/json',
+                body: { login: value },
+            });
             // только своё поле: параллельная загрузка аватара не откатывается
             useSessionStore.setState((state) => ({
                 user: state.user && { ...state.user, login: saved },
@@ -52,7 +55,7 @@ export function LoginForm({ login }: LoginFormProps) {
             showToast('Изменения сохранены');
         } catch (error) {
             if (!life.alive) return;
-            if (isRpcError(error) && error.data?.appCode === 'login_taken') {
+            if (isBffError(error) && error.appCode === 'login_taken') {
                 setTaken(true);
                 showSnackbar(`Логин «${value}» уже занят — выберите другой`);
             } else {

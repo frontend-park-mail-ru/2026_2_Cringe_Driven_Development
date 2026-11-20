@@ -1,4 +1,4 @@
-import { isRpcError, trpc } from '@api/trpc';
+import { isBffError, api } from '@api/bff';
 import { flush, forgetNotebook, useNotebookStore } from '@stores/notebook';
 import { peekPreloadedNotebook, takePreloadedNotebook } from '@stores/preloaded';
 import { adoptSession, closeRuntime, useRuntimeStore } from '@stores/runtime';
@@ -14,7 +14,7 @@ export type DeleteResult = 'deleted' | 'notFound' | 'inUse' | 'failed';
  */
 export async function checkDeleteGate(notebookId: number): Promise<DeleteGate | 'error'> {
     try {
-        const session = await trpc.runtime.active.query();
+        const session = await api('GET', '/api/runtime/active');
         adoptSession(session);
         return deleteGate(session, notebookId);
     } catch {
@@ -45,14 +45,17 @@ export async function deleteNotebook(notebookId: number): Promise<DeleteResult> 
     // итог сохранения не важен: при удалении правки пропадут, при отказе останутся в сторе
     if (useNotebookStore.getState().notebookId === notebookId) await flush();
     try {
-        await trpc.notebooks.delete.mutate({ id: notebookId });
+        await api('POST', '/api/notebooks/delete', {
+            contentType: 'application/json',
+            body: { id: notebookId },
+        });
     } catch (error) {
-        if (!isRpcError(error)) return 'failed';
-        if (error.data?.code === 'NOT_FOUND') {
+        if (!isBffError(error)) return 'failed';
+        if (error.code === 'NOT_FOUND') {
             forget(notebookId);
             return 'notFound';
         }
-        return error.data?.appCode === 'notebook_in_use' ? 'inUse' : 'failed';
+        return error.appCode === 'notebook_in_use' ? 'inUse' : 'failed';
     }
     forget(notebookId);
     return 'deleted';

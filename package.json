@@ -10,7 +10,6 @@
         "prepare": "lefthook install",
         "dev": "turbo watch dev",
         "preview": "bun scripts/dev/preview.ts",
-        "dev:prism": "bun scripts/dev/prism.ts",
         "dev:trust-windows": "bun scripts/dev/trust-windows.ts",
         "build": "turbo run build",
         "image": "turbo run build && docker build -f apps/bff/Dockerfile -t cdd-bff:local .",
@@ -31,7 +30,6 @@
     "devDependencies": {
         "@aws-sdk/client-s3": "^3.1146.0",
         "@cdd-team/oxlint-plugin-jsdoc": "^0.1.2",
-        "@stoplight/prism-cli": "5.16.0",
         "@types/bun": "^1.4.4",
         "lefthook": "^2.2.2",
         "oxfmt": "^0.71.0",

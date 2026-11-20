@@ -1,35 +1,39 @@
-import { ChangeCurrentUserPasswordBody, UpdateCurrentUserBody } from '@cdd/schemas';
-import { z } from 'zod';
+import { avatarInput, changePasswordInput, updateLoginInput } from '@cdd/schemas/validate';
 
-import { authedProcedure, router } from '../trpc.ts';
-
-/** Предел файла аватара по контракту Go: 5 МиБ. */
-const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
-
-/**
- * Multipart с единственным полем `avatar`: в Go уходит только файл, поэтому весь запрос
- * укладывается в предел Go 6 МиБ.
- */
-const AvatarForm = z
-    .instanceof(FormData)
-    .transform((form) => ([...form.keys()].length === 1 ? form.get('avatar') : null))
-    .pipe(z.file().min(1).max(AVATAR_MAX_BYTES));
+import { route } from '../http.ts';
 
 /** Текущий пользователь: данные профиля, смена логина, пароля и аватара. */
-export const users = router({
-    me: authedProcedure.query(({ ctx }) => ctx.go.getCurrentUser()),
-    updateLogin: authedProcedure
-        .input(UpdateCurrentUserBody)
-        .mutation(({ ctx, input }) => ctx.go.updateCurrentUser(input)),
-    uploadAvatar: authedProcedure
-        .input(AvatarForm)
-        .mutation(({ ctx, input }) => ctx.go.uploadCurrentUserAvatar(input)),
+export const users = [
+    route({
+        method: 'GET',
+        path: '/api/users/me',
+        access: 'authed',
+        handle: ({ go }) => go.getCurrentUser(),
+    }),
+    route({
+        method: 'POST',
+        path: '/api/users/update-login',
+        access: 'authed',
+        input: { from: 'json', validate: updateLoginInput },
+        handle: ({ go }, input) => go.updateCurrentUser(input),
+    }),
     /** Go отзывает все сессии пользователя, поэтому cookie больше не нужна */
-    changePassword: authedProcedure
-        .input(ChangeCurrentUserPasswordBody)
-        .mutation(async ({ ctx, input }) => {
-            await ctx.go.changeCurrentUserPassword(input);
-            ctx.session.end();
+    route({
+        method: 'POST',
+        path: '/api/users/change-password',
+        access: 'authed',
+        input: { from: 'json', validate: changePasswordInput },
+        async handle({ session, go }, input) {
+            await go.changeCurrentUserPassword(input);
+            session.end();
             return { ok: true as const };
-        }),
-});
+        },
+    }),
+    route({
+        method: 'POST',
+        path: '/api/users/avatar',
+        access: 'authed',
+        input: { from: 'multipart', validate: avatarInput },
+        handle: ({ go }, { avatar }) => go.uploadCurrentUserAvatar(avatar),
+    }),
+] as const;
