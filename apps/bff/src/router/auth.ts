@@ -1,7 +1,20 @@
 import { loginInput, registerInput } from '@cdd/schemas/validate';
 
-import { publicGo } from '../go/api.ts';
+import { publicGo, type AuthResult } from '../go/api.ts';
 import { route } from '../http.ts';
+import type { Session } from '../session/session.ts';
+
+/**
+ * Новая сессия после входа или регистрации: cookie с токенами Go, старые cookie удаляются.
+ * @param session сессия запроса
+ * @param result пользователь и токены от Go
+ * @returns пользователь для клиента
+ */
+async function begin(session: Session, { user, tokens }: AuthResult): Promise<AuthResult['user']> {
+    await session.start(tokens);
+    session.clearLegacy();
+    return user;
+}
 
 /**
  * Вход, регистрация, выход и выход со всех устройств. Токены Go остаются в cookie сессии, клиенту —
@@ -13,24 +26,16 @@ export const auth = [
         path: '/api/auth/register',
         access: 'public',
         input: { from: 'json', validate: registerInput },
-        async handle({ session }, input) {
-            const { user, tokens } = await publicGo.register(input, session.requestId);
-            await session.start(tokens);
-            session.clearLegacy();
-            return user;
-        },
+        handle: async ({ session }, input) =>
+            begin(session, await publicGo.register(input, session.requestId)),
     }),
     route({
         method: 'POST',
         path: '/api/auth/login',
         access: 'public',
         input: { from: 'json', validate: loginInput },
-        async handle({ session }, input) {
-            const { user, tokens } = await publicGo.login(input, session.requestId);
-            await session.start(tokens);
-            session.clearLegacy();
-            return user;
-        },
+        handle: async ({ session }, input) =>
+            begin(session, await publicGo.login(input, session.requestId)),
     }),
     /** Cookie удаляется при любом итоге Go; `serverRevocation` — подтвердил ли Go отзыв. */
     route({

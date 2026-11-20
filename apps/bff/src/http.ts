@@ -14,12 +14,12 @@ import { createSession, type Session } from './session/session.ts';
 export type Access = 'public' | 'optional' | 'authed';
 
 /** Что получает обработчик: сессия запроса, а при `optional` и `authed` — вызовы Go от её имени. */
-export type Ctx<A extends Access> = A extends 'public'
+type Ctx<A extends Access> = A extends 'public'
     ? { session: Session }
     : { session: Session; go: Go };
 
 /** Откуда вход: query GET, JSON-тело или multipart. */
-export type RouteInput = {
+type RouteInput = {
     from: 'query' | 'json' | 'multipart';
     validate: Validator<unknown, unknown>;
 };
@@ -117,10 +117,9 @@ function group<V>(entries: Iterable<[string, V]>): Record<string, V | V[]> {
     const map = new Map<string, V | V[]>();
     for (const [key, value] of entries) {
         const prev = map.get(key);
-        map.set(
-            key,
-            prev === undefined ? value : [...(Array.isArray(prev) ? prev : [prev]), value],
-        );
+        if (prev === undefined) map.set(key, value);
+        else if (Array.isArray(prev)) prev.push(value);
+        else map.set(key, [prev, value]);
     }
     // fromEntries создаёт собственные свойства: ключ __proto__ прототип не меняет
     return Object.fromEntries(map);
@@ -148,12 +147,9 @@ async function readInput(input: RouteInput, req: globalThis.Request): Promise<un
         if (mediaType(req) !== 'application/json') {
             throw new ApiError(415, 'Нужно тело application/json');
         }
-        const text = await req.text();
-        try {
-            raw = JSON.parse(text);
-        } catch {
+        raw = await req.json().catch(() => {
             throw new ApiError(400, 'Тело — не JSON');
-        }
+        });
     } else {
         if (mediaType(req) !== 'multipart/form-data') {
             throw new ApiError(415, 'Нужно тело multipart/form-data');

@@ -1,4 +1,5 @@
 import { create } from '@cdd-team/zustand';
+import { MAX_TRACKED } from '@cdd/schemas/validate';
 import { api, isBffError, type Output, type NotebookPageData } from '@api/bff';
 import {
     UNKNOWN_RESULT,
@@ -42,8 +43,6 @@ export const POLL_INTERVAL_MS = 2000;
 export const SUCCESS_VISIBLE_MS = 4000;
 /** Не чаще одного сигнала активности за это время. */
 export const ACTIVITY_INTERVAL_MS = 30_000;
-/** Лимит execution IDs одного вызова `runtime.updates` — не лимит размера запуска. */
-const CHUNK = 100;
 
 const ENDED = new Set<RuntimeSession['state']>(['STOPPED', 'FAILED']);
 const TERMINAL = new Set<RuntimeExecution['state']>([
@@ -125,7 +124,7 @@ const set = (patch: Partial<RuntimeState>) => useRuntimeStore.setState(patch);
 let generation = 0;
 /** Курсор последней успешно применённой страницы событий. */
 let cursor = 0;
-/** Обход отслеживаемых IDs: состав фиксируется в начале, порции по {@link CHUNK} идут подряд. */
+/** Обход отслеживаемых IDs: состав фиксируется в начале, порции по {@link MAX_TRACKED} идут подряд. */
 let pass: string[] = [];
 let offset = 0;
 let polling = false;
@@ -305,7 +304,7 @@ async function poll(): Promise<void> {
             body: {
                 sessionId: session.id,
                 after: cursor,
-                executionIds: pass.slice(offset, offset + CHUNK),
+                executionIds: pass.slice(offset, offset + MAX_TRACKED),
             },
         });
         if (started !== generation) return;
@@ -319,7 +318,7 @@ async function poll(): Promise<void> {
             }
         }
         cursor = res.next_cursor;
-        offset += CHUNK;
+        offset += MAX_TRACKED;
         if (offset >= pass.length) offset = 0;
         more = res.has_more || offset > 0;
         if (more) delay = 0;

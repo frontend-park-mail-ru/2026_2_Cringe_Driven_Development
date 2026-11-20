@@ -5,7 +5,7 @@
 export type Issue = { path: (string | number)[]; message: string };
 
 /** Итог проверки входа. */
-export type Validation<T> = { success: true; data: T } | { success: false; issues: Issue[] };
+type Validation<T> = { success: true; data: T } | { success: false; issues: Issue[] };
 
 /** Проверка входа целиком: `T` получает обработчик, `Wire` (только тип) передаёт клиент. */
 export interface Validator<T, Wire = T> {
@@ -105,32 +105,24 @@ const string =
     };
 
 /**
- * Целое в пределах безопасных целых JS, как `z.int()`.
- * @param bounds пределы значения
+ * Фабрика числовых проверок: тип и пределы.
+ * @param valid допустимо ли число
+ * @param message сообщение для значения не того вида
  */
-const int =
+const numeric =
+    (valid: (n: number) => boolean, message: string) =>
     (bounds: Bounds = {}): Check<number> =>
     (value, path, issues) => {
-        if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-            return fail(issues, path, 'Ожидалось целое число');
-        }
-        const message = outOfBounds(value, bounds);
-        return message ? fail(issues, path, message) : value;
+        if (typeof value !== 'number' || !valid(value)) return fail(issues, path, message);
+        const out = outOfBounds(value, bounds);
+        return out ? fail(issues, path, out) : value;
     };
 
-/**
- * Конечное число, как `z.number()`: NaN и Infinity недопустимы.
- * @param bounds пределы значения
- */
-const number =
-    (bounds: Bounds = {}): Check<number> =>
-    (value, path, issues) => {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
-            return fail(issues, path, 'Ожидалось число');
-        }
-        const message = outOfBounds(value, bounds);
-        return message ? fail(issues, path, message) : value;
-    };
+/** Целое в пределах безопасных целых JS, как `z.int()`. */
+const int = numeric(Number.isSafeInteger, 'Ожидалось целое число');
+
+/** Конечное число, как `z.number()`: NaN и Infinity недопустимы. */
+const number = numeric(Number.isFinite, 'Ожидалось число');
 
 /**
  * Одно из перечисленных строковых значений.
@@ -243,9 +235,8 @@ const query = <S extends Shape>(shape: S): Check<OutObject<S>, WireObject<S>> =>
 const intParam = (bounds: Bounds = {}): Check<number> => {
     const check = int(bounds);
     return (value, path, issues) => {
-        const n = typeof value === 'string' && /^-?\d+$/.test(value) ? Number(value) : NaN;
-        return Number.isSafeInteger(n)
-            ? check(n, path, issues)
+        return typeof value === 'string' && /^-?\d+$/.test(value)
+            ? check(Number(value), path, issues)
             : fail(issues, path, 'Ожидалось целое число');
     };
 };
@@ -410,17 +401,21 @@ export const runtimeUpdatesInput = validator(
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 /**
+ * Файл с размером в пределах, байт.
+ * @param bounds пределы размера
+ */
+const file =
+    (bounds: Bounds): Check<File> =>
+    (value, path, issues) => {
+        if (!(value instanceof File)) return fail(issues, path, 'Ожидался файл');
+        const message = outOfBounds(value.size, bounds);
+        return message ? fail(issues, path, `Размер файла: ${message.toLowerCase()}`) : value;
+    };
+
+/**
  * Multipart аватара: единственное поле `avatar` с непустым файлом до 5 МиБ. В Go уходит только
  * файл, поэтому весь запрос укладывается в предел Go 6 МиБ.
  */
-export const avatarInput: Validator<File, { avatar: File }> = validator((value, path, issues) => {
-    if (!isRecord(value) || Object.keys(value).length !== 1 || !('avatar' in value)) {
-        return fail(issues, path, 'Нужно единственное поле avatar');
-    }
-    const file = value.avatar;
-    if (!(file instanceof File)) return fail(issues, [...path, 'avatar'], 'Ожидался файл');
-    const message = outOfBounds(file.size, { min: 1, max: AVATAR_MAX_BYTES });
-    return message
-        ? fail(issues, [...path, 'avatar'], `Размер файла: ${message.toLowerCase()}`)
-        : file;
-});
+export const avatarInput = validator(
+    object({ avatar: file({ min: 1, max: AVATAR_MAX_BYTES }) }, 'strict'),
+);

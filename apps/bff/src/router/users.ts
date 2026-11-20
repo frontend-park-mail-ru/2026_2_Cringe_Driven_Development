@@ -34,6 +34,6 @@ export const users = [
         path: '/api/users/avatar',
         access: 'authed',
         input: { from: 'multipart', validate: avatarInput },
-        handle: ({ go }, avatar) => go.uploadCurrentUserAvatar(avatar),
+        handle: ({ go }, { avatar }) => go.uploadCurrentUserAvatar(avatar),
     }),
 ] as const;

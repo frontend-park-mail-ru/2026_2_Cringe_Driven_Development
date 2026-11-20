@@ -1,21 +1,25 @@
 import type { ApiErrorBody, BffPaths, ErrorCode, ValidationErrors } from '@cdd/bff';
 import { createClient, type HttpMethod, type OptionsArg } from '@cdd-team/http-client';
 import type { RuntimeSession } from '@cdd/schemas/types';
+import { isAbort } from '@stores/connection';
 import { browserTransport } from './transport';
 
 /** Путь API BFF. */
-export type BffPath = keyof BffPaths & string;
+type BffPath = keyof BffPaths & string;
 
-/** Операция маршрута: у каждого пути API один метод. */
-type OperationOf<P extends BffPath> = BffPaths[P][keyof BffPaths[P]];
+/** Операция маршрута; без метода — единственный метод пути. */
+type OperationOf<
+    P extends BffPath,
+    M extends keyof BffPaths[P] = keyof BffPaths[P],
+> = BffPaths[P][M];
 
 /** Успешный ответ маршрута: тело 200 или `undefined` для 204. */
-export type Output<P extends BffPath> =
-    OperationOf<P> extends { responses: infer R } ? R[keyof R] : never;
+export type Output<P extends BffPath, M extends keyof BffPaths[P] = keyof BffPaths[P]> =
+    OperationOf<P, M> extends { responses: infer R } ? R[keyof R] : never;
 
 /** JSON-тело маршрута, как его передаёт клиент. */
-export type JsonInput<P extends BffPath> =
-    OperationOf<P> extends { body: { 'application/json': infer B } } ? B : never;
+export type JsonInput<P extends BffPath, M extends keyof BffPaths[P] = keyof BffPaths[P]> =
+    OperationOf<P, M> extends { body: { 'application/json': infer B } } ? B : never;
 
 /** Пользователь, как его отдаёт `users/me`. */
 export type User = Output<'/api/users/me'>;
@@ -40,7 +44,7 @@ export type Cell = Notebook['cells'][number];
  * `network` — сеть, `abort` — запрос отменён, `protocol` — ответ не по протоколу API,
  * `session_changed` — запрос не выполнялся или пришёл после смены сессии.
  */
-export type BffErrorKind = 'http' | 'network' | 'abort' | 'protocol' | 'session_changed';
+type BffErrorKind = 'http' | 'network' | 'abort' | 'protocol' | 'session_changed';
 
 /** Сбой запроса к BFF. Поведение завязывается на `kind`, `code` и `appCode`, не на `message`. */
 export class BffError extends Error {
@@ -73,7 +77,7 @@ export class BffError extends Error {
 }
 
 /** Ошибка, которую BFF вернул по протоколу: есть `code`. */
-export type HttpBffError = BffError & { kind: 'http'; code: ErrorCode };
+type HttpBffError = BffError & { kind: 'http'; code: ErrorCode };
 
 /**
  * Ошибка от BFF, а не сбой сети, отмена или ответ не по протоколу.
@@ -84,7 +88,7 @@ export function isBffError(error: unknown): error is HttpBffError {
 }
 
 /** Сообщение ошибки запроса, который не выполнялся или пришёл после смены сессии. */
-export const SESSION_CHANGED = 'Сессия сменилась';
+const SESSION_CHANGED = 'Сессия сменилась';
 
 /**
  * Объект, не `null`.
@@ -119,12 +123,12 @@ async function send<P extends BffPath, M extends keyof BffPaths[P] & HttpMethod>
     method: M,
     path: P,
     ...options: OptionsArg<BffPaths[P][M]>
-): Promise<Output<P>> {
+): Promise<Output<P, M>> {
     let res;
     try {
         res = await client.request(method, path, ...options);
     } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
+        if (isAbort(error)) {
             throw new BffError('abort', 'Запрос отменён');
         }
         throw new BffError('network', 'BFF недоступен');
@@ -133,7 +137,7 @@ async function send<P extends BffPath, M extends keyof BffPaths[P] & HttpMethod>
     // общий клиент отдаёт непарсящийся JSON строкой; голых строк ни один маршрут BFF не возвращает
     const parsed = json && typeof res.data !== 'string';
     // тело 200 — тип ответа маршрута из BffPaths, его форму гарантирует BFF
-    if (res.status === 204 || (res.status === 200 && parsed)) return res.data as Output<P>;
+    if (res.status === 204 || (res.status === 200 && parsed)) return res.data as Output<P, M>;
     if (res.status >= 400 && parsed && isErrorBody(res.data)) {
         const { message, ...details } = res.data.error;
         throw new BffError('http', message, { status: res.status, ...details });
@@ -202,7 +206,7 @@ export async function api<P extends BffPath, M extends keyof BffPaths[P] & HttpM
     method: M,
     path: P,
     ...options: OptionsArg<BffPaths[P][M]>
-): Promise<Output<P>> {
+): Promise<Output<P, M>> {
     if (ENDING.has(path)) {
         try {
             return await send(method, path, ...options);
