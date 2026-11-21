@@ -26,7 +26,7 @@ async function start(): Promise<void> {
         process.exit(1);
     }
 
-    const server = Bun.serve({ port: env.PORT, fetch: createBff(template, publicFiles) });
+    const server = Bun.serve({ port: env.PORT, ...createBff(template, publicFiles) });
     console.log(
         JSON.stringify({ time: new Date().toISOString(), msg: 'listening', port: server.port }),
     );

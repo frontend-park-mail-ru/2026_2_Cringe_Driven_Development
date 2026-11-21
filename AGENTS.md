@@ -61,7 +61,7 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/hono` (локальный `packages/hono`, frontend#255). Исключения — по задачам ментора:
+  `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора:
   zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.

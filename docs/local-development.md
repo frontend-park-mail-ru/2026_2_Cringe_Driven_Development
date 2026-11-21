@@ -57,7 +57,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | Каталог            | Пакет          | Что внутри                                                                                                                                                                                                    |
 | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                                                                            |
-| `apps/bff`         | `@cdd/bff`     | BFF: `@cdd-team/hono` + HTTP API под Bun, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                                                     |
+| `apps/bff`         | `@cdd/bff`     | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                                                                 |
 | `packages/schemas` | `@cdd/schemas` | zod-схемы ответов Go (не перегенерируются, frontend#210); типы Go `GoPaths` — `@cdd/schemas/types`; проверки входов BFF без zod — `@cdd/schemas/validate`; общие `Password` и `Login` — `@cdd/schemas/inputs` |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
