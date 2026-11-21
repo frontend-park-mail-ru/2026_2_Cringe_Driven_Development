@@ -220,8 +220,8 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 не заработает. Откройте `https://localhost:5173` — после первого запуска сертификат доверенный, без
 предупреждения браузера. Против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1` в `.env`.
 
-Контракт Go — копия `spec/` из backend по Git SHA: `bun run contract:fetch <sha>`, затем
-`bun run contract:tools` и `bun run sync` ([контракт API](api-contract.md)). Клиент контракт Go не
+Контракт Go — копия `spec/openapi.json` из backend по Git SHA коммита main с успешным CI:
+`bun run contract:fetch <sha>`, затем ручная правка типов Go по диффу спеки ([контракт API](api-contract.md)). Клиент контракт Go не
 читает, типы маршрутов (`BffPaths`) берёт из `@cdd/bff`.
 
 ## Фронт с Go команды через SSH-туннель

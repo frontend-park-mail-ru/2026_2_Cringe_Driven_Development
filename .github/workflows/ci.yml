@@ -29,15 +29,9 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      # Redocly закреплён в spec/package-lock.json backend и ставится npm
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      # копия spec/ байт в байт совпадает с backend по SHA из spec/contract-source.json
+      # spec/openapi.json байт в байт совпадает с backend по SHA из spec/contract-source.json;
+      # Redocly проверяет спеку в CI backend, типы Go не генерируются (frontend#253)
       - run: bun run contract:verify
-      - run: bun run contract:tools
-      # Redocly по правилам и плагину backend; типы Go не генерируются (frontend#253)
-      - run: bun run sync
       - run: bun test scripts/release/test
       - run: bun run check
       - run: bun run build
