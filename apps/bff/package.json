@@ -14,7 +14,6 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@cdd-team/hono": "workspace:*",
         "@cdd-team/http-client": "workspace:*",
         "@cdd/schemas": "workspace:*",
         "serialize-javascript": "^7.1.3",
