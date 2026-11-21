@@ -38,7 +38,7 @@ async function download(sha: string): Promise<Uint8Array> {
 
 /** SHA последнего коммита ветки backend на GitHub. */
 async function branchSha(branch: string): Promise<string> {
-    const url = `https://api.github.com/repos/${REPOSITORY}/branches/${encodeURI(branch)}`;
+    const url = `https://api.github.com/repos/${REPOSITORY}/branches/${encodeURIComponent(branch)}`;
     const response = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
     if (response.status !== 200) {
         throw new Error(`ветка ${branch} backend: GitHub ответил ${response.status}`);
