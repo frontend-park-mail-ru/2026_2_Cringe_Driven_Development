@@ -28,7 +28,7 @@ const notFound = (): Response =>
     new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
 
 /**
- * Приложение для `Bun.serve`. В `routes`: `/health` (без лога), HTTP API по таблице маршрутов,
+ * Приложение для `Bun.serve`. В `routes`: `/health` (без лога; другие методы — 404 тоже без лога), HTTP API по таблице маршрутов,
  * `/robots.txt` (без сессии и Go, при любом `Accept`) и публичные файлы. HEAD GET-маршрута Bun
  * обслуживает тем же обработчиком и отбрасывает тело; HEAD POST-маршрута и неверный метод уходят
  * в `fetch`. В `fetch`: `/api` и `/api/*` — JSON 404 (в Go не уходят), GET/HEAD с
@@ -51,6 +51,21 @@ export function createApp(deps: AppDeps): App {
         files[`/${name}`] = { GET: logged(() => new Response(file, { headers })) };
     }
 
+    const fallback = logged((req) => {
+        const path = new URL(req.url).pathname;
+        if (path === '/api' || path.startsWith('/api/')) return apiNotFound();
+        const page = req.method === 'GET' || req.method === 'HEAD';
+        if (!page || !req.headers.get('Accept')?.includes('text/html')) return notFound();
+        if (deps.html) return deps.html(req);
+        return new Response(deps.template, {
+            status: pageOf(path) ? 200 : 404,
+            headers: {
+                'Content-Type': 'text/html; charset=UTF-8',
+                'Cache-Control': 'private, no-store',
+            },
+        });
+    });
+
     return {
         routes: {
             '/health': {
@@ -70,19 +85,7 @@ export function createApp(deps: AppDeps): App {
             },
             ...files,
         },
-        fetch: logged((req) => {
-            const path = new URL(req.url).pathname;
-            if (path === '/api' || path.startsWith('/api/')) return apiNotFound();
-            const page = req.method === 'GET' || req.method === 'HEAD';
-            if (!page || !req.headers.get('Accept')?.includes('text/html')) return notFound();
-            if (deps.html) return deps.html(req);
-            return new Response(deps.template, {
-                status: pageOf(path) ? 200 : 404,
-                headers: {
-                    'Content-Type': 'text/html; charset=UTF-8',
-                    'Cache-Control': 'private, no-store',
-                },
-            });
-        }),
+        fetch: async (req) =>
+            new URL(req.url).pathname === '/health' ? notFound() : fallback(req),
     };
 }
