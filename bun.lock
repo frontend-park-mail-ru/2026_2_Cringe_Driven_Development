@@ -55,6 +55,9 @@
         "zod": "^4.6.7",
       },
     },
+    "packages/serialize-javascript": {
+      "name": "@cdd-team/serialize-javascript",
+    },
   },
   "packages": {
     "@aws-sdk/checksums": ["@aws-sdk/checksums@3.1001.1", "", { "dependencies": { "@aws-sdk/core": "^3.978.1", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.0", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-x12Q17KYlJAd3nKf8LV5LV0vt8sh8/6YfQLGPtrGnQf/tW4jqxPGq5GPpuVitpQYM3eUR4XB7CbxZf751NMbLw=="],
@@ -134,6 +137,8 @@
     "@cdd-team/react": ["@cdd-team/react@1.7.1", "", {}, "sha512-CzYuolZlqw8ww2YfkjfWFCSi9CiO+gBVNpMj3Gxen3plezelzzMUMepaqRUhmqPKU+RNN02hl2xLVKwjzL8fIQ=="],
 
     "@cdd-team/router": ["@cdd-team/router@0.1.0", "", { "dependencies": { "@cdd-team/clsx": "^0.1.0" }, "peerDependencies": { "@cdd-team/react": "^1.7.0" } }, "sha512-fZ1ADShfXgABfjlx2pi4VK6Fy/Rp6tdWmT1cjcsWop+Nj+gqGuUjMpu99BKt4o5OjbAgk22jZ5S3VM9OiI2AMg=="],
+
+    "@cdd-team/serialize-javascript": ["@cdd-team/serialize-javascript@workspace:packages/serialize-javascript"],
 
     "@cdd-team/vite-plugin-bff-html": ["@cdd-team/vite-plugin-bff-html@0.2.1", "", { "peerDependencies": { "vite": "^8.3.3" } }, "sha512-fkGkkxzIWAl7UQ7EUcxSiXmakA8Bxad15EDTewTn0dbP8VwkNf6cDrmuJ48ds3YKFl2MEPasNMttn/00gfT8CA=="],
 
