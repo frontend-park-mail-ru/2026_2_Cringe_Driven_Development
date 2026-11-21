@@ -73,15 +73,15 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 Прочитай [порядок Spec First](docs/api-contract.md#spec-first).
 Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
 Git SHA и может отставать. Правки контракта — только PR в backend, затем после успешного CI main
-backend `bun run contract:fetch <sha>` и ручная правка `packages/schemas/src/types.ts` по диффу спеки. Ответы и
+backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) и ручная правка `packages/schemas/src/types.ts` по диффу спеки. Ответы и
 состояние проверяй на реальном Go. Собственный dev-сервер или мок, имитирующий Go, для обхода
 неготового бэкенда не создавай.
 
 ## Источники
 
 - API Go: контракт — `spec/openapi.json` в backend, локальная копия `spec/` по SHA из
-  `spec/contract-source.json`. Обновить — `bun run contract:fetch <sha>` по коммиту main backend с
-  успешным CI (Redocly проверяет спеку там); копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
+  `spec/contract-source.json`. Обновить — `bun run contract:fetch` из `main` backend после
+  успешного CI (Redocly проверяет спеку там) или `bun run contract:fetch <ветка>`; копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
   редактируемый TypeScript по спеке, без генератора: правятся по диффу спеки в том же изменении,
   соответствие спеке компилятор не доказывает, риск принят (frontend#253,
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
@@ -101,7 +101,7 @@ bun run preview    # локальная проверка production-сборки
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
-bun run contract:fetch <sha>  # spec/openapi.json из main backend по полному SHA и запись SHA в манифест
+bun run contract:fetch  # spec/openapi.json из main backend (или contract:fetch <ветка>), SHA — в манифест
 bun run contract:verify  # побайтовая сверка spec/openapi.json с backend по SHA из манифеста
 ```
 
