@@ -1,9 +1,8 @@
-import { RefreshTokenResponse } from '@cdd/schemas';
-
 import type { TokenPair } from '@cdd/schemas/types';
 
 import { unwrap } from '../go/errors.ts';
 import { go, withRequestId } from '../go/request.ts';
+import { tokenPairResponse } from '../go/responses.ts';
 import type { SessionData } from './crypto.ts';
 
 /** Сессия закончилась: Go отказал в refresh или повторно ответил 401. Cookie удаляется. */
@@ -21,7 +20,7 @@ const inflight = new Map<string, Promise<SessionData>>();
 const now = (): number => Math.floor(Date.now() / 1000);
 
 /**
- * Сессия из пары токенов Go (уже проверенной схемой ответа): сроки — от текущего момента.
+ * Сессия из пары токенов Go (уже проверенной проверкой ответа): сроки — от текущего момента.
  */
 export function toSessionData(tokens: TokenPair): SessionData {
     const t = now();
@@ -58,7 +57,7 @@ export async function refreshTokens(refresh: string, requestId?: string): Promis
             init: withRequestId(requestId),
         });
         if (res.status === 401) throw new SessionEnded();
-        return toSessionData(unwrap(res, [200], RefreshTokenResponse));
+        return toSessionData(unwrap(res, [200], tokenPairResponse));
     })();
     inflight.set(id, pending);
     pending.then(

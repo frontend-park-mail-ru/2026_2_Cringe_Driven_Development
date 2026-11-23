@@ -1,4 +1,5 @@
-import { Login, LOGIN_RULE, Password, PASSWORD_RULE } from '@cdd/schemas/inputs';
+import { LOGIN_RULE, PASSWORD_RULE } from '@cdd/schemas/inputs';
+import { loginValue, PASSWORD, passwordValue } from '@cdd/schemas/validate';
 import type { AuthError } from '@stores/session';
 
 /** Вход или регистрация. */
@@ -7,14 +8,13 @@ export type AuthMode = 'login' | 'register';
 export { LOGIN_RULE, PASSWORD_RULE };
 
 /**
- * Проверяет логин.
+ * Проверяет логин: одно правило для входа, регистрации и профиля.
  * @param login логин
- * @param schema схема операции: по умолчанию вход и регистрация, в профиле — `ProfileLogin`
  * @returns текст ошибки или undefined, если логин подходит
  */
-export function validateLogin(login: string, schema = Login): string | undefined {
+export function validateLogin(login: string): string | undefined {
     if (login === '') return 'Введите логин';
-    return schema.safeParse(login).success ? undefined : LOGIN_RULE;
+    return loginValue(login).success ? undefined : LOGIN_RULE;
 }
 
 /**
@@ -23,14 +23,13 @@ export function validateLogin(login: string, schema = Login): string | undefined
  */
 export function validatePassword(password: string): string | undefined {
     if (password === '') return 'Введите пароль';
-    const issues = Password.safeParse(password).error?.issues ?? [];
-    if (issues.length === 0) return undefined;
-    if (issues.some((issue) => issue.code === 'invalid_format')) {
+    if (passwordValue(password).success) return undefined;
+    if (!PASSWORD.pattern.test(password)) {
         return 'Только латиница, цифры и спецсимволы, без пробелов';
     }
-    return issues[0]!.code === 'too_small'
-        ? `Нужно не меньше ${Password.minLength} символов`
-        : `Не больше ${Password.maxLength} символов`;
+    return password.length < PASSWORD.min
+        ? `Нужно не меньше ${PASSWORD.min} символов`
+        : `Не больше ${PASSWORD.max} символов`;
 }
 
 /**
@@ -62,7 +61,7 @@ export function validateNewPassword(current: string, next: string): string | und
  */
 export function passwordRules(current: string, next: string, confirm: string) {
     return [
-        { text: PASSWORD_RULE, met: Password.safeParse(next).success },
+        { text: PASSWORD_RULE, met: passwordValue(next).success },
         {
             text: 'Отличается от текущего пароля',
             met: current !== '' && next !== '' && next !== current,

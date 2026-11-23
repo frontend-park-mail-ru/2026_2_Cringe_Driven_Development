@@ -54,11 +54,11 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Репозиторий — монорепа на bun workspaces и [Turborepo](https://turborepo.com)
 
-| Каталог            | Пакет          | Что внутри                                                                                                                                                                                                    |
-| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                                                                            |
-| `apps/bff`         | `@cdd/bff`     | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                                                                 |
-| `packages/schemas` | `@cdd/schemas` | zod-схемы ответов Go (не перегенерируются, frontend#210); типы Go `GoPaths` — `@cdd/schemas/types`; проверки входов BFF без zod — `@cdd/schemas/validate`; общие `Password` и `Login` — `@cdd/schemas/inputs` |
+| Каталог            | Пакет          | Что внутри                                                                                                                                                               |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                                       |
+| `apps/bff`         | `@cdd/bff`     | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                            |
+| `packages/schemas` | `@cdd/schemas` | типы Go и `GoPaths` — `@cdd/schemas/types`; ручные общие проверки входов браузера и BFF — `@cdd/schemas/validate`; тексты правил логина и пароля — `@cdd/schemas/inputs` |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
 `oxlint` и `oxfmt`, `.env` — его читают и клиент, и скрипты
@@ -317,4 +317,4 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 Оба правила — командный плагин
 [`@cdd-team/oxlint-plugin-jsdoc`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/oxlint-plugin-jsdoc):
 в `oxlint` правил `require-jsdoc` и `check-param-names` нет. Сами теги линт не требует: `@param` и `@returns` пишутся там, где описание что-то добавляет
-к имени и типу. `packages/schemas/src/zod.ts` (последняя генерация Orval, до frontend#210) линт не проверяет
+к имени и типу.

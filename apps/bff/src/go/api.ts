@@ -1,32 +1,3 @@
-import {
-    AddNotebookCellResponse,
-    CreateRuntimeExecutionBatchResponse,
-    CreateRuntimeExecutionResponse,
-    GetActiveRuntimeSessionResponse,
-    GetRuntimeExecutionResponse,
-    GetRuntimeQueueResponse,
-    GetRuntimeSessionResponse,
-    InterruptRuntimeKernelResponse,
-    ListRuntimeEventsResponse,
-    StartRuntimeSessionResponse,
-    StopRuntimeExecutionsResponse,
-    StopRuntimeSessionResponse,
-    TouchRuntimeSessionResponse,
-    EditNotebookCellResponse,
-    MoveNotebookCellResponse,
-    RemoveNotebookCellResponse,
-    CreateNotebookResponse,
-    EnableTwoFactorAuthResponse,
-    GetCurrentUserResponse,
-    GetNotebookContentResponse,
-    GetNotebookResponse,
-    ListNotebooksResponse,
-    LoginUserResponse,
-    RegisterUserResponse,
-    UpdateCurrentUserResponse,
-    UploadCurrentUserAvatarResponse,
-} from '@cdd/schemas';
-
 import type {
     AddNotebookCellRequest,
     ChangeCurrentUserPasswordRequest,
@@ -59,6 +30,25 @@ import type {
 
 import type { Session } from '../session/session.ts';
 import { unwrap } from './errors.ts';
+import {
+    acceptedResponse,
+    activeRuntimeSessionResponse,
+    authResponse,
+    cellChangeResponse,
+    contentChangeResponse,
+    interruptResponse,
+    notebookContentResponse,
+    notebookListResponse,
+    notebookResponse,
+    runtimeBatchResponse,
+    runtimeEventsResponse,
+    runtimeExecutionResponse,
+    runtimeQueueResponse,
+    runtimeSessionResponse,
+    stoppedResponse,
+    twoFactorSetupResponse,
+    userResponse,
+} from './responses.ts';
 import { go, withRequestId } from './request.ts';
 
 /**
@@ -139,18 +129,14 @@ export function createGo(session: Session): Go {
     const call: Session['call'] = (fn, refused) => session.call(fn, refused);
     return {
         getCurrentUser: async () =>
-            unwrap(
-                await call((init) => go('GET', '/users/me', { init })),
-                [200],
-                GetCurrentUserResponse,
-            ),
+            unwrap(await call((init) => go('GET', '/users/me', { init })), [200], userResponse),
         updateCurrentUser: async (body) =>
             unwrap(
                 await call((init) =>
                     go('PATCH', '/users/me', { contentType: 'application/json', body, init }),
                 ),
                 [200],
-                UpdateCurrentUserResponse,
+                userResponse,
             ),
         changeCurrentUserPassword: async (body) => {
             unwrap(
@@ -174,13 +160,13 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                UploadCurrentUserAvatarResponse,
+                userResponse,
             ),
         listNotebooks: async (params) =>
             unwrap(
                 await call((init) => go('GET', '/notebooks', { params: { query: params }, init })),
                 [200],
-                ListNotebooksResponse,
+                notebookListResponse,
             ),
         getNotebook: async (id) =>
             unwrap(
@@ -188,7 +174,7 @@ export function createGo(session: Session): Go {
                     go('GET', '/notebooks/{id}', { params: { path: { id } }, init }),
                 ),
                 [200],
-                GetNotebookResponse,
+                notebookResponse,
             ),
         getNotebookContent: async (id) =>
             unwrap(
@@ -196,7 +182,7 @@ export function createGo(session: Session): Go {
                     go('GET', '/notebooks/{id}/content', { params: { path: { id } }, init }),
                 ),
                 [200],
-                GetNotebookContentResponse,
+                notebookContentResponse,
             ),
         createNotebook: async (body) =>
             unwrap(
@@ -204,7 +190,7 @@ export function createGo(session: Session): Go {
                     go('POST', '/notebooks', { contentType: 'application/json', body, init }),
                 ),
                 [201],
-                CreateNotebookResponse,
+                notebookResponse,
             ),
         addCell: async (id, hash, body) =>
             unwrap(
@@ -217,7 +203,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [201],
-                AddNotebookCellResponse,
+                cellChangeResponse,
             ),
         editCell: async (id, cellId, hash, body) =>
             unwrap(
@@ -230,7 +216,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                EditNotebookCellResponse,
+                cellChangeResponse,
             ),
         moveCell: async (id, cellId, hash, body) =>
             unwrap(
@@ -243,7 +229,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                MoveNotebookCellResponse,
+                contentChangeResponse,
             ),
         removeCell: async (id, cellId, hash) =>
             unwrap(
@@ -254,7 +240,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                RemoveNotebookCellResponse,
+                contentChangeResponse,
             ),
         /** 204 без тела: JSON не читается. */
         deleteNotebook: async (id) => {
@@ -276,7 +262,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                GetNotebookResponse,
+                notebookResponse,
             ),
         /** Мимо `call`: выход не обновляет токены и не повторяет запрос. */
         logout: async () => {
@@ -302,7 +288,7 @@ export function createGo(session: Session): Go {
             unwrap(
                 await call((init) => go('POST', '/auth/enable2fa', { init })),
                 [200],
-                EnableTwoFactorAuthResponse,
+                twoFactorSetupResponse,
             ),
         /** 401 invalid_totp — неверный код, а не истёкший токен: без refresh и повтора с ним. */
         confirmTwoFactor: async (body) => {
@@ -331,7 +317,7 @@ export function createGo(session: Session): Go {
             unwrap(
                 await call((init) => go('GET', '/runtime-sessions/active', { init })),
                 [200],
-                GetActiveRuntimeSessionResponse,
+                activeRuntimeSessionResponse,
             ).active_session,
         getRuntimeSession: async (id) =>
             unwrap(
@@ -339,7 +325,7 @@ export function createGo(session: Session): Go {
                     go('GET', '/runtime-sessions/{id}', { params: { path: { id } }, init }),
                 ),
                 [200],
-                GetRuntimeSessionResponse,
+                runtimeSessionResponse,
             ),
         getRuntimeQueue: async (id) =>
             unwrap(
@@ -347,7 +333,7 @@ export function createGo(session: Session): Go {
                     go('GET', '/runtime-sessions/{id}/queue', { params: { path: { id } }, init }),
                 ),
                 [200],
-                GetRuntimeQueueResponse,
+                runtimeQueueResponse,
             ),
         listRuntimeEvents: async (id, after) =>
             unwrap(
@@ -358,7 +344,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                ListRuntimeEventsResponse,
+                runtimeEventsResponse,
             ),
         getRuntimeExecution: async (id, executionId) =>
             unwrap(
@@ -369,7 +355,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                GetRuntimeExecutionResponse,
+                runtimeExecutionResponse,
             ),
         startRuntimeSession: async (notebookId, body) =>
             unwrap(
@@ -382,7 +368,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [202],
-                StartRuntimeSessionResponse,
+                runtimeSessionResponse,
             ),
         createRuntimeExecution: async (id, body) =>
             unwrap(
@@ -395,7 +381,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [202],
-                CreateRuntimeExecutionResponse,
+                runtimeExecutionResponse,
             ),
         createRuntimeExecutionBatch: async (id, body) =>
             unwrap(
@@ -408,7 +394,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [202],
-                CreateRuntimeExecutionBatchResponse,
+                runtimeBatchResponse,
             ),
         stopRuntimeSession: async (id) =>
             unwrap(
@@ -416,7 +402,7 @@ export function createGo(session: Session): Go {
                     go('POST', '/runtime-sessions/{id}/stop', { params: { path: { id } }, init }),
                 ),
                 [202],
-                StopRuntimeSessionResponse,
+                acceptedResponse,
             ),
         stopRuntimeExecutions: async (id) =>
             unwrap(
@@ -427,7 +413,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                StopRuntimeExecutionsResponse,
+                stoppedResponse,
             ),
         interruptRuntimeKernel: async (id) =>
             unwrap(
@@ -438,7 +424,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                InterruptRuntimeKernelResponse,
+                interruptResponse,
             ),
         touchRuntimeSession: async (id) =>
             unwrap(
@@ -449,7 +435,7 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [200],
-                TouchRuntimeSessionResponse,
+                acceptedResponse,
             ),
     };
 }
@@ -472,7 +458,7 @@ export const publicGo = {
                 init: withRequestId(requestId),
             }),
             [201],
-            RegisterUserResponse,
+            authResponse,
         ),
     /**
      * Вход в Go.
@@ -487,6 +473,6 @@ export const publicGo = {
                 init: withRequestId(requestId),
             }),
             [200],
-            LoginUserResponse,
+            authResponse,
         ),
 };

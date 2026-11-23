@@ -12,9 +12,8 @@ backend, здесь Redocly не ставится и не запускается
   Вызовы BFF к Go идут через общий клиент `@cdd-team/http-client` (`packages/http-client`):
   `go(method, path, options)` и транспорт `bearerFetch` в `apps/bff/src/go/request.ts` (адрес Go — обязательный `GO_API_URL`, умолчания нет; `X-BFF-Key` и
   таймаут 5 с; `Authorization: Bearer` передаёт сессия).
-- `packages/schemas/src/zod.ts` — zod-схемы операций Go, пакет `@cdd/schemas`. Последний раз
-  сгенерированы Orval, больше не перегенерируются; заменяются ручными проверками в frontend#210.
-- `packages/schemas/src/inputs.ts` — вручную поддерживаемые общие схемы входов (`@cdd/schemas/inputs`): `Password`, `Login` (регистрация и вход), `ProfileLogin` (смена логина) и тексты правил. Ими проверяют формы браузера. Входы BFF проверяют ручные функции `@cdd/schemas/validate` без zod (frontend#254) с теми же ограничениями контракта. Длины и допустимые символы — только из контракта, своих копий ограничений не заводить.
+- `packages/schemas/src/validate.ts` (`@cdd/schemas/validate`) — вручную написанные общие проверки входов: `LOGIN`, `PASSWORD`, `loginValue`, `passwordValue` и входы маршрутов BFF. Формы браузера вызывают их до отправки, BFF — независимо после разбора HTTP-входа. Тексты правил для подсказок — `@cdd/schemas/inputs`. Длины и допустимые символы — только из контракта, своих копий ограничений не заводить.
+- `apps/bff/src/go/responses.ts` — ручные проверки ответов Go, только для BFF (в браузер не импортируются): `unwrap(res, [status], validateResponse)` из `apps/bff/src/go/errors.ts`, несоответствие — `GoError('unexpected')`, клиенту — `BAD_GATEWAY`. Тип `Validator<DTO>` сверяет проверку с `types.ts`.
 
 ### Типы Go без генератора
 
@@ -25,7 +24,7 @@ backend, здесь Redocly не ставится и не запускается
 
 Компилятор проверяет приложение относительно написанных типов, но не доказывает их соответствие
 OpenAPI: риск расхождения принят владельцем. Автоматической сверки типов со спекой в CI нет.
-Ограничения min/max/pattern/format проверяются в рантайме: входы BFF — `@cdd/schemas/validate`, ответы Go — пока zod (frontend#210).
+Ограничения min/max/pattern/format проверяются в рантайме ручными функциями: входы BFF — `@cdd/schemas/validate`, ответы Go — `apps/bff/src/go/responses.ts`. Изменение minLength/pattern в спеке typecheck не заметит: такие проверки правятся по диффу спеки вместе с типами.
 
 Клиент контракт Go не читает: он ходит только в BFF, типы маршрутов — `BffPaths`
 из `@cdd/bff` через `import type` (code-first, [frontend#254](https://github.com/Cringe-Driven-Development-Team/frontend/issues/254)).
