@@ -205,6 +205,17 @@ test('listObjects throws on page cut inside Contents', async () => {
     await expect(listObjects(openBucket(), 'releases/')).rejects.toThrow('ListObjectsV2');
 });
 
+test.each([
+    ['KeyCount mismatch', '<KeyCount>2</KeyCount>'],
+    ['Contents with attribute', '<Contents a="1"></Contents>'],
+])('listObjects throws on %s', async (_, extra) => {
+    s3.override = () =>
+        listing(
+            `<IsTruncated>false</IsTruncated>${extra}<Contents><Key>a</Key><LastModified>2026-11-01T00:00:00Z</LastModified></Contents>`,
+        );
+    await expect(listObjects(openBucket(), 'releases/')).rejects.toThrow('ListObjectsV2');
+});
+
 test('listObjects throws on page without closing ListBucketResult', async () => {
     s3.override = () =>
         new Response(

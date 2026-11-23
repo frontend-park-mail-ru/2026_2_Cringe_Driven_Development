@@ -154,3 +154,19 @@ test('retention deletes nothing when the last listing page is cut inside Content
         await expect(retention()).rejects.toThrow('ListObjectsV2 releases/');
         expect(s3.requests.filter((req) => req.method === 'DELETE')).toHaveLength(0);
     }));
+
+test('retention parses Contents with spaces in tags and keeps the fresh release', () =>
+    withProduction(async (f) => {
+        const shas = releases(f);
+        s3.rewrite = (body) =>
+            body.includes(`${shas.at(-1)}/index.html`)
+                ? body
+                      .replaceAll('<Contents>', '<Contents >')
+                      .replaceAll('</Contents>', '</Contents >')
+                : body;
+        await retention();
+        const left = new Set([...s3.objects.keys()].map((key) => key.split('/')[1]));
+        expect(left).toEqual(new Set([f.a, ...shas.slice(2), 'README.txt']));
+        for (const sha of shas.slice(2))
+            expect(s3.objects.has(`releases/${sha}/assets/x.js`)).toBe(true);
+    }));

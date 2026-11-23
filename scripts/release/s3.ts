@@ -44,7 +44,9 @@ const encode = (value: string) =>
 const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
 const hmac = (key: string | Buffer, data: string) =>
     createHmac('sha256', key).update(data).digest();
-const tag = (xml: string, name: string) => new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1];
+// XML допускает пробелы перед `>` в тегах
+const tag = (xml: string, name: string) =>
+    new RegExp(`<${name}\\s*>([^<]*)</${name}\\s*>`).exec(xml)?.[1];
 const canonicalQuery = (query: [string, string][]) =>
     query
         .map(([name, value]) => `${encode(name)}=${encode(value)}`)
@@ -244,13 +246,21 @@ export async function listObjects(bucket: Bucket, prefix: string): Promise<Store
         const page = new TextDecoder().decode(
             await send(bucket, 'ListObjectsV2', 'GET', '', { query }),
         );
-        if (!/<ListBucketResult[\s>][\s\S]*<\/ListBucketResult>\s*$/.test(page))
+        if (!/<ListBucketResult[\s>][\s\S]*<\/ListBucketResult\s*>\s*$/.test(page))
             throw bad('нет целого ListBucketResult');
-        if (page.split('<Contents>').length !== page.split('</Contents>').length)
+        const items = [...page.matchAll(/<Contents\s*>([\s\S]*?)<\/Contents\s*>/g)];
+        const count = (re: RegExp) => page.match(re)?.length ?? 0;
+        if (
+            count(/<Contents[\s>/]/g) !== items.length ||
+            count(/<\/Contents\s*>/g) !== items.length
+        )
             throw bad('оборванный Contents');
+        const keyCount = tag(page, 'KeyCount');
+        if (keyCount !== undefined && Number(keyCount) !== items.length)
+            throw bad(`KeyCount ${keyCount}, разобрано ${items.length}`);
         const truncated = tag(page, 'IsTruncated');
         if (truncated !== 'true' && truncated !== 'false') throw bad('нет IsTruncated');
-        for (const [, item = ''] of page.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        for (const [, item = ''] of items) {
             const key = tag(item, 'Key');
             const modified = Date.parse(tag(item, 'LastModified') ?? '');
             if (key === undefined || Number.isNaN(modified))

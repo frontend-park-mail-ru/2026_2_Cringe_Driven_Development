@@ -42,6 +42,8 @@ export function fakeS3(pageSize = 1000) {
         pageSize,
         /** Подмена ответа: вернуть Response, чтобы ответить им вместо бакета */
         override: undefined as ((req: S3Request) => Response | undefined) | undefined,
+        /** Правка XML страницы ListObjectsV2 перед ответом */
+        rewrite: (body: string) => body,
         /** Кладёт объект; каждый следующий новее предыдущего */
         put(key: string, body: string | Uint8Array = key) {
             s3.objects.set(key, {
@@ -103,7 +105,9 @@ export function fakeS3(pageSize = 1000) {
             .join('');
         const more = end < keys.length;
         return new Response(
-            `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>bucket</Name><Prefix>${xml(prefix)}</Prefix><IsTruncated>${more}</IsTruncated>${contents}${more ? `<NextContinuationToken>${end}</NextContinuationToken>` : ''}</ListBucketResult>`,
+            s3.rewrite(
+                `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>bucket</Name><Prefix>${xml(prefix)}</Prefix><KeyCount>${keys.slice(start, end).length}</KeyCount><IsTruncated>${more}</IsTruncated>${contents}${more ? `<NextContinuationToken>${end}</NextContinuationToken>` : ''}</ListBucketResult>`,
+            ),
         );
     }) as typeof fetch;
     return s3;
