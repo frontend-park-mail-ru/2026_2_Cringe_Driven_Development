@@ -1,4 +1,4 @@
-import serialize from 'serialize-javascript';
+import { serializeJsonForHtml } from '@cdd-team/serialize-javascript';
 
 import { createGo } from './go/api.ts';
 import { GoError } from './go/errors.ts';
@@ -20,8 +20,9 @@ export const UNAVAILABLE_HTML =
 
 /**
  * HTML клиента с данными в `<script id="bootstrap" type="application/json">`. JSON сериализуется
- * `serialize-javascript` с `isJSON`: `</script>` и `<!--` в строках экранируются и не создают
- * элементов. `HTMLRewriter` — новый на каждый ответ, шаблон не меняется.
+ * `serializeJsonForHtml` до создания ответа: `<`, `>`, `&`, U+2028/U+2029 в значениях и ключах —
+ * JSON escapes, `</script>` и `<!--` не создают элементов. Несериализуемые данные — `TypeError`,
+ * ответ — безопасный 500 из `logged`. `HTMLRewriter` — новый на каждый ответ, шаблон не меняется.
  * @param template проверенный HTML-шаблон клиента
  * @param data пользователь или `null`, на странице своего блокнота — и данные блокнота
  * @param headers заголовки ответа, уже с `Set-Cookie` сессии
@@ -34,7 +35,7 @@ export function renderBootstrap(
     headers: Headers,
     status = 200,
 ): Response {
-    const json = serialize(data, { isJSON: true });
+    const json = serializeJsonForHtml(data);
     for (const [name, value] of Object.entries(HTML_HEADERS)) headers.set(name, value);
     return new HTMLRewriter()
         .on('script#bootstrap', {
