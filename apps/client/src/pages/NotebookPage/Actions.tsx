@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 import { clsx } from '@cdd-team/clsx';
-import { isRpcError, trpc } from '@api/trpc';
+import { isBffError, api } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Icon, type IconName } from '@components/Icon/Icon';
 import { IconButton } from '@components/IconButton/IconButton';
@@ -235,9 +235,12 @@ export function RenameDialog({ notebook, onClose }: RenameDialogProps) {
         sendingRef.current = true;
         setSending(true);
         try {
-            const renamed = await trpc.notebooks.rename.mutate({
-                id: notebook.id,
-                name: value.trim(),
+            const renamed = await api('POST', '/api/notebooks/rename', {
+                contentType: 'application/json',
+                body: {
+                    id: notebook.id,
+                    name: value.trim(),
+                },
             });
             renameMeta(notebook.id, renamed.name);
             showToast('Название сохранено');
@@ -245,8 +248,8 @@ export function RenameDialog({ notebook, onClose }: RenameDialogProps) {
             onClose();
             return;
         } catch (error) {
-            // BAD_REQUEST — название не прошло проверку BFF (zodError) или Go (validation_error)
-            if (isRpcError(error) && error.data?.code === 'BAD_REQUEST') {
+            // BAD_REQUEST — название не прошло проверку BFF (validationErrors) или Go (validation_error)
+            if (isBffError(error) && error.code === 'BAD_REQUEST') {
                 setFieldError('Проверьте название');
             } else setFailed(true);
         }

@@ -1,5 +1,5 @@
 import { create } from '@cdd-team/zustand';
-import { isRpcError, trpc, type Cell, type NotebookPageData } from '@api/trpc';
+import { isBffError, api, type Cell, type NotebookPageData } from '@api/bff';
 import {
     applyOp,
     exceedsBytes,
@@ -435,26 +435,38 @@ async function send(
 ): Promise<{ hash: string; createdId?: string }> {
     switch (op.type) {
         case 'update':
-            return trpc.cells.update.mutate({
-                notebookId,
-                hash,
-                cellId: op.cellId,
-                source: op.source,
+            return api('POST', '/api/cells/update', {
+                contentType: 'application/json',
+                body: {
+                    notebookId,
+                    hash,
+                    cellId: op.cellId,
+                    source: op.source,
+                },
             });
         case 'create': {
-            const res = await trpc.cells.create.mutate({
-                notebookId,
-                hash,
-                kind: op.kind,
-                source: '',
-                index: op.index,
+            const res = await api('POST', '/api/cells/create', {
+                contentType: 'application/json',
+                body: {
+                    notebookId,
+                    hash,
+                    kind: op.kind,
+                    source: '',
+                    index: op.index,
+                },
             });
             return { hash: res.hash, createdId: res.cell.id };
         }
         case 'move':
-            return trpc.cells.move.mutate({ notebookId, hash, cellId: op.cellId, index: op.index });
+            return api('POST', '/api/cells/move', {
+                contentType: 'application/json',
+                body: { notebookId, hash, cellId: op.cellId, index: op.index },
+            });
         case 'delete':
-            return trpc.cells.delete.mutate({ notebookId, hash, cellId: op.cellId });
+            return api('POST', '/api/cells/delete', {
+                contentType: 'application/json',
+                body: { notebookId, hash, cellId: op.cellId },
+            });
     }
 }
 
@@ -505,7 +517,7 @@ async function run(): Promise<void> {
     refreshStatus(!paused());
 }
 
-/** Категории ошибок tRPC, после которых запись могла состояться: результат неизвестен. */
+/** Категории ошибок BFF, после которых запись могла состояться: результат неизвестен. */
 export const UNKNOWN_RESULT = new Set([
     'BAD_GATEWAY',
     'INTERNAL_SERVER_ERROR',
@@ -515,8 +527,8 @@ export const UNKNOWN_RESULT = new Set([
 
 /** Сбой операции. Сеть и 5xx: запись могла пройти — перечитать и сверить, вслепую не повторять. */
 function failed(job: Job, error: unknown): void {
-    const code = isRpcError(error) ? error.data?.code : undefined;
-    const appCode = isRpcError(error) ? error.data?.appCode : undefined;
+    const code = isBffError(error) ? error.code : undefined;
+    const appCode = isBffError(error) ? error.appCode : undefined;
     if (appCode === 'too_many_cells') {
         job.done(undefined);
         set({ error: 'too_many_cells', structureBusy: structureQueued() });
@@ -541,11 +553,11 @@ async function load(live: () => boolean): Promise<Loaded | null> {
     const id = get().notebookId;
     if (id === null) return null;
     try {
-        const { notebook } = await trpc.notebooks.get.query({ id });
+        const { notebook } = await api('GET', '/api/notebooks/get', { params: { query: { id } } });
         return live() ? { snapshot: { hash: notebook.hash, cells: notebook.cells } } : null;
     } catch (error) {
         if (!live()) return null;
-        const gone = isRpcError(error) && error.data?.code === 'NOT_FOUND';
+        const gone = isBffError(error) && error.code === 'NOT_FOUND';
         return { error: gone ? 'gone' : 'failed' };
     }
 }

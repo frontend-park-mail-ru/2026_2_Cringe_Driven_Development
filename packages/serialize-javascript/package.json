@@ -1,5 +1,5 @@
 {
-    "name": "@cdd-team/hono",
+    "name": "@cdd-team/serialize-javascript",
     "private": true,
     "type": "module",
     "exports": {

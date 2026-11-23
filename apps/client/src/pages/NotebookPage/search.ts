@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from '@cdd-team/react';
-import type { Cell } from '@api/trpc';
+import type { Cell } from '@api/bff';
 import {
     findMatches,
     keepActive,

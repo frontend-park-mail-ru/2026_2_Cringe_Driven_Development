@@ -17,9 +17,7 @@
         },
         "dev": {
             "cache": false,
-            "persistent": true,
-            // bun run dev:prism: клиент и BFF на локальном моке Prism
-            "passThroughEnv": ["VITE_MOCK_PREFER"]
+            "persistent": true
         },
         // turbo watch перезапускает BFF при изменении его файлов и пакетов, которые он импортирует
         // (@cdd/schemas): bun --watch пакеты вне apps/bff на Windows не отслеживает. Без
@@ -29,7 +27,7 @@
             "cache": false,
             "persistent": true,
             "interruptible": true,
-            "passThroughEnv": ["GO_API_URL", "BFF_KEY", "MOCK_PREFER"]
+            "passThroughEnv": ["GO_API_URL", "BFF_KEY"]
         },
         "//#lint:scripts": {
             "inputs": ["scripts/**", "oxlint.config.ts"]

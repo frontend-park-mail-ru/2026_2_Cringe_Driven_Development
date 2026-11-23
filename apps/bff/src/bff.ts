@@ -1,43 +1,12 @@
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-
-import { createApp } from './app.ts';
-import { createContext } from './context.ts';
+import { type App, createApp } from './app.ts';
 import { createHtmlHandler } from './html.ts';
-import { logTrpcError } from './log.ts';
-import { appRouter } from './router/index.ts';
 
 /**
- * Обработчик запросов BFF целиком: tRPC, HTML, публичные файлы. Его отдаёт `Bun.serve`.
- * HEAD обслуживается как GET: тело отбрасывает Bun, `Content-Length` сохраняется; исходный метод —
- * в env приложения, для access-лога.
+ * BFF целиком для `Bun.serve`: HTTP API, HTML, публичные файлы.
  * @param template проверенный HTML-шаблон клиента
  * @param publicFiles публичные файлы по имени
- * @returns функция `fetch` для `Bun.serve`
+ * @returns `routes` и `fetch` для `Bun.serve`
  */
-export function createBff(
-    template: string,
-    publicFiles: Map<string, Bun.BunFile>,
-): (req: Request) => Response | Promise<Response> {
-    const app = createApp({
-        template,
-        publicFiles,
-        html: createHtmlHandler(template),
-        trpc: (req) =>
-            fetchRequestHandler({
-                endpoint: '/api/trpc',
-                req,
-                router: appRouter,
-                createContext,
-                onError: logTrpcError,
-                /** Ответ с ключом настройки 2FA не кэшируется */
-                responseMeta: ({ paths }) =>
-                    paths?.includes('twoFactor.setup')
-                        ? { headers: { 'Cache-Control': 'no-store' } }
-                        : {},
-            }),
-    });
-    return (req) =>
-        req.method === 'HEAD'
-            ? app.fetch(new Request(req, { method: 'GET' }), { method: 'HEAD' })
-            : app.fetch(req);
+export function createBff(template: string, publicFiles: Map<string, Bun.BunFile>): App {
+    return createApp({ template, publicFiles, html: createHtmlHandler(template) });
 }

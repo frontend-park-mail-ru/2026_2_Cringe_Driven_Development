@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from '@cdd-team/react';
 
-import { trpc } from '@api/trpc';
+import { api } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Icon } from '@components/Icon/Icon';
@@ -30,8 +30,7 @@ export function ProfilePage() {
 
     useEffect(() => {
         let alive = true;
-        trpc.users.me
-            .query()
+        api('GET', '/api/users/me')
             .then((user) => {
                 if (!alive) return;
                 useSessionStore.setState({ user });

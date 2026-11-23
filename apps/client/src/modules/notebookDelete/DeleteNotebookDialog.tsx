@@ -1,12 +1,13 @@
-import { useRef, useState } from '@cdd-team/react';
+import { useEffect, useRef, useState } from '@cdd-team/react';
 import { useNavigate } from '@cdd-team/router';
 import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { Modal } from '@components/Modal/Modal';
+import { adoptSession, POLL_INTERVAL_MS, type RuntimeSession } from '@stores/runtime';
 import { showToast } from '@stores/toast';
-import { deleteNotebook, inUseGate } from './actions';
+import { deleteNotebook, readSession } from './actions';
 import { ClampedName } from './ClampedName';
-import type { DeleteGate } from './gate';
+import { deleteGate, type DeleteGate } from './gate';
 import styles from './DeleteNotebookDialog.module.css';
 
 const CANCEL_ID = 'delete-notebook-cancel';
@@ -17,8 +18,10 @@ const CLOSE_ID = 'delete-notebook-close';
 /** Свойства {@link DeleteNotebookDialog}. */
 interface DeleteNotebookDialogProps {
     notebook: { id: number; name: string };
-    /** Что показать при открытии: подтверждение или запрет */
-    gate: DeleteGate;
+    /** Уже известная сессия окружения: по ней диалог открывается сразу, без запроса */
+    known: RuntimeSession | null;
+    /** Сессия блокнота активна по списку блокнотов, сама сессия неизвестна */
+    listedActive?: boolean;
     /** Где открыт: на главной у запрета есть «Открыть блокнот» */
     place: 'home' | 'editor';
     onClose: () => void;
@@ -33,24 +36,65 @@ const STOP_FIRST = {
 
 /**
  * Диалог удаления блокнота для главной и редактора: подтверждение, отправка, ошибка с повтором и
- * запреты из-за окружения. Пока идёт запрос, диалог не закрывается и повторно не отправляет.
+ * запреты из-за окружения. Открывается по известному состоянию, в фоне уточняет его на сервере и
+ * обновляет вид; пока удаление запрещено — опрашивает дальше. Пока идёт запрос, диалог не
+ * закрывается и повторно не отправляет.
  */
 export function DeleteNotebookDialog({
     notebook,
-    gate: initial,
+    known,
+    listedActive = false,
     place,
     onClose,
     onGone,
 }: DeleteNotebookDialogProps) {
     const navigate = useNavigate();
-    const [gate, setGate] = useState<DeleteGate>(initial);
+    const [gate, setGate] = useState<DeleteGate>(
+        listedActive ? 'stopFirst' : deleteGate(known, notebook.id),
+    );
+    /**
+     * Сервер отказал (409), а причины не видно: активной сессии нет, очистка или фоновая работа Go
+     * наружу не отдаётся. Ждём повторного удаления по кнопке, проверки «нет сессии» вид не меняют.
+     */
+    const [blind, setBlind] = useState(false);
     const [sending, setSending] = useState(false);
     const [failed, setFailed] = useState(false);
     /** Отправка видна сразу, до перерисовки: Escape или второе нажатие в тот же кадр ничего не делают */
     const sendingRef = useRef(false);
+    const blindRef = useRef(false);
+    const sessionRef = useRef(known);
+    /** Растёт после каждой отправки без удаления: проверка начинается заново, прежние ответы отбрасываются */
+    const [round, setRound] = useState(0);
     const close = () => {
         if (!sendingRef.current) onClose();
     };
+
+    const waiting = gate !== 'confirm' || blind;
+    useEffect(() => {
+        let alive = true;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const check = async () => {
+            const session = await readSession(notebook.id, sessionRef.current);
+            if (!alive) return;
+            if (session !== 'error' && !sendingRef.current) {
+                // только ответ живой проверки текущего round: ответ закрытого диалога стор не трогает
+                adoptSession(session);
+                sessionRef.current = session;
+                const next = deleteGate(session, notebook.id);
+                if (next !== 'confirm' || !blindRef.current) {
+                    blindRef.current = false;
+                    setBlind(false);
+                    setGate(next);
+                }
+            }
+            if (waiting) timer = setTimeout(() => void check(), POLL_INTERVAL_MS);
+        };
+        void check();
+        return () => {
+            alive = false;
+            clearTimeout(timer);
+        };
+    }, [notebook.id, waiting, round]);
 
     const submit = async () => {
         if (sendingRef.current) return;
@@ -64,10 +108,14 @@ export function DeleteNotebookDialog({
             onGone(result);
             return;
         }
-        if (result === 'inUse') setGate(await inUseGate(notebook.id));
-        else setFailed(true);
         sendingRef.current = false;
         setSending(false);
+        // 409: окружение запустилось или ещё завершается — причину уточнит проверка, опрос продолжится
+        blindRef.current = result === 'inUse';
+        setBlind(blindRef.current);
+        setGate(result === 'inUse' ? 'waitStop' : 'confirm');
+        setFailed(result === 'failed');
+        setRound((current) => current + 1);
     };
 
     const name = <ClampedName key={notebook.id} name={notebook.name} />;
@@ -113,6 +161,39 @@ export function DeleteNotebookDialog({
         );
     }
 
+    if (blind) {
+        return (
+            <Modal
+                title="Дождитесь завершения окружения"
+                lead={name}
+                description="Сервер ещё завершает работу с блокнотом. Повторите удаление через несколько секунд."
+                initialFocusId={CLOSE_ID}
+                locked={sending}
+                onClose={close}
+            >
+                <div className={styles.actions}>
+                    <Button
+                        key="close"
+                        id={CLOSE_ID}
+                        variant="secondary"
+                        disabled={sending}
+                        onClick={close}
+                    >
+                        Закрыть
+                    </Button>
+                    <Button
+                        key="retry"
+                        variant="danger"
+                        loading={sending}
+                        onClick={() => void submit()}
+                    >
+                        Повторить удаление
+                    </Button>
+                </div>
+            </Modal>
+        );
+    }
+
     const openNotebook = place === 'home' && gate === 'stopFirst';
     return (
         <Modal
@@ -123,7 +204,9 @@ export function DeleteNotebookDialog({
             }
             lead={name}
             description={
-                gate === 'stopFirst' ? STOP_FIRST[place] : 'После завершения повторите удаление.'
+                gate === 'stopFirst'
+                    ? STOP_FIRST[place]
+                    : 'Удаление станет доступно здесь, когда окружение завершится.'
             }
             initialFocusId={openNotebook ? CLOSE_ID : PRIMARY_ID}
             onClose={onClose}

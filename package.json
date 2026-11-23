@@ -10,7 +10,6 @@
         "prepare": "lefthook install",
         "dev": "turbo watch dev",
         "preview": "bun scripts/dev/preview.ts",
-        "dev:prism": "bun scripts/dev/prism.ts",
         "dev:trust-windows": "bun scripts/dev/trust-windows.ts",
         "build": "turbo run build",
         "image": "turbo run build && docker build -f apps/bff/Dockerfile -t cdd-bff:local .",
@@ -23,14 +22,10 @@
         "check": "bun run fmt:check && turbo run lint lint:scripts typecheck typecheck:scripts",
         "release": "bun scripts/release/index.ts",
         "contract:fetch": "bun scripts/openapi/backend.ts fetch",
-        "contract:verify": "bun scripts/openapi/backend.ts verify",
-        "contract:tools": "cd spec && npm ci --no-audit --no-fund",
-        "contract:lint": "cd spec && npx --no redocly lint openapi.json --config redocly.yaml",
-        "sync": "bun run contract:lint"
+        "contract:verify": "bun scripts/openapi/backend.ts verify"
     },
     "devDependencies": {
         "@cdd-team/oxlint-plugin-jsdoc": "^0.1.2",
-        "@stoplight/prism-cli": "5.16.0",
         "@types/bun": "^1.4.4",
         "lefthook": "^2.2.2",
         "oxfmt": "^0.71.0",

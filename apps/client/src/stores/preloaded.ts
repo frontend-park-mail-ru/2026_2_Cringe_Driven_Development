@@ -1,4 +1,4 @@
-import type { NotebookPageData } from '@api/trpc';
+import type { NotebookPageData } from '@api/bff';
 
 /** Блокнот из первого HTML: BFF кладёт его в bootstrap при прямом открытии своего блокнота. */
 let preloaded: NotebookPageData | undefined;

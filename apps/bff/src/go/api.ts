@@ -61,12 +61,6 @@ import type { Session } from '../session/session.ts';
 import { unwrap } from './errors.ts';
 import { go, withRequestId } from './request.ts';
 
-const withHeader = (init: RequestInit, name: string, value: string): RequestInit => {
-    const headers = new Headers(init.headers);
-    headers.set(name, value);
-    return { ...init, headers };
-};
-
 /**
  * Заголовок `If-Match` для правки содержимого блокнота.
  * @param hash хеш содержимого — непрозрачная строка без кавычек; в Go уходит одним сильным ETag
@@ -140,11 +134,9 @@ export type Go = {
  * Клиент Go поверх сессии: токены, refresh и повтор после 401 — в `session.call`, кроме `logout`.
  * Заголовки браузера в Go не уходят: `init` собирает сессия.
  * @param session сессия текущего запроса
- * @param prefer заголовок `Prefer` для локального мока Prism, только в `dev:prism`
  */
-export function createGo(session: Session, prefer?: string): Go {
-    const call: Session['call'] = (fn, refused) =>
-        session.call((init) => fn(prefer ? withHeader(init, 'Prefer', prefer) : init), refused);
+export function createGo(session: Session): Go {
+    const call: Session['call'] = (fn, refused) => session.call(fn, refused);
     return {
         getCurrentUser: async () =>
             unwrap(
@@ -290,13 +282,12 @@ export function createGo(session: Session, prefer?: string): Go {
         logout: async () => {
             const pair = session.revocation();
             if (!pair) return 'unconfirmed';
-            const init = prefer ? withHeader(pair.init, 'Prefer', prefer) : pair.init;
             let status: number;
             try {
                 ({ status } = await go('POST', '/auth/logout', {
                     contentType: 'application/json',
                     body: { refresh_token: pair.refresh },
-                    init,
+                    init: pair.init,
                 }));
             } catch {
                 return 'unknown';

@@ -1,6 +1,6 @@
 import { create } from '@cdd-team/zustand';
-import type { RouterOutputs } from '@cdd/bff';
-import { isRpcError, trpc, type NotebookPageData } from '@api/trpc';
+import { MAX_TRACKED } from '@cdd/schemas/validate';
+import { api, isBffError, type Output, type NotebookPageData } from '@api/bff';
 import {
     UNKNOWN_RESULT,
     applyResult,
@@ -12,7 +12,7 @@ import {
     useNotebookStore,
 } from '@stores/notebook';
 
-type Updates = RouterOutputs['runtime']['updates'];
+type Updates = Output<'/api/runtime/updates'>;
 
 /** Runtime-сессия пользователя, как её отдаёт Go. */
 export type RuntimeSession = Updates['session'];
@@ -43,8 +43,6 @@ export const POLL_INTERVAL_MS = 2000;
 export const SUCCESS_VISIBLE_MS = 4000;
 /** Не чаще одного сигнала активности за это время. */
 export const ACTIVITY_INTERVAL_MS = 30_000;
-/** Лимит execution IDs одного вызова `runtime.updates` — не лимит размера запуска. */
-const CHUNK = 100;
 
 const ENDED = new Set<RuntimeSession['state']>(['STOPPED', 'FAILED']);
 const TERMINAL = new Set<RuntimeExecution['state']>([
@@ -126,7 +124,7 @@ const set = (patch: Partial<RuntimeState>) => useRuntimeStore.setState(patch);
 let generation = 0;
 /** Курсор последней успешно применённой страницы событий. */
 let cursor = 0;
-/** Обход отслеживаемых IDs: состав фиксируется в начале, порции по {@link CHUNK} идут подряд. */
+/** Обход отслеживаемых IDs: состав фиксируется в начале, порции по {@link MAX_TRACKED} идут подряд. */
 let pass: string[] = [];
 let offset = 0;
 let polling = false;
@@ -301,10 +299,13 @@ async function poll(): Promise<void> {
     let delay = POLL_INTERVAL_MS;
     let more = false;
     try {
-        const res = await trpc.runtime.updates.query({
-            sessionId: session.id,
-            after: cursor,
-            executionIds: pass.slice(offset, offset + CHUNK),
+        const res = await api('POST', '/api/runtime/updates', {
+            contentType: 'application/json',
+            body: {
+                sessionId: session.id,
+                after: cursor,
+                executionIds: pass.slice(offset, offset + MAX_TRACKED),
+            },
         });
         if (started !== generation) return;
         apply(res);
@@ -317,7 +318,7 @@ async function poll(): Promise<void> {
             }
         }
         cursor = res.next_cursor;
-        offset += CHUNK;
+        offset += MAX_TRACKED;
         if (offset >= pass.length) offset = 0;
         more = res.has_more || offset > 0;
         if (more) delay = 0;
@@ -334,12 +335,13 @@ async function poll(): Promise<void> {
 }
 
 /**
- * Сессия завершена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
+ * Сессия завершена, очищена и хвост дочитан: опрос больше не нужен. Недочитанные исполнения запуска —
  * неизвестный результат, а не вечное «выполняется».
  */
 function finished(): boolean {
     const session = own();
-    if (session && !ENDED.has(session.state)) return false;
+    // Go отдаёт STOPPED до удаления облачных ресурсов: очистку дочитываем, удаление блокнота ждёт её
+    if (session && (!ENDED.has(session.state) || session.cleanup_error)) return false;
     // результат ещё сохраняется: дочитать, иначе «Сохраняем результаты…» навсегда
     if (resultsPending(get())) return false;
     const { run, outcome, executions } = get();
@@ -453,11 +455,11 @@ const fail = (error: RuntimeError): void => set({ error, failure: get().failure 
 
 /** Сбой, после которого команда могла быть принята: повтор — только с теми же ID и телом. */
 const uncertain = (error: unknown): boolean =>
-    !isRpcError(error) || UNKNOWN_RESULT.has(error.data?.code ?? '');
+    !isBffError(error) || UNKNOWN_RESULT.has(error.code ?? '');
 
 const errorOf = (error: unknown): RuntimeError => {
     if (uncertain(error)) return 'network';
-    switch (isRpcError(error) ? error.data?.appCode : undefined) {
+    switch (isBffError(error) ? error.appCode : undefined) {
         case 'queue_full':
             return 'queue_full';
         case 'runtime_unavailable':
@@ -494,8 +496,11 @@ function observe(session: RuntimeSession): void {
  * @param session активная сессия пользователя в любом блокноте или null
  */
 export function adoptSession(session: RuntimeSession | null): void {
-    const { notebookId } = get();
+    const { notebookId, session: current } = get();
     if (notebookId === null || session?.notebook_id !== notebookId) return;
+    // устаревший ответ: завершённая прежняя сессия или старый снимок той же не заменяют наблюдаемую
+    if (current && current.id !== session.id && !sessionActive(session)) return;
+    if (current?.id === session.id && session.public_seq < current.public_seq) return;
     observe(session);
 }
 
@@ -510,7 +515,10 @@ export async function startRuntime(): Promise<void> {
     const started = generation;
     set({ busy: 'start', error: null, startFailed: false });
     try {
-        const created = await trpc.runtime.start.mutate({ notebookId, requestId: startRequest });
+        const created = await api('POST', '/api/runtime/start', {
+            contentType: 'application/json',
+            body: { notebookId, requestId: startRequest },
+        });
         if (started !== generation) return;
         startRequest = undefined;
         set({ busy: null });
@@ -520,7 +528,7 @@ export async function startRuntime(): Promise<void> {
         set({ busy: null });
         if (uncertain(error)) return fail('network');
         startRequest = undefined;
-        const current = isRpcError(error) ? error.data?.activeSession : undefined;
+        const current = isBffError(error) ? error.activeRuntimeSession : undefined;
         // состояние могло измениться после первоначальной загрузки: показываем занятую сессию
         if (current) return observe(current);
         set({ startFailed: true });
@@ -629,16 +637,22 @@ async function send(command: Command): Promise<void> {
             command.kind === 'execute'
                 ? [
                       (
-                          await trpc.runtime.execute.mutate({
-                              sessionId: session.id,
-                              ...command.body,
+                          await api('POST', '/api/runtime/execute', {
+                              contentType: 'application/json',
+                              body: {
+                                  sessionId: session.id,
+                                  ...command.body,
+                              },
                           })
                       ).execution_id,
                   ]
                 : (
-                      await trpc.runtime.executeAll.mutate({
-                          sessionId: session.id,
-                          ...command.body,
+                      await api('POST', '/api/runtime/execute-all', {
+                          contentType: 'application/json',
+                          body: {
+                              sessionId: session.id,
+                              ...command.body,
+                          },
                       })
                   ).execution_ids;
         if (started !== generation) return;
@@ -675,7 +689,10 @@ export async function stopRuntime(): Promise<void> {
     const started = generation;
     set({ busy: 'stop', error: null });
     try {
-        await trpc.runtime.stop.mutate({ sessionId: session.id });
+        await api('POST', '/api/runtime/stop', {
+            contentType: 'application/json',
+            body: { sessionId: session.id },
+        });
         if (started !== generation) return;
         stopUnsure = false;
         set({ busy: null, session: { ...get().session!, state: 'STOPPING', stage: 'stopping' } });
@@ -698,7 +715,10 @@ export async function stopOtherRuntime(): Promise<void> {
     const started = generation;
     set({ busy: 'stop', error: null });
     try {
-        await trpc.runtime.stop.mutate({ sessionId: session.id });
+        await api('POST', '/api/runtime/stop', {
+            contentType: 'application/json',
+            body: { sessionId: session.id },
+        });
     } catch {
         if (started !== generation) return;
         set({ busy: null });
@@ -706,7 +726,7 @@ export async function stopOtherRuntime(): Promise<void> {
     }
     for (;;) {
         // stop принят: сбой опроса не отменяет завершение — повторяем, как основной опрос
-        const active = await trpc.runtime.active.query().catch(() => undefined);
+        const active = await api('GET', '/api/runtime/active').catch(() => undefined);
         if (started !== generation) return;
         if (active !== undefined && (active?.id !== session.id || !sessionActive(active))) {
             set({ busy: null, session: active });
@@ -728,7 +748,10 @@ export async function stopExecutions(): Promise<void> {
     const started = generation;
     set({ busy: 'stopAll', error: null });
     try {
-        await trpc.runtime.stopExecutions.mutate({ sessionId: session.id });
+        await api('POST', '/api/runtime/stop-executions', {
+            contentType: 'application/json',
+            body: { sessionId: session.id },
+        });
         if (started !== generation) return;
         set({ busy: null });
     } catch {
@@ -751,7 +774,10 @@ export async function interruptCell(cellId: string): Promise<void> {
     const started = generation;
     set({ interrupting: running.execution_id, error: null });
     try {
-        await trpc.runtime.interrupt.mutate({ sessionId: session.id });
+        await api('POST', '/api/runtime/interrupt', {
+            contentType: 'application/json',
+            body: { sessionId: session.id },
+        });
         if (started !== generation) return;
     } catch (error) {
         if (started !== generation) return;
@@ -771,5 +797,8 @@ onEdit(() => {
     const now = Date.now();
     if (now - lastActivity < ACTIVITY_INTERVAL_MS) return;
     lastActivity = now;
-    trpc.runtime.activity.mutate({ sessionId: session.id }).catch(() => {});
+    api('POST', '/api/runtime/activity', {
+        contentType: 'application/json',
+        body: { sessionId: session.id },
+    }).catch(() => {});
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc } from '@api/trpc';
+import { isBffError, api } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Input } from '@components/Input/Input';
 import { Modal } from '@components/Modal/Modal';
@@ -33,11 +33,14 @@ function validateName(name: string): string | undefined {
  */
 async function createNotebook(name: string): Promise<CreateResult> {
     try {
-        const notebook = await trpc.notebooks.create.mutate({ name });
+        const notebook = await api('POST', '/api/notebooks/create', {
+            contentType: 'application/json',
+            body: { name },
+        });
         return { ok: true, id: notebook.id };
     } catch (error) {
-        // BAD_REQUEST — название не прошло проверку BFF (zodError) или Go (validation_error)
-        return { ok: false, invalid: isRpcError(error) && error.data?.code === 'BAD_REQUEST' };
+        // BAD_REQUEST — название не прошло проверку BFF (validationErrors) или Go (validation_error)
+        return { ok: false, invalid: isBffError(error) && error.code === 'BAD_REQUEST' };
     }
 }
 

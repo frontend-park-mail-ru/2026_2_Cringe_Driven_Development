@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from '@cdd-team/react';
 
-import { isRpcError, trpc, type Cell as CellData, type NotebookPageData } from '@api/trpc';
+import { isBffError, api, type Cell as CellData, type NotebookPageData } from '@api/bff';
 import LogoMark from '@assets/logo-mark.svg?react';
 import { Cell, CellSkeleton, cellEditorId } from '@components/Cell/Cell';
 import { Chip } from '@components/Chip/Chip';
@@ -15,8 +15,6 @@ import { StateBlock } from '@components/StateBlock/StateBlock';
 import { clsx } from '@cdd-team/clsx';
 import { useNavigate, useParams } from '@cdd-team/router';
 import { DeleteNotebookDialog } from '@modules/notebookDelete/DeleteNotebookDialog';
-import { checkDeleteGate } from '@modules/notebookDelete/actions';
-import { deleteGate, type DeleteGate } from '@modules/notebookDelete/gate';
 import {
     addCell,
     leaveNotebook,
@@ -70,9 +68,9 @@ const SKELETON_COUNT = 4;
 async function loadNotebook(id: number): Promise<NotebookPageData | 'missing' | undefined> {
     if (!Number.isInteger(id)) return 'missing';
     try {
-        return await trpc.notebooks.get.query({ id });
+        return await api('GET', '/api/notebooks/get', { params: { query: { id } } });
     } catch (error) {
-        const code = isRpcError(error) ? error.data?.code : undefined;
+        const code = isBffError(error) ? error.code : undefined;
         return code === 'NOT_FOUND' || code === 'BAD_REQUEST' ? 'missing' : undefined;
     }
 }
@@ -226,22 +224,10 @@ export function NotebookPage() {
     );
     const [attempt, setAttempt] = useState(0);
     const [selected, setSelected] = useState<string | undefined>(undefined);
-    /** Открытый диалог удаления: допуск по окружению из стора на момент нажатия корзины */
-    const [deleting, setDeleting] = useState<DeleteGate | null>(null);
-    const [checkingDelete, setCheckingDelete] = useState(false);
+    /** Открытый диалог удаления: открывается сразу по сессии из стора, сервер уточняет её в фоне */
+    const [deleting, setDeleting] = useState(false);
     /** Открытый диалог меню «Действия с блокнотом» */
     const [dialog, setDialog] = useState<'rename' | 'terminate' | null>(null);
-    /**
-     * Окружение — с сервера: стор не видит запуск из другой вкладки и не опрашивает завершённую
-     * сессию с незавершённой очисткой; при сбое — последнее известное состояние стора.
-     */
-    const askDelete = async () => {
-        if (checkingDelete) return;
-        setCheckingDelete(true);
-        const gate = await checkDeleteGate(id);
-        setCheckingDelete(false);
-        setDeleting(gate === 'error' ? deleteGate(useRuntimeStore.getState().session, id) : gate);
-    };
     /** Куда перевести фокус после отрисовки: новая ячейка или соседняя после удаления */
     const [focusTarget, setFocusTarget] = useState<{ id: string | undefined } | null>(null);
     /** Созданная в этой сессии ячейка: Markdown в ней сразу открывается для ввода */
@@ -568,7 +554,7 @@ export function NotebookPage() {
                             terminate={buttons.terminate}
                             onRename={() => setDialog('rename')}
                             onTerminate={() => setDialog('terminate')}
-                            onDelete={() => void askDelete()}
+                            onDelete={() => setDeleting(true)}
                         />
                     )}
                     <ProfileLink key="profile" />
@@ -677,9 +663,9 @@ export function NotebookPage() {
                 <DeleteNotebookDialog
                     key="delete"
                     notebook={{ id, name: notebook.meta.name }}
-                    gate={deleting}
+                    known={runtime.session}
                     place="editor"
-                    onClose={() => setDeleting(null)}
+                    onClose={() => setDeleting(false)}
                     onGone={() => navigate({ to: '/' })}
                 />
             )}

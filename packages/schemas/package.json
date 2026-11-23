@@ -5,7 +5,8 @@
     "exports": {
         ".": "./src/zod.ts",
         "./inputs": "./src/inputs.ts",
-        "./types": "./src/types.ts"
+        "./types": "./src/types.ts",
+        "./validate": "./src/validate.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"

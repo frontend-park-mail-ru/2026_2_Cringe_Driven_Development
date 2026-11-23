@@ -1,6 +1,5 @@
-import type { RouterInputs, RouterOutputs } from '@cdd/bff';
 import { create } from '@cdd-team/zustand';
-import { isRpcError, switchSession, trpc, type User } from '@api/trpc';
+import { api, isBffError, switchSession, type JsonInput, type Output, type User } from '@api/bff';
 import { showSnackbar } from '@stores/snackbar';
 import { LOGIN_RULE, PASSWORD_RULE } from '@utils/credentials';
 
@@ -14,7 +13,7 @@ interface SessionState {
 }
 
 /** Логин и пароль для входа и регистрации. */
-export type Credentials = RouterInputs['auth']['login'];
+export type Credentials = JsonInput<'/api/auth/login'>;
 
 /** Стор сессии. До первого рендера его заполняет {@link initSession}. */
 export const useSessionStore = create<SessionState>()(() => ({ status: 'guest', user: null }));
@@ -55,16 +54,16 @@ const GUEST: SessionState = { status: 'guest', user: null };
  * @returns ошибка для формы
  */
 function toAuthError(error: unknown): AuthError {
-    if (!isRpcError(error)) return { code: 'network' };
-    const { appCode, zodError } = error.data ?? {};
-    if (zodError) {
-        const fields = zodError.fieldErrors as Partial<Record<keyof Credentials, string[]>>;
+    if (!isBffError(error)) return { code: 'network' };
+    const { appCode, validationErrors } = error;
+    if (validationErrors) {
+        const { fieldErrors } = validationErrors;
         return {
             code: 'validation_error',
-            // тексты zod не показываем: правило поля по-русски
+            // тексты проверки BFF не показываем: правило поля по-русски
             fields: {
-                login: fields.login && LOGIN_RULE,
-                password: fields.password && PASSWORD_RULE,
+                login: fieldErrors.login && LOGIN_RULE,
+                password: fieldErrors.password && PASSWORD_RULE,
             },
         };
     }
@@ -74,7 +73,9 @@ function toAuthError(error: unknown): AuthError {
 /** Вход по логину и паролю. */
 export async function login(credentials: Credentials): Promise<AuthResult> {
     try {
-        const user = await switchSession(() => trpc.auth.login.mutate(credentials));
+        const user = await switchSession(() =>
+            api('POST', '/api/auth/login', { contentType: 'application/json', body: credentials }),
+        );
         useSessionStore.setState({ status: 'authed', user });
         return { ok: true };
     } catch (error) {
@@ -85,7 +86,12 @@ export async function login(credentials: Credentials): Promise<AuthResult> {
 /** Регистрация. BFF сразу ставит cookie сессии, поэтому после неё пользователь уже вошёл. */
 export async function register(credentials: Credentials): Promise<AuthResult> {
     try {
-        const user = await switchSession(() => trpc.auth.register.mutate(credentials));
+        const user = await switchSession(() =>
+            api('POST', '/api/auth/register', {
+                contentType: 'application/json',
+                body: credentials,
+            }),
+        );
         useSessionStore.setState({ status: 'authed', user });
         return { ok: true };
     } catch (error) {
@@ -99,14 +105,16 @@ export async function register(credentials: Credentials): Promise<AuthResult> {
  * @param input текущий и новый пароль
  */
 export async function changePassword(
-    input: RouterInputs['users']['changePassword'],
+    input: JsonInput<'/api/users/change-password'>,
 ): Promise<void> {
-    await switchSession(() => trpc.users.changePassword.mutate(input));
+    await switchSession(() =>
+        api('POST', '/api/users/change-password', { contentType: 'application/json', body: input }),
+    );
     useSessionStore.setState(GUEST);
 }
 
 /** Итог выхода: `serverRevocation` от BFF или `failed` — BFF не ответил, выход не подтверждён. */
-export type LogoutResult = RouterOutputs['auth']['logout']['serverRevocation'] | 'failed';
+export type LogoutResult = Output<'/api/auth/logout'>['serverRevocation'] | 'failed';
 
 const REVOCATION_WARNINGS: Partial<Record<LogoutResult, string>> = {
     unconfirmed: 'Вы вышли в этом браузере. Отзыв сессии на сервере не подтверждён',
@@ -122,7 +130,7 @@ const REVOCATION_WARNINGS: Partial<Record<LogoutResult, string>> = {
 export async function logout(): Promise<LogoutResult> {
     let result: LogoutResult;
     try {
-        ({ serverRevocation: result } = await switchSession(() => trpc.auth.logout.mutate()));
+        ({ serverRevocation: result } = await switchSession(() => api('POST', '/api/auth/logout')));
     } catch {
         showSnackbar('Не удалось выйти. Проверьте подключение и попробуйте снова');
         return 'failed';
@@ -146,7 +154,7 @@ export type LogoutAllResult = 'ok' | 'lost' | 'failed';
  */
 export async function logoutAll(): Promise<LogoutAllResult> {
     try {
-        await switchSession(() => trpc.auth.logoutAll.mutate());
+        await switchSession(() => api('POST', '/api/auth/logout-all'));
     } catch {
         return useSessionStore.getState().status === 'guest' ? 'lost' : 'failed';
     }
@@ -166,17 +174,18 @@ const FILE_ERRORS = new Set(['validation_error', 'payload_too_large', 'unsupport
  * @returns null после успеха, иначе вид ошибки
  */
 export async function uploadAvatar(file: File): Promise<AvatarError | null> {
-    const form = new FormData();
-    form.append('avatar', file);
     try {
-        const { avatar_url } = await trpc.users.uploadAvatar.mutate(form);
+        const { avatar_url } = await api('POST', '/api/users/avatar', {
+            contentType: 'multipart/form-data',
+            body: { avatar: file },
+        });
         // только своё поле: параллельная смена логина не откатывается
         useSessionStore.setState((state) => ({
             user: state.user && { ...state.user, avatar_url },
         }));
         return null;
     } catch (error) {
-        const code = isRpcError(error) ? error.data?.appCode : undefined;
+        const code = isBffError(error) ? error.appCode : undefined;
         return code && FILE_ERRORS.has(code) ? 'file' : 'upload';
     }
 }

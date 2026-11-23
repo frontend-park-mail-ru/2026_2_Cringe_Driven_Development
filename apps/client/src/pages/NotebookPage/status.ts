@@ -24,6 +24,13 @@ const CAPACITY_REASON = 'capacity_exceeded';
 const own = (runtime: Runtime) =>
     runtime.session?.notebook_id === runtime.notebookId ? runtime.session : null;
 
+/**
+ * Go завершил сессию (STOPPED/FAILED) до подтверждённого удаления облачных ресурсов: DELETE
+ * блокнота ещё отклоняется, для пользователя окружение завершается.
+ */
+const cleaning = (session: Runtime['session']): boolean =>
+    !!session && !sessionActive(session) && session.cleanup_error !== null;
+
 const RUN: Record<RunOutcome, Label> = {
     running: { tone: 'progress', text: 'Выполняется' },
     succeeded: { tone: 'success', text: 'Выполнено' },
@@ -46,7 +53,7 @@ export function runtimeStatus(runtime: Runtime): Label | undefined {
         return { tone: 'progress', text: 'Восстанавливаем связь с окружением…' };
     }
     // ошибку очистки показывает баннер: «Завершаем…» её не прикрывает
-    if (state === 'STOPPING' && !session?.cleanup_error) {
+    if ((state === 'STOPPING' && !session?.cleanup_error) || cleaning(session)) {
         return { tone: 'progress', text: 'Завершаем окружение…' };
     }
     if (runtime.busy === 'stopAll') return { tone: 'progress', text: 'Останавливаем выполнение…' };
@@ -102,6 +109,8 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
     if (!session && sessionActive(runtime.session)) return 'busy';
     // слот занят, пока очистка не подтверждена; после STOPPED слот свободен — это не ошибка
     if (sessionActive(session) && session?.cleanup_error) return 'cleanup';
+    // слот уже свободен, но очистка не подтверждена: «Завершаем…» в шапке, не «не запущено»
+    if (cleaning(session)) return null;
     // ошибка нового запуска важнее причины прежней FAILED-сессии в сторе
     if (runtime.startFailed) return 'startFailed';
     if (session?.state === 'FAILED') {

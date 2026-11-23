@@ -61,7 +61,7 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/hono` (локальный `packages/hono`, frontend#255). Исключения — по задачам ментора:
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript` (пока локальный пакет в `packages/`, frontend#256). Исключения — по задачам ментора:
   zod (frontend#45), lefthook (frontend#24).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
@@ -72,44 +72,37 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 
 Прочитай [порядок Spec First](docs/api-contract.md#spec-first).
 Источник контракта — `spec/openapi.json` в backend; локальная копия `spec/` закреплена по
-Git SHA и может отставать. Правки контракта — только PR в backend, затем
-`bun run contract:fetch <sha>`, `bun run sync` и правка `packages/schemas/src/types.ts`. Примеры проверяй через `bun run dev:prism`,
-состояние — на реальном Go. Собственный dev-сервер,
-имитирующий Go, для обхода неготового бэкенда или дефекта мока не создавай.
-Исключение — Prism (`bun run dev:prism`): он не пишется руками, а отвечает примерами
-контракта из `spec/openapi.json`; своих моков и логики в нём не заводи
-([локальный мок на Prism](docs/api-contract.md#локальный-мок-на-prism)).
+Git SHA и может отставать. Правки контракта — только PR в backend, затем после успешного CI main
+backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) и ручная правка `packages/schemas/src/types.ts` по диффу спеки. Ответы и
+состояние проверяй на реальном Go. Собственный dev-сервер или мок, имитирующий Go, для обхода
+неготового бэкенда не создавай.
 
 ## Источники
 
 - API Go: контракт — `spec/openapi.json` в backend, локальная копия `spec/` по SHA из
-  `spec/contract-source.json`. Обновить — `bun run contract:fetch <sha>`, `bun run contract:tools`,
-  `bun run sync` (Redocly); копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
+  `spec/contract-source.json`. Обновить — `bun run contract:fetch` из `main` backend после
+  успешного CI (Redocly проверяет спеку там) или `bun run contract:fetch <ветка>`; копию `spec/` руками не править. Типы Go (`@cdd/schemas/types`) —
   редактируемый TypeScript по спеке, без генератора: правятся по диффу спеки в том же изменении,
   соответствие спеке компилятор не доказывает, риск принят (frontend#253,
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
-  (frontend#210). Клиент Go не вызывает: только процедуры BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
-  так же `@trpc/server` и `serialize-javascript` в `apps/bff` — по задаче frontend#2,
-  `@trpc/client` в `apps/client` — по задаче frontend#5 (с ним `@trpc/server`: `observable` для своего link
-  и типы; в бандл идёт только то, что берёт сам `@trpc/client`), `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36, `@stoplight/prism-cli` — локальный мок Go по контракту (devDependency) по задаче frontend#37.
+  (frontend#210). Клиент Go не вызывает: только HTTP API BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
+  так же `vite-plugin-mkcert` — локальный
+  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
-  BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет; `bun run dev:prism` подставляет Prism,
+  BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,
   [локальные правила](docs/local-development.md#клиент-через-bff), [реальный Go](docs/api-contract.md#реальный-go)).
 
 ## Команды
 
 ```bash
-bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api/trpc — через BFF; Go — GO_API_URL из .env
+bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api — через BFF; Go — GO_API_URL из .env
 bun run preview    # локальная проверка production-сборки, включая SW и PWA: BFF на http://localhost:4173, без HMR
-bun run dev:prism  # как dev, но Go — локальный Prism по spec/openapi.json; mock(процедура, статус) в консоли
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
-bun run contract:fetch <sha>  # копия spec/ из backend по полному SHA, проверка Redocly до замены
-bun run contract:tools  # Redocly CLI закреплённой версии в spec/node_modules (npm ci)
-bun run sync       # Redocly по spec/; ревизию не меняет, код не генерирует
+bun run contract:fetch  # spec/openapi.json из main backend (или contract:fetch <ветка>), SHA — в манифест
+bun run contract:verify  # побайтовая сверка spec/openapi.json с backend по SHA из манифеста
 ```
 
 Перед тем как сказать «готово» — `bun run check` и `bun run build` должны проходить.
@@ -129,7 +122,8 @@ bun run sync       # Redocly по spec/; ревизию не меняет, ко�
 внутри своей папки — через `./`. Алиасы заданы только в `paths` в `apps/client/tsconfig.json`,
 vite берёт их оттуда.
 
-- `api/trpc.ts` — клиент BFF `trpc` (единственный экземпляр), типы процедур и учёт сессии в транспорте.
+- `api/bff.ts` — запросы к BFF `api(method, path, options)` на общем `@cdd-team/http-client` (единственный
+  экземпляр, транспорт — `api/transport.ts`), типы маршрутов, `BffError` и учёт сессии.
 - `components/` — UI-kit по Components из макета: `Button`, `Input`, `Icon`, `Logo`, `Moon`,
   `Snackbar`, `Toast`, `Space`, `ScrollTop` (кнопка «Наверх» порталом в `body`), `SearchBar` (панель поиска). Каждый компонент — папка с `.tsx` и `.module.css`.
 - `main.tsx` регистрирует production service worker `/sw.js`; его логика в `apps/client/sw/sw.ts` со своим tsconfig (lib WebWorker). Офлайн-страница — `public/offline.html`, `public/offline.css` и шрифт `public/onest-variable.woff2`.
@@ -173,10 +167,12 @@ vite берёт их оттуда.
 
 - Сессия — в HttpOnly-cookie BFF, токены Go клиент не видит; refresh, повторы после 401 и удаление
   cookie делает BFF. В `localStorage` токены не писать, cookie не читать.
-- Все вызовы — через один клиент `trpc` из `@api/trpc` (`@trpc/client`, `httpBatchLink` на
-  `/api/trpc`): он ставит `X-CSRF: 1` и `credentials: 'same-origin'`. Второй транспорт не заводить.
-  Вход-`FormData` (аватар) тот же клиент шлёт через `splitLink` → `httpLink`: multipart без батча.
-  Типы входов и ответов — `RouterInputs` / `RouterOutputs` из `@cdd/bff` через `import type`.
+- Все вызовы — через `api` из `@api/bff`: один вызов — один HTTP-запрос к маршруту из таблицы BFF
+  (`apps/bff/src/router/`), транспорт ставит `X-CSRF: 1` и `credentials: 'same-origin'`. Второй транспорт
+  не заводить. Аватар — `{ contentType: 'multipart/form-data', body: { avatar: file } }`. Типы входов и
+  ответов — `BffPaths` из `@cdd/bff` через `import type` (`Output<path>`, `JsonInput<path>` в `@api/bff`).
+  Новый маршрут — запись `route({...})` в таблице BFF: вход проверяет ручная функция из
+  `@cdd/schemas/validate`, тип ответа выводится из обработчика.
 - Пользователь — из `<script id="bootstrap">` первого HTML (`src/bootstrap.ts`), до первого
   рендера. Статус сессии сразу `guest` | `authed`, запроса при старте нет. Сломанный bootstrap —
   ошибка запуска, гостем она не прикрывается. Маршруты `_guest` (`/login`, `/register`) и `_auth`
@@ -185,18 +181,19 @@ vite берёт их оттуда.
   [локальной разработке](docs/local-development.md#bff)); при переходе внутри SPA то же делают
   `beforeLoad`, `notFoundComponent` корня и `NOT_FOUND` блокнота. Блокнот при прямом открытии своего
   приходит в bootstrap (`@stores/preloaded`).
-- Ошибки — `TRPCClientError` (`isRpcError` из `@api/trpc`): категория — `data.code`, причина —
-  `data.appCode`, ошибки полей — `data.zodError`; на `message` поведение не завязывать.
-  `UNAUTHORIZED` защищённой процедуры транспорт сам переводит в гостя и ведёт на `/login`;
+- Ошибки — `BffError` (`isBffError` из `@api/bff` — ответ BFF по протоколу `{ error }`): категория — `code`,
+  причина — `appCode`, ошибки полей — `validationErrors`; прочие сбои — `kind` `network`, `abort`,
+  `protocol`, `session_changed`. На `message` поведение не завязывать.
+  `UNAUTHORIZED` защищённого запроса транспорт сам переводит в гостя и ведёт на `/login`;
   `FORBIDDEN`, `BAD_GATEWAY` и сбой сети сессию не завершают.
 - Вход, регистрация, выход, выход со всех устройств и смена пароля — `login()`, `register()`,
   `logout()`, `logoutAll()`, `changePassword()`
   из `@stores/session` через `switchSession`: транспорт не пускает новые защищённые запросы, ждёт ответа уже отправленных и
-  только затем вызывает процедуру смены — поздний `Set-Cookie` прежней сессии не перепишет новую cookie. Ответ на запрос прежней сессии приходит
+  только затем вызывает запрос смены — поздний `Set-Cookie` прежней сессии не перепишет новую cookie. Ответ на запрос прежней сессии приходит
   ошибкой `SESSION_CHANGED` и в интерфейс не попадает. Если, пока ждали, запрос получил `UNAUTHORIZED`, а
   смена не удалась, сессия всё равно считается потерянной (`onSessionLost`). Смены сессии идут по
   очереди: вызов во время другой смены начинается после её завершения.
-- Выход (`auth.logout`) идёт мимо `session.call`: без refresh и повторов. Действующий access — один
+- Выход (`/api/auth/logout`) идёт мимо `session.call`: без refresh и повторов. Действующий access — один
   `POST /auth/logout`; истёкший — Go не вызывается. Cookie удаляется при любом итоге, ответ —
   `{ browserSession: 'ended', serverRevocation }`: `confirmed` (Go 204), `unconfirmed` (access истёк
   или Go 4xx), `unknown` (Go 5xx, сеть, таймаут, неожиданный ответ), `not_requested` (сессии не было).
