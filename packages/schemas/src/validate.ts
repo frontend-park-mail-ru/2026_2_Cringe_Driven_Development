@@ -1,5 +1,5 @@
-// Ручные проверки входов BFF без zod: ограничения, strip/strict и пути ошибок прежних схем.
-// Пределы — из контракта Go (spec/openapi.json), как в прежних схемах zod.ts.
+// Ручные проверки входов BFF и строительные блоки проверок ответов Go: ограничения, strip/strict
+// и пути ошибок. Пределы — из контракта Go (spec/openapi.json).
 
 import type { RuntimeSession } from './types.ts';
 
@@ -22,7 +22,7 @@ const INVALID: unique symbol = Symbol('invalid');
 type Path = (string | number)[];
 
 /** Проверка значения: итог или {@link INVALID}, проблемы дописываются в `issues`. */
-interface Check<T, Wire = T> {
+export interface Check<T, Wire = T> {
     (value: unknown, path: Path, issues: Issue[]): T | typeof INVALID;
     readonly wire?: Wire;
 }
@@ -90,7 +90,7 @@ const outOfBounds = (n: number, { min, max }: Bounds): string | undefined =>
  * Строка с длиной в UTF-16 единицах, как `z.string().min().max()`, и шаблоном.
  * @param rule пределы длины и шаблон
  */
-const string =
+export const string =
     (rule: Bounds & { pattern?: RegExp } = {}): Check<string> =>
     (value, path, issues) => {
         if (typeof value !== 'string') return fail(issues, path, 'Ожидалась строка');
@@ -121,16 +121,16 @@ const numeric =
     };
 
 /** Целое в пределах безопасных целых JS, как `z.int()`. */
-const int = numeric(Number.isSafeInteger, 'Ожидалось целое число');
+export const int = numeric(Number.isSafeInteger, 'Ожидалось целое число');
 
 /** Конечное число, как `z.number()`: NaN и Infinity недопустимы. */
-const number = numeric(Number.isFinite, 'Ожидалось число');
+export const number = numeric(Number.isFinite, 'Ожидалось число');
 
 /**
  * Одно из перечисленных строковых значений.
  * @param values допустимые значения
  */
-const oneOf =
+export const oneOf =
     <const V extends readonly string[]>(values: V): Check<V[number]> =>
     (value, path, issues) =>
         values.find((v) => v === value) ?? fail(issues, path, `Одно из: ${values.join(', ')}`);
@@ -139,11 +139,64 @@ const oneOf =
 const UUID =
     /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
 
+/** UUID по RFC 9562. */
+export const uuid = string({ pattern: UUID });
+
+/**
+ * Значение, равное `expected`, как `z.literal()`.
+ * @param expected единственное допустимое значение
+ */
+export const literal =
+    <const V extends string | number | boolean>(expected: V): Check<V> =>
+    (value, path, issues) =>
+        value === expected ? expected : fail(issues, path, `Ожидалось ${String(expected)}`);
+
+/**
+ * Открытый объект: любые ключи и значения сохраняются как есть (выводы nbformat, payload событий).
+ * @param value проверяемое значение
+ * @param path путь до поля
+ * @param issues накопитель проблем
+ */
+export const record: Check<Record<string, unknown>> = (value, path, issues) =>
+    isRecord(value) ? value : fail(issues, path, 'Ожидался объект');
+
+/** Дата и время ISO 8601 со смещением или `Z`, как `z.iso.datetime({ offset: true })`. */
+const DATETIME =
+    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/;
+
+/** Дата и время ISO 8601 со смещением. */
+export const datetime = string({ pattern: DATETIME });
+
+/**
+ * Абсолютный URL, который разбирает `URL`.
+ * @param value проверяемое значение
+ * @param path путь до поля
+ * @param issues накопитель проблем
+ */
+export const url: Check<string> = (value, path, issues) =>
+    typeof value === 'string' && URL.canParse(value) ? value : fail(issues, path, 'Ожидался URL');
+
+/**
+ * Ровно один подходящий вариант, как `oneOf` OpenAPI: ни одного или несколько — ошибка.
+ * @param checks проверки вариантов
+ */
+export const exactlyOne =
+    <C extends Check<unknown, unknown>[]>(...checks: C): Check<Out<C[number]>, WireOf<C[number]>> =>
+    (value, path, issues) => {
+        const matches = checks.map((check) => check(value, path, [])).filter((r) => r !== INVALID);
+        if (matches.length === 1) return matches[0] as Out<C[number]>;
+        return fail(
+            issues,
+            path,
+            matches.length ? 'Подходит несколько вариантов' : 'Не подходит ни один вариант',
+        );
+    };
+
 /**
  * Необязательное значение: `undefined` проходит как есть.
  * @param check проверка заданного значения
  */
-const optional =
+export const optional =
     <T, W>(check: Check<T, W>): Check<T | undefined, W | undefined> =>
     (value, path, issues) =>
         value === undefined ? undefined : check(value, path, issues);
@@ -152,7 +205,7 @@ const optional =
  * Значение или `null`.
  * @param check проверка значения, кроме `null`
  */
-const nullable =
+export const nullable =
     <T, W>(check: Check<T, W>): Check<T | null, W | null> =>
     (value, path, issues) =>
         value === null ? null : check(value, path, issues);
@@ -163,7 +216,7 @@ const nullable =
  * @param path путь до поля
  * @param issues накопитель проблем
  */
-const boolean: Check<boolean> = (value, path, issues) =>
+export const boolean: Check<boolean> = (value, path, issues) =>
     typeof value === 'boolean' ? value : fail(issues, path, 'Ожидалось true или false');
 
 /**
@@ -181,7 +234,7 @@ const withDefault =
  * @param item проверка элемента
  * @param bounds пределы количества элементов
  */
-const array =
+export const array =
     <T, W>(item: Check<T, W>, bounds: Bounds = {}): Check<T[], W[]> =>
     (value, path, issues) => {
         if (!Array.isArray(value)) return fail(issues, path, 'Ожидался массив');
@@ -203,7 +256,7 @@ const array =
  * @param shape проверки полей
  * @param mode что делать с лишними полями
  */
-const object = <S extends Shape>(
+export const object = <S extends Shape>(
     shape: S,
     mode: 'strip' | 'strict' = 'strip',
 ): Check<OutObject<S>, WireObject<S>> => {
@@ -265,7 +318,7 @@ const intParam = (bounds: Bounds = {}): Check<number> => {
  * Проверка входа целиком из проверки значения: успех — только без единой проблемы.
  * @param check проверка корня входа
  */
-const validator =
+export const validator =
     <T, W>(check: Check<T, W>): Validator<T, W> =>
     (input) => {
         const issues: Issue[] = [];
@@ -275,10 +328,18 @@ const validator =
             : { success: true, data };
     };
 
-/** Логин по контракту Go: 3–32 символа a–z, A–Z, 0–9 и `_`. */
-const login = string({ min: 3, max: 32, pattern: /^[a-zA-Z0-9_]+$/ });
-/** Пароль по контракту Go: 8–72 печатных ASCII-символа без пробелов. */
-const password = string({ min: 8, max: 72, pattern: /^[!-~]+$/ });
+/** Логин по контракту Go: 3–32 символа a–z, A–Z, 0–9 и `_`; одно правило для регистрации, входа и профиля. */
+export const LOGIN = { min: 3, max: 32, pattern: /^[a-zA-Z0-9_]+$/ } as const;
+/** Пароль по контракту Go: 8–72 печатных ASCII-символа без пробелов, без trim и нормализации. */
+export const PASSWORD = { min: 8, max: 72, pattern: /^[!-~]+$/ } as const;
+const login = string(LOGIN);
+const password = string(PASSWORD);
+
+/** Логин отдельно — для проверки формы до отправки той же функцией, что и в BFF. */
+export const loginValue = validator(login);
+
+/** Пароль отдельно — для проверки формы до отправки той же функцией, что и в BFF. */
+export const passwordValue = validator(password);
 /** ID блокнота: положительное целое. */
 const notebookId = int({ min: 1 });
 /** Название блокнота: 1–128 символов. */
@@ -290,7 +351,7 @@ const sourceHash = string({ min: 64, max: 64, pattern: /^[0-9a-f]{64}$/ });
 /** Таймаут команды: 1–86400 секунд, по умолчанию 300. */
 const timeoutSeconds = withDefault(number({ min: 1, max: 86400 }), 300);
 /** ID runtime-сессии: UUID. */
-const sessionId = string({ pattern: UUID });
+const sessionId = uuid;
 /** ID исполнения: 1–128 символов. */
 const executionId = string({ min: 1, max: 128 });
 /** Блокнот и его `hash` — без HTTP-кавычек, их ставит BFF в `If-Match`. */

@@ -16,7 +16,6 @@
     "dependencies": {
         "@cdd-team/http-client": "workspace:*",
         "@cdd-team/serialize-javascript": "workspace:*",
-        "@cdd/schemas": "workspace:*",
-        "zod": "^4.6.7"
+        "@cdd/schemas": "workspace:*"
     }
 }

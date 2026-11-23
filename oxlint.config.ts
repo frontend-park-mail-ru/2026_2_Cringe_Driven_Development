@@ -8,12 +8,7 @@ export default defineConfig({
         correctness: 'error',
         suspicious: 'warn',
     },
-    ignorePatterns: [
-        '**/dist/',
-        'node_modules/',
-        // сгенерировано Orval до frontend#253, заменяется в frontend#210
-        'packages/schemas/src/zod.ts',
-    ],
+    ignorePatterns: ['**/dist/', 'node_modules/'],
     rules: {
         'react-hooks/rules-of-hooks': 'error',
         'react-hooks/exhaustive-deps': 'error',

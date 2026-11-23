@@ -1,5 +1,5 @@
 {
-    // zod-схемы контракта Go: без окружения, DOM — только ради Blob в загрузке аватара
+    // типы и ручные проверки контракта Go: без окружения, DOM — ради File/Blob и URL
     "compilerOptions": {
         "lib": ["ESNext", "DOM"],
         "target": "ESNext",

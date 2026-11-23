@@ -1,40 +1,50 @@
-import { z } from 'zod';
+/**
+ * Значение переменной окружения: пустая — то же, что отсутствующая.
+ * @param name имя переменной
+ */
+const read = (name: string): string | undefined => process.env[name] || undefined;
 
-/** Пустая переменная окружения — то же, что отсутствующая. */
-const optional = (value: unknown): unknown => (value === '' ? undefined : value);
+/**
+ * Флаг `1` или его отсутствие.
+ * @param name имя переменной
+ */
+const flag = (name: string): '1' | undefined => (read(name) === '1' ? '1' : undefined);
 
-const schema = z.object({
-    SESSION_KEY: z
-        .string()
-        .refine(
-            (value) =>
-                Buffer.from(value, 'base64').length === 32 && /^[A-Za-z0-9+/]+=*$/.test(value),
-        ),
-    /**
-     * `canParse`: refine выполняется и после неудачной проверки url, `new URL` бросил бы со
-     * значением.
-     */
-    APP_ORIGIN: z.url().refine((value) => URL.canParse(value) && new URL(value).origin === value),
-    GO_API_URL: z.url(),
-    /** Без preprocess пустой PORT стал бы 0. */
-    PORT: z.preprocess(optional, z.coerce.number().int().min(1).max(65535).default(3000)),
-    BFF_KEY: z.preprocess(optional, z.string().optional()),
-    HTML_TEMPLATE: z.preprocess(optional, z.string().default('/app/client/index.html')),
-    SKIP_PUBLIC_FILES: z.preprocess(optional, z.literal('1').optional()),
-    SERVE_CLIENT_ASSETS: z.preprocess(optional, z.literal('1').optional()),
-});
+function parse() {
+    const SESSION_KEY = process.env.SESSION_KEY ?? '';
+    const APP_ORIGIN = process.env.APP_ORIGIN ?? '';
+    const GO_API_URL = process.env.GO_API_URL ?? '';
+    const port = read('PORT');
+    /** Без отдельной проверки пустой PORT стал бы 0. */
+    const PORT = port === undefined ? 3000 : Number(port);
+    const isFlag = (name: string): boolean => read(name) === undefined || read(name) === '1';
 
-function parse(): z.infer<typeof schema> & { sessionKey: Uint8Array<ArrayBuffer> } {
-    const result = schema.safeParse(process.env);
-    if (!result.success) {
-        /** Имена непрошедших переменных — без значений: они могут быть секретами. */
-        const names = [...new Set(result.error.issues.map((issue) => issue.path.join('.')))];
+    const valid: Record<string, boolean> = {
+        SESSION_KEY:
+            /^[A-Za-z0-9+/]+=*$/.test(SESSION_KEY) &&
+            Buffer.from(SESSION_KEY, 'base64').length === 32,
+        APP_ORIGIN: URL.canParse(APP_ORIGIN) && new URL(APP_ORIGIN).origin === APP_ORIGIN,
+        GO_API_URL: URL.canParse(GO_API_URL),
+        PORT: Number.isInteger(PORT) && PORT >= 1 && PORT <= 65535,
+        SKIP_PUBLIC_FILES: isFlag('SKIP_PUBLIC_FILES'),
+        SERVE_CLIENT_ASSETS: isFlag('SERVE_CLIENT_ASSETS'),
+    };
+    /** Имена непрошедших переменных — без значений: они могут быть секретами. */
+    const names = Object.keys(valid).filter((name) => !valid[name]);
+    if (names.length > 0) {
         console.error(`Неверная конфигурация: ${names.join(', ')}`);
         process.exit(1);
     }
     return {
-        ...result.data,
-        sessionKey: new Uint8Array(Buffer.from(result.data.SESSION_KEY, 'base64')),
+        SESSION_KEY,
+        APP_ORIGIN,
+        GO_API_URL,
+        PORT,
+        BFF_KEY: read('BFF_KEY'),
+        HTML_TEMPLATE: read('HTML_TEMPLATE') ?? '/app/client/index.html',
+        SKIP_PUBLIC_FILES: flag('SKIP_PUBLIC_FILES'),
+        SERVE_CLIENT_ASSETS: flag('SERVE_CLIENT_ASSETS'),
+        sessionKey: new Uint8Array(Buffer.from(SESSION_KEY, 'base64')),
     };
 }
 

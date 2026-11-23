@@ -2,7 +2,7 @@
 
 Фронтенд проекта «Colab» (Cellestial) команды «Cringe Driven Development».
 Монорепа на bun workspaces и Turborepo: клиент — `apps/client`, BFF — `apps/bff`,
-типы и zod-схемы Go — `packages/schemas`, HTTP-клиент — `packages/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
+типы Go и общие ручные проверки — `packages/schemas`, HTTP-клиент — `packages/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
 Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
 в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
@@ -61,8 +61,8 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
   `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript` (пока локальный пакет в `packages/`, frontend#256). Исключения — по задачам ментора:
-  zod (frontend#45), lefthook (frontend#24).
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript` (пока локальный пакет в `packages/`, frontend#256). Исключения — по задачам ментора: lefthook (frontend#24).
+  Проверки данных — ручные функции (`@cdd/schemas/validate`, ответы Go — `apps/bff/src/go/responses.ts`), без библиотек схем (frontend#210).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
 - Каждому экспорту — JSDoc: без него падает `bun run lint`. Типы в `@param` и `@returns` не
@@ -85,9 +85,9 @@ backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) 
   редактируемый TypeScript по спеке, без генератора: правятся по диффу спеки в том же изменении,
   соответствие спеке компилятор не доказывает, риск принят (frontend#253,
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
-  `apps/bff/src/go/request.ts` на `@cdd-team/http-client`. `zod.ts` больше не перегенерируется
-  (frontend#210). Клиент Go не вызывает: только HTTP API BFF. zod — по задаче frontend#45, исключение из правила про внешние библиотеки;
-  так же `vite-plugin-mkcert` — локальный
+  `apps/bff/src/go/request.ts` на `@cdd-team/http-client`, ответы проверяются
+  `unwrap(..., validateResponse)` функциями из `apps/bff/src/go/responses.ts`. Клиент Go не вызывает: только HTTP API BFF.
+  Исключения из правила про внешние библиотеки: `vite-plugin-mkcert` — локальный
   HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,
