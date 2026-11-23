@@ -54,11 +54,12 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Репозиторий — монорепа на bun workspaces и [Turborepo](https://turborepo.com)
 
-| Каталог            | Пакет          | Что внутри                                                                                                                                                               |
-| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                                       |
-| `apps/bff`         | `@cdd/bff`     | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                            |
-| `packages/schemas` | `@cdd/schemas` | типы Go и `GoPaths` — `@cdd/schemas/types`; ручные общие проверки входов браузера и BFF — `@cdd/schemas/validate`; тексты правил логина и пароля — `@cdd/schemas/inputs` |
+| Каталог                         | Пакет                            | Что внутри                                                                                                                                                               |
+| ------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/client`                   | `@cdd/client`                    | клиент: Vite, `src/`, `index.html`                                                                                                                                       |
+| `apps/bff`                      | `@cdd/bff`                       | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                            |
+| `packages/schemas`              | `@cdd/schemas`                   | типы Go и `GoPaths` — `@cdd/schemas/types`; ручные общие проверки входов браузера и BFF — `@cdd/schemas/validate`; тексты правил логина и пароля — `@cdd/schemas/inputs` |
+| `packages/serialize-javascript` | `@cdd-team/serialize-javascript` | JSON для `<script id="bootstrap">` в HTML BFF: `JSON.stringify` и экранирование `<`, `>`, `&`, U+2028/U+2029                                                             |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
 `oxlint` и `oxfmt`, `.env` — его читают и клиент, и скрипты

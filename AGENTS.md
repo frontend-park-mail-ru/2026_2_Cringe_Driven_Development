@@ -60,8 +60,8 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 - Работать этапами: сделать этап → человек проверяет → следующий этап только после его команды.
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
-  `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`,
-  `@cdd-team/vite-plugin-bff-html`. Исключения — по задачам ментора: lefthook (frontend#24).
+  `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript` (пока локальный пакет в `packages/`, frontend#256). Исключения — по задачам ментора: lefthook (frontend#24).
   Проверки данных — ручные функции (`@cdd/schemas/validate`, ответы Go — `apps/bff/src/go/responses.ts`), без библиотек схем (frontend#210).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
@@ -87,7 +87,7 @@ backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) 
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`, ответы проверяются
   `unwrap(..., validateResponse)` функциями из `apps/bff/src/go/responses.ts`. Клиент Go не вызывает: только HTTP API BFF.
-  Исключения из правила про внешние библиотеки: `serialize-javascript` в `apps/bff` — по задаче frontend#2, `vite-plugin-mkcert` — локальный
+  Исключения из правила про внешние библиотеки: `vite-plugin-mkcert` — локальный
   HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,
