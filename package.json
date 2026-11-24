@@ -9,6 +9,7 @@
     "scripts": {
         "prepare": "lefthook install",
         "dev": "turbo watch dev",
+        "dev:tunnel": "bun scripts/dev/tunnel.ts",
         "preview": "bun scripts/dev/preview.ts",
         "dev:trust-windows": "bun scripts/dev/trust-windows.ts",
         "build": "turbo run build",

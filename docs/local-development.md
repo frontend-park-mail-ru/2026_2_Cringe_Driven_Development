@@ -69,6 +69,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | ----------------------------------- | ------------------------------------------------------------------- |
 | `bun run dev`                       | клиент и BFF на `https://localhost:5173` — «Клиент через BFF»       |
 | `bun run preview`                   | production-сборка и BFF на `http://localhost:4173` — «Проверка PWA» |
+| `bun run dev:tunnel`                | `bun run dev` с production Go через SSH-туннель                     |
 | `bun run dev:trust-windows`         | только WSL: разово доверить CA mkcert в Windows для Chrome          |
 | `bun run build`                     | сборка всех пакетов, клиент — в `apps/client/dist`                  |
 | `bun run check`                     | `oxfmt --check`, `oxlint` и `tsc` во всех пакетах и в `scripts/`    |
@@ -258,7 +259,27 @@ HTTPS нужен из-за cookie сессии `Secure` с префиксом `_
 
     Значение — только в локальном `.env` или окружении: не в Git, примерах, скриншотах и отчётах PR.
 
-### Запуск
+### Запуск одной командой
+
+В корневом `.env` (в Git не попадает) или окружении:
+
+```dotenv
+DEV_TUNNEL_SSH_HOST=<алиас gateway из ~/.ssh/config>
+DEV_TUNNEL_BACKEND_HOST=<PRIVATE_IP_VPS2>
+BFF_KEY=<vault_bff_api_key>
+```
+
+```sh
+bun run dev:tunnel   # туннель, затем bun run dev: https://localhost:5173
+```
+
+Команда обращается к **production Go** и использует ваш SSH-доступ к gateway: поднимает туннель, как в ручном
+запуске ниже, проверяет `/health` Go и запускает `bun run dev` с `GO_API_URL` туннеля поверх `.env`. Нет
+переменной, занят порт `18080` или туннель не поднялся — команда завершается с причиной, Vite и BFF не
+запускаются. Ctrl+C останавливает dev и туннель, обрыв туннеля — dev. Обычный `bun run dev` туннель не
+запускает. Подробности — `scripts/dev/tunnel.ts`.
+
+### Запуск вручную
 
 1. В отдельном терминале поднимите туннель и оставьте его работать; остановка — Ctrl+C:
 
