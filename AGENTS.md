@@ -2,7 +2,7 @@
 
 Фронтенд проекта «Colab» (Cellestial) команды «Cringe Driven Development».
 Монорепа на bun workspaces и Turborepo: клиент — `apps/client`, BFF — `apps/bff`,
-типы Go и общие ручные проверки — `packages/schemas`, HTTP-клиент — `packages/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
+типы Go и общие ручные проверки — `packages/schemas`, HTTP-клиент — npm-пакет `@cdd-team/http-client` ([локальная разработка](docs/local-development.md#монорепа)). Команды — из корня.
 Процесс работы с задачами, ветками, коммитами и PR — в [локальной разработке](docs/local-development.md#как-работать-с-задачами) и [CONTRIBUTING организации](https://github.com/Cringe-Driven-Development-Team/.github/blob/main/CONTRIBUTING.md).
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
 в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
@@ -60,8 +60,8 @@ Rollback меняет Status на `Rollback from production` без reopen; сл
 - Работать этапами: сделать этап → человек проверяет → следующий этап только после его команды.
 - Если что-то непонятно или есть выбор — спросить, а не угадывать.
 - Готовые библиотеки из интернета не подключать. Можно только командные пакеты:
-  `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/openapi`,
-  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript` (пока локальный пакет в `packages/`, frontend#256). Исключения — по задачам ментора: lefthook (frontend#24).
+  `@cdd-team/react`, `@cdd-team/zustand`, `@cdd-team/clsx`, `@cdd-team/router`, `@cdd-team/http-client`,
+  `@cdd-team/vite-plugin-bff-html`, `@cdd-team/serialize-javascript`. Исключения — по задачам ментора: lefthook (frontend#24).
   Проверки данных — ручные функции (`@cdd/schemas/validate`, ответы Go — `apps/bff/src/go/responses.ts`), без библиотек схем (frontend#210).
 - Не добавлять ничего, что не нужно для задачи. Комментарии в коде — коротко и только там,
   где без них непонятно.
