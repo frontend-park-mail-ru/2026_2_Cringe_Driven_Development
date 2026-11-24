@@ -87,8 +87,8 @@ backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) 
   [типы Go](docs/api-contract.md#типы-go-без-генератора)). Вызовы Go — `go()` из
   `apps/bff/src/go/request.ts` на `@cdd-team/http-client`, ответы проверяются
   `unwrap(..., validateResponse)` функциями из `apps/bff/src/go/responses.ts`. Клиент Go не вызывает: только HTTP API BFF.
-  Исключения из правила про внешние библиотеки: `vite-plugin-mkcert` — локальный
-  HTTPS dev по решению команды в frontend#5, `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
+  Локальный HTTPS dev — командный `@cdd-team/vite-plugin-mkcert` (frontend#111).
+  Исключение из правила про внешние библиотеки: `vite-plugin-svgr` — SVG-иконки как компоненты (devDependency) по задаче frontend#36.
 - Бэкенд: https://github.com/Cringe-Driven-Development-Team/backend. Клиент ходит только в BFF;
   BFF — в Go по явному `GO_API_URL` с `/api/v1` (умолчания нет,
   [локальные правила](docs/local-development.md#клиент-через-bff), [реальный Go](docs/api-contract.md#реальный-go)).
