@@ -19,10 +19,10 @@
     },
     "devDependencies": {
         "@cdd-team/vite-plugin-bff-html": "^0.2.1",
+        "@cdd-team/vite-plugin-mkcert": "^0.1.1",
         "@cdd/bff": "workspace:*",
         "typescript": "^7.0.2",
         "vite": "^8.3.5",
-        "vite-plugin-mkcert": "2.1.0",
         "vite-plugin-svgr": "^5.2.0"
     }
 }

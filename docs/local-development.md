@@ -1,6 +1,6 @@
 # Локальная разработка фронтенда
 
-Нужны Bun не ниже 1.4.0 и Node.js не ниже 22.19.0: Vite и `vite-plugin-mkcert` работают в Node.
+Нужны Bun не ниже 1.4.0 и Node.js не ниже 22.19.0: Vite и `@cdd-team/vite-plugin-mkcert` работают в Node.
 Команды запускаются из корня репозитория. `bun run dev` — клиент и BFF сразу
 ([«Клиент через BFF»](#клиент-через-bff), там же первый запуск на macOS, Windows и WSL).
 
@@ -180,7 +180,7 @@ BFF — с пользователем в `<script id="bootstrap">` и cookie с�
 
 - Vite (`apps/client`) — HTTPS, слушает `127.0.0.1:5173` (с `localhost` на Windows он недоступен);
   открывать `https://localhost:5173` — этот origin BFF ждёт в `APP_ORIGIN`. Сертификат выпускает
-  [`vite-plugin-mkcert`](https://github.com/liuweiGL/vite-plugin-mkcert). `/api` проксируется в
+  [`@cdd-team/vite-plugin-mkcert`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/vite-plugin-mkcert). `/api` проксируется в
   BFF; запрос страницы (`Accept: text/html`) плагин
   [`@cdd-team/vite-plugin-bff-html`](https://github.com/Cringe-Driven-Development-Team/frontend-packages/tree/main/packages/vite-plugin-bff-html)
   отдаёт ответом BFF
@@ -199,11 +199,10 @@ BFF — с пользователем в `<script id="bootstrap">` и cookie с�
   файлами вне `apps/bff`. Vite при этом не перезапускается, клиент обновляет HMR.
 
 Cookie сессии — `Secure` и с префиксом `__Host-`: нужен HTTPS, ради dev атрибуты не ослабляются.
-При первом запуске плагин скачивает mkcert в `~/.vite-plugin-mkcert`, создаёт локальный CA и
-добавляет его в доверенные системы, где запущен Vite. Дальше сертификат берётся из того же каталога.
-Если в `PATH` первым находится другой `mkcert` — например, npm-пакет с тем же именем, — который не
-отвечает на `mkcert -CAROOT`, `apps/client/vite.config.dev.ts` убирает его каталог из `PATH` dev-сервера, и плагин
-скачивает официальный бинарник.
+При первом запуске плагин берёт `mkcert` из `PATH`, который отвечает на `mkcert -CAROOT`, или
+скачивает официальный mkcert v1.4.4 в `~/.vite-plugin-mkcert` (с проверкой SHA-256), создаёт там
+локальный CA и добавляет его в доверенные системы, где запущен Vite. Дальше сертификат берётся из того же
+каталога. Чужой одноимённый `mkcert` (например, npm-пакет) плагин пропускает сам, `PATH` не меняет.
 
 ### Первый запуск
 
