@@ -77,7 +77,11 @@ const dev = Bun.spawn(['bun', 'run', 'dev'], {
 });
 
 // Ctrl+C получают и dev, и ssh; скрипт ждёт, пока оба завершатся
-process.on('SIGINT', () => ssh.kill());
+let interrupted = false;
+process.on('SIGINT', () => {
+    interrupted = true;
+    ssh.kill();
+});
 process.on('SIGTERM', () => {
     dev.kill();
     ssh.kill();
@@ -87,8 +91,10 @@ const first = await Promise.race([
     dev.exited.then(() => 'dev' as const),
     ssh.exited.then(() => 'ssh' as const),
 ]);
-if (first === 'ssh') {
-    console.error(`dev:tunnel: SSH-туннель оборвался (код ${ssh.exitCode}), останавливаю dev`);
+if (first === 'ssh' && !interrupted) {
+    console.error(
+        `dev:tunnel: SSH-туннель оборвался (${ssh.exitCode ?? ssh.signalCode}), останавливаю dev`,
+    );
     dev.kill();
     await dev.exited;
     process.exit(1);
