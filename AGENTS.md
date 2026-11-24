@@ -98,6 +98,7 @@ backend `bun run contract:fetch` (или `bun run contract:fetch <ветка>`) 
 ```bash
 bun run dev        # разработка с HMR: клиент (Vite, HTTPS) и BFF: HTML и /api — через BFF; Go — GO_API_URL из .env
 bun run preview    # локальная проверка production-сборки, включая SW и PWA: BFF на http://localhost:4173, без HMR
+bun run dev:tunnel # bun run dev с production Go через SSH-туннель (DEV_TUNNEL_* и BFF_KEY в .env)
 bun run dev:trust-windows  # только WSL: разово доверить CA mkcert в Windows
 bun run check      # oxfmt --check, oxlint, tsc во всех пакетах
 bun run build      # сборка, клиент — в apps/client/dist/
