@@ -2,8 +2,10 @@
 // Bun сам читает корневой .env: переменные берутся оттуда или из окружения.
 import { join } from 'node:path';
 
-const PORT = 18080;
-const BASE = `http://127.0.0.1:${PORT}`;
+import { loadGoTls } from '../../apps/bff/src/go/tls.ts';
+
+const PORT = 18443;
+const BASE = `https://127.0.0.1:${PORT}`;
 const GO_API_URL = `${BASE}/api/v1`;
 const HEALTH_TIMEOUT_MS = 15_000;
 
@@ -18,6 +20,13 @@ for (const name of required) {
     if (!process.env[name]) fail(`не задана переменная ${name} (корневой .env или окружение)`);
 }
 const { DEV_TUNNEL_SSH_HOST: sshHost, DEV_TUNNEL_BACKEND_HOST: backendHost } = process.env;
+const env = { ...process.env, GO_API_URL, GO_API_TLS_SERVER_NAME: backendHost };
+let tls: ReturnType<typeof loadGoTls>;
+try {
+    tls = loadGoTls(new URL(GO_API_URL), env);
+} catch (err) {
+    fail(err instanceof Error ? err.message : 'неверная конфигурация TLS');
+}
 
 // ExitOnForwardFailure тоже ловит занятый порт, но без понятной причины
 try {
@@ -35,7 +44,7 @@ const ssh = Bun.spawn(
         '-o',
         'ServerAliveInterval=15',
         '-L',
-        `127.0.0.1:${PORT}:${backendHost}:8080`,
+        `127.0.0.1:${PORT}:${backendHost}:8443`,
         sshHost!,
     ],
     { stdio: ['ignore', 'inherit', 'inherit'] },
@@ -49,6 +58,8 @@ async function waitHealth(): Promise<boolean> {
         try {
             const res = await fetch(`${BASE}/health`, {
                 signal: AbortSignal.timeout(2_000),
+                tls,
+                redirect: 'error',
             });
             if (res.ok && ((await res.json()) as { status?: string }).status === 'alive')
                 return true;
@@ -72,7 +83,7 @@ if (!(await waitHealth())) {
 console.log(`dev:tunnel: production Go доступен через ${GO_API_URL}`);
 const dev = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: join(import.meta.dir, '../..'),
-    env: { ...process.env, GO_API_URL },
+    env,
     stdio: ['inherit', 'inherit', 'inherit'],
 });
 

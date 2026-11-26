@@ -4,6 +4,7 @@ FROM oven/bun:1.4.4-alpine
 ARG RELEASE_SHA=dev
 LABEL org.opencontainers.image.revision=$RELEASE_SHA \
       org.opencontainers.image.source=https://github.com/Cringe-Driven-Development-Team/frontend
+ENV NODE_ENV=production
 WORKDIR /app
 COPY apps/bff/dist/bff.js /app/bff.js
 COPY apps/client/dist/index.html /app/client/index.html

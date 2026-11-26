@@ -1,3 +1,5 @@
+import { loadGoTls } from './go/tls.ts';
+
 /**
  * Значение переменной окружения: пустая — то же, что отсутствующая.
  * @param name имя переменной
@@ -35,7 +37,15 @@ function parse() {
         console.error(`Неверная конфигурация: ${names.join(', ')}`);
         process.exit(1);
     }
+    let goTls: ReturnType<typeof loadGoTls>;
+    try {
+        goTls = loadGoTls(new URL(GO_API_URL), process.env);
+    } catch (err) {
+        console.error(err instanceof Error ? err.message : 'Неверная конфигурация: GO_API_URL');
+        process.exit(1);
+    }
     return {
+        goTls,
         SESSION_KEY,
         APP_ORIGIN,
         GO_API_URL,
