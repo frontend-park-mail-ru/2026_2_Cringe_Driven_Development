@@ -29,7 +29,8 @@ interface ModalProps {
 
 /**
  * Не даёт фокусу уйти из модалки по Tab: с последнего элемента — на первый и обратно. Shift+Tab
- * с программно сфокусированного элемента перед первым (например, раскрытого текста) — на последний.
+ * с программно сфокусированного элемента перед первым (например, раскрытого текста) — на последний,
+ * Tab с такого же элемента после последнего (например, картинки превью) — на первый.
  */
 function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     if (event.key !== 'Tab') return;
@@ -49,7 +50,11 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
     ) {
         event.preventDefault();
         last.focus();
-    } else if (!event.shiftKey && active === last) {
+    } else if (
+        !event.shiftKey &&
+        active &&
+        (active === last || last.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ) {
         event.preventDefault();
         first.focus();
     }

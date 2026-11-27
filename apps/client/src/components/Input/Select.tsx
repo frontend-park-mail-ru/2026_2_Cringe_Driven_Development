@@ -23,7 +23,11 @@ export function Select(props: SelectProps) {
                 onBlur={() => props.onBlur?.()}
             >
                 {options.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option
+                        key={option.value}
+                        value={option.value}
+                        selected={option.value === value}
+                    >
                         {option.label}
                     </option>
                 ))}
