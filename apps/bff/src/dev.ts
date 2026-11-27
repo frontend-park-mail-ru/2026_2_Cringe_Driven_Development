@@ -1,13 +1,4 @@
-// Локальный запуск — `bun run dev` из корня (turbo watch запускает и клиент): BFF за Vite на
-// https://localhost:5173. Go — только явный GO_API_URL (корневой .env или окружение). Переменные из
-// корневого .env важнее этих.
-if (!process.env.GO_API_URL) {
-    console.error(
-        'GO_API_URL не задан: укажите адрес Go с префиксом API в корневом .env, например ' +
-            'GO_API_URL=http://127.0.0.1:8080/api/v1 (и BFF_KEY, если Go проверяет X-BFF-Key).',
-    );
-    process.exit(1);
-}
+// Локальный запуск BFF за Vite на https://localhost:5173.
 process.env.HTML_TEMPLATE ??= '../client/index.html';
 // манифест появляется только при сборке клиента
 process.env.SKIP_PUBLIC_FILES ??= '1';

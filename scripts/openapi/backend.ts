@@ -1,17 +1,17 @@
-// Копия контракта Go из backend по полному Git SHA: spec/openapi.json и манифест spec/contract-source.json.
+// Копия контракта Go из backend по полному Git SHA: spec/identity/openapi.json и spec/workspace/openapi.json и манифест spec/contract-source.json.
 // Redocly проверяет спеку в CI backend; здесь только копия.
 // fetch [ветка] — определить SHA ветки backend (по умолчанию main), скачать спеку по этому SHA
 // и только после успешного скачивания заменить копию и записать SHA в манифест;
 // verify — побайтово сверить копию с backend по SHA из манифеста.
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 const root = join(import.meta.dir, '../..');
 const SPEC_DIR = join(root, 'spec');
 const MANIFEST = join(SPEC_DIR, 'contract-source.json');
 const REPOSITORY = 'Cringe-Driven-Development-Team/backend';
 const SOURCE_DIR = 'spec';
-const SPEC = 'openapi.json';
+const specs = ['identity', 'workspace'].map((service) => `${service}/openapi.json`);
 const DEFAULT_BRANCH = 'main';
 
 interface Manifest {
@@ -27,11 +27,11 @@ function requireSha(raw: string | undefined): string {
     return raw;
 }
 
-async function download(sha: string): Promise<Uint8Array> {
-    const url = `https://raw.githubusercontent.com/${REPOSITORY}/${sha}/${SOURCE_DIR}/${SPEC}`;
+async function download(sha: string, spec: string): Promise<Uint8Array> {
+    const url = `https://raw.githubusercontent.com/${REPOSITORY}/${sha}/${SOURCE_DIR}/${spec}`;
     const response = await fetch(url);
     if (response.status !== 200) {
-        throw new Error(`${SOURCE_DIR}/${SPEC} на ${sha}: GitHub ответил ${response.status}`);
+        throw new Error(`${SOURCE_DIR}/${spec} на ${sha}: GitHub ответил ${response.status}`);
     }
     return new Uint8Array(await response.arrayBuffer());
 }
@@ -49,12 +49,15 @@ async function branchSha(branch: string): Promise<string> {
 
 async function fetchSpec(branch: string): Promise<void> {
     const sha = await branchSha(branch);
-    const spec = await download(sha);
-    await writeFile(join(SPEC_DIR, SPEC), spec);
+    const contents = await Promise.all(specs.map((spec) => download(sha, spec)));
+    for (const [index, spec] of specs.entries()) {
+        await mkdir(dirname(join(SPEC_DIR, spec)), { recursive: true });
+        await writeFile(join(SPEC_DIR, spec), contents[index]!);
+    }
     const manifest: Manifest = { repository: REPOSITORY, path: SOURCE_DIR, revision: sha };
     await writeFile(MANIFEST, `${JSON.stringify(manifest, null, 4)}\n`);
     console.error(
-        `contract: spec/${SPEC} ← ${REPOSITORY}@${sha} (${branch}); дальше правка types.ts по диффу спеки`,
+        `contract: контракты сервисов ← ${REPOSITORY}@${sha} (${branch}); дальше правка types.ts по диффу спеки`,
     );
 }
 
@@ -64,11 +67,13 @@ async function verify(): Promise<void> {
         throw new Error(`манифест должен указывать ${REPOSITORY}, путь ${SOURCE_DIR}`);
     }
     const sha = requireSha(manifest.revision);
-    const local = await readFile(join(SPEC_DIR, SPEC));
-    if (!local.equals(Buffer.from(await download(sha)))) {
-        throw new Error(`spec/${SPEC} не совпадает с ${REPOSITORY}@${sha}`);
+    for (const spec of specs) {
+        const local = await readFile(join(SPEC_DIR, spec));
+        if (!local.equals(Buffer.from(await download(sha, spec)))) {
+            throw new Error(`spec/${spec} не совпадает с ${REPOSITORY}@${sha}`);
+        }
+        console.error(`contract: spec/${spec} совпадает с ${REPOSITORY}@${sha}`);
     }
-    console.error(`contract: spec/${SPEC} совпадает с ${REPOSITORY}@${sha}`);
 }
 
 try {

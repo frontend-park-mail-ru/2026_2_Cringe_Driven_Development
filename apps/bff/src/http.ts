@@ -4,7 +4,7 @@ import { env } from './env.ts';
 import { ApiError, errorBody, toApiError } from './errors.ts';
 import { createGo, type Go } from './go/api.ts';
 import { logApiError } from './log.ts';
-import { createSession, type Session } from './session/session.ts';
+import { createSession, getRequestId, type Session } from './session/session.ts';
 
 /**
  * Доступ к маршруту: `public` — без сессии (вход, регистрация), `optional` — сессия, если есть,
@@ -172,14 +172,14 @@ async function readInput(input: RouteInput, req: globalThis.Request): Promise<un
  * @returns ответ API
  */
 export async function serveRoute(def: Route, req: globalThis.Request): Promise<Response> {
-    const headers = new Headers();
+    const requestId = getRequestId(req);
+    const headers = new Headers({ 'X-Request-ID': requestId });
     let session: Session | undefined;
     let status = 200;
     let body: unknown;
     try {
         checkCsrf(req);
-        session = await createSession(req);
-        headers.set('X-Request-ID', session.requestId);
+        session = await createSession(req, requestId);
         if (def.access === 'authed' && !session.active) throw new ApiError(401, 'Нет сессии');
         const input = def.input ? await readInput(def.input, req) : undefined;
         body = await def.handle(

@@ -1,7 +1,7 @@
 import type { TokenPair } from '@cdd/schemas/types';
 
 import { unwrap } from '../go/errors.ts';
-import { go, withRequestId } from '../go/request.ts';
+import { identityRequest, withRequestId } from '../go/request.ts';
 import { tokenPairResponse } from '../go/responses.ts';
 import type { SessionData } from './crypto.ts';
 
@@ -51,7 +51,7 @@ export async function refreshTokens(refresh: string, requestId?: string): Promis
     if (cached) return cached;
 
     const pending = (async () => {
-        const res = await go('POST', '/auth/refresh', {
+        const res = await identityRequest('POST', '/auth/refresh', {
             contentType: 'application/json',
             body: { refresh_token: refresh },
             init: withRequestId(requestId),

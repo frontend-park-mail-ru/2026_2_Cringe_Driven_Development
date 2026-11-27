@@ -1,5 +1,5 @@
 // Ручные проверки входов BFF и строительные блоки проверок ответов Go: ограничения, strip/strict
-// и пути ошибок. Пределы — из контракта Go (spec/openapi.json).
+// и пути ошибок. Пределы — из контракта Go (spec/identity и spec/workspace).
 
 import type { RuntimeSession } from './types.ts';
 

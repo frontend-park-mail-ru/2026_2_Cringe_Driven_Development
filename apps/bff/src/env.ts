@@ -15,7 +15,8 @@ const flag = (name: string): '1' | undefined => (read(name) === '1' ? '1' : unde
 function parse() {
     const SESSION_KEY = process.env.SESSION_KEY ?? '';
     const APP_ORIGIN = process.env.APP_ORIGIN ?? '';
-    const GO_API_URL = process.env.GO_API_URL ?? '';
+    const IDENTITY_API_URL = process.env.IDENTITY_API_URL ?? '';
+    const WORKSPACE_API_URL = process.env.WORKSPACE_API_URL ?? '';
     const port = read('PORT');
     /** Без отдельной проверки пустой PORT стал бы 0. */
     const PORT = port === undefined ? 3000 : Number(port);
@@ -26,7 +27,8 @@ function parse() {
             /^[A-Za-z0-9+/]+=*$/.test(SESSION_KEY) &&
             Buffer.from(SESSION_KEY, 'base64').length === 32,
         APP_ORIGIN: URL.canParse(APP_ORIGIN) && new URL(APP_ORIGIN).origin === APP_ORIGIN,
-        GO_API_URL: URL.canParse(GO_API_URL),
+        IDENTITY_API_URL: URL.canParse(IDENTITY_API_URL),
+        WORKSPACE_API_URL: URL.canParse(WORKSPACE_API_URL),
         PORT: Number.isInteger(PORT) && PORT >= 1 && PORT <= 65535,
         SKIP_PUBLIC_FILES: isFlag('SKIP_PUBLIC_FILES'),
         SERVE_CLIENT_ASSETS: isFlag('SERVE_CLIENT_ASSETS'),
@@ -37,18 +39,22 @@ function parse() {
         console.error(`Неверная конфигурация: ${names.join(', ')}`);
         process.exit(1);
     }
-    let goTls: ReturnType<typeof loadGoTls>;
+    let identityTls: ReturnType<typeof loadGoTls>;
+    let workspaceTls: ReturnType<typeof loadGoTls>;
     try {
-        goTls = loadGoTls(new URL(GO_API_URL), process.env);
+        identityTls = loadGoTls(new URL(IDENTITY_API_URL), process.env, 'IDENTITY_API_URL');
+        workspaceTls = loadGoTls(new URL(WORKSPACE_API_URL), process.env, 'WORKSPACE_API_URL');
     } catch (err) {
-        console.error(err instanceof Error ? err.message : 'Неверная конфигурация: GO_API_URL');
+        console.error(err instanceof Error ? err.message : 'Неверная конфигурация API');
         process.exit(1);
     }
     return {
-        goTls,
+        identityTls,
+        workspaceTls,
         SESSION_KEY,
         APP_ORIGIN,
-        GO_API_URL,
+        IDENTITY_API_URL: IDENTITY_API_URL.replace(/\/$/, ''),
+        WORKSPACE_API_URL: WORKSPACE_API_URL.replace(/\/$/, ''),
         PORT,
         BFF_KEY: read('BFF_KEY'),
         HTML_TEMPLATE: read('HTML_TEMPLATE') ?? '/app/client/index.html',

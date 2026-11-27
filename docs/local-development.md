@@ -86,19 +86,19 @@ PR требует ревью frontend-ментора. Merge оставляет �
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
 [BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
-| Переменная             | Что это                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `SESSION_KEY`          | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                      |
-| `APP_ORIGIN`           | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                |
-| `GO_API_URL`           | адрес Go с префиксом API. В production обязателен HTTPS                                                    |
-| `GO_API_TLS_CA_FILE`   | путь к PEM доверенного CA. На стенде `/run/secrets/go-api/ca.crt`                                          |
-| `GO_API_TLS_CERT_FILE` | путь к PEM сертификата `cellestial-bff`. На стенде `/run/secrets/go-api/client.crt`                        |
-| `GO_API_TLS_KEY_FILE`  | путь к приватному ключу. На стенде `/run/secrets/go-api/client.key`                                        |
-| `PORT`                 | порт BFF, по умолчанию `3000`                                                                              |
-| `BFF_KEY`              | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                 |
-| `HTML_TEMPLATE`        | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                         |
-| `SERVE_CLIENT_ASSETS`  | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN |
-| `SKIP_PUBLIC_FILES`    | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                       |
+| Переменная                               | Что это                                                                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `SESSION_KEY`                            | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                      |
+| `APP_ORIGIN`                             | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                |
+| `IDENTITY_API_URL` и `WORKSPACE_API_URL` | адреса Identity и Workspace с префиксом API. В production обязателен HTTPS                                 |
+| `GO_API_TLS_CA_FILE`                     | путь к PEM доверенного CA. На стенде `/run/secrets/go-api/ca.crt`                                          |
+| `GO_API_TLS_CERT_FILE`                   | путь к PEM сертификата `cellestial-bff`. На стенде `/run/secrets/go-api/client.crt`                        |
+| `GO_API_TLS_KEY_FILE`                    | путь к приватному ключу. На стенде `/run/secrets/go-api/client.key`                                        |
+| `PORT`                                   | порт BFF, по умолчанию `3000`                                                                              |
+| `BFF_KEY`                                | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                 |
+| `HTML_TEMPLATE`                          | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                         |
+| `SERVE_CLIENT_ASSETS`                    | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN |
+| `SKIP_PUBLIC_FILES`                      | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                       |
 
 По прямому запросу страницы BFF решает, можно ли её открыть (`apps/bff/src/html.ts`). Список путей
 страниц — `PAGES` в `apps/bff/src/pages.ts` (`@cdd/bff/pages`); из него же берут `path` маршруты
@@ -122,19 +122,19 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Go для BFF выбирается явно, умолчания нет:
 
-- **Состояние на настоящем Go** — `bun run dev` с `GO_API_URL` (адрес с `/api/v1`) и, если Go
+- **Состояние на настоящем Go** — `bun run dev` с `IDENTITY_API_URL` и `WORKSPACE_API_URL` (адрес с `/api/v1`) и, если Go
   проверяет `X-BFF-Key`, `BFF_KEY` в корневом `.env`: свой Go в Docker или разрешённый удалённый
   backend команды через SSH-туннель — production Go, со своими предусловиями
   ([реальный Go](api-contract.md#реальный-go), [туннель](#фронт-с-go-команды-через-ssh-туннель)).
 
-Без `GO_API_URL` `bun run dev` и `bun run preview` завершают BFF с подсказкой до обработки запросов
+Без `IDENTITY_API_URL` и `WORKSPACE_API_URL` `bun run dev` и `bun run preview` завершают BFF с подсказкой до обработки запросов
 (`apps/bff/src/dev.ts`). Перед задачей проверь актуальный контракт по
 [порядку Spec First](api-contract.md#spec-first).
 
 ```sh
 bun run build
 SESSION_KEY=$(openssl rand -base64 32) APP_ORIGIN=http://localhost:3000 \
-  GO_API_URL=http://127.0.0.1:8080/api/v1 BFF_KEY=<ключ Go> HTML_TEMPLATE=apps/client/dist/index.html \
+  IDENTITY_API_URL=http://127.0.0.1:8081/api/v1 WORKSPACE_API_URL=http://127.0.0.1:8082/api/v1 BFF_KEY=<ключ Go> HTML_TEMPLATE=apps/client/dist/index.html \
   bun apps/bff/src/index.ts
 ```
 
@@ -149,7 +149,7 @@ bun run preview  # локальная проверка production-сборки, 
 
 Команда собирает клиент production-конфигом без `RELEASE_SHA` и `CDN_URL` и запускает BFF: HTML с
 bootstrap, `/api/*`, `/sw.js`, манифест, `/offline.html` и JS/CSS сборки идут с одного origin. Go —
-как в `bun run dev`: явный `GO_API_URL` (и `BFF_KEY`) из корневого `.env`, без него BFF не стартует. HMR нет: после изменений клиента запустите команду заново.
+как в `bun run dev`: явный `IDENTITY_API_URL` и `WORKSPACE_API_URL` (и `BFF_KEY`) из корневого `.env`, без него BFF не стартует. HMR нет: после изменений клиента запустите команду заново.
 
 Вход работает: Chrome и Firefox считают `localhost` безопасным и принимают Secure-cookie сессии. Safari
 её по HTTP не принимает, проверяйте в Chrome.
@@ -165,7 +165,7 @@ worker: для этого есть флажок Offline в Application → Servi
 
 ```sh
 bun run image        # turbo run build и docker build -t cdd-bff:local
-SESSION_KEY=$(openssl rand -base64 32) GO_API_URL=http://host.docker.internal:8080/api/v1 \
+SESSION_KEY=$(openssl rand -base64 32) IDENTITY_API_URL=http://host.docker.internal:8081/api/v1 WORKSPACE_API_URL=http://host.docker.internal:8082/api/v1 \
   BFF_KEY=<ключ Go> docker compose -f apps/bff/compose.yml up -d
 curl localhost:3000/health
 ```
@@ -177,7 +177,7 @@ curl localhost:3000/health
 
 `bun run dev` из корня запускает `turbo watch dev`, а он — клиент и BFF на одном origin
 `https://localhost:5173`: Vite собирает и обновляет модули (HMR), HTML страниц и `/api/*` отдаёт
-BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. Нужен адрес Go: `GO_API_URL` (и при
+BFF — с пользователем в `<script id="bootstrap">` и cookie сессии. Нужен адрес Go: `IDENTITY_API_URL` и `WORKSPACE_API_URL` (и при
 необходимости `BFF_KEY`) в корневом `.env`.
 Разовая настройка сертификата — в «Первом запуске» ниже:
 
@@ -195,7 +195,7 @@ BFF — с пользователем в `<script id="bootstrap">` и cookie с�
   берёт `bun run build`.
 - BFF (`apps/bff`, `src/dev.ts`) — шаблон `apps/client/index.html`,
   `APP_ORIGIN=https://localhost:5173`, постоянный dev-ключ сессии: она переживает перезапуск BFF. Go —
-  только `GO_API_URL` из корневого `.env` или окружения, умолчания нет. Остальное тоже перекрывается
+  только `IDENTITY_API_URL` и `WORKSPACE_API_URL` из корневого `.env` или окружения, умолчания нет. Остальное тоже перекрывается
   корневым `.env` (`SESSION_KEY`, …).
   Перезапускает BFF `turbo watch`: при изменении файлов `apps/bff` и пакетов, которые он
   импортирует (`packages/schemas`). `bun --watch` для этого не годится: на Windows он не следит за
@@ -221,16 +221,16 @@ Cookie сессии — `Secure` и с префиксом `__Host-`: нужен 
 
 HTTPS нужен из-за cookie сессии `Secure` с префиксом `__Host-`: по HTTP браузер её не сохранит, вход
 не заработает. Откройте `https://localhost:5173` — после первого запуска сертификат доверенный, без
-предупреждения браузера. Против своего Go — `GO_API_URL=http://127.0.0.1:8080/api/v1` в `.env`.
+предупреждения браузера. Против своего Go — `IDENTITY_API_URL=http://127.0.0.1:8081/api/v1 WORKSPACE_API_URL=http://127.0.0.1:8082/api/v1` в `.env`.
 
-Контракт Go — копия `spec/openapi.json` из backend по Git SHA:
+Контракты Identity и Workspace закреплены по Git SHA backend:
 `bun run contract:fetch` (`main` backend) или `bun run contract:fetch <ветка>`, затем ручная правка типов Go по диффу спеки ([контракт API](api-contract.md)). Клиент контракт Go не
 читает, типы маршрутов (`BffPaths`) берёт из `@cdd/bff`.
 
 ## Фронт с Go команды через SSH-туннель
 
 Локальные клиент и BFF ходят в настоящий Go команды без своего Go в Docker:
-`клиент → локальный BFF → 127.0.0.1:18443 → SSH через gateway → приватный Go API на VPS2:8080`.
+`клиент → локальный BFF → 127.0.0.1:18444/18445 → SSH через gateway → Identity и Workspace на VPS2:8444/8445`.
 На gateway разрешён forwarding только к Go API и SSH VPS2
 ([infra#155](https://github.com/Cringe-Driven-Development-Team/infra/issues/155)), Go API в интернет не
 опубликован: `https://cellestial.ru/api/v1` вместо туннеля не подходит.
@@ -288,56 +288,20 @@ GO_API_TLS_KEY_FILE=/absolute/path/to/client.key
 bun run dev:tunnel   # туннель, затем bun run dev: https://localhost:5173
 ```
 
-Команда обращается к **production Go** и использует ваш SSH-доступ к gateway: поднимает туннель, как в ручном
-запуске ниже, проверяет `/health` Go и запускает `bun run dev` с `GO_API_URL` туннеля поверх `.env`. Нет
-переменной, занят порт `18443` или туннель не поднялся — команда завершается с причиной, Vite и BFF не
+Команда обращается к **production Go** и использует ваш SSH-доступ к gateway: поднимает туннель и проверяет `/health` обоих API и запускает `bun run dev` с `IDENTITY_API_URL` и `WORKSPACE_API_URL` туннеля поверх `.env`. Нет
+переменной, занят порт `18444` или `18445` или туннель не поднялся — команда завершается с причиной, Vite и BFF не
 запускаются. Ctrl+C останавливает dev и туннель, обрыв туннеля — dev. Обычный `bun run dev` туннель не
 запускает. Подробности — `scripts/dev/tunnel.ts`.
 
-### Запуск вручную
+### Адреса API
 
-1. В отдельном терминале поднимите туннель и оставьте его работать; остановка — Ctrl+C:
+Для production задайте `IDENTITY_API_URL=https://identity.internal.cellestial.ru:8444/api/v1`
+и `WORKSPACE_API_URL=https://workspace.internal.cellestial.ru:8445/api/v1`.
+Оба сервиса используют общий комплект `GO_API_TLS_*_FILE`. Туннель пробрасывает
+локальные порты 18444 и 18445 и проверяет DNS SAN каждого сервиса.
 
-    ```sh
-    ssh -N -o ExitOnForwardFailure=yes \
-      -L 127.0.0.1:18443:<PRIVATE_IP_VPS2>:8443 <USER>@<GATEWAY>
-    ```
-
-    Порт слушает только loopback: не добавляйте `-g` и привязку `0.0.0.0`. Отказ gateway ssh не
-    завершает (`ExitOnForwardFailure` ловит только занятый локальный порт), поэтому проверьте туннель:
-
-    ```sh
-    material="$HOME/.config/cellestial/mtls"
-    curl --fail --cacert "$material/ca.crt" --cert "$material/client.crt" --key "$material/client.key" \
-      --connect-to <PRIVATE_IP_VPS2>:8443:127.0.0.1:18443 https://<PRIVATE_IP_VPS2>:8443/health
-    ```
-
-    Ожидаемый ответ — `{"status": "alive"}`. `--connect-to` сохраняет проверку IP SAN сервера.
-
-2. В корневом `.env` (в Git не попадает):
-
-    ```dotenv
-    GO_API_URL=https://127.0.0.1:18443/api/v1
-    GO_API_TLS_SERVER_NAME=<PRIVATE_IP_VPS2>
-    GO_API_TLS_CA_FILE=/absolute/path/to/ca.crt
-    GO_API_TLS_CERT_FILE=/absolute/path/to/client.crt
-    GO_API_TLS_KEY_FILE=/absolute/path/to/client.key
-    BFF_KEY=<vault_bff_api_key>
-    ```
-
-3. Запустите фронт как обычно:
-
-    ```sh
-    bun run dev      # разработка с HMR: https://localhost:5173
-    bun run preview  # локальная проверка production-сборки, включая SW и PWA: http://localhost:4173
-    ```
-
-4. Войдите тестовым аккаунтом. После работы остановите окружения блокнотов и туннель (Ctrl+C).
-   Без туннеля BFF ответит ошибкой Go.
-
-`403 s2s_forbidden` — неверный `BFF_KEY`; `open failed: administratively prohibited` в терминале ssh —
-неверный адрес VPS2 или на gateway не применён `PermitOpen`; отказ соединения на `127.0.0.1:18443` —
-туннель не запущен. В отчёте PR для проверок на Go указываются его ревизия и способ подключения.
+`GET /metrics` возвращает число upstream-вызовов и суммарное время до заголовков
+ответа с метками `service` и `outcome`. Идентификатор запроса доступен в access-логе.
 
 ## Документация кода
 

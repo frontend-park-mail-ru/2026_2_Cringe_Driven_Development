@@ -214,9 +214,9 @@ test('production needs HTTPS and all readable TLS files', () => {
     expect(() =>
         loadGoTls(https, { ...config(), GO_API_TLS_KEY_FILE: file('renewed.key') }),
     ).toThrow('GO_API_TLS_CERT_FILE, GO_API_TLS_KEY_FILE');
-    expect(() => loadGoTls(https, { ...config(), GO_API_TLS_SERVER_NAME: '127.0.0.2' })).toThrow(
-        'GO_API_TLS_SERVER_NAME',
-    );
+    expect(() =>
+        loadGoTls(https, { ...config(), GO_API_URL_TLS_SERVER_NAME: '127.0.0.2' }),
+    ).toThrow('GO_API_URL_TLS_SERVER_NAME');
 });
 
 test('login, refresh and Bearer requests carry client identity and original headers', async () => {
@@ -275,7 +275,7 @@ test('an SSH tunnel validates the IP SAN of the server behind loopback', async (
         const tls = loadGoTls(upstream.ip, {
             ...config(),
             NODE_ENV: 'development',
-            GO_API_TLS_SERVER_NAME: '127.0.0.2',
+            GO_API_URL_TLS_SERVER_NAME: '127.0.0.2',
         });
         const go = createGoFetch(upstream.ip.href, 'test-key', tls);
         expect(await (await go('/users/me', { method: 'GET' })).text()).toBe('ok');
@@ -284,18 +284,36 @@ test('an SSH tunnel validates the IP SAN of the server behind loopback', async (
     }
 });
 
-test('a TLS error is an upstream failure and keeps the session cookie', async () => {
+test('Workspace uses its own endpoint and an Identity TLS error keeps the session cookie', async () => {
     const upstream = await fixture('wrong-san');
+    const workspace = await fixture('valid');
     const processEnv = {
         ...config(),
         APP_ORIGIN: 'https://example.test',
-        GO_API_URL: upstream.ip.href,
+        IDENTITY_API_URL: upstream.ip.href,
+        WORKSPACE_API_URL: workspace.dns.href,
         BFF_KEY: 'test-key',
         SESSION_KEY: Buffer.alloc(32).toString('base64'),
     };
     const previous = Object.keys(processEnv).map((name) => [name, process.env[name]] as const);
     Object.assign(process.env, processEnv);
     try {
+        const { workspaceRequest } = await import('../src/go/request.ts');
+        await workspaceRequest('POST', '/notebooks/{id}/clone', {
+            params: { path: { id: 42 } },
+            init: {
+                headers: { Authorization: 'Bearer test-access', 'X-Request-ID': 'workspace-42' },
+            },
+        });
+        expect(workspace.requests).toEqual([
+            expect.objectContaining({
+                path: '/api/v1/notebooks/42/clone',
+                key: 'test-key',
+                bearer: 'Bearer test-access',
+                requestId: 'workspace-42',
+                peer: 'cellestial-bff',
+            }),
+        ]);
         const { serveRoute } = await import('../src/http.ts');
         const { users } = await import('../src/router/users.ts');
         const { SESSION_COOKIE } = await import('../src/session/cookies.ts');
@@ -317,11 +335,15 @@ test('a TLS error is an upstream failure and keeps the session cookie', async ()
         expect(response.status).toBe(502);
         expect(await response.json()).toMatchObject({ error: { code: 'BAD_GATEWAY' } });
         expect(response.headers.getSetCookie()).toEqual([]);
+        expect(response.headers.get('X-Request-ID')).toBeTruthy();
+        expect(upstream.requests).toEqual([]);
+        expect(workspace.requests).toHaveLength(1);
     } finally {
         for (const [name, value] of previous) {
             if (value === undefined) delete process.env[name];
             else process.env[name] = value;
         }
+        workspace.close();
         upstream.close();
     }
 });

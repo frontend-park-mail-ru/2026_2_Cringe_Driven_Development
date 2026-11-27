@@ -4,9 +4,20 @@ import { join } from 'node:path';
 
 import { loadGoTls } from '../../apps/bff/src/go/tls.ts';
 
-const PORT = 18443;
-const BASE = `https://127.0.0.1:${PORT}`;
-const GO_API_URL = `${BASE}/api/v1`;
+const services = [
+    {
+        variable: 'IDENTITY_API_URL',
+        host: 'identity.internal.cellestial.ru',
+        remotePort: 8444,
+        port: 18444,
+    },
+    {
+        variable: 'WORKSPACE_API_URL',
+        host: 'workspace.internal.cellestial.ru',
+        remotePort: 8445,
+        port: 18445,
+    },
+] as const;
 const HEALTH_TIMEOUT_MS = 15_000;
 
 /** Сообщает причину и завершает запуск с ошибкой */
@@ -20,19 +31,30 @@ for (const name of required) {
     if (!process.env[name]) fail(`не задана переменная ${name} (корневой .env или окружение)`);
 }
 const { DEV_TUNNEL_SSH_HOST: sshHost, DEV_TUNNEL_BACKEND_HOST: backendHost } = process.env;
-const env = { ...process.env, GO_API_URL, GO_API_TLS_SERVER_NAME: backendHost };
-let tls: ReturnType<typeof loadGoTls>;
-try {
-    tls = loadGoTls(new URL(GO_API_URL), env);
-} catch (err) {
-    fail(err instanceof Error ? err.message : 'неверная конфигурация TLS');
+const env = { ...process.env };
+for (const { variable, host, port } of services) {
+    env[variable] = `https://127.0.0.1:${port}/api/v1`;
+    env[`${variable}_TLS_SERVER_NAME`] = host;
 }
+const endpoints = services.map(({ variable }) => {
+    const url = new URL(env[variable]!);
+    let tls: ReturnType<typeof loadGoTls>;
+    try {
+        tls = loadGoTls(url, env, variable);
+    } catch (err) {
+        fail(err instanceof Error ? err.message : 'неверная конфигурация TLS');
+    }
 
-// ExitOnForwardFailure тоже ловит занятый порт, но без понятной причины
-try {
-    Bun.listen({ hostname: '127.0.0.1', port: PORT, socket: { data() {} } }).stop(true);
-} catch {
-    fail(`порт 127.0.0.1:${PORT} занят: остановите прежний туннель или процесс на этом порту`);
+    return { url, tls };
+});
+
+for (const { port: PORT } of services) {
+    // ExitOnForwardFailure тоже ловит занятый порт, но без понятной причины
+    try {
+        Bun.listen({ hostname: '127.0.0.1', port: PORT, socket: { data() {} } }).stop(true);
+    } catch {
+        fail(`порт 127.0.0.1:${PORT} занят: остановите прежний туннель или процесс на этом порту`);
+    }
 }
 
 const ssh = Bun.spawn(
@@ -43,8 +65,10 @@ const ssh = Bun.spawn(
         'ExitOnForwardFailure=yes',
         '-o',
         'ServerAliveInterval=15',
-        '-L',
-        `127.0.0.1:${PORT}:${backendHost}:8443`,
+        ...services.flatMap(({ port, remotePort }) => [
+            '-L',
+            `127.0.0.1:${port}:${backendHost}:${remotePort}`,
+        ]),
         sshHost!,
     ],
     { stdio: ['ignore', 'inherit', 'inherit'] },
@@ -52,17 +76,16 @@ const ssh = Bun.spawn(
 const sshAlive = () => ssh.exitCode === null && ssh.signalCode === null;
 
 /** Ждёт ответа Go /health через туннель; false — SSH завершился или вышло время */
-async function waitHealth(): Promise<boolean> {
+async function waitHealth({ url, tls }: (typeof endpoints)[number]): Promise<boolean> {
     const deadline = Date.now() + HEALTH_TIMEOUT_MS;
     while (sshAlive() && Date.now() < deadline) {
         try {
-            const res = await fetch(`${BASE}/health`, {
+            const res = await fetch(new URL('/health', url), {
                 signal: AbortSignal.timeout(2_000),
                 tls,
                 redirect: 'error',
             });
-            if (res.ok && ((await res.json()) as { status?: string }).status === 'alive')
-                return true;
+            if (res.ok) return true;
         } catch {
             // туннель ещё поднимается или gateway отказал в пробросе
         }
@@ -71,16 +94,16 @@ async function waitHealth(): Promise<boolean> {
     return false;
 }
 
-if (!(await waitHealth())) {
+if (!(await Promise.all(endpoints.map(waitHealth))).every(Boolean)) {
     ssh.kill();
     fail(
         sshAlive()
-            ? `Go не ответил status: alive на ${BASE}/health за ${HEALTH_TIMEOUT_MS / 1000} с: проверьте DEV_TUNNEL_BACKEND_HOST`
+            ? `Identity или Workspace не ответил на /health за ${HEALTH_TIMEOUT_MS / 1000} с: проверьте DEV_TUNNEL_BACKEND_HOST`
             : `SSH завершился с кодом ${ssh.exitCode}: проверьте доступ к ${sshHost}`,
     );
 }
 
-console.log(`dev:tunnel: production Go доступен через ${GO_API_URL}`);
+console.log(`dev:tunnel: Identity и Workspace доступны через SSH`);
 const dev = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: join(import.meta.dir, '../..'),
     env,

@@ -1,5 +1,5 @@
 /**
- * Типы контракта Go: редактируемый исходник по закреплённой копии spec/openapi.json, не
+ * Типы контракта Go: редактируемый исходник по закреплённой копии spec/identity и spec/workspace, не
  * генерация. Описаны только операции, которые вызывает приложение. Компилятор проверяет вызовы
  * относительно этих типов, но не доказывает их соответствие спеке: риск расхождения принят
  * (frontend#253). Ограничения min/max/pattern/format проверяются в рантайме, не здесь.
@@ -368,8 +368,8 @@ type IfMatch = { 'If-Match': string };
 type RuntimeErrors = Errors<400 | 401 | 403 | 404 | 500, Error> & { 503: RuntimeError };
 type RuntimeConflictErrors = RuntimeErrors & { 409: RuntimeError };
 
-/** Карта операций Go, которые вызывает BFF: путь - метод - операция. */
-export type GoPaths = {
+/** Карта операций Identity. */
+export type IdentityPaths = {
     '/users/me': {
         GET: { responses: { 200: User } & Errors<401 | 403 | 500, UserProfileError> };
         PATCH: {
@@ -433,6 +433,25 @@ export type GoPaths = {
             responses: { 200: undefined } & Errors<400 | 401 | 403 | 429 | 500, Error>;
         };
     };
+};
+
+type WorkspaceNotebook = Notebook & {
+    access: {
+        is_owner: boolean;
+        can_edit: boolean;
+        can_manage_sharing: boolean;
+        can_clone: boolean;
+    };
+};
+
+/** Карта операций Workspace. */
+export type WorkspacePaths = {
+    '/notebooks/{id}/clone': {
+        POST: {
+            params: { path: Id };
+            responses: { 201: WorkspaceNotebook } & Errors<400 | 401 | 403 | 404 | 500, Error>;
+        };
+    };
     '/notebooks': {
         GET: {
             params: { query?: ListNotebooksParams };
@@ -440,18 +459,18 @@ export type GoPaths = {
         };
         POST: {
             body: Json<CreateNotebookRequest>;
-            responses: { 201: Notebook } & Errors<400 | 401 | 403 | 500, Error>;
+            responses: { 201: WorkspaceNotebook } & Errors<400 | 401 | 403 | 500, Error>;
         };
     };
     '/notebooks/{id}': {
         GET: {
             params: { path: Id };
-            responses: { 200: Notebook } & Errors<400 | 401 | 403 | 404 | 500, Error>;
+            responses: { 200: WorkspaceNotebook } & Errors<400 | 401 | 403 | 404 | 500, Error>;
         };
         PATCH: {
             params: { path: Id };
             body: Json<{ name: string }>;
-            responses: { 200: Notebook } & Errors<400 | 401 | 403 | 404 | 500, Error>;
+            responses: { 200: WorkspaceNotebook } & Errors<400 | 401 | 403 | 404 | 500, Error>;
         };
         DELETE: {
             params: { path: Id };
