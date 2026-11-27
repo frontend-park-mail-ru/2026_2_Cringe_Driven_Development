@@ -6,11 +6,7 @@ declare module '@cdd-team/react/jsx-runtime' {
         interface IntrinsicElements {
             mark: BaseHTMLAttributes<HTMLElement>;
             search: BaseHTMLAttributes<HTMLElement>;
-            iframe: BaseHTMLAttributes<HTMLIFrameElement> & {
-                src?: string;
-                title?: string;
-                loading?: 'lazy' | 'eager';
-            };
+            iframe: BaseHTMLAttributes<HTMLIFrameElement> & { src?: string; title?: string };
         }
     }
 }

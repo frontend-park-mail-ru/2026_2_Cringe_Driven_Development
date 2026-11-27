@@ -175,7 +175,6 @@ export function UiKitPage() {
                     <h2 key="title">Таблица</h2>
                     <Table
                         key="table"
-                        id="kit-notebooks"
                         caption="Блокноты"
                         columns={COLUMNS}
                         rows={NOTEBOOKS}

@@ -13,8 +13,6 @@ export interface Column<Row> {
 
 /** Свойства {@link Table}. */
 interface TableProps<Row> {
-    /** Префикс id: к подписи привязана область прокрутки */
-    id: string;
     /** Подпись таблицы */
     caption: string;
     columns: readonly Column<Row>[];
@@ -23,16 +21,12 @@ interface TableProps<Row> {
     rowKey: (row: Row) => string;
 }
 
-/**
- * Таблица на нативной разметке. На узком экране прокручивается внутри своей области: браузер
- * сам делает прокручиваемую область доступной с клавиатуры.
- */
-export function Table<Row>({ id, caption, columns, rows, rowKey }: TableProps<Row>) {
-    const captionId = `${id}-caption`;
+/** Таблица на нативной разметке. На узком экране прокручивается внутри своей обёртки. */
+export function Table<Row>({ caption, columns, rows, rowKey }: TableProps<Row>) {
     return (
-        <section className={styles.scroll} aria-labelledby={captionId}>
+        <div className={styles.scroll}>
             <table className={styles.table}>
-                <caption key="caption" id={captionId} className={styles.caption}>
+                <caption key="caption" className={styles.caption}>
                     {caption}
                 </caption>
                 <thead key="head">
@@ -54,6 +48,6 @@ export function Table<Row>({ id, caption, columns, rows, rowKey }: TableProps<Ro
                     ))}
                 </tbody>
             </table>
-        </section>
+        </div>
     );
 }

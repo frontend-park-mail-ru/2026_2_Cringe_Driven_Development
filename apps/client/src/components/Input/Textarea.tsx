@@ -5,13 +5,11 @@ import styles from './Input.module.css';
 interface TextareaProps extends FieldProps {
     /** Подсказка внутри пустого поля */
     placeholder?: string;
-    /** Высота в строках до ручного растягивания */
-    rows?: number;
 }
 
-/** Многострочное поле в оформлении {@link Input}. */
+/** Многострочное поле в оформлении {@link Input}: четыре строки, тянется по вертикали. */
 export function Textarea(props: TextareaProps) {
-    const { id, name, value, placeholder, rows = 4, disabled = false } = props;
+    const { id, name, value, placeholder, disabled = false } = props;
     return (
         <Field field={props} multiline>
             <textarea
@@ -20,13 +18,12 @@ export function Textarea(props: TextareaProps) {
                 name={name}
                 value={value}
                 placeholder={placeholder ?? ''}
-                rows={rows}
+                rows={4}
                 disabled={disabled}
                 {...fieldAria(props)}
                 onInput={(event) =>
                     props.onValueChange((event.target as HTMLTextAreaElement).value)
                 }
-                onBlur={() => props.onBlur?.()}
             />
         </Field>
     );

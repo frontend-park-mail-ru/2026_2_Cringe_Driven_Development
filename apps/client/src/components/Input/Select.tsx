@@ -20,9 +20,9 @@ export function Select(props: SelectProps) {
                 disabled={disabled}
                 {...fieldAria(props)}
                 onChange={(event) => props.onValueChange((event.target as HTMLSelectElement).value)}
-                onBlur={() => props.onBlur?.()}
             >
                 {options.map((option) => (
+                    // selected: библиотека выставляет value до появления option
                     <option
                         key={option.value}
                         value={option.value}

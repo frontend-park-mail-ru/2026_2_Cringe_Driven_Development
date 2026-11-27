@@ -1,4 +1,3 @@
-import { clsx } from '@cdd-team/clsx';
 import { useState } from '@cdd-team/react';
 import { Modal } from '@components/Modal/Modal';
 import styles from './ImagePreview.module.css';
@@ -11,14 +10,13 @@ interface ImagePreviewProps {
     src: string;
     /** Описание изображения */
     alt: string;
-    className?: string;
 }
 
 /**
  * Миниатюра изображения. Нажатие мышью или с клавиатуры открывает увеличенное изображение в
  * {@link Modal}; при закрытии фокус возвращается на миниатюру.
  */
-export function ImagePreview({ id, src, alt, className }: ImagePreviewProps) {
+export function ImagePreview({ id, src, alt }: ImagePreviewProps) {
     const [open, setOpen] = useState(false);
     const fullId = `${id}-full`;
     return (
@@ -26,7 +24,7 @@ export function ImagePreview({ id, src, alt, className }: ImagePreviewProps) {
             <button
                 key="thumb"
                 type="button"
-                className={clsx(styles.thumb, className)}
+                className={styles.thumb}
                 aria-label={`Открыть: ${alt}`}
                 onClick={() => setOpen(true)}
             >

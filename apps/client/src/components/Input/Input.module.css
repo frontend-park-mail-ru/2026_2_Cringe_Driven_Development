@@ -130,7 +130,6 @@
 
     & > .field {
         resize: vertical;
-        text-overflow: clip;
     }
 }
 
