@@ -9,6 +9,7 @@ services:
     bff:
         image: cdd-bff:local
         environment:
+            NODE_ENV: development
             SESSION_KEY: ${SESSION_KEY:?SESSION_KEY is required, e.g. openssl rand -base64 32}
             APP_ORIGIN: http://localhost:3000
             GO_API_URL: ${GO_API_URL:?GO_API_URL is required, e.g. http://host.docker.internal:8080/api/v1}

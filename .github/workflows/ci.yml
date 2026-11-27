@@ -32,7 +32,7 @@ jobs:
       # spec/openapi.json байт в байт совпадает с backend по SHA из spec/contract-source.json;
       # Redocly проверяет спеку в CI backend, типы Go не генерируются (frontend#253)
       - run: bun run contract:verify
-      - run: bun test scripts/release/test
+      - run: bun test scripts/release/test apps/bff/test
       - run: bun run check
       - run: bun run build
       # настоящая сборка: COPY проверяет файлы контекста; образ остаётся на runner
