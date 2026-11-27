@@ -7,7 +7,8 @@ const DIALOG_ID = 'modal';
 const OVERLAY_ID = 'modal-overlay';
 const TITLE_ID = 'modal-title';
 const DESCRIPTION_ID = 'modal-description';
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
+const FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])';
 
 /** Свойства {@link Modal}. */
 interface ModalProps {

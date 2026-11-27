@@ -123,3 +123,21 @@
 .disabled .reveal {
     cursor: default;
 }
+
+.multiline {
+    height: auto;
+    padding: 12px 16px;
+
+    & > .field {
+        resize: vertical;
+        text-overflow: clip;
+    }
+}
+
+select.field {
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+    }
+}
