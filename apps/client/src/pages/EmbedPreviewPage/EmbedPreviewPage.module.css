@@ -1,0 +1,16 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px;
+}
+
+.title {
+    font: var(--font-body-accent);
+    color: var(--color-text-primary);
+}
+
+.text {
+    font: var(--font-caption);
+    color: var(--color-text-secondary);
+}

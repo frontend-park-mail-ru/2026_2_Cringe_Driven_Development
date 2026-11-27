@@ -123,3 +123,72 @@
 .disabled .reveal {
     cursor: default;
 }
+
+.multiline {
+    height: auto;
+    padding: 12px 16px;
+
+    & > .field {
+        resize: vertical;
+    }
+}
+
+select.field {
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+    }
+
+    /* Свой вид раскрытого списка — в Chromium 135+; в остальных браузерах он системный */
+    @supports (appearance: base-select) {
+        appearance: base-select;
+        display: flex;
+        align-items: center;
+
+        &::picker-icon {
+            content: '';
+            width: 16px;
+            height: 16px;
+            background: var(--color-text-secondary);
+            mask: url('../../assets/icons/down.svg') center / contain no-repeat;
+            transition: rotate 0.15s;
+        }
+
+        &:open::picker-icon {
+            rotate: 180deg;
+        }
+
+        &::picker(select) {
+            appearance: base-select;
+            margin-top: 8px;
+            padding: 4px;
+            border: 0;
+            border-radius: 12px;
+            background: var(--color-surface-solid);
+            box-shadow: var(--shadow-popover);
+            color: var(--color-text-primary);
+        }
+
+        & option {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font: var(--font-body);
+            cursor: pointer;
+
+            &::checkmark {
+                display: none;
+            }
+
+            &:hover,
+            &:focus-visible {
+                outline: none;
+                background: var(--color-surface-hover);
+            }
+
+            &:checked {
+                background: var(--color-primary-soft);
+            }
+        }
+    }
+}
