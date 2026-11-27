@@ -11,6 +11,8 @@ export const PAGES = {
     register: 'register',
     notebook: 'notebooks/$notebookId',
     profile: 'profile',
+    uiKit: 'ui-kit',
+    embedPreview: 'embed/preview',
     notFound: '404',
 } as const;
 

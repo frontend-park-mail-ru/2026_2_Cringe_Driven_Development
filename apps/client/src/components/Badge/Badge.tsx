@@ -1,10 +1,11 @@
 import { clsx } from '@cdd-team/clsx';
+import type { ReactNode } from '@cdd-team/react';
 import styles from './Badge.module.css';
 
 /** Свойства {@link Badge}. */
 interface BadgeProps {
     /** Короткая текстовая метка */
-    children: string;
+    children: ReactNode;
     className?: string;
 }
 
