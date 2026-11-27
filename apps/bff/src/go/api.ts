@@ -49,7 +49,7 @@ import {
     twoFactorSetupResponse,
     userResponse,
 } from './responses.ts';
-import { go, withRequestId } from './request.ts';
+import { identityRequest, withRequestId, workspaceRequest } from './request.ts';
 
 /**
  * Заголовок `If-Match` для правки содержимого блокнота.
@@ -127,13 +127,23 @@ export type Go = {
  */
 export function createGo(session: Session): Go {
     const call: Session['call'] = (fn, refused) => session.call(fn, refused);
+    const readNotebook: Session['call'] = (fn) =>
+        session.active ? call(fn) : fn(withRequestId(session.requestId));
     return {
         getCurrentUser: async () =>
-            unwrap(await call((init) => go('GET', '/users/me', { init })), [200], userResponse),
+            unwrap(
+                await call((init) => identityRequest('GET', '/users/me', { init })),
+                [200],
+                userResponse,
+            ),
         updateCurrentUser: async (body) =>
             unwrap(
                 await call((init) =>
-                    go('PATCH', '/users/me', { contentType: 'application/json', body, init }),
+                    identityRequest('PATCH', '/users/me', {
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
                 ),
                 [200],
                 userResponse,
@@ -141,7 +151,7 @@ export function createGo(session: Session): Go {
         changeCurrentUserPassword: async (body) => {
             unwrap(
                 await call((init) =>
-                    go('PUT', '/users/me/password', {
+                    identityRequest('PUT', '/users/me/password', {
                         contentType: 'application/json',
                         body,
                         init,
@@ -153,7 +163,7 @@ export function createGo(session: Session): Go {
         uploadCurrentUserAvatar: async (avatar) =>
             unwrap(
                 await call((init) =>
-                    go('PUT', '/users/me/avatar', {
+                    identityRequest('PUT', '/users/me/avatar', {
                         contentType: 'multipart/form-data',
                         body: { avatar },
                         init,
@@ -164,22 +174,27 @@ export function createGo(session: Session): Go {
             ),
         listNotebooks: async (params) =>
             unwrap(
-                await call((init) => go('GET', '/notebooks', { params: { query: params }, init })),
+                await call((init) =>
+                    workspaceRequest('GET', '/notebooks', { params: { query: params }, init }),
+                ),
                 [200],
                 notebookListResponse,
             ),
         getNotebook: async (id) =>
             unwrap(
-                await call((init) =>
-                    go('GET', '/notebooks/{id}', { params: { path: { id } }, init }),
+                await readNotebook((init) =>
+                    workspaceRequest('GET', '/notebooks/{id}', { params: { path: { id } }, init }),
                 ),
                 [200],
                 notebookResponse,
             ),
         getNotebookContent: async (id) =>
             unwrap(
-                await call((init) =>
-                    go('GET', '/notebooks/{id}/content', { params: { path: { id } }, init }),
+                await readNotebook((init) =>
+                    workspaceRequest('GET', '/notebooks/{id}/content', {
+                        params: { path: { id } },
+                        init,
+                    }),
                 ),
                 [200],
                 notebookContentResponse,
@@ -187,7 +202,11 @@ export function createGo(session: Session): Go {
         createNotebook: async (body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/notebooks', { contentType: 'application/json', body, init }),
+                    workspaceRequest('POST', '/notebooks', {
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
                 ),
                 [201],
                 notebookResponse,
@@ -195,7 +214,7 @@ export function createGo(session: Session): Go {
         addCell: async (id, hash, body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/notebooks/{id}/content/cells', {
+                    workspaceRequest('POST', '/notebooks/{id}/content/cells', {
                         params: { path: { id }, header: ifMatch(hash) },
                         contentType: 'application/json',
                         body,
@@ -208,7 +227,7 @@ export function createGo(session: Session): Go {
         editCell: async (id, cellId, hash, body) =>
             unwrap(
                 await call((init) =>
-                    go('PATCH', '/notebooks/{id}/content/cells/{cell_id}', {
+                    workspaceRequest('PATCH', '/notebooks/{id}/content/cells/{cell_id}', {
                         params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
                         contentType: 'application/json',
                         body,
@@ -221,7 +240,7 @@ export function createGo(session: Session): Go {
         moveCell: async (id, cellId, hash, body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/notebooks/{id}/content/cells/{cell_id}/move', {
+                    workspaceRequest('POST', '/notebooks/{id}/content/cells/{cell_id}/move', {
                         params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
                         contentType: 'application/json',
                         body,
@@ -234,7 +253,7 @@ export function createGo(session: Session): Go {
         removeCell: async (id, cellId, hash) =>
             unwrap(
                 await call((init) =>
-                    go('DELETE', '/notebooks/{id}/content/cells/{cell_id}', {
+                    workspaceRequest('DELETE', '/notebooks/{id}/content/cells/{cell_id}', {
                         params: { path: { id, cell_id: cellId }, header: ifMatch(hash) },
                         init,
                     }),
@@ -246,7 +265,10 @@ export function createGo(session: Session): Go {
         deleteNotebook: async (id) => {
             unwrap(
                 await call((init) =>
-                    go('DELETE', '/notebooks/{id}', { params: { path: { id } }, init }),
+                    workspaceRequest('DELETE', '/notebooks/{id}', {
+                        params: { path: { id } },
+                        init,
+                    }),
                 ),
                 [204],
             );
@@ -254,7 +276,7 @@ export function createGo(session: Session): Go {
         renameNotebook: async (id, name) =>
             unwrap(
                 await call((init) =>
-                    go('PATCH', '/notebooks/{id}', {
+                    workspaceRequest('PATCH', '/notebooks/{id}', {
                         params: { path: { id } },
                         contentType: 'application/json',
                         body: { name },
@@ -270,7 +292,7 @@ export function createGo(session: Session): Go {
             if (!pair) return 'unconfirmed';
             let status: number;
             try {
-                ({ status } = await go('POST', '/auth/logout', {
+                ({ status } = await identityRequest('POST', '/auth/logout', {
                     contentType: 'application/json',
                     body: { refresh_token: pair.refresh },
                     init: pair.init,
@@ -282,11 +304,14 @@ export function createGo(session: Session): Go {
             return status >= 400 && status < 500 ? 'unconfirmed' : 'unknown';
         },
         logoutAll: async () => {
-            unwrap(await call((init) => go('POST', '/auth/logout-all', { init })), [204]);
+            unwrap(
+                await call((init) => identityRequest('POST', '/auth/logout-all', { init })),
+                [204],
+            );
         },
         enableTwoFactor: async () =>
             unwrap(
-                await call((init) => go('POST', '/auth/enable2fa', { init })),
+                await call((init) => identityRequest('POST', '/auth/enable2fa', { init })),
                 [200],
                 twoFactorSetupResponse,
             ),
@@ -295,7 +320,7 @@ export function createGo(session: Session): Go {
             unwrap(
                 await call(
                     (init) =>
-                        go('POST', '/auth/confirm2fa', {
+                        identityRequest('POST', '/auth/confirm2fa', {
                             contentType: 'application/json',
                             body,
                             init,
@@ -308,21 +333,28 @@ export function createGo(session: Session): Go {
         disableTwoFactor: async (body) => {
             unwrap(
                 await call((init) =>
-                    go('POST', '/auth/disable2fa', { contentType: 'application/json', body, init }),
+                    identityRequest('POST', '/auth/disable2fa', {
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
                 ),
                 [200],
             );
         },
         getActiveRuntimeSession: async () =>
             unwrap(
-                await call((init) => go('GET', '/runtime-sessions/active', { init })),
+                await call((init) => workspaceRequest('GET', '/runtime-sessions/active', { init })),
                 [200],
                 activeRuntimeSessionResponse,
             ).active_session,
         getRuntimeSession: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('GET', '/runtime-sessions/{id}', { params: { path: { id } }, init }),
+                    workspaceRequest('GET', '/runtime-sessions/{id}', {
+                        params: { path: { id } },
+                        init,
+                    }),
                 ),
                 [200],
                 runtimeSessionResponse,
@@ -330,7 +362,10 @@ export function createGo(session: Session): Go {
         getRuntimeQueue: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('GET', '/runtime-sessions/{id}/queue', { params: { path: { id } }, init }),
+                    workspaceRequest('GET', '/runtime-sessions/{id}/queue', {
+                        params: { path: { id } },
+                        init,
+                    }),
                 ),
                 [200],
                 runtimeQueueResponse,
@@ -338,7 +373,7 @@ export function createGo(session: Session): Go {
         listRuntimeEvents: async (id, after) =>
             unwrap(
                 await call((init) =>
-                    go('GET', '/runtime-sessions/{id}/events', {
+                    workspaceRequest('GET', '/runtime-sessions/{id}/events', {
                         params: { path: { id }, query: { after } },
                         init,
                     }),
@@ -349,7 +384,7 @@ export function createGo(session: Session): Go {
         getRuntimeExecution: async (id, executionId) =>
             unwrap(
                 await call((init) =>
-                    go('GET', '/runtime-sessions/{id}/executions/{execution_id}', {
+                    workspaceRequest('GET', '/runtime-sessions/{id}/executions/{execution_id}', {
                         params: { path: { id, execution_id: executionId } },
                         init,
                     }),
@@ -360,7 +395,7 @@ export function createGo(session: Session): Go {
         startRuntimeSession: async (notebookId, body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/notebooks/{id}/runtime-sessions', {
+                    workspaceRequest('POST', '/notebooks/{id}/runtime-sessions', {
                         params: { path: { id: notebookId } },
                         contentType: 'application/json',
                         body,
@@ -373,7 +408,7 @@ export function createGo(session: Session): Go {
         createRuntimeExecution: async (id, body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/executions', {
+                    workspaceRequest('POST', '/runtime-sessions/{id}/executions', {
                         params: { path: { id } },
                         contentType: 'application/json',
                         body,
@@ -386,7 +421,7 @@ export function createGo(session: Session): Go {
         createRuntimeExecutionBatch: async (id, body) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/executions/batch', {
+                    workspaceRequest('POST', '/runtime-sessions/{id}/executions/batch', {
                         params: { path: { id } },
                         contentType: 'application/json',
                         body,
@@ -399,7 +434,10 @@ export function createGo(session: Session): Go {
         stopRuntimeSession: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/stop', { params: { path: { id } }, init }),
+                    workspaceRequest('POST', '/runtime-sessions/{id}/stop', {
+                        params: { path: { id } },
+                        init,
+                    }),
                 ),
                 [202],
                 acceptedResponse,
@@ -407,7 +445,7 @@ export function createGo(session: Session): Go {
         stopRuntimeExecutions: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/executions/stop', {
+                    workspaceRequest('POST', '/runtime-sessions/{id}/executions/stop', {
                         params: { path: { id } },
                         init,
                     }),
@@ -418,7 +456,7 @@ export function createGo(session: Session): Go {
         interruptRuntimeKernel: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/kernel/interrupt', {
+                    workspaceRequest('POST', '/runtime-sessions/{id}/kernel/interrupt', {
                         params: { path: { id } },
                         init,
                     }),
@@ -429,7 +467,7 @@ export function createGo(session: Session): Go {
         touchRuntimeSession: async (id) =>
             unwrap(
                 await call((init) =>
-                    go('POST', '/runtime-sessions/{id}/activity', {
+                    workspaceRequest('POST', '/runtime-sessions/{id}/activity', {
                         params: { path: { id } },
                         init,
                     }),
@@ -452,7 +490,7 @@ export const publicGo = {
      */
     register: async (body: Credentials, requestId?: string): Promise<AuthResult> =>
         unwrap(
-            await go('POST', '/auth/register', {
+            await identityRequest('POST', '/auth/register', {
                 contentType: 'application/json',
                 body,
                 init: withRequestId(requestId),
@@ -467,7 +505,7 @@ export const publicGo = {
      */
     login: async (body: LoginRequest, requestId?: string): Promise<AuthResult> =>
         unwrap(
-            await go('POST', '/auth/login', {
+            await identityRequest('POST', '/auth/login', {
                 contentType: 'application/json',
                 body,
                 init: withRequestId(requestId),

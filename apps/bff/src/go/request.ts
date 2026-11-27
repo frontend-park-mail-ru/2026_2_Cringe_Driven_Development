@@ -1,12 +1,22 @@
 import { createClient } from '@cdd-team/http-client';
-import type { GoPaths } from '@cdd/schemas/types';
+import type { IdentityPaths, WorkspacePaths } from '@cdd/schemas/types';
 
 import { env } from '../env.ts';
+import { observeUpstream } from './metrics.ts';
 import { GoError } from './errors.ts';
 import { createGoFetch, GO_TIMEOUT_MS } from './fetch.ts';
 
-const client = createClient<GoPaths>({
-    transport: createGoFetch(env.GO_API_URL, env.BFF_KEY, env.goTls),
+const identity = createClient<IdentityPaths>({
+    transport: observeUpstream(
+        'identity',
+        createGoFetch(env.IDENTITY_API_URL, env.BFF_KEY, env.identityTls),
+    ),
+});
+const workspace = createClient<WorkspacePaths>({
+    transport: observeUpstream(
+        'workspace',
+        createGoFetch(env.WORKSPACE_API_URL, env.BFF_KEY, env.workspaceTls),
+    ),
 });
 
 /**
@@ -28,10 +38,16 @@ const toGoError = (err: unknown): unknown => {
  * Вызов операции Go общим клиентом: таймаут и сетевой сбой, в том числе при чтении тела, —
  * `GoError` вида `timeout` и `network`. HTTP-ошибки возвращаются результатом: их толкует `unwrap`.
  */
-export const go: typeof client.request = (...args) =>
-    client.request(...args).catch((err: unknown) => {
-        throw toGoError(err);
-    });
+export const identityRequest: typeof identity.request = (...args) =>
+    identity.request(...args).catch(handleError);
+
+/** Вызов Workspace с общей обработкой ошибок транспорта. */
+export const workspaceRequest: typeof workspace.request = (...args) =>
+    workspace.request(...args).catch(handleError);
+
+function handleError(err: unknown): never {
+    throw toGoError(err);
+}
 
 /**
  * `init` вызова Go без сессии: только `X-Request-ID`.

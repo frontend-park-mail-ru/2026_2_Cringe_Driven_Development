@@ -1,7 +1,7 @@
 # Контракт API фронтенда
 
 Единственный редактируемый исходник контракта Go —
-[`spec/openapi.json` в backend](https://github.com/Cringe-Driven-Development-Team/backend/blob/main/spec/openapi.json)
+[Identity](https://github.com/Cringe-Driven-Development-Team/backend/blob/api-123/spec/identity/openapi.json) и [Workspace](https://github.com/Cringe-Driven-Development-Team/backend/blob/api-123/spec/workspace/openapi.json)
 ([процесс backend](https://github.com/Cringe-Driven-Development-Team/backend/blob/main/docs/openapi.md)).
 В `spec/` здесь лежит его копия `openapi.json` по полному Git SHA; ревизию фиксирует
 `spec/contract-source.json` (`repository`, `path`, `revision`). Спеку проверяет Redocly в CI
@@ -10,7 +10,7 @@ backend, здесь Redocly не ставится и не запускается
 - `packages/schemas/src/types.ts` (`@cdd/schemas/types`) — DTO и карта операций `GoPaths`: обычный
   редактируемый TypeScript, не генерация. Описаны только операции, которые вызывает приложение.
   Вызовы BFF к Go идут через общий клиент `@cdd-team/http-client` (исходники — в frontend-packages):
-  `go(method, path, options)` и транспорт `createGoFetch` в `apps/bff/src/go/fetch.ts` (адрес Go — обязательный `GO_API_URL`, умолчания нет; `X-BFF-Key` и
+  `identityRequest / workspaceRequest` и транспорт `createGoFetch` в `apps/bff/src/go/fetch.ts` (адрес Go — обязательный `IDENTITY_API_URL и WORKSPACE_API_URL`, умолчания нет; `X-BFF-Key` и
   таймаут 5 с; `Authorization: Bearer` передаёт сессия).
 - `packages/schemas/src/validate.ts` (`@cdd/schemas/validate`) — вручную написанные общие проверки входов: `LOGIN`, `PASSWORD`, `loginValue`, `passwordValue` и входы маршрутов BFF. Формы браузера вызывают их до отправки, BFF — независимо после разбора HTTP-входа. Тексты правил для подсказок — `@cdd/schemas/inputs`. Длины и допустимые символы — только из контракта, своих копий ограничений не заводить.
 - `apps/bff/src/go/responses.ts` — ручные проверки ответов Go, только для BFF (в браузер не импортируются): `unwrap(res, [status], validateResponse)` из `apps/bff/src/go/errors.ts`, несоответствие — `GoError('unexpected')`, клиенту — `BAD_GATEWAY`. Тип `Validator<DTO>` сверяет проверку с `types.ts`.
@@ -32,18 +32,18 @@ OpenAPI: риск расхождения принят владельцем. Ав
 Копия `spec/` коммитится и руками не правится: по диффу в PR видно, что поменялось в контракте Go. Правка контракта — PR в backend; после его мержа копия
 обновляется здесь по SHA.
 
-| Команда                          | Что делает                                                                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bun run contract:fetch [ветка]` | определяет SHA ветки backend (по умолчанию `main`), скачивает по нему `spec/openapi.json` и после успешного скачивания пишет этот SHA в манифест |
-| `bun run contract:verify`        | побайтово сверяет `spec/openapi.json` с backend по SHA из манифеста                                                                              |
+| Команда                          | Что делает                                                                                                                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run contract:fetch api-123` | определяет SHA ветки backend (по умолчанию `main`), скачивает по нему `spec/identity/openapi.json` и `spec/workspace/openapi.json` и после успешного скачивания пишет этот SHA в манифест |
+| `bun run contract:verify`        | побайтово сверяет `spec/identity/openapi.json` и `spec/workspace/openapi.json` с backend по SHA из манифеста                                                                              |
 
 Обновление контракта:
 
 1. Дождись успешного CI backend на нужной ветке (Redocly проверяет спеку там).
-2. `bun run contract:fetch` — из `main` backend; `bun run contract:fetch <ветка>` — из указанной ветки GitHub.
+2. `bun run contract:fetch` — из `main` backend; `bun run contract:fetch api-123` — из ветки разделения API GitHub.
 3. Вручную поправь `packages/schemas/src/types.ts` по диффу спеки ([типы Go](#типы-go-без-генератора)).
 
-Несуществующая ветка, недоступный файл или сеть — ненулевой код, прежние `spec/openapi.json` и манифест
+Несуществующая ветка, недоступный файл или сеть — ненулевой код, прежние `spec/identity/openapi.json` и `spec/workspace/openapi.json` и манифест
 не меняются. CI (job `Check`) выполняет `contract:verify`.
 
 ## Spec First
@@ -55,10 +55,10 @@ OpenAPI: риск расхождения принят владельцем. Ав
 
 Перед задачей, затрагивающей Go API:
 
-1. **Проверь актуальный контракт в backend** (`spec/openapi.json` в main или в ветке, заданной
+1. **Проверь актуальный контракт в backend** (`spec/identity/openapi.json` и `spec/workspace/openapi.json` в main или в ветке, заданной
    задачей). Если нужной операции нет, сначала согласуй её PR в backend. Не угадывай контракт
    по будущей реализации Go; копию `spec/` руками не правь.
-2. **Обнови копию и типы:** `bun run contract:fetch` (из `main` backend после успешного CI) или `bun run contract:fetch <ветка>`, затем правка
+2. **Обнови копию и типы:** `bun run contract:fetch` (из `main` backend после успешного CI) или `bun run contract:fetch api-123`, затем правка
    `packages/schemas/src/types.ts` по диффу спеки. Проверь
    методы, пути, тела запросов, ответы, ошибки и описания операций.
 3. **Проверяй ответы, ошибки и состояние на реальном Go** ([ниже](#реальный-go)). Не обходи
@@ -72,10 +72,10 @@ OpenAPI: риск расхождения принят владельцем. Ав
 ## Реальный Go
 
 Интеграционная проверка состояния — сохранение, отзыв сессий, конфликты версий, сбои — идёт через
-настоящий Go: `bun run dev` с явным `GO_API_URL`. Без него BFF не стартует и подсказывает, как задать
+настоящий Go: `bun run dev` с явным `IDENTITY_API_URL и WORKSPACE_API_URL`. Без него BFF не стартует и подсказывает, как задать
 адрес; внешние адреса сам не подставляет.
 
-- `GO_API_URL` — адрес Go **с префиксом API**: `http://127.0.0.1:8080/api/v1`, а не корень сервера.
+- `IDENTITY_API_URL и WORKSPACE_API_URL` — адрес Go **с префиксом API**: `http://127.0.0.1:8081/api/v1 и http://127.0.0.1:8082/api/v1`, а не корень сервера.
 - `BFF_KEY` — S2S-ключ `X-BFF-Key`, если Go его проверяет (`BFF_API_KEY` на стороне Go). Без ключа
   такой Go отвечает `403` на все ручки. Значение — то же, что у выбранного Go.
 - Обе переменные — в корневом `.env` (в git не попадает) или в окружении запуска.
@@ -91,6 +91,6 @@ OpenAPI: риск расхождения принят владельцем. Ав
 Production Go команды без локального Docker: туннель через gateway, сервисный ключ `BFF_KEY` из
 ansible-vault infra и запуск — в [локальной разработке](local-development.md#фронт-с-go-команды-через-ssh-туннель).
 Одной командой — `bun run dev:tunnel`: поднимает туннель и запускает `bun run dev` с адресом туннеля. Обычный
-`bun run dev` туннель не запускает и без `GO_API_URL` к production не подключается.
+`bun run dev` туннель не запускает и без `IDENTITY_API_URL и WORKSPACE_API_URL` к production не подключается.
 
 В отчёте PR для проверок на Go указываются его ревизия и способ подключения.

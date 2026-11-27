@@ -35,6 +35,7 @@ export function logged(
                 method: req.method,
                 path,
                 status: res.status,
+                request_id: res.headers.get('X-Request-ID') ?? undefined,
                 ms: Math.round(performance.now() - start),
             }),
         );

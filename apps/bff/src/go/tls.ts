@@ -1,6 +1,5 @@
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { isIP } from 'node:net';
 import { checkServerIdentity } from 'node:tls';
 
 const files = {
@@ -14,16 +13,22 @@ const files = {
  * loopback, а проверяемый IP принадлежит Go-серверу за туннелем.
  * @param url адрес Go
  * @param source переменные окружения
+ * @param variable имя переменной с адресом API
  */
-export function loadGoTls(url: URL, source: NodeJS.ProcessEnv): BunFetchRequestInitTLS | undefined {
+export function loadGoTls(
+    url: URL,
+    source: NodeJS.ProcessEnv,
+    variable = 'GO_API_URL',
+): BunFetchRequestInitTLS | undefined {
     const production = source.NODE_ENV === 'production';
-    const serverName = source.GO_API_TLS_SERVER_NAME;
+    const serverNameVariable = `${variable}_TLS_SERVER_NAME`;
+    const serverName = source[serverNameVariable];
     const tunnel = !production && url.hostname === '127.0.0.1' && url.protocol === 'https:';
-    if (serverName && (!tunnel || isIP(serverName) !== 4)) {
-        throw new Error('Неверная конфигурация: GO_API_TLS_SERVER_NAME');
+    if (serverName && (!tunnel || !/^[a-z0-9.-]+$/i.test(serverName))) {
+        throw new Error(`Неверная конфигурация: ${serverNameVariable}`);
     }
     if (url.username || url.password || url.search || url.hash) {
-        throw new Error('Неверная конфигурация: GO_API_URL');
+        throw new Error(`Неверная конфигурация: ${variable}`);
     }
     if (url.protocol !== 'https:') {
         if (
@@ -31,7 +36,7 @@ export function loadGoTls(url: URL, source: NodeJS.ProcessEnv): BunFetchRequestI
             url.protocol !== 'http:' ||
             Object.values(files).some((name) => source[name])
         ) {
-            throw new Error('Неверная конфигурация: GO_API_URL');
+            throw new Error(`Неверная конфигурация: ${variable}`);
         }
         return undefined;
     }

@@ -143,12 +143,19 @@ class RequestSession implements Session {
  * истёк refresh, — это отсутствие сессии, и она помечается к удалению; Go при этом не вызывается.
  */
 
-export async function createSession(req: Request): Promise<Session> {
-    const incoming = req.headers.get('X-Request-ID');
-    const requestId = incoming && REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID();
+export async function createSession(req: Request, requestId = getRequestId(req)): Promise<Session> {
     const value = readSessionCookie(req);
     if (value === undefined) return new RequestSession(null, false, requestId);
     const data = await openSession(value);
     if (!data || data.refreshExp <= now()) return new RequestSession(null, true, requestId);
     return new RequestSession(data, false, requestId);
+}
+
+/**
+ * Возвращает допустимый идентификатор входящего запроса или создаёт новый.
+ * @param req входящий запрос
+ */
+export function getRequestId(req: Request): string {
+    const incoming = req.headers.get('X-Request-ID');
+    return incoming && REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID();
 }

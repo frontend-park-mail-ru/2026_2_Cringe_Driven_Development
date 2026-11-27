@@ -1,4 +1,5 @@
 import { errorBody, ApiError } from './errors.ts';
+import { upstreamMetrics } from './go/metrics.ts';
 import { serveRoute } from './http.ts';
 import { logged } from './log.ts';
 import { pageOf } from './pages.ts';
@@ -74,6 +75,7 @@ export function createApp(deps: AppDeps): App {
                         headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
                     }),
             },
+            '/metrics': { GET: upstreamMetrics },
             ...table,
             '/robots.txt': {
                 GET: logged(

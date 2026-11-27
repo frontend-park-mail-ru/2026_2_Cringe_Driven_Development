@@ -27,7 +27,13 @@
             "cache": false,
             "persistent": true,
             "interruptible": true,
-            "passThroughEnv": ["GO_API_URL", "GO_API_TLS_*", "BFF_KEY"]
+            "passThroughEnv": [
+                "IDENTITY_API_URL",
+                "WORKSPACE_API_URL",
+                "GO_API_TLS_*",
+                "*_API_URL_TLS_SERVER_NAME",
+                "BFF_KEY"
+            ]
         },
         "//#lint:scripts": {
             "inputs": ["scripts/**", "oxlint.config.ts"]
