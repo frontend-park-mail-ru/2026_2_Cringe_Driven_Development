@@ -3,11 +3,11 @@
   "info": {
     "title": "Cellestial OnlineConf API",
     "version": "1.0.0",
-    "description": "Внутренний административный HTTP API OnlineConf. Пути от корня сервиса, без /api/v1. Все операции требуют mTLS с идентичностью BFF, X-BFF-Key и access-токен пользователя с ролью onlineconf_admin из Identity. Ключ однозначно задают scope и имя; вид ключа (config или flag) после создания не меняется."
+    "description": "Внутренний административный HTTP API OnlineConf. Пути от корня сервиса, без /api/v1. Все операции требуют mTLS с идентичностью BFF, X-BFF-Key и access-токен пользователя с ролью onlineconf_admin из Identity. Ключ однозначно задаёт полное имя, которое начинается со scope и точки; тип ключа (config или flag) после создания не меняется. Операции совпадают с onlineConf* в spec/openapi.json."
   },
   "tags": [
     {
-      "name": "admin",
+      "name": "onlineconf-admin",
       "description": "Проверка доступа и управление ключами OnlineConf."
     }
   ],
@@ -19,7 +19,7 @@
         "description": "Подтверждает, что текущий пользователь может работать с OnlineConf. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
         "operationId": "getAdminAccess",
         "tags": [
-          "admin"
+          "onlineconf-admin"
         ],
         "security": [
           {
@@ -28,15 +28,7 @@
         ],
         "parameters": [
           {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+            "$ref": "#/components/parameters/BFFKey"
           }
         ],
         "responses": {
@@ -44,390 +36,166 @@
             "description": "Пользователь с ролью onlineconf_admin."
           },
           "401": {
-            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "unauthorized",
-                  "message": "authentication required"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf401"
           },
           "403": {
-            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "s2s": {
-                    "summary": "s2s",
-                    "value": {
-                      "code": "s2s_forbidden",
-                      "message": "service access forbidden"
-                    }
-                  },
-                  "role": {
-                    "summary": "role",
-                    "value": {
-                      "code": "forbidden",
-                      "message": "onlineconf_admin role required"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf403"
           },
           "500": {
-            "description": "Внутренняя ошибка сервиса.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "internal",
-                  "message": "internal error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf500"
           },
           "503": {
-            "description": "Identity или хранилище OnlineConf недоступны.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "dependency_unavailable",
-                  "message": "authorization unavailable"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf503"
           }
         }
       }
     },
     "/admin/keys": {
       "get": {
-        "summary": "Ключи scope",
-        "description": "Ключи одного scope, отсортированные по имени. Ключи других scope не возвращаются. shortcut: без пагинации, ответ ограничен 500 ключами; курсор — когда scope перерастёт лимит. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
-        "operationId": "listKeys",
         "tags": [
-          "admin"
+          "onlineconf-admin"
         ],
+        "operationId": "onlineConfListKeys",
+        "summary": "Получить список ключей",
+        "description": "Поиск по подстроке без учёта регистра. Фильтры объединяются через И. Общие счётчики вычисляются до фильтрации. Сортировка по updated_at по убыванию и name по возрастанию.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
-          },
-          {
-            "name": "scope",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Scope"
-            },
-            "example": "frontend"
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "description": "Подстрока имени без учёта регистра; пробелы по краям обрезаются, пустая строка — весь scope.",
-            "schema": {
-              "type": "string",
-              "maxLength": 128
-            },
-            "example": "editor"
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Ключи scope.",
+            "description": "Получить список ключей",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KeyList"
+                  "$ref": "#/components/schemas/OnlineConfList"
                 },
                 "example": {
-                  "items": [
-                    {
-                      "scope": "frontend",
-                      "name": "editor.theme",
-                      "kind": "config"
-                    }
+                  "items": [],
+                  "total_count": 1,
+                  "scope_count": 1,
+                  "scopes": [
+                    "frontend",
+                    "bff",
+                    "identity",
+                    "workspace"
                   ]
                 }
               }
             }
           },
           "400": {
-            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "validation_error",
-                  "message": "include_user_ids and exclude_user_ids intersect"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf400"
           },
           "401": {
-            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "unauthorized",
-                  "message": "authentication required"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf401"
           },
           "403": {
-            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "s2s": {
-                    "summary": "s2s",
-                    "value": {
-                      "code": "s2s_forbidden",
-                      "message": "service access forbidden"
-                    }
-                  },
-                  "role": {
-                    "summary": "role",
-                    "value": {
-                      "code": "forbidden",
-                      "message": "onlineconf_admin role required"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf403"
           },
           "500": {
-            "description": "Внутренняя ошибка сервиса.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "internal",
-                  "message": "internal error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf500"
           },
           "503": {
-            "description": "Identity или хранилище OnlineConf недоступны.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "dependency_unavailable",
-                  "message": "authorization unavailable"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf503"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Подстрока полного имени. Края обрезаются."
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfScope"
+            },
+            "description": "Точное совпадение scope."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "config",
+                "flag"
+              ]
+            },
+            "description": "Точное совпадение типа."
+          }
+        ]
       },
       "post": {
-        "summary": "Создать ключ",
-        "description": "Создаёт конфиг или флаг. При любой ошибке проверки ключ не создаётся. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
-        "operationId": "createKey",
         "tags": [
-          "admin"
+          "onlineconf-admin"
         ],
+        "operationId": "onlineConfCreateKey",
+        "summary": "Создать ключ",
+        "description": "Имя уникально и начинается с scope и точки. Для конфига создаётся JSON null. Флаг выключен, процент равен нулю, списки пусты.",
         "security": [
           {
             "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
           }
         ],
         "responses": {
           "201": {
-            "description": "Созданный ключ.",
+            "description": "Создать ключ",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Key"
+                  "$ref": "#/components/schemas/OnlineConfCard"
                 },
-                "examples": {
-                  "config": {
-                    "summary": "config",
-                    "value": {
-                      "scope": "frontend",
-                      "name": "editor.theme",
-                      "kind": "config",
-                      "value": {
-                        "default": "dark",
-                        "allowed": [
-                          "dark",
-                          "light"
-                        ]
-                      }
-                    }
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
                   },
-                  "flag": {
-                    "summary": "flag",
-                    "value": {
-                      "scope": "workspace",
-                      "name": "notebook.comments",
-                      "kind": "flag",
-                      "rollout_percent": 25,
-                      "include_user_ids": [
-                        1,
-                        7
-                      ],
-                      "exclude_user_ids": [
-                        42
-                      ]
-                    }
-                  }
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": null
                 }
               }
             }
           },
           "400": {
-            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "validation_error",
-                  "message": "include_user_ids and exclude_user_ids intersect"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Ключ с таким scope и именем уже существует.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "conflict",
-                  "message": "key already exists"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf400"
           },
           "401": {
-            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "unauthorized",
-                  "message": "authentication required"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf401"
           },
           "403": {
-            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "s2s": {
-                    "summary": "s2s",
-                    "value": {
-                      "code": "s2s_forbidden",
-                      "message": "service access forbidden"
-                    }
-                  },
-                  "role": {
-                    "summary": "role",
-                    "value": {
-                      "code": "forbidden",
-                      "message": "onlineconf_admin role required"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "409": {
+            "$ref": "#/components/responses/OnlineConf409"
           },
           "500": {
-            "description": "Внутренняя ошибка сервиса.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "internal",
-                  "message": "internal error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf500"
           },
           "503": {
-            "description": "Identity или хранилище OnlineConf недоступны.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "dependency_unavailable",
-                  "message": "authorization unavailable"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf503"
           }
         },
         "requestBody": {
@@ -435,428 +203,159 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Key"
+                "$ref": "#/components/schemas/OnlineConfCreate"
               },
-              "examples": {
-                "config": {
-                  "summary": "config",
-                  "value": {
-                    "scope": "frontend",
-                    "name": "editor.theme",
-                    "kind": "config",
-                    "value": {
-                      "default": "dark",
-                      "allowed": [
-                        "dark",
-                        "light"
-                      ]
-                    }
-                  }
-                },
-                "flag": {
-                  "summary": "flag",
-                  "value": {
-                    "scope": "workspace",
-                    "name": "notebook.comments",
-                    "kind": "flag",
-                    "rollout_percent": 25,
-                    "include_user_ids": [
-                      1,
-                      7
-                    ],
-                    "exclude_user_ids": [
-                      42
-                    ]
-                  }
-                }
+              "example": {
+                "name": "frontend.maintenance_banner",
+                "scope": "frontend",
+                "type": "config",
+                "format": "json"
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
       }
     },
-    "/admin/keys/{scope}/{name}": {
+    "/admin/keys/{name}": {
+      "parameters": [
+        {
+          "name": "name",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "description": "Полное неизменяемое имя ключа."
+        }
+      ],
       "get": {
-        "summary": "Карточка ключа",
-        "description": "Ключ со значением. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
-        "operationId": "getKey",
         "tags": [
-          "admin"
+          "onlineconf-admin"
         ],
+        "operationId": "onlineConfGetKey",
+        "summary": "Получить карточку ключа",
+        "description": "Возвращает метаданные и данные выбранного типа. Даты представлены в UTC.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
-          },
-          {
-            "name": "scope",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Scope"
-            },
-            "example": "frontend"
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Name"
-            },
-            "example": "editor.theme"
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Ключ.",
+            "description": "Получить карточку ключа",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Key"
+                  "$ref": "#/components/schemas/OnlineConfCard"
                 },
-                "examples": {
-                  "config": {
-                    "summary": "config",
-                    "value": {
-                      "scope": "frontend",
-                      "name": "editor.theme",
-                      "kind": "config",
-                      "value": {
-                        "default": "dark",
-                        "allowed": [
-                          "dark",
-                          "light"
-                        ]
-                      }
-                    }
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
                   },
-                  "flag": {
-                    "summary": "flag",
-                    "value": {
-                      "scope": "workspace",
-                      "name": "notebook.comments",
-                      "kind": "flag",
-                      "rollout_percent": 25,
-                      "include_user_ids": [
-                        1,
-                        7
-                      ],
-                      "exclude_user_ids": [
-                        42
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "validation_error",
-                  "message": "include_user_ids and exclude_user_ids intersect"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Ключа с таким scope и именем нет.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "not_found",
-                  "message": "key not found"
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": null
                 }
               }
             }
           },
           "401": {
-            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "unauthorized",
-                  "message": "authentication required"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf401"
           },
           "403": {
-            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "s2s": {
-                    "summary": "s2s",
-                    "value": {
-                      "code": "s2s_forbidden",
-                      "message": "service access forbidden"
-                    }
-                  },
-                  "role": {
-                    "summary": "role",
-                    "value": {
-                      "code": "forbidden",
-                      "message": "onlineconf_admin role required"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
           },
           "500": {
-            "description": "Внутренняя ошибка сервиса.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "internal",
-                  "message": "internal error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf500"
           },
           "503": {
-            "description": "Identity или хранилище OnlineConf недоступны.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "dependency_unavailable",
-                  "message": "authorization unavailable"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf503"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
       },
       "put": {
-        "summary": "Изменить ключ",
-        "description": "Заменяет значение ключа целиком. Вид ключа должен совпадать с сохранённым. При ошибке ни одно поле не меняется. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
-        "operationId": "updateKey",
         "tags": [
-          "admin"
+          "onlineconf-admin"
         ],
+        "operationId": "onlineConfUpdateKey",
+        "summary": "Сохранить карточку ключа",
+        "description": "Атомарно заменяет все редактируемые поля выбранного типа. Значение конфига допускает null. ID должны существовать в Identity, списки не пересекаются. При выключении флага процент и списки сохраняются.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "name": "X-BFF-Key",
-            "in": "header",
-            "required": true,
-            "example": "<bff-key>",
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
-          },
-          {
-            "name": "scope",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Scope"
-            },
-            "example": "frontend"
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Name"
-            },
-            "example": "editor.theme"
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Изменённый ключ.",
+            "description": "Сохранить карточку ключа",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Key"
+                  "$ref": "#/components/schemas/OnlineConfCard"
                 },
-                "examples": {
-                  "config": {
-                    "summary": "config",
-                    "value": {
-                      "scope": "frontend",
-                      "name": "editor.theme",
-                      "kind": "config",
-                      "value": {
-                        "default": "dark",
-                        "allowed": [
-                          "dark",
-                          "light"
-                        ]
-                      }
-                    }
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
                   },
-                  "flag": {
-                    "summary": "flag",
-                    "value": {
-                      "scope": "workspace",
-                      "name": "notebook.comments",
-                      "kind": "flag",
-                      "rollout_percent": 25,
-                      "include_user_ids": [
-                        1,
-                        7
-                      ],
-                      "exclude_user_ids": [
-                        42
-                      ]
-                    }
-                  }
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": false
                 }
               }
             }
           },
           "400": {
-            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "validation_error",
-                  "message": "include_user_ids and exclude_user_ids intersect"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Ключа с таким scope и именем нет.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "not_found",
-                  "message": "key not found"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Вид в запросе не совпадает с видом ключа.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "conflict",
-                  "message": "key kind cannot change"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf400"
           },
           "401": {
-            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "unauthorized",
-                  "message": "authentication required"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf401"
           },
           "403": {
-            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "s2s": {
-                    "summary": "s2s",
-                    "value": {
-                      "code": "s2s_forbidden",
-                      "message": "service access forbidden"
-                    }
-                  },
-                  "role": {
-                    "summary": "role",
-                    "value": {
-                      "code": "forbidden",
-                      "message": "onlineconf_admin role required"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
           },
           "500": {
-            "description": "Внутренняя ошибка сервиса.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "internal",
-                  "message": "internal error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf500"
           },
           "503": {
-            "description": "Identity или хранилище OnlineConf недоступны.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "code": "dependency_unavailable",
-                  "message": "authorization unavailable"
-                }
-              }
-            }
+            "$ref": "#/components/responses/OnlineConf503"
           }
         },
         "requestBody": {
@@ -864,31 +363,133 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KeyValue"
+                "$ref": "#/components/schemas/OnlineConfUpdate"
               },
-              "examples": {
-                "config": {
-                  "summary": "config",
-                  "value": {
-                    "kind": "config",
-                    "value": false
-                  }
-                },
-                "flag": {
-                  "summary": "flag",
-                  "value": {
-                    "kind": "flag",
-                    "rollout_percent": 100,
-                    "include_user_ids": [],
-                    "exclude_user_ids": [
-                      42
-                    ]
-                  }
-                }
+              "example": {
+                "description": "",
+                "value": false
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfDeleteKey",
+        "summary": "Удалить ключ",
+        "description": "Удаляет ключ по полному имени.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Удалить ключ"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      }
+    },
+    "/admin/users/resolve": {
+      "get": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfResolveUser",
+        "summary": "Найти пользователя",
+        "description": "Требуется ровно один параметр. Логин сопоставляется целиком без учёта регистра.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Найти пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfUser"
+                },
+                "example": {
+                  "id": 42,
+                  "login": "reader"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OnlineConf400"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Идентификатор пользователя."
+          },
+          {
+            "name": "login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Логин пользователя."
+          }
+        ]
       }
     }
   },
@@ -901,263 +502,578 @@
         "description": "Access-токен пользователя, передаваемый BFF из его сессии."
       }
     },
+    "parameters": {
+      "BFFKey": {
+        "name": "X-BFF-Key",
+        "in": "header",
+        "required": true,
+        "example": "<bff-key>",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+      }
+    },
+    "responses": {
+      "OnlineConf400": {
+        "description": "Некорректные поля запроса",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "validation_error",
+              "message": "Некорректные поля запроса"
+            }
+          }
+        }
+      },
+      "OnlineConf401": {
+        "description": "Требуется действующая сессия",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "unauthorized",
+              "message": "Требуется действующая сессия"
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Схема Bearer."
+          }
+        }
+      },
+      "OnlineConf403": {
+        "description": "Требуется роль onlineconf_admin или действующий ключ BFF",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "examples": {
+              "role": {
+                "value": {
+                  "code": "forbidden",
+                  "message": "onlineconf_admin role required"
+                }
+              },
+              "s2s": {
+                "value": {
+                  "code": "s2s_forbidden",
+                  "message": "Invalid service key"
+                }
+              }
+            }
+          }
+        }
+      },
+      "OnlineConf404": {
+        "description": "Запись не найдена",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "not_found",
+              "message": "Запись не найдена"
+            }
+          }
+        }
+      },
+      "OnlineConf409": {
+        "description": "Ключ уже существует",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "key_name_taken",
+              "message": "Ключ уже существует"
+            }
+          }
+        }
+      },
+      "OnlineConf500": {
+        "description": "Не удалось выполнить операцию",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "internal_error",
+              "message": "Не удалось выполнить операцию"
+            }
+          }
+        }
+      },
+      "OnlineConf503": {
+        "description": "Identity недоступен",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "dependency_unavailable",
+              "message": "Identity недоступен"
+            }
+          }
+        }
+      }
+    },
     "schemas": {
-      "Error": {
+      "OnlineConfCard": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigCard"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagCard"
+          }
+        ]
+      },
+      "OnlineConfConfigCard": {
         "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "value",
+          "description",
+          "created_at",
+          "created_by",
+          "updated_by",
+          "format"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "updated_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json"
+            ]
+          }
+        }
+      },
+      "OnlineConfConfigCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "format"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json"
+            ]
+          }
+        }
+      },
+      "OnlineConfConfigItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          }
+        }
+      },
+      "OnlineConfConfigUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "value"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          }
+        }
+      },
+      "OnlineConfCreate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigCreate"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagCreate"
+          }
+        ]
+      },
+      "OnlineConfError": {
+        "type": "object",
+        "additionalProperties": false,
         "required": [
           "code",
           "message"
         ],
         "properties": {
           "code": {
-            "type": "string",
-            "enum": [
-              "validation_error",
-              "unauthorized",
-              "forbidden",
-              "s2s_forbidden",
-              "not_found",
-              "conflict",
-              "internal",
-              "dependency_unavailable"
-            ]
+            "type": "string"
           },
           "message": {
             "type": "string"
-          },
-          "request_id": {
-            "type": "string",
-            "maxLength": 64
           }
         }
       },
-      "Scope": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9-]{0,31}$",
-        "description": "Потребитель: frontend или имя микросервиса.",
-        "examples": [
-          "frontend"
-        ]
-      },
-      "Name": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
-        "description": "Имя ключа, уникальное в scope.",
-        "examples": [
-          "editor.theme"
-        ]
-      },
-      "ConfigValue": {
+      "OnlineConfFlagCard": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "kind",
-          "value"
-        ],
-        "properties": {
-          "kind": {
-            "type": "string",
-            "const": "config"
-          },
-          "value": {
-            "description": "Произвольное JSON-значение: объект, массив, строка, число, булево или null. Тип сохраняется; false, 0 и null — значения, а не отсутствие ключа."
-          }
-        }
-      },
-      "FlagValue": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "kind",
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "enabled",
           "rollout_percent",
-          "include_user_ids",
-          "exclude_user_ids"
+          "description",
+          "created_at",
+          "created_by",
+          "updated_by",
+          "include_users",
+          "exclude_users"
         ],
         "properties": {
-          "kind": {
-            "type": "string",
-            "const": "flag"
-          },
-          "rollout_percent": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Доля пользователей, для которых флаг включён, от 0 до 100 включительно."
-          },
-          "include_user_ids": {
-            "type": "array",
-            "uniqueItems": true,
-            "maxItems": 1000,
-            "items": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            },
-            "description": "Пользователи, для которых флаг включён независимо от процента. Не пересекается с exclude_user_ids."
-          },
-          "exclude_user_ids": {
-            "type": "array",
-            "uniqueItems": true,
-            "maxItems": 1000,
-            "items": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            },
-            "description": "Пользователи, для которых флаг выключен независимо от процента."
-          }
-        }
-      },
-      "KeyValue": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/ConfigValue"
-          },
-          {
-            "$ref": "#/components/schemas/FlagValue"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "kind",
-          "mapping": {
-            "config": "#/components/schemas/ConfigValue",
-            "flag": "#/components/schemas/FlagValue"
-          }
-        }
-      },
-      "ConfigKey": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "scope",
-          "name",
-          "kind",
-          "value"
-        ],
-        "properties": {
-          "scope": {
-            "$ref": "#/components/schemas/Scope"
-          },
           "name": {
-            "$ref": "#/components/schemas/Name"
-          },
-          "kind": {
             "type": "string",
-            "const": "config"
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
           },
-          "value": {
-            "description": "Произвольное JSON-значение: объект, массив, строка, число, булево или null. Тип сохраняется; false, 0 и null — значения, а не отсутствие ключа."
-          }
-        }
-      },
-      "FlagKey": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "scope",
-          "name",
-          "kind",
-          "rollout_percent",
-          "include_user_ids",
-          "exclude_user_ids"
-        ],
-        "properties": {
           "scope": {
-            "$ref": "#/components/schemas/Scope"
+            "$ref": "#/components/schemas/OnlineConfScope"
           },
-          "name": {
-            "$ref": "#/components/schemas/Name"
-          },
-          "kind": {
-            "type": "string",
-            "const": "flag"
-          },
-          "rollout_percent": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Доля пользователей, для которых флаг включён, от 0 до 100 включительно."
-          },
-          "include_user_ids": {
-            "type": "array",
-            "uniqueItems": true,
-            "maxItems": 1000,
-            "items": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            },
-            "description": "Пользователи, для которых флаг включён независимо от процента. Не пересекается с exclude_user_ids."
-          },
-          "exclude_user_ids": {
-            "type": "array",
-            "uniqueItems": true,
-            "maxItems": 1000,
-            "items": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            },
-            "description": "Пользователи, для которых флаг выключен независимо от процента."
-          }
-        }
-      },
-      "Key": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/ConfigKey"
-          },
-          {
-            "$ref": "#/components/schemas/FlagKey"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "kind",
-          "mapping": {
-            "config": "#/components/schemas/ConfigKey",
-            "flag": "#/components/schemas/FlagKey"
-          }
-        }
-      },
-      "KeySummary": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "scope",
-          "name",
-          "kind"
-        ],
-        "properties": {
-          "scope": {
-            "$ref": "#/components/schemas/Scope"
-          },
-          "name": {
-            "$ref": "#/components/schemas/Name"
-          },
-          "kind": {
+          "type": {
             "type": "string",
             "enum": [
-              "config",
               "flag"
             ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "updated_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "include_users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfUser"
+            }
+          },
+          "exclude_users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfUser"
+            }
           }
         }
       },
-      "KeyList": {
+      "OnlineConfFlagCreate": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "items"
+          "name",
+          "scope",
+          "type"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "flag"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      },
+      "OnlineConfFlagItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "enabled",
+          "rollout_percent"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "flag"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "OnlineConfFlagUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "enabled",
+          "rollout_percent",
+          "include_user_ids",
+          "exclude_user_ids"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "include_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          "exclude_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "OnlineConfList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total_count",
+          "scope_count",
+          "scopes"
         ],
         "properties": {
           "items": {
             "type": "array",
-            "maxItems": 500,
             "items": {
-              "$ref": "#/components/schemas/KeySummary"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/OnlineConfConfigItem"
+                },
+                {
+                  "$ref": "#/components/schemas/OnlineConfFlagItem"
+                }
+              ]
+            }
+          },
+          "total_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scope_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfScope"
             }
           }
         }
+      },
+      "OnlineConfScope": {
+        "type": "string",
+        "enum": [
+          "frontend",
+          "bff",
+          "identity",
+          "workspace"
+        ]
+      },
+      "OnlineConfUpdate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigUpdate"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagUpdate"
+          }
+        ]
+      },
+      "OnlineConfUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "login"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "login": {
+            "type": "string"
+          }
+        }
+      },
+      "OnlineConfValue": {
+        "description": "Произвольное JSON-значение, включая null, скаляры, массивы и объекты.",
+        "additionalProperties": true,
+        "x-go-type": "json.RawMessage"
       }
     }
   }

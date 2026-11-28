@@ -11,8 +11,9 @@ import {
     number,
     object,
     oneOf,
-    onlineConfKey,
-    onlineConfKeySummary,
+    onlineConfCard,
+    onlineConfList,
+    onlineConfUser,
     record,
     string,
     url,
@@ -28,8 +29,9 @@ import type {
     NotebookContent,
     NotebookContentChange,
     NotebookListPage,
-    OnlineConfKey,
-    OnlineConfKeySummary,
+    OnlineConfCard,
+    OnlineConfList,
+    OnlineConfUser,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
     RuntimeExecution,
@@ -254,10 +256,11 @@ export const interruptResponse: Validator<{ interrupt_requested: true }> = valid
     object({ interrupt_requested: literal(true) }),
 );
 
-/** Ключи scope OnlineConf. */
-export const onlineConfKeysResponse: Validator<{ items: OnlineConfKeySummary[] }> = validator(
-    object({ items: array(onlineConfKeySummary, { max: 500 }) }),
-);
+/** Список ключей OnlineConf. */
+export const onlineConfListResponse: Validator<OnlineConfList> = validator(onlineConfList);
 
-/** Ключ OnlineConf. */
-export const onlineConfKeyResponse: Validator<OnlineConfKey> = validator(onlineConfKey('strip'));
+/** Карточка ключа OnlineConf. */
+export const onlineConfCardResponse: Validator<OnlineConfCard> = validator(onlineConfCard);
+
+/** Пользователь Identity по ID или логину. */
+export const onlineConfUserResponse: Validator<OnlineConfUser> = validator(onlineConfUser);

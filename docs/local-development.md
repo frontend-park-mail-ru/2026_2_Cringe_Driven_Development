@@ -123,8 +123,11 @@ PR требует ревью frontend-ментора. Merge оставляет �
 Админка при старте вызывает `GET /api/onlineconf/access`. BFF передаёт OnlineConf access-токен из
 сессии и `X-BFF-Key`, роль `onlineconf_admin` проверяет OnlineConf по Identity. Ответы: `204` —
 администратор, `401` — нет входа (админка предлагает войти), `403` с `appCode: forbidden` — нет роли
-(отказ, продуктовая сессия не завершается), сбой OnlineConf — `502`. Ключи — `GET
-/api/onlineconf/keys/list` и `/keys/get`, `POST /api/onlineconf/keys/create` и `/keys/update` с той же
+(отказ, продуктовая сессия не завершается), сбой OnlineConf — `502`. Ключ задаёт полное имя
+(`<scope>.<имя>`). Ключи — `GET /api/onlineconf/keys/list` (`search`, `scope`, `type`) и `/keys/get?name=`,
+`POST /api/onlineconf/keys/create`, `/keys/update` (полная замена, `type` выбирает набор полей) и
+`/keys/delete`; пользователь для списков флага — `GET /api/onlineconf/users/resolve?id=` или `?login=`. Отказы
+OnlineConf (`validation_error`, `not_found`, `key_name_taken`) приходят в `appCode`. Всё — с той же
 проверкой. Локально API админки проверяется через `bun run preview`: dev-Vite админки работает без BFF.
 
 Неверная конфигурация или шаблон без ровно одного `<script id="bootstrap" type="application/json">`

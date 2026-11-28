@@ -14,8 +14,12 @@ import type {
     NotebookContent,
     NotebookContentChange,
     NotebookListPage,
-    OnlineConfKey,
-    OnlineConfKeySummary,
+    OnlineConfCard,
+    OnlineConfCreate,
+    OnlineConfList,
+    OnlineConfPaths,
+    OnlineConfUpdate,
+    OnlineConfUser,
     RuntimeBatchExecuteRequest,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
@@ -42,8 +46,9 @@ import {
     notebookContentResponse,
     notebookListResponse,
     notebookResponse,
-    onlineConfKeyResponse,
-    onlineConfKeysResponse,
+    onlineConfCardResponse,
+    onlineConfListResponse,
+    onlineConfUserResponse,
     runtimeBatchResponse,
     runtimeEventsResponse,
     runtimeExecutionResponse,
@@ -123,13 +128,16 @@ export type Go = {
     interruptRuntimeKernel(id: string): Promise<{ interrupt_requested: true }>;
     touchRuntimeSession(id: string): Promise<{ accepted: true }>;
     getOnlineConfAccess(): Promise<void>;
-    listOnlineConfKeys(query: {
-        scope: string;
-        search?: string;
-    }): Promise<{ items: OnlineConfKeySummary[] }>;
-    getOnlineConfKey(scope: string, name: string): Promise<OnlineConfKey>;
-    createOnlineConfKey(key: OnlineConfKey): Promise<OnlineConfKey>;
-    updateOnlineConfKey(key: OnlineConfKey): Promise<OnlineConfKey>;
+    listOnlineConfKeys(
+        query: OnlineConfPaths['/admin/keys']['GET']['params']['query'],
+    ): Promise<OnlineConfList>;
+    getOnlineConfKey(name: string): Promise<OnlineConfCard>;
+    createOnlineConfKey(key: OnlineConfCreate): Promise<OnlineConfCard>;
+    updateOnlineConfKey(name: string, key: OnlineConfUpdate): Promise<OnlineConfCard>;
+    deleteOnlineConfKey(name: string): Promise<void>;
+    resolveOnlineConfUser(
+        query: OnlineConfPaths['/admin/users/resolve']['GET']['params']['query'],
+    ): Promise<OnlineConfUser>;
 };
 
 /**
@@ -499,18 +507,18 @@ export function createGo(session: Session): Go {
                     onlineconfRequest('GET', '/admin/keys', { params: { query }, init }),
                 ),
                 [200],
-                onlineConfKeysResponse,
+                onlineConfListResponse,
             ),
-        getOnlineConfKey: async (scope, name) =>
+        getOnlineConfKey: async (name) =>
             unwrap(
                 await call((init) =>
-                    onlineconfRequest('GET', '/admin/keys/{scope}/{name}', {
-                        params: { path: { scope, name } },
+                    onlineconfRequest('GET', '/admin/keys/{name}', {
+                        params: { path: { name } },
                         init,
                     }),
                 ),
                 [200],
-                onlineConfKeyResponse,
+                onlineConfCardResponse,
             ),
         createOnlineConfKey: async (body) =>
             unwrap(
@@ -522,20 +530,39 @@ export function createGo(session: Session): Go {
                     }),
                 ),
                 [201],
-                onlineConfKeyResponse,
+                onlineConfCardResponse,
             ),
-        updateOnlineConfKey: async ({ scope, name, ...body }) =>
+        updateOnlineConfKey: async (name, body) =>
             unwrap(
                 await call((init) =>
-                    onlineconfRequest('PUT', '/admin/keys/{scope}/{name}', {
-                        params: { path: { scope, name } },
+                    onlineconfRequest('PUT', '/admin/keys/{name}', {
+                        params: { path: { name } },
                         contentType: 'application/json',
                         body,
                         init,
                     }),
                 ),
                 [200],
-                onlineConfKeyResponse,
+                onlineConfCardResponse,
+            ),
+        deleteOnlineConfKey: async (name) => {
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('DELETE', '/admin/keys/{name}', {
+                        params: { path: { name } },
+                        init,
+                    }),
+                ),
+                [204],
+            );
+        },
+        resolveOnlineConfUser: async (query) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('GET', '/admin/users/resolve', { params: { query }, init }),
+                ),
+                [200],
+                onlineConfUserResponse,
             ),
     };
 }

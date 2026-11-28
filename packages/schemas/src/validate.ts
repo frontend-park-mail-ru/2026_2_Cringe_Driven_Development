@@ -543,14 +543,15 @@ export const runtimeSessionValue: Validator<RuntimeSession> = validator(
     }),
 );
 
-/** Scope ключа OnlineConf: frontend или имя микросервиса. */
-const onlineConfScope = string({ pattern: /^[a-z][a-z0-9-]{0,31}$/ });
-/** Имя ключа OnlineConf, уникальное в scope. */
-const onlineConfName = string({ pattern: /^[a-z][a-z0-9_.-]{0,127}$/ });
-/** Ключ OnlineConf однозначно задают scope и имя. */
-const onlineConfId = { scope: onlineConfScope, name: onlineConfName };
+const ONLINECONF_SCOPES = ['frontend', 'bff', 'identity', 'workspace'] as const;
+const onlineConfScope = oneOf(ONLINECONF_SCOPES);
+const onlineConfType = oneOf(['config', 'flag']);
+/** Полное имя ключа OnlineConf: начинается со scope и точки. */
+const onlineConfName = string({ max: 256, pattern: /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/ });
 /** ID пользователей флага: до 1000 положительных целых. */
 const userIds = array(int({ min: 1 }), { max: 1000 });
+/** Пользователь Identity в ответах OnlineConf. */
+export const onlineConfUser = object({ id: int({ min: 1 }), login: string() });
 
 /**
  * Любое JSON-значение, включая `false`, `0` и `null`; отсутствие поля — ошибка.
@@ -562,73 +563,141 @@ const json: Check<{} | null> = (value, path, issues) =>
     value === undefined ? fail(issues, path, 'Обязательное поле') : (value as {} | null);
 
 /**
- * Флаг: ID в каждом списке не повторяются, списки не пересекаются.
+ * Вариант по `type`: проблемы — в полях своего типа, а не «не подходит ни один вариант».
+ * @param config проверка конфига
+ * @param flag проверка флага
+ */
+const byType =
+    <C, F, WC, WF>(config: Check<C, WC>, flag: Check<F, WF>): Check<C | F, WC | WF> =>
+    (value, path, issues) => {
+        const type = isRecord(value) ? value.type : undefined;
+        if (type === 'config') return config(value, path, issues);
+        if (type === 'flag') return flag(value, path, issues);
+        return fail(issues, [...path, 'type'], 'Одно из: config, flag');
+    };
+
+/**
+ * Поле `name` начинается со `scope` и точки, как требует OnlineConf.
+ * @param check проверка полей ключа
+ */
+const scopedName =
+    <T extends { name: string; scope: string }, W>(check: Check<T, W>): Check<T, W> =>
+    (value, path, issues) => {
+        const key = check(value, path, issues);
+        if (key === INVALID || key.name.startsWith(`${key.scope}.`)) return key;
+        return fail(issues, [...path, 'name'], 'Имя начинается со scope и точки');
+    };
+
+/**
+ * Флаг: списки включения и исключения не пересекаются.
  * @param check проверка полей флага
  */
-const distinctUsers =
+const disjointUsers =
     <T extends { include_user_ids: number[]; exclude_user_ids: number[] }, W>(
         check: Check<T, W>,
     ): Check<T, W> =>
     (value, path, issues) => {
         const flag = check(value, path, issues);
         if (flag === INVALID) return flag;
-        for (const field of ['include_user_ids', 'exclude_user_ids'] as const) {
-            if (new Set(flag[field]).size !== flag[field].length) {
-                return fail(issues, [...path, field], 'ID повторяются');
-            }
-        }
         const include = new Set(flag.include_user_ids);
-        if (flag.exclude_user_ids.some((id) => include.has(id))) {
-            return fail(issues, [...path, 'exclude_user_ids'], 'Пересекается с include_user_ids');
-        }
-        return flag;
+        return flag.exclude_user_ids.some((id) => include.has(id))
+            ? fail(issues, [...path, 'exclude_user_ids'], 'Пересекается с include_user_ids')
+            : flag;
     };
 
-/**
- * Вариант по `kind`: проблемы — в полях своего вида, а не «не подходит ни один вариант».
- * @param config проверка конфига
- * @param flag проверка флага
- */
-const byKind =
-    <C, F, WC, WF>(config: Check<C, WC>, flag: Check<F, WF>): Check<C | F, WC | WF> =>
-    (value, path, issues) => {
-        const kind = isRecord(value) ? value.kind : undefined;
-        if (kind === 'config') return config(value, path, issues);
-        if (kind === 'flag') return flag(value, path, issues);
-        return fail(issues, [...path, 'kind'], 'Одно из: config, flag');
-    };
+const itemBase = { name: onlineConfName, scope: onlineConfScope, updated_at: datetime };
+const configItem = { ...itemBase, type: literal('config'), value: json };
+const flagItem = {
+    ...itemBase,
+    type: literal('flag'),
+    enabled: boolean,
+    rollout_percent: int({ min: 0, max: 100 }),
+};
+const cardMeta = {
+    description: string(),
+    created_at: datetime,
+    created_by: onlineConfUser,
+    updated_by: onlineConfUser,
+};
+
+/** Ответ OnlineConf: список ключей и общие счётчики. */
+export const onlineConfList = object({
+    items: array(byType(object(configItem), object(flagItem))),
+    total_count: int({ min: 0 }),
+    scope_count: int({ min: 0 }),
+    scopes: array(onlineConfScope),
+});
+
+/** Ответ OnlineConf: карточка ключа. */
+export const onlineConfCard = byType(
+    object({ ...configItem, ...cardMeta, format: literal('json') }),
+    object({
+        ...flagItem,
+        ...cardMeta,
+        include_users: array(onlineConfUser),
+        exclude_users: array(onlineConfUser),
+    }),
+);
+
+/** Query списка ключей: подстрока имени и необязательные фильтры. */
+export const listOnlineConfKeysInput = validator(
+    query({
+        search: optional(string({ max: 256 })),
+        scope: optional(onlineConfScope),
+        type: optional(onlineConfType),
+    }),
+);
+
+/** Query карточки ключа по полному имени. */
+export const getOnlineConfKeyInput = validator(query({ name: onlineConfName }));
+
+/** Удаление ключа по полному имени. */
+export const deleteOnlineConfKeyInput = validator(object({ name: onlineConfName }, 'strict'));
+
+const createBase = {
+    name: onlineConfName,
+    scope: onlineConfScope,
+    description: optional(string()),
+};
+
+/** Создание ключа: имя начинается со scope и точки, конфиг — в формате JSON. */
+export const createOnlineConfKeyInput = validator(
+    byType(
+        scopedName(
+            object({ ...createBase, type: literal('config'), format: literal('json') }, 'strict'),
+        ),
+        scopedName(object({ ...createBase, type: literal('flag') }, 'strict')),
+    ),
+);
 
 /**
- * Ключ OnlineConf: scope, имя и значение своего вида.
- * @param mode лишние поля: `strict` — вход, `strip` — ответ Go
+ * Полная замена ключа: `type` выбирает набор полей и не меняет тип ключа. При любой проблеме
+ * ничего не сохраняется.
  */
-export const onlineConfKey = (mode: 'strip' | 'strict') =>
-    byKind(
-        object({ ...onlineConfId, kind: literal('config'), value: json }, mode),
-        distinctUsers(
+export const updateOnlineConfKeyInput = validator(
+    byType(
+        object(
+            { name: onlineConfName, type: literal('config'), description: string(), value: json },
+            'strict',
+        ),
+        disjointUsers(
             object(
                 {
-                    ...onlineConfId,
-                    kind: literal('flag'),
+                    name: onlineConfName,
+                    type: literal('flag'),
+                    description: string(),
+                    enabled: boolean,
                     rollout_percent: int({ min: 0, max: 100 }),
                     include_user_ids: userIds,
                     exclude_user_ids: userIds,
                 },
-                mode,
+                'strict',
             ),
         ),
-    );
-
-/** Ключ OnlineConf в списке. */
-export const onlineConfKeySummary = object({ ...onlineConfId, kind: oneOf(['config', 'flag']) });
-
-/** Query списка ключей OnlineConf: scope и необязательная подстрока имени. */
-export const listOnlineConfKeysInput = validator(
-    query({ scope: onlineConfScope, search: optional(string({ max: 128 })) }),
+    ),
 );
 
-/** Query ключа OnlineConf по scope и имени. */
-export const getOnlineConfKeyInput = validator(query(onlineConfId));
-
-/** Ключ OnlineConf для создания и замены: при любой проблеме ничего не сохраняется. */
-export const onlineConfKeyInput = validator(onlineConfKey('strict'));
+/** Query поиска пользователя: ровно один из `id` и `login`. */
+export const resolveOnlineConfUserInput = validator(
+    exactlyOne(query({ id: intParam({ min: 1 }) }), query({ login: string({ min: 1, max: 32 }) })),
+);

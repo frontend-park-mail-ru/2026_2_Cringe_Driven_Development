@@ -598,35 +598,76 @@ export type WorkspacePaths = {
     };
 };
 
-/** Scope ключа OnlineConf: frontend или имя микросервиса. */
-export type OnlineConfScope = string;
+/** Scope ключа OnlineConf. */
+export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
 
-/** Конфиг OnlineConf: произвольное JSON-значение, `false`, `0` и `null` — тоже значения. */
-export interface OnlineConfConfigValue {
-    kind: 'config';
+/** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
+export interface OnlineConfUser {
+    id: number;
+    login: string;
+}
+
+/** Строка списка: полное имя начинается со scope и точки. */
+interface OnlineConfItemBase {
+    name: string;
+    scope: OnlineConfScope;
+    updated_at: string;
+}
+
+/** Конфиг в списке: произвольное JSON-значение, `false`, `0` и `null` — тоже значения. */
+export interface OnlineConfConfigItem extends OnlineConfItemBase {
+    type: 'config';
     value: unknown;
 }
 
-/** Флаг OnlineConf: процент раскатки и списки пользователей, которые не пересекаются. */
-export interface OnlineConfFlagValue {
-    kind: 'flag';
+/** Флаг в списке. */
+export interface OnlineConfFlagItem extends OnlineConfItemBase {
+    type: 'flag';
+    enabled: boolean;
     rollout_percent: number;
-    include_user_ids: number[];
-    exclude_user_ids: number[];
 }
 
-/** Значение ключа OnlineConf по виду. */
-export type OnlineConfKeyValue = OnlineConfConfigValue | OnlineConfFlagValue;
-
-/** Ключ OnlineConf: scope и имя задают его однозначно. */
-export type OnlineConfKey = { scope: OnlineConfScope; name: string } & OnlineConfKeyValue;
-
-/** Ключ OnlineConf в списке. */
-export interface OnlineConfKeySummary {
-    scope: OnlineConfScope;
-    name: string;
-    kind: OnlineConfKeyValue['kind'];
+/** Метаданные карточки. */
+interface OnlineConfCardMeta {
+    description: string;
+    created_at: string;
+    created_by: OnlineConfUser;
+    updated_by: OnlineConfUser;
 }
+
+/** Карточка ключа OnlineConf. */
+export type OnlineConfCard =
+    | (OnlineConfConfigItem & OnlineConfCardMeta & { format: 'json' })
+    | (OnlineConfFlagItem &
+          OnlineConfCardMeta & {
+              include_users: OnlineConfUser[];
+              exclude_users: OnlineConfUser[];
+          });
+
+/** Список ключей с общими счётчиками до фильтрации. */
+export interface OnlineConfList {
+    items: (OnlineConfConfigItem | OnlineConfFlagItem)[];
+    total_count: number;
+    scope_count: number;
+    scopes: OnlineConfScope[];
+}
+
+/** Создание ключа: конфиг получает `null`, флаг — выключен, 0% и пустые списки. */
+export type OnlineConfCreate = { name: string; scope: OnlineConfScope; description?: string } & (
+    | { type: 'config'; format: 'json' }
+    | { type: 'flag' }
+);
+
+/** Полная замена редактируемых полей; тип ключа не меняется. */
+export type OnlineConfUpdate =
+    | { description: string; value: unknown }
+    | {
+          description: string;
+          enabled: boolean;
+          rollout_percent: number;
+          include_user_ids: number[];
+          exclude_user_ids: number[];
+      };
 
 /** Ошибка OnlineConf. */
 export interface OnlineConfError {
@@ -636,41 +677,46 @@ export interface OnlineConfError {
         | 'forbidden'
         | 's2s_forbidden'
         | 'not_found'
-        | 'conflict'
-        | 'internal'
+        | 'key_name_taken'
+        | 'internal_error'
         | 'dependency_unavailable';
     message: string;
 }
 
-type OnlineConfErrors = Errors<401 | 403 | 500 | 503, OnlineConfError>;
-type KeyPath = { path: { scope: OnlineConfScope; name: string } };
+type OnlineConfErrors<S extends number = never> = Errors<
+    401 | 403 | 500 | 503 | S,
+    OnlineConfError
+>;
+type KeyPath = { path: { name: string } };
 
 /** Карта операций OnlineConf: пути от корня сервиса, без `/api/v1`. */
 export type OnlineConfPaths = {
     '/admin/access': { GET: { responses: { 204: undefined } & OnlineConfErrors } };
     '/admin/keys': {
         GET: {
-            params: { query: { scope: OnlineConfScope; search?: string } };
-            responses: { 200: { items: OnlineConfKeySummary[] } } & Errors<400, OnlineConfError> &
-                OnlineConfErrors;
+            params: {
+                query: { search?: string; scope?: OnlineConfScope; type?: 'config' | 'flag' };
+            };
+            responses: { 200: OnlineConfList } & OnlineConfErrors<400>;
         };
         POST: {
-            body: Json<OnlineConfKey>;
-            responses: { 201: OnlineConfKey } & Errors<400 | 409, OnlineConfError> &
-                OnlineConfErrors;
+            body: Json<OnlineConfCreate>;
+            responses: { 201: OnlineConfCard } & OnlineConfErrors<400 | 409>;
         };
     };
-    '/admin/keys/{scope}/{name}': {
-        GET: {
-            params: KeyPath;
-            responses: { 200: OnlineConfKey } & Errors<400 | 404, OnlineConfError> &
-                OnlineConfErrors;
-        };
+    '/admin/keys/{name}': {
+        GET: { params: KeyPath; responses: { 200: OnlineConfCard } & OnlineConfErrors<404> };
         PUT: {
             params: KeyPath;
-            body: Json<OnlineConfKeyValue>;
-            responses: { 200: OnlineConfKey } & Errors<400 | 404 | 409, OnlineConfError> &
-                OnlineConfErrors;
+            body: Json<OnlineConfUpdate>;
+            responses: { 200: OnlineConfCard } & OnlineConfErrors<400 | 404>;
+        };
+        DELETE: { params: KeyPath; responses: { 204: undefined } & OnlineConfErrors<404> };
+    };
+    '/admin/users/resolve': {
+        GET: {
+            params: { query: { id: number } | { login: string } };
+            responses: { 200: OnlineConfUser } & OnlineConfErrors<400 | 404>;
         };
     };
 };

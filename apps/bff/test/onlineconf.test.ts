@@ -2,68 +2,107 @@
 import { expect, test } from 'bun:test';
 
 import {
-    getOnlineConfKeyInput,
+    createOnlineConfKeyInput,
     listOnlineConfKeysInput,
-    onlineConfKeyInput,
+    resolveOnlineConfUserInput,
+    updateOnlineConfKeyInput,
 } from '@cdd/schemas/validate';
 
 import { GoError, unwrap } from '../src/go/errors.ts';
-import { onlineConfKeyResponse } from '../src/go/responses.ts';
+import { onlineConfCardResponse } from '../src/go/responses.ts';
 
 const flag = {
-    scope: 'workspace',
-    name: 'notebook.comments',
-    kind: 'flag',
+    name: 'workspace.notebook_comments',
+    type: 'flag',
+    description: '',
+    enabled: true,
     rollout_percent: 25,
     include_user_ids: [1, 7],
     exclude_user_ids: [42],
 };
 
-test('config keeps any JSON value, including false, 0 and null', () => {
+const user = { id: 42, login: 'reader' };
+const card = {
+    name: 'frontend.maintenance_banner',
+    scope: 'frontend',
+    type: 'config',
+    description: '',
+    created_at: '2026-11-28T12:00:00Z',
+    updated_at: '2026-11-28T12:00:00Z',
+    created_by: user,
+    updated_by: user,
+    format: 'json',
+    value: false,
+};
+
+test('config update keeps any JSON value, including false, 0 and null', () => {
     for (const value of [{ a: [1] }, [1, 'a'], 'text', 0, false, null]) {
-        const key = { scope: 'frontend', name: 'editor.theme', kind: 'config', value };
-        expect(onlineConfKeyInput(key) as unknown).toEqual({ success: true, data: key });
+        const key = { name: 'frontend.theme', type: 'config', description: '', value };
+        expect(updateOnlineConfKeyInput(key) as unknown).toEqual({ success: true, data: key });
     }
     expect(
-        onlineConfKeyInput({ scope: 'frontend', name: 'editor.theme', kind: 'config' }).success,
+        updateOnlineConfKeyInput({ name: 'frontend.theme', type: 'config', description: '' })
+            .success,
     ).toBe(false);
 });
 
-test('flag rejects out-of-range percent, repeated and intersecting user lists', () => {
-    expect(onlineConfKeyInput(flag).success).toBe(true);
+test('flag update rejects out-of-range percent and intersecting user lists', () => {
+    expect(updateOnlineConfKeyInput(flag).success).toBe(true);
     for (const patch of [
         { rollout_percent: 101 },
         { rollout_percent: -1 },
         { rollout_percent: 2.5 },
-        { include_user_ids: [1, 1] },
         { exclude_user_ids: [7] },
+        { enabled: 'yes' },
     ]) {
-        expect(onlineConfKeyInput({ ...flag, ...patch }).success).toBe(false);
+        expect(updateOnlineConfKeyInput({ ...flag, ...patch }).success).toBe(false);
     }
-    expect(onlineConfKeyInput({ ...flag, rollout_percent: 100 }).success).toBe(true);
+    expect(updateOnlineConfKeyInput({ ...flag, rollout_percent: 100 }).success).toBe(true);
 });
 
-test('key input is strict and names the failing field', () => {
-    expect(onlineConfKeyInput({ ...flag, user_id: 1 }).success).toBe(false);
-    expect(onlineConfKeyInput({ ...flag, kind: 'secret' })).toEqual({
+test('update input is strict and names the failing field', () => {
+    expect(updateOnlineConfKeyInput({ ...flag, user_id: 1 }).success).toBe(false);
+    expect(updateOnlineConfKeyInput({ ...flag, type: 'secret' })).toEqual({
         success: false,
-        issues: [{ path: ['kind'], message: 'Одно из: config, flag' }],
+        issues: [{ path: ['type'], message: 'Одно из: config, flag' }],
     });
-    expect(onlineConfKeyInput({ ...flag, scope: '../identity' }).success).toBe(false);
+    expect(updateOnlineConfKeyInput({ ...flag, name: '../identity' }).success).toBe(false);
 });
 
-test('query inputs need a scope and reject repeated parameters', () => {
-    expect(listOnlineConfKeysInput({ scope: 'frontend' }).success).toBe(true);
-    expect(listOnlineConfKeysInput({ search: 'editor' }).success).toBe(false);
-    expect(getOnlineConfKeyInput({ scope: 'frontend', name: ['a', 'b'] }).success).toBe(false);
+test('create needs a name under its scope and json format only for configs', () => {
+    const config = { name: 'frontend.banner', scope: 'frontend', type: 'config', format: 'json' };
+    expect(createOnlineConfKeyInput(config).success).toBe(true);
+    expect(createOnlineConfKeyInput({ ...config, name: 'bff.banner' }).success).toBe(false);
+    expect(createOnlineConfKeyInput({ ...config, scope: 'runtime' }).success).toBe(false);
+    expect(createOnlineConfKeyInput({ ...config, format: undefined }).success).toBe(false);
+    const created = { name: 'bff.retry', scope: 'bff', type: 'flag', description: 'x' };
+    expect(createOnlineConfKeyInput(created).success).toBe(true);
+    expect(createOnlineConfKeyInput({ ...created, format: 'json' }).success).toBe(false);
+});
+
+test('query inputs: optional filters, exactly one user lookup, no repeats', () => {
+    expect(listOnlineConfKeysInput({}).success).toBe(true);
+    expect(listOnlineConfKeysInput({ scope: 'bff', type: 'flag', search: 'x' }).success).toBe(true);
+    expect(listOnlineConfKeysInput({ scope: 'other' }).success).toBe(false);
+    expect(listOnlineConfKeysInput({ search: ['a', 'b'] }).success).toBe(false);
+    expect(resolveOnlineConfUserInput({ id: '42' }) as unknown).toEqual({
+        success: true,
+        data: { id: 42 },
+    });
+    expect(resolveOnlineConfUserInput({ login: 'reader' }).success).toBe(true);
+    expect(resolveOnlineConfUserInput({ id: '42', login: 'reader' }).success).toBe(false);
+    expect(resolveOnlineConfUserInput({}).success).toBe(false);
 });
 
 test('OnlineConf refusals keep their status and code for the BFF error mapping', () => {
     expect(unwrap({ status: 204, data: undefined }, [204])).toBeUndefined();
     for (const [status, code] of [
+        [400, 'validation_error'],
         [401, 'unauthorized'],
         [403, 'forbidden'],
         [403, 's2s_forbidden'],
+        [404, 'not_found'],
+        [409, 'key_name_taken'],
         [503, 'dependency_unavailable'],
     ] as const) {
         let error: unknown;
@@ -77,18 +116,14 @@ test('OnlineConf refusals keep their status and code for the BFF error mapping',
     }
 });
 
-test('a key from OnlineConf that breaks the contract is not passed on', () => {
+test('a card from OnlineConf that breaks the contract is not passed on', () => {
     const key: unknown = unwrap(
-        { status: 200, data: { ...flag, extra: 1 } },
+        { status: 200, data: { ...card, extra: 1 } },
         [200],
-        onlineConfKeyResponse,
+        onlineConfCardResponse,
     );
-    expect(key).toEqual(flag);
+    expect(key).toEqual(card);
     expect(() =>
-        unwrap(
-            { status: 200, data: { ...flag, rollout_percent: 500 } },
-            [200],
-            onlineConfKeyResponse,
-        ),
+        unwrap({ status: 200, data: { ...card, format: 'yaml' } }, [200], onlineConfCardResponse),
     ).toThrow(GoError);
 });

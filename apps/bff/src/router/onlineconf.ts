@@ -1,7 +1,10 @@
 import {
+    createOnlineConfKeyInput,
+    deleteOnlineConfKeyInput,
     getOnlineConfKeyInput,
     listOnlineConfKeysInput,
-    onlineConfKeyInput,
+    resolveOnlineConfUserInput,
+    updateOnlineConfKeyInput,
 } from '@cdd/schemas/validate';
 
 import { route } from '../http.ts';
@@ -9,6 +12,8 @@ import { route } from '../http.ts';
 /**
  * Админка OnlineConf от имени пользователя сессии: роль проверяет OnlineConf по Identity, поэтому
  * без роли — `403` с `appCode: forbidden`, без сессии — `401`; сессию отказ по роли не завершает.
+ * Ключ задаёт полное имя; коды отказов OnlineConf (`validation_error`, `not_found`,
+ * `key_name_taken`) приходят в `appCode`.
  */
 export const onlineconf = [
     route({
@@ -29,21 +34,35 @@ export const onlineconf = [
         path: '/api/onlineconf/keys/get',
         access: 'authed',
         input: { from: 'query', validate: getOnlineConfKeyInput },
-        handle: ({ go }, input) => go.getOnlineConfKey(input.scope, input.name),
+        handle: ({ go }, input) => go.getOnlineConfKey(input.name),
     }),
     route({
         method: 'POST',
         path: '/api/onlineconf/keys/create',
         access: 'authed',
-        input: { from: 'json', validate: onlineConfKeyInput },
+        input: { from: 'json', validate: createOnlineConfKeyInput },
         handle: ({ go }, input) => go.createOnlineConfKey(input),
     }),
-    /** Значение заменяется целиком; вид ключа не меняется (`409 conflict`). */
+    /** Редактируемые поля заменяются целиком; `type` выбирает их набор и в OnlineConf не уходит. */
     route({
         method: 'POST',
         path: '/api/onlineconf/keys/update',
         access: 'authed',
-        input: { from: 'json', validate: onlineConfKeyInput },
-        handle: ({ go }, input) => go.updateOnlineConfKey(input),
+        input: { from: 'json', validate: updateOnlineConfKeyInput },
+        handle: ({ go }, { name, type: _type, ...key }) => go.updateOnlineConfKey(name, key),
+    }),
+    route({
+        method: 'POST',
+        path: '/api/onlineconf/keys/delete',
+        access: 'authed',
+        input: { from: 'json', validate: deleteOnlineConfKeyInput },
+        handle: ({ go }, input) => go.deleteOnlineConfKey(input.name),
+    }),
+    route({
+        method: 'GET',
+        path: '/api/onlineconf/users/resolve',
+        access: 'authed',
+        input: { from: 'query', validate: resolveOnlineConfUserInput },
+        handle: ({ go }, input) => go.resolveOnlineConfUser(input),
     }),
 ] as const;
