@@ -1,3 +1,4 @@
+import type { OnlineConfMe } from '@cdd/schemas/types';
 import type { SaveStatusTone } from '@components/SaveStatus/SaveStatus';
 import type { SaveStatus } from '@stores/notebook';
 import {
@@ -119,6 +120,41 @@ export function bannerKind(runtime: Runtime): BannerKind | null {
     if (session?.state === 'STOPPED' && session.reason === IDLE_REASON) return 'idle';
     if (sessionActive(session)) return null;
     return 'notStarted';
+}
+
+/** Настройки OnlineConf открытого блокнота. */
+export type Settings = OnlineConfMe | 'loading' | 'unavailable';
+
+/** Что настройки OnlineConf разрешают в редакторе. */
+export interface SettingsGate {
+    /** Можно добавлять ячейки */
+    canAdd: boolean;
+    /** «Запустить всё»: по правилам окружения, неактивна или скрыта флагом */
+    runAll: 'enabled' | 'disabled' | 'hidden';
+    /** Почему действия недоступны: строка над ячейками */
+    reason: string | null;
+}
+
+const UNAVAILABLE =
+    'Настройки недоступны: добавление ячеек и запуск всех ячеек отключены. Откройте блокнот заново.';
+
+/**
+ * Ограничения редактора по настройкам OnlineConf: пока их нет, ничего не разрешается по умолчанию.
+ * @param settings настройки или почему их нет
+ * @param cellCount сколько ячеек в блокноте
+ */
+export function settingsGate(settings: Settings, cellCount: number): SettingsGate {
+    if (typeof settings === 'string') {
+        const reason = settings === 'unavailable' ? UNAVAILABLE : null;
+        return { canAdd: false, runAll: 'disabled', reason };
+    }
+    const { notebook_max_cells: max, notebook_run_all: runAll } = settings;
+    const canAdd = cellCount < max;
+    return {
+        canAdd,
+        runAll: runAll ? 'enabled' : 'hidden',
+        reason: canAdd ? null : `Достигнут лимит ячеек: ${max}`,
+    };
 }
 
 /** Кнопки окружения в шапке и меню блокнота. */

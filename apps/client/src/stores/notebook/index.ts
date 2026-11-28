@@ -21,7 +21,9 @@ export const SAVED_VISIBLE_MS = 4000;
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 
 /** Ошибка, о которой нужно сообщить на странице. */
-export type NotebookError = 'save' | 'notebook_gone' | 'too_many_cells';
+export type NotebookError = 'save' | 'notebook_gone' | CreateRefusal;
+/** Сервер окончательно отказался добавить ячейку: блокнот не изменён. */
+type CreateRefusal = 'too_many_cells' | 'settings_unavailable';
 
 /** Конфликт сохранения: пока он не разрешён, фронтовая очередь сохранения стоит. */
 export type Conflict =
@@ -361,7 +363,8 @@ const structural = (op: Op): Promise<string | boolean | undefined> => {
  */
 export async function addCell(kind: CreatableKind, index?: number): Promise<string | undefined> {
     if (!get().confirmed || get().structureBusy || paused()) return undefined;
-    if (get().error === 'too_many_cells') set({ error: null });
+    const { error } = get();
+    if (error === 'too_many_cells' || error === 'settings_unavailable') set({ error: null });
     const result = await structural({ type: 'create', kind, index });
     return typeof result === 'string' ? result : undefined;
 }
@@ -525,13 +528,24 @@ export const UNKNOWN_RESULT = new Set([
     'SERVICE_UNAVAILABLE',
 ]);
 
+/** Отказ добавить ячейку по лимиту или из-за недоступных настроек OnlineConf. */
+const createRefusal = (op: Op, error: unknown): CreateRefusal | undefined => {
+    if (op.type !== 'create' || !isBffError(error)) return undefined;
+    if (error.appCode === 'onlineconf_unavailable') return 'settings_unavailable';
+    // пустая ячейка не превышает размер тела: 413 здесь — только лимит ячеек
+    return error.code === 'PAYLOAD_TOO_LARGE' && error.appCode === 'validation_error'
+        ? 'too_many_cells'
+        : undefined;
+};
+
 /** Сбой операции. Сеть и 5xx: запись могла пройти — перечитать и сверить, вслепую не повторять. */
 function failed(job: Job, error: unknown): void {
     const code = isBffError(error) ? error.code : undefined;
     const appCode = isBffError(error) ? error.appCode : undefined;
-    if (appCode === 'too_many_cells') {
+    const refusal = createRefusal(job.op, error);
+    if (refusal) {
         job.done(undefined);
-        set({ error: 'too_many_cells', structureBusy: structureQueued() });
+        set({ error: refusal, failure: get().failure + 1, structureBusy: structureQueued() });
         return void run();
     }
     if (appCode === 'notebook_conflict' || code === 'NOT_FOUND') {

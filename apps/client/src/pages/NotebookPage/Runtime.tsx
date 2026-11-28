@@ -18,7 +18,13 @@ import {
     useRuntimeStore,
 } from '@stores/runtime';
 import { SEARCH_BUTTON_ID, SEARCH_PANEL_ID } from './search';
-import { bannerKind, runtimeButtons, type BannerKind, type CellRun } from './status';
+import {
+    bannerKind,
+    runtimeButtons,
+    type BannerKind,
+    type CellRun,
+    type SettingsGate,
+} from './status';
 import styles from './Runtime.module.css';
 
 type Runtime = ReturnType<typeof useRuntimeStore.getState>;
@@ -27,6 +33,8 @@ type Runtime = ReturnType<typeof useRuntimeStore.getState>;
 interface RuntimeActionsProps {
     /** В блокноте есть кодовые ячейки */
     hasCode: boolean;
+    /** Что настройки OnlineConf разрешают для «Запустить всё» */
+    runAll: SettingsGate['runAll'];
     /** «К выполняемой ячейке»: прокрутить к ячейке, которая выполняется сейчас */
     onJump: (cellId: string) => void;
     /** Кнопка «Поиск»: нет — кнопки нет (тач) */
@@ -41,7 +49,7 @@ interface RuntimeActionsProps {
  * Справа в панели шапки: «К выполняемой ячейке», на одном месте «Запустить всё» или «Остановить
  * всё», затем «Поиск».
  */
-export function RuntimeActions({ hasCode, onJump, search }: RuntimeActionsProps) {
+export function RuntimeActions({ hasCode, runAll: gate, onJump, search }: RuntimeActionsProps) {
     const runtime = useRuntimeStore();
     const { main, canRunAll, canStopAll, running } = runtimeButtons(runtime, hasCode);
     const stopping = runtime.busy === 'stopAll';
@@ -74,13 +82,13 @@ export function RuntimeActions({ hasCode, onJump, search }: RuntimeActionsProps)
                 >
                     {stopping ? 'Останавливаем…' : 'Остановить всё'}
                 </Button>
-            ) : (
+            ) : gate === 'hidden' ? null : (
                 <Button
                     key="run-all"
                     icon="play"
                     className={clsx(styles.button, styles.main)}
                     loading={runtime.busy === 'execute'}
-                    disabled={!canRunAll}
+                    disabled={!canRunAll || gate !== 'enabled'}
                     onClick={() => void runAll()}
                 >
                     Запустить всё
