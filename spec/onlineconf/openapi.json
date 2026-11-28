@@ -1,0 +1,1080 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cellestial OnlineConf API",
+    "version": "1.0.0",
+    "description": "Внутренний административный HTTP API OnlineConf. Пути от корня сервиса, без /api/v1. Все операции требуют mTLS с идентичностью BFF, X-BFF-Key и access-токен пользователя с ролью onlineconf_admin из Identity. Ключ однозначно задаёт полное имя, которое начинается со scope и точки; тип ключа (config или flag) после создания не меняется. Операции совпадают с onlineConf* в spec/openapi.json."
+  },
+  "tags": [
+    {
+      "name": "onlineconf-admin",
+      "description": "Проверка доступа и управление ключами OnlineConf."
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/admin/access": {
+      "get": {
+        "summary": "Проверка доступа",
+        "description": "Подтверждает, что текущий пользователь может работать с OnlineConf. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "getAdminAccess",
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Пользователь с ролью onlineconf_admin."
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        }
+      }
+    },
+    "/admin/keys": {
+      "get": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfListKeys",
+        "summary": "Получить список ключей",
+        "description": "Поиск по подстроке без учёта регистра. Фильтры объединяются через И. Общие счётчики вычисляются до фильтрации. Сортировка по updated_at по убыванию и name по возрастанию.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Получить список ключей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfList"
+                },
+                "example": {
+                  "items": [],
+                  "total_count": 1,
+                  "scope_count": 1,
+                  "scopes": [
+                    "frontend",
+                    "bff",
+                    "identity",
+                    "workspace"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OnlineConf400"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Подстрока полного имени. Края обрезаются."
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfScope"
+            },
+            "description": "Точное совпадение scope."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "config",
+                "flag"
+              ]
+            },
+            "description": "Точное совпадение типа."
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfCreateKey",
+        "summary": "Создать ключ",
+        "description": "Имя уникально и начинается с scope и точки. Для конфига создаётся JSON null. Флаг выключен, процент равен нулю, списки пусты.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Создать ключ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfCard"
+                },
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OnlineConf400"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "409": {
+            "$ref": "#/components/responses/OnlineConf409"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnlineConfCreate"
+              },
+              "example": {
+                "name": "frontend.maintenance_banner",
+                "scope": "frontend",
+                "type": "config",
+                "format": "json"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      }
+    },
+    "/admin/keys/{name}": {
+      "parameters": [
+        {
+          "name": "name",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "description": "Полное неизменяемое имя ключа."
+        }
+      ],
+      "get": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfGetKey",
+        "summary": "Получить карточку ключа",
+        "description": "Возвращает метаданные и данные выбранного типа. Даты представлены в UTC.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Получить карточку ключа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfCard"
+                },
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfUpdateKey",
+        "summary": "Сохранить карточку ключа",
+        "description": "Атомарно заменяет все редактируемые поля выбранного типа. Значение конфига допускает null. ID должны существовать в Identity, списки не пересекаются. При выключении флага процент и списки сохраняются.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Сохранить карточку ключа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfCard"
+                },
+                "example": {
+                  "name": "frontend.maintenance_banner",
+                  "scope": "frontend",
+                  "type": "config",
+                  "description": "",
+                  "created_at": "2026-11-28T12:00:00Z",
+                  "updated_at": "2026-11-28T12:00:00Z",
+                  "created_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "updated_by": {
+                    "id": 42,
+                    "login": "reader"
+                  },
+                  "format": "json",
+                  "value": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OnlineConf400"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnlineConfUpdate"
+              },
+              "example": {
+                "description": "",
+                "value": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfDeleteKey",
+        "summary": "Удалить ключ",
+        "description": "Удаляет ключ по полному имени.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Удалить ключ"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          }
+        ]
+      }
+    },
+    "/admin/users/resolve": {
+      "get": {
+        "tags": [
+          "onlineconf-admin"
+        ],
+        "operationId": "onlineConfResolveUser",
+        "summary": "Найти пользователя",
+        "description": "Требуется ровно один параметр. Логин сопоставляется целиком без учёта регистра.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Найти пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineConfUser"
+                },
+                "example": {
+                  "id": 42,
+                  "login": "reader"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OnlineConf400"
+          },
+          "401": {
+            "$ref": "#/components/responses/OnlineConf401"
+          },
+          "403": {
+            "$ref": "#/components/responses/OnlineConf403"
+          },
+          "404": {
+            "$ref": "#/components/responses/OnlineConf404"
+          },
+          "500": {
+            "$ref": "#/components/responses/OnlineConf500"
+          },
+          "503": {
+            "$ref": "#/components/responses/OnlineConf503"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BFFKey"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Идентификатор пользователя."
+          },
+          {
+            "name": "login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Логин пользователя."
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access-токен пользователя, передаваемый BFF из его сессии."
+      }
+    },
+    "parameters": {
+      "BFFKey": {
+        "name": "X-BFF-Key",
+        "in": "header",
+        "required": true,
+        "example": "<bff-key>",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+      }
+    },
+    "responses": {
+      "OnlineConf400": {
+        "description": "Некорректные поля запроса",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "validation_error",
+              "message": "Некорректные поля запроса"
+            }
+          }
+        }
+      },
+      "OnlineConf401": {
+        "description": "Требуется действующая сессия",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "unauthorized",
+              "message": "Требуется действующая сессия"
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Схема Bearer."
+          }
+        }
+      },
+      "OnlineConf403": {
+        "description": "Требуется роль onlineconf_admin или действующий ключ BFF",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "examples": {
+              "role": {
+                "value": {
+                  "code": "forbidden",
+                  "message": "onlineconf_admin role required"
+                }
+              },
+              "s2s": {
+                "value": {
+                  "code": "s2s_forbidden",
+                  "message": "Invalid service key"
+                }
+              }
+            }
+          }
+        }
+      },
+      "OnlineConf404": {
+        "description": "Запись не найдена",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "not_found",
+              "message": "Запись не найдена"
+            }
+          }
+        }
+      },
+      "OnlineConf409": {
+        "description": "Ключ уже существует",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "key_name_taken",
+              "message": "Ключ уже существует"
+            }
+          }
+        }
+      },
+      "OnlineConf500": {
+        "description": "Не удалось выполнить операцию",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "internal_error",
+              "message": "Не удалось выполнить операцию"
+            }
+          }
+        }
+      },
+      "OnlineConf503": {
+        "description": "Identity недоступен",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OnlineConfError"
+            },
+            "example": {
+              "code": "dependency_unavailable",
+              "message": "Identity недоступен"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "OnlineConfCard": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigCard"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagCard"
+          }
+        ]
+      },
+      "OnlineConfConfigCard": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "value",
+          "description",
+          "created_at",
+          "created_by",
+          "updated_by",
+          "format"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "updated_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json"
+            ]
+          }
+        }
+      },
+      "OnlineConfConfigCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "format"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json"
+            ]
+          }
+        }
+      },
+      "OnlineConfConfigItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "config"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          }
+        }
+      },
+      "OnlineConfConfigUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "value"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OnlineConfValue"
+          }
+        }
+      },
+      "OnlineConfCreate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigCreate"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagCreate"
+          }
+        ]
+      },
+      "OnlineConfError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "OnlineConfFlagCard": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "enabled",
+          "rollout_percent",
+          "description",
+          "created_at",
+          "created_by",
+          "updated_by",
+          "include_users",
+          "exclude_users"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "flag"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "updated_by": {
+            "$ref": "#/components/schemas/OnlineConfUser"
+          },
+          "include_users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfUser"
+            }
+          },
+          "exclude_users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfUser"
+            }
+          }
+        }
+      },
+      "OnlineConfFlagCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "flag"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      },
+      "OnlineConfFlagItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "type",
+          "updated_at",
+          "enabled",
+          "rollout_percent"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)+$",
+            "description": "Полное имя начинается с точного scope и точки."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/OnlineConfScope"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "flag"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "OnlineConfFlagUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description",
+          "enabled",
+          "rollout_percent",
+          "include_user_ids",
+          "exclude_user_ids"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "include_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          "exclude_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "OnlineConfList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total_count",
+          "scope_count",
+          "scopes"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/OnlineConfConfigItem"
+                },
+                {
+                  "$ref": "#/components/schemas/OnlineConfFlagItem"
+                }
+              ]
+            }
+          },
+          "total_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scope_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlineConfScope"
+            }
+          }
+        }
+      },
+      "OnlineConfScope": {
+        "type": "string",
+        "enum": [
+          "frontend",
+          "bff",
+          "identity",
+          "workspace"
+        ]
+      },
+      "OnlineConfUpdate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OnlineConfConfigUpdate"
+          },
+          {
+            "$ref": "#/components/schemas/OnlineConfFlagUpdate"
+          }
+        ]
+      },
+      "OnlineConfUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "login"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "login": {
+            "type": "string"
+          }
+        }
+      },
+      "OnlineConfValue": {
+        "description": "Произвольное JSON-значение, включая null, скаляры, массивы и объекты.",
+        "additionalProperties": true,
+        "x-go-type": "json.RawMessage"
+      }
+    }
+  }
+}

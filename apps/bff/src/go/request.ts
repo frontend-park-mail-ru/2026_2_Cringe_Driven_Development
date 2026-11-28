@@ -1,5 +1,5 @@
 import { createClient } from '@cdd-team/http-client';
-import type { IdentityPaths, WorkspacePaths } from '@cdd/schemas/types';
+import type { IdentityPaths, OnlineConfPaths, WorkspacePaths } from '@cdd/schemas/types';
 
 import { env } from '../env.ts';
 import { observeUpstream } from './metrics.ts';
@@ -16,6 +16,12 @@ const workspace = createClient<WorkspacePaths>({
     transport: observeUpstream(
         'workspace',
         createGoFetch(env.WORKSPACE_API_URL, env.BFF_KEY, env.workspaceTls),
+    ),
+});
+const onlineconf = createClient<OnlineConfPaths>({
+    transport: observeUpstream(
+        'onlineconf',
+        createGoFetch(env.ONLINECONF_API_URL, env.BFF_KEY, env.onlineconfTls),
     ),
 });
 
@@ -44,6 +50,10 @@ export const identityRequest: typeof identity.request = (...args) =>
 /** Вызов Workspace с общей обработкой ошибок транспорта. */
 export const workspaceRequest: typeof workspace.request = (...args) =>
     workspace.request(...args).catch(handleError);
+
+/** Вызов OnlineConf с общей обработкой ошибок транспорта. */
+export const onlineconfRequest: typeof onlineconf.request = (...args) =>
+    onlineconf.request(...args).catch(handleError);
 
 function handleError(err: unknown): never {
     throw toGoError(err);

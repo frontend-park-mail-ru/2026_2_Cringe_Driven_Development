@@ -292,6 +292,7 @@ test('Workspace uses its own endpoint and an Identity TLS error keeps the sessio
         APP_ORIGIN: 'https://example.test',
         IDENTITY_API_URL: upstream.ip.href,
         WORKSPACE_API_URL: workspace.dns.href,
+        ONLINECONF_API_URL: workspace.dns.href,
         BFF_KEY: 'test-key',
         SESSION_KEY: Buffer.alloc(32).toString('base64'),
     };

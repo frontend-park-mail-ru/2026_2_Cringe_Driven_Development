@@ -10,7 +10,7 @@ backend, здесь Redocly не ставится и не запускается
 - `packages/schemas/src/types.ts` (`@cdd/schemas/types`) — DTO и карта операций `GoPaths`: обычный
   редактируемый TypeScript, не генерация. Описаны только операции, которые вызывает приложение.
   Вызовы BFF к Go идут через общий клиент `@cdd-team/http-client` (исходники — в frontend-packages):
-  `identityRequest / workspaceRequest` и транспорт `createGoFetch` в `apps/bff/src/go/fetch.ts` (адрес Go — обязательный `IDENTITY_API_URL и WORKSPACE_API_URL`, умолчания нет; `X-BFF-Key` и
+  `identityRequest / workspaceRequest / onlineconfRequest` и транспорт `createGoFetch` в `apps/bff/src/go/fetch.ts` (адрес Go — обязательные `IDENTITY_API_URL`, `WORKSPACE_API_URL` и `ONLINECONF_API_URL`, умолчания нет; `X-BFF-Key` и
   таймаут 5 с; `Authorization: Bearer` передаёт сессия).
 - `packages/schemas/src/validate.ts` (`@cdd/schemas/validate`) — вручную написанные общие проверки входов: `LOGIN`, `PASSWORD`, `loginValue`, `passwordValue` и входы маршрутов BFF. Формы браузера вызывают их до отправки, BFF — независимо после разбора HTTP-входа. Тексты правил для подсказок — `@cdd/schemas/inputs`. Длины и допустимые символы — только из контракта, своих копий ограничений не заводить.
 - `apps/bff/src/go/responses.ts` — ручные проверки ответов Go, только для BFF (в браузер не импортируются): `unwrap(res, [status], validateResponse)` из `apps/bff/src/go/errors.ts`, несоответствие — `GoError('unexpected')`, клиенту — `BAD_GATEWAY`. Тип `Validator<DTO>` сверяет проверку с `types.ts`.

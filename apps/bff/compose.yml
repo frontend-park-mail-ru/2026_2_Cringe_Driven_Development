@@ -1,7 +1,7 @@
 # Локальный запуск BFF из образа (docs/local-development.md, «BFF»). Go — по явному IDENTITY_API_URL и WORKSPACE_API_URL с
 # префиксом API; BFF_KEY — если Go проверяет X-BFF-Key:
 #   bun run image
-#   SESSION_KEY=$(openssl rand -base64 32) IDENTITY_API_URL=http://host.docker.internal:8081/api/v1 WORKSPACE_API_URL=http://host.docker.internal:8082/api/v1 \
+#   SESSION_KEY=$(openssl rand -base64 32) IDENTITY_API_URL=http://host.docker.internal:8081/api/v1 WORKSPACE_API_URL=http://host.docker.internal:8082/api/v1 ONLINECONF_API_URL=http://host.docker.internal:8085 \
 #     docker compose -f apps/bff/compose.yml up -d
 name: cdd-bff
 
@@ -14,6 +14,7 @@ services:
             APP_ORIGIN: http://localhost:3000
             IDENTITY_API_URL: ${IDENTITY_API_URL:?IDENTITY_API_URL is required}
             WORKSPACE_API_URL: ${WORKSPACE_API_URL:?WORKSPACE_API_URL is required}
+            ONLINECONF_API_URL: ${ONLINECONF_API_URL:?ONLINECONF_API_URL is required}
             BFF_KEY: ${BFF_KEY:-}
         # host.docker.internal на Linux — Go на хосте
         extra_hosts:

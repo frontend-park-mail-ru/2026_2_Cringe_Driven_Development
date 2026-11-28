@@ -8,7 +8,7 @@ const samples = new Map<string, { count: number; seconds: number }>();
  * @param transport HTTP-транспорт
  */
 export function observeUpstream(
-    service: 'identity' | 'workspace',
+    service: 'identity' | 'workspace' | 'onlineconf',
     transport: Transport,
 ): Transport {
     return async (path, init) => {

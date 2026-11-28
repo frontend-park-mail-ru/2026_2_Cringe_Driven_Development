@@ -1,5 +1,6 @@
 /**
- * Типы контракта Go: редактируемый исходник по закреплённой копии spec/identity и spec/workspace, не
+ * Типы контракта Go: редактируемый исходник по закреплённой копии spec/identity, spec/workspace и
+ * spec/onlineconf, не
  * генерация. Описаны только операции, которые вызывает приложение. Компилятор проверяет вызовы
  * относительно этих типов, но не доказывает их соответствие спеке: риск расхождения принят
  * (frontend#253). Ограничения min/max/pattern/format проверяются в рантайме, не здесь.
@@ -593,6 +594,129 @@ export type WorkspacePaths = {
         POST: {
             params: { path: RuntimeId };
             responses: { 200: { interrupt_requested: true } } & RuntimeConflictErrors;
+        };
+    };
+};
+
+/** Scope ключа OnlineConf. */
+export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
+
+/** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
+export interface OnlineConfUser {
+    id: number;
+    login: string;
+}
+
+/** Строка списка: полное имя начинается со scope и точки. */
+interface OnlineConfItemBase {
+    name: string;
+    scope: OnlineConfScope;
+    updated_at: string;
+}
+
+/** Конфиг в списке: произвольное JSON-значение, `false`, `0` и `null` — тоже значения. */
+export interface OnlineConfConfigItem extends OnlineConfItemBase {
+    type: 'config';
+    value: unknown;
+}
+
+/** Флаг в списке. */
+export interface OnlineConfFlagItem extends OnlineConfItemBase {
+    type: 'flag';
+    enabled: boolean;
+    rollout_percent: number;
+}
+
+/** Метаданные карточки. */
+interface OnlineConfCardMeta {
+    description: string;
+    created_at: string;
+    created_by: OnlineConfUser;
+    updated_by: OnlineConfUser;
+}
+
+/** Карточка ключа OnlineConf. */
+export type OnlineConfCard =
+    | (OnlineConfConfigItem & OnlineConfCardMeta & { format: 'json' })
+    | (OnlineConfFlagItem &
+          OnlineConfCardMeta & {
+              include_users: OnlineConfUser[];
+              exclude_users: OnlineConfUser[];
+          });
+
+/** Список ключей с общими счётчиками до фильтрации. */
+export interface OnlineConfList {
+    items: (OnlineConfConfigItem | OnlineConfFlagItem)[];
+    total_count: number;
+    scope_count: number;
+    scopes: OnlineConfScope[];
+}
+
+/** Создание ключа: конфиг получает `null`, флаг — выключен, 0% и пустые списки. */
+export type OnlineConfCreate = { name: string; scope: OnlineConfScope; description?: string } & (
+    | { type: 'config'; format: 'json' }
+    | { type: 'flag' }
+);
+
+/** Полная замена редактируемых полей; тип ключа не меняется. */
+export type OnlineConfUpdate =
+    | { description: string; value: unknown }
+    | {
+          description: string;
+          enabled: boolean;
+          rollout_percent: number;
+          include_user_ids: number[];
+          exclude_user_ids: number[];
+      };
+
+/** Ошибка OnlineConf. */
+export interface OnlineConfError {
+    code:
+        | 'validation_error'
+        | 'unauthorized'
+        | 'forbidden'
+        | 's2s_forbidden'
+        | 'not_found'
+        | 'key_name_taken'
+        | 'internal_error'
+        | 'dependency_unavailable';
+    message: string;
+}
+
+type OnlineConfErrors<S extends number = never> = Errors<
+    401 | 403 | 500 | 503 | S,
+    OnlineConfError
+>;
+type KeyPath = { path: { name: string } };
+
+/** Карта операций OnlineConf: пути от корня сервиса, без `/api/v1`. */
+export type OnlineConfPaths = {
+    '/admin/access': { GET: { responses: { 204: undefined } & OnlineConfErrors } };
+    '/admin/keys': {
+        GET: {
+            params: {
+                query: { search?: string; scope?: OnlineConfScope; type?: 'config' | 'flag' };
+            };
+            responses: { 200: OnlineConfList } & OnlineConfErrors<400>;
+        };
+        POST: {
+            body: Json<OnlineConfCreate>;
+            responses: { 201: OnlineConfCard } & OnlineConfErrors<400 | 409>;
+        };
+    };
+    '/admin/keys/{name}': {
+        GET: { params: KeyPath; responses: { 200: OnlineConfCard } & OnlineConfErrors<404> };
+        PUT: {
+            params: KeyPath;
+            body: Json<OnlineConfUpdate>;
+            responses: { 200: OnlineConfCard } & OnlineConfErrors<400 | 404>;
+        };
+        DELETE: { params: KeyPath; responses: { 204: undefined } & OnlineConfErrors<404> };
+    };
+    '/admin/users/resolve': {
+        GET: {
+            params: { query: { id: number } | { login: string } };
+            responses: { 200: OnlineConfUser } & OnlineConfErrors<400 | 404>;
         };
     };
 };
