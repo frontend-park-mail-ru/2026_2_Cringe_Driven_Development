@@ -131,6 +131,7 @@ jobs:
           ansible-playbook -i inventory/ci.yml deploy-bff.yml \
             -e "bff_image_ref=$IMAGE_REF" -e "bff_release_sha=$SHA" \
             -e "deploy_key_path=$RUNNER_TEMP/deploy/ci-key" \
+            -e "jump_known_hosts=$RUNNER_TEMP/deploy/known_hosts" \
             --ssh-common-args="-o UserKnownHostsFile=$RUNNER_TEMP/deploy/known_hosts -o StrictHostKeyChecking=yes"
       - name: Remove deployment secrets
         if: always()
