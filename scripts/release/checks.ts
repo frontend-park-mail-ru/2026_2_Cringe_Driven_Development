@@ -58,25 +58,38 @@ async function checkAssets(html: string, base: string, where: string): Promise<n
     return assets.length;
 }
 
-/** HTML продукта и админки OnlineConf в каталоге выпуска: обе SPA выходят одним SHA. */
-const RELEASE_HTML = ['index.html', 'onlineconf.html'];
+/** HTML админки в сборке: есть только в CI рядом с заливкой, в CD и Rollback его нет. */
+const ADMIN_HTML = 'apps/client/dist/onlineconf.html';
 
 async function releaseCheckOnce(sha: string): Promise<number> {
     const base = `${cdnUrl()}/releases/${sha}/`;
+    const pages = [
+        { html: await (await get(`${base}index.html`)).text(), where: `${base}index.html` },
+    ];
+    const admin = Bun.file(ADMIN_HTML);
+    if (await admin.exists()) {
+        // Админка отдаётся только через BFF: её HTML не должен быть доступен с CDN без сессии
+        const leaked = await fetch(`${base}onlineconf.html`, {
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        await leaked.body?.cancel();
+        if (leaked.ok) throw new Error(`${base}onlineconf.html: HTML админки доступен с CDN`);
+        pages.push({ html: await admin.text(), where: ADMIN_HTML });
+    }
     let assets = 0;
-    for (const name of RELEASE_HTML) {
-        const html = await (await get(`${base}${name}`)).text();
+    for (const { html, where } of pages) {
         if (releaseOf(html) !== sha) {
-            throw new Error(`${base}${name}: release='${releaseOf(html) ?? ''}', нужен '${sha}'`);
+            throw new Error(`${where}: release='${releaseOf(html) ?? ''}', нужен '${sha}'`);
         }
-        assets += await checkAssets(html, base, `${base}${name}`);
+        assets += await checkAssets(html, base, where);
     }
     return assets;
 }
 
 /**
- * Релиз отдаётся с CDN: его index.html, onlineconf.html и все JS и CSS из них. Выполняется после заливки и до
- * переключения: без любого из ассетов прод не меняется.
+ * Релиз отдаётся с CDN: его index.html и все JS и CSS из него, а в CI — и JS и CSS админки OnlineConf
+ * по её HTML из сборки (сам HTML на CDN не публикуется). Выполняется после заливки и до переключения:
+ * без любого из ассетов прод не меняется.
  */
 export async function releaseCheck(sha: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
