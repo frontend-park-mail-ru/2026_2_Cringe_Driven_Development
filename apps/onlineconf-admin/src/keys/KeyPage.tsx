@@ -6,6 +6,7 @@ import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { ConfigForm } from './ConfigForm';
+import { FlagForm } from './FlagForm';
 import { InfoPanel } from './InfoPanel';
 import styles from './KeyPage.module.css';
 
@@ -98,7 +99,11 @@ function KeyDetails({ name }: { name: string }) {
                             onSaved={(updated) => setResult({ status: 'ready', card: updated })}
                         />
                     ) : (
-                        <p>Редактирование флага пока недоступно</p>
+                        <FlagForm
+                            key={name}
+                            card={card}
+                            onSaved={(updated) => setResult({ status: 'ready', card: updated })}
+                        />
                     )}
                 </div>
                 <InfoPanel key="info" card={card} />

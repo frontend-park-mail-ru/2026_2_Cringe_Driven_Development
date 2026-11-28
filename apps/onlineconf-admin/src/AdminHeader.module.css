@@ -3,7 +3,7 @@
     margin: 12px auto 0;
 
     & > header {
-        background: var(--color-surface);
+        background: var(--color-glass);
         backdrop-filter: var(--blur-glass);
     }
 }

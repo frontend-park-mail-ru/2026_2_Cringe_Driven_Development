@@ -15,10 +15,13 @@ type Scope = JsonInput<'/api/onlineconf/keys/create'>['scope'];
 
 const nameId = 'new-key-name';
 const scopeOptions = scopes.map((scope) => ({ value: scope, label: scope }));
-const types = [{ value: 'config', label: 'Конфиг' }];
+const types = [
+    { value: 'config', label: 'Конфиг' },
+    { value: 'flag', label: 'Флаг' },
+];
 const formats = [{ value: 'json', label: 'JSON' }];
 
-/** Создание JSON-конфига с переходом к карточке нового ключа. */
+/** Создание JSON-конфига или флага с переходом к карточке нового ключа. */
 export function CreateKeyModal({
     initialScope,
     onClose,
@@ -31,6 +34,7 @@ export function CreateKeyModal({
     const sendingRef = useRef(false);
     const [name, setName] = useState('');
     const [scope, setScope] = useState<Scope>(initialScope || 'frontend');
+    const [type, setType] = useState<'config' | 'flag'>('config');
     const [description, setDescription] = useState('');
     const [nameError, setNameError] = useState<string | undefined>(undefined);
     const [error, setError] = useState<string | undefined>(undefined);
@@ -43,7 +47,9 @@ export function CreateKeyModal({
     const submit = async (event: Event) => {
         event.preventDefault();
         if (sendingRef.current || nameError) return;
-        const trimmed = name.trim();
+        // Enter сразу после ввода отправляет форму раньше перерисовки: имя берётся из поля
+        const field = form.current?.elements.namedItem('name');
+        const trimmed = field instanceof HTMLInputElement ? field.value.trim() : '';
         const invalid = keyNameError(trimmed, scope);
         setError(undefined);
         if (invalid) {
@@ -57,7 +63,10 @@ export function CreateKeyModal({
         try {
             const created = await api('POST', '/api/onlineconf/keys/create', {
                 contentType: 'application/json',
-                body: { name: trimmed, scope, type: 'config', format: 'json', description },
+                body:
+                    type === 'config'
+                        ? { name: trimmed, scope, type, format: 'json', description }
+                        : { name: trimmed, scope, type, description },
             });
             if (form.current?.isConnected) {
                 onClose();
@@ -121,22 +130,24 @@ export function CreateKeyModal({
                         id="new-key-type"
                         label="Тип"
                         name="type"
-                        value="config"
+                        value={type}
                         options={types}
-                        disabled
-                        onValueChange={() => {}}
+                        disabled={loading}
+                        onValueChange={(value) => setType(value === 'flag' ? 'flag' : 'config')}
                     />
                 </div>
-                <Select
-                    key="format"
-                    id="new-key-format"
-                    label="Формат значения"
-                    name="format"
-                    value="json"
-                    options={formats}
-                    disabled={loading}
-                    onValueChange={() => {}}
-                />
+                {type === 'config' && (
+                    <Select
+                        key="format"
+                        id="new-key-format"
+                        label="Формат значения"
+                        name="format"
+                        value="json"
+                        options={formats}
+                        disabled={loading}
+                        onValueChange={() => {}}
+                    />
+                )}
                 <Textarea
                     key="description"
                     id="new-key-description"

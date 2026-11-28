@@ -15,7 +15,7 @@ const BASE_CSS = `
     padding: 8px;
 }
 :where(a) {
-    color: #8b6cff; /* --color-primary-text */
+    color: #aa94ff; /* --color-primary-text */
 }
 :where(.dataframe) {
     border: 0;
