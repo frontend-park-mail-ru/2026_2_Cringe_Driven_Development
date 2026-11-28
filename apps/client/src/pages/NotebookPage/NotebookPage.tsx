@@ -54,7 +54,15 @@ import {
     scrollToCurrent,
     useNotebookSearch,
 } from './search';
-import { cellRun, runtimeButtons, runtimeStatus, saveStatus, type CellRun } from './status';
+import { useSettings } from './settings';
+import {
+    cellRun,
+    runtimeButtons,
+    runtimeStatus,
+    saveStatus,
+    settingsGate,
+    type CellRun,
+} from './status';
 import styles from './NotebookPage.module.css';
 
 /** Сколько скелетонов показывать, пока блокнот загружается */
@@ -81,7 +89,8 @@ const ADD_CODE_ID = 'add-code';
 /** Тексты снекбара по ошибкам сохранения блокнота */
 const ERRORS = {
     save: 'Не удалось сохранить изменения',
-    too_many_cells: 'В блокноте уже 1000 ячеек — больше добавить нельзя',
+    too_many_cells: 'Достигнут лимит ячеек — больше добавить нельзя',
+    settings_unavailable: 'Настройки недоступны, ячейка не добавлена',
     notebook_gone: 'Блокнот недоступен: возможно, его удалили',
 };
 
@@ -95,6 +104,8 @@ const RUNTIME_ERRORS: Record<RuntimeError, string> = {
     failed: 'Не удалось выполнить команду окружения',
     stopFailed: 'Не удалось остановить выполнение',
     interruptFailed: 'Не удалось остановить выполнение',
+    run_all_disabled: 'Запуск всех ячеек отключён',
+    settings_unavailable: 'Настройки недоступны, запуск не выполнен',
 };
 
 /** Сколько миллисекунд подсвечена ячейка после перехода «К выполняемой ячейке» */
@@ -337,6 +348,8 @@ export function NotebookPage() {
     const ready = load === 'ready' && notebook.confirmed !== null;
     const cells = ready ? notebook.confirmed!.cells : [];
     const locked = structureLocked(notebook);
+    const gate = settingsGate(useSettings(id), cells.length);
+    const addDisabled = locked || !gate.canAdd;
     const isEmpty = ready && cells.length === 0 && notebook.orphans.length === 0;
     const hasToolbar = load !== 'error';
     const execution = ready ? runtimeStatus(runtime) : undefined;
@@ -483,7 +496,7 @@ export function NotebookPage() {
                                     <div key="chips" className={styles.toolChips}>
                                         <AddCellChips
                                             codeId={ADD_CODE_ID}
-                                            disabled={!ready || locked}
+                                            disabled={!ready || addDisabled}
                                             onAdd={handleAdd}
                                         />
                                     </div>
@@ -492,6 +505,7 @@ export function NotebookPage() {
                                     <RuntimeActions
                                         key="runtime"
                                         hasCode={hasCode}
+                                        runAll={gate.runAll}
                                         onJump={jumpToCell}
                                         search={
                                             searchEnabled
@@ -574,6 +588,16 @@ export function NotebookPage() {
                 )}
                 {ready && <RuntimeBanner key="runtime" className={styles.column} />}
                 {ready && <ConflictBanner key="conflict" className={styles.column} />}
+                {ready && gate.reason && (
+                    <p
+                        key="limits"
+                        className={clsx(styles.limits, styles.column)}
+                        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
+                        role="status"
+                    >
+                        {gate.reason}
+                    </p>
+                )}
                 {ready && !isEmpty && (
                     <div key="body" className={clsx(styles.body, styles.column)}>
                         <ul key="cells" className={styles.cells}>
@@ -622,7 +646,7 @@ export function NotebookPage() {
                                         {row.index < cells.length - 1 && (
                                             <div key="insert" className={styles.insert}>
                                                 <AddCellChips
-                                                    disabled={locked}
+                                                    disabled={addDisabled}
                                                     onAdd={(kind) => handleAdd(kind, row.index + 1)}
                                                 />
                                             </div>
@@ -632,7 +656,7 @@ export function NotebookPage() {
                             )}
                         </ul>
                         <div key="add" className={styles.add}>
-                            <AddCellChips disabled={locked} onAdd={handleAdd} />
+                            <AddCellChips disabled={addDisabled} onAdd={handleAdd} />
                         </div>
                     </div>
                 )}
@@ -643,7 +667,7 @@ export function NotebookPage() {
                         description="Добавьте первую ячейку с кодом или текстом."
                         actionsClassName={styles.chips}
                     >
-                        <AddCellChips disabled={locked} onAdd={handleAdd} />
+                        <AddCellChips disabled={addDisabled} onAdd={handleAdd} />
                     </StateBlock>
                 )}
             </div>
