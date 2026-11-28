@@ -72,8 +72,8 @@ Releases (один на SHA, скачиваемые сборка клиента 
 | Workflow   | Когда                                                           | Что делает                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CI`       | pull request, Merge Queue и push в `main`                       | `bun run check`, `bun run build`, локальная сборка образа BFF — без production-секретов. На push в `main` ещё job `Publish release`: сборка с `RELEASE_SHA` и CDN base → заливка `releases/<sha>/` (неизменяемо) → Release check → образ BFF `sha-<sha>` в GHCR → анонимная проверка digest → GitHub Release `release-<sha>` (draft → assets → publish); статус задач обновляется внутри CI, сообщение отправляет webhook-сервис |
-| `CD`       | вручную из `main`, input `release` — необязательный тег Release | проверка выбранного Release → анонимная проверка образа → Release check → запись `production` → `deploy-bff.yml` из infra → Health check → итог записи → обновление карточек → retention                                                                                                                                                                                                                                         |
-| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow`                | цель по истории `production` → сверка с её Release → те же проверки и тот же `deploy-bff.yml` → Health check → итог записи → обновление карточек                                                                                                                                                                                                                                                                                 |
+| `CD`       | вручную из `main`, input `release` — необязательный тег Release | проверка выбранного Release → анонимная проверка образа → Release check → запись `production` → `deploy-bff.yml` из infra → итог записи → обновление карточек → retention                                                                                                                                                                                                                                                        |
+| `Rollback` | вручную: `Actions` → `Rollback` → `Run workflow`                | цель по истории `production` → сверка с её Release → те же проверки и тот же `deploy-bff.yml` → итог записи → обновление карточек                                                                                                                                                                                                                                                                                                |
 
 Статусы задач обновляются шагами CI/CD/Rollback после успешной операции.
 Уведомления о готовности выпуска webhook-сервис отправляет по событию `release.published`, о выкатке и
@@ -175,21 +175,19 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 `https://cellestial.ru`, `log_url` — текущий run); у каждой попытки своя запись, и запускается `ansible/deploy-bff.yml` из
 [infra](https://github.com/Cringe-Driven-Development-Team/infra) из актуального `main` с `bff_image_ref` и `bff_release_sha` — без GHCR credentials. Ansible скачивает
 образ анонимно, сверяет метку, переключает BFF и Caddy, проверяет, что запущен именно этот образ и он
-`healthy` (внутренний `/health`), и пробу снаружи. После него Health check workflow:
+`healthy` (внутренний `/health`). Это и есть подтверждение выкатки: своих проверок после
+`Switch BFF` workflow не делает. Успех означает, что запущен нужный BFF и его процесс готов отвечать,
+а не что работает весь продукт.
 
-- `https://cellestial.ru/login` — ровно один `<script id="bootstrap">` с `{"user":null}`,
-  `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
-- `https://cellestial.ru/onlineconf/keys` — HTML админки OnlineConf без bootstrap продукта,
-  `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
-- JS и CSS из HTML — с CDN `releases/<sha>/` и отдаются с типом JS или CSS (чанк — с CORS);
-- `GET /api/users/me` без сессии — `UNAUTHORIZED` (401), `/api/unknown` — 404 не HTML;
-- `POST /api/auth/login` со случайными логином и паролем — 400, `BAD_REQUEST` и
-  `appCode=invalid_credentials`: отказ Go подтверждает BFF, S2S и обработчик входа. Пользователь и
-  сессия не создаются.
+До [infra#215](https://github.com/Cringe-Driven-Development-Team/infra/issues/215) сам `deploy-bff.yml`
+ещё обращается к Go до и после переключения: при недоступном backend `Switch BFF` упадёт, в том числе
+когда BFF и Caddy уже переключены.
 
-Итог записи: `success` — только после всех проверок фактически запущенного выпуска; переключение было,
-а проверка не прошла — `failure`; сбой до проверки результата или отмена — `error`. Workflow при
-этом красный, а не ложно успешный. Ошибка карточек или retention успех выкатки не отменяет.
+Итог записи: `success` — только после успешного `Switch BFF`; шаг запускался и не прошёл —
+`failure`; не запускался или отменён — `error`. Workflow при этом красный, а не ложно успешный.
+Ошибка карточек или retention успех выкатки не отменяет.
+
+Эти условия обоих workflow проверяет `bun test scripts/release` (запускается вручную, в CI не входит).
 
 Выкатить: `Actions` → `CD` → `Run workflow` из `main`. Поле `release` можно оставить пустым
 (`gh workflow run cd.yml --ref main`): CD выберет последний по истории main опубликованный выпуск.
@@ -279,7 +277,7 @@ Check для PR остаются независимыми. Порядок ожи
 - `pull_request.enqueued/dequeued` — актуальная постановка/снятие PR из main merge queue; MERGE не создаёт тревогу о снятии.
 - `release.published` — проверенный immutable Release готов, есть ссылка на страницу выпуска.
 - `production` in_progress — начало выкатки/отката непосредственно перед Switch BFF; вместо одного SHA показаны названия PR и логи.
-- `production` success/failure/error — результат операции и Health Check ✅/❌/⚪.
+- `production` success/failure/error — результат операции. Строку «Health Check» в сообщении формирует сам webhook-сервис: ✅ при `success`, иначе ⚪; такого шага в workflow нет.
 - `workflow_job.completed` — ошибка/отмена до записи результата; после успешной выкатки сбой Retention показывается отдельным предупреждением.
 
 Источники проверяются по репозиторию, workflow, SHA/digest и номеру попытки run.
@@ -311,9 +309,9 @@ ADD_TO_PROJECT_PAT доступен только шагу карточек, webh
    по диапазону от опубликованного предка до SHA. Одной заливки S3 недостаточно.
    Повтор CI опубликованного SHA повторяет отчёт и карточки с базой из manifest.
    Поздний merge/publish сохраняет `Done` и `Rollback from production` текущего цикла.
-3. После успешных Health check и Production result CD закрывает открытые issues
+3. После успешных Switch BFF и Production result CD закрывает открытые issues
    completed, проверяет закрытие и ставит `Done`. Диапазон — от последнего
-   подтверждённого production до выбранного SHA. Неуспешный health задачи не закрывает.
+   подтверждённого production до выбранного SHA. Неуспешный Switch BFF задачи не закрывает.
 4. Успешный Rollback ставит `Rollback from production` удаляемым изменениям обратного
    диапазона, без close/reopen. Следующий CD возвращает `Done`. Задачи вне отчёта
    не меняются.
@@ -342,7 +340,7 @@ CD разрешает тот же SHA или потомка подтверждё
 API не меняет успешный Deployment и не запускает откат; Telegram получает результат
 production независимо от карточек, а обычное «Задача закрыта» — по `issues.closed`.
 Повтор уже закрытой issue не создаёт второго закрытия и второго такого события.
-Retention после успешных Health check и Production result выполняется и при ошибке
+Retention после успешных Switch BFF и Production result выполняется и при ошибке
 карточек; ошибка course-sync не мешает завершению Publish release.
 
 При ошибке проверьте ADD_TO_PROJECT_PAT, Scrumban №1, поле Status и опции

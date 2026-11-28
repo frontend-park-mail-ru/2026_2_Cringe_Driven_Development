@@ -40,7 +40,7 @@ Docker-образ BFF. Изменённое поведение проверяй�
 
 Ветка задачи — `web-N`, в PR `Closes #N` создаёт штатную связь с задачей;
 PR требует ревью frontend-ментора. Merge оставляет задачу открытой с `Ready for build`,
-проверенный Release ставит `Ready for release`. Только успешный CD после Health check
+проверенный Release ставит `Ready for release`. Только успешный CD после Switch BFF
 и записи production success закрывает задачу completed и ставит `Done`. Rollback
 меняет Status на `Rollback from production` без переоткрытия; следующий CD возвращает
 `Done`. Ручной reopen после merge и закрытие not planned/duplicate защищены;
