@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from '@cdd-team/react';
 import { api, type Output } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Textarea } from '@components/Input/Textarea';
+import { DeleteKey } from './DeleteKey';
 import { errorText } from './errorText';
 import { checkJson } from './json';
 import { setUnsaved } from '../leaveGuard';
@@ -97,6 +98,7 @@ export function ConfigForm({ card, onSaved }: { card: Config; onSaved: (card: Co
                 <p key="status" className={styles.status} aria-live="polite">
                     {status}
                 </p>
+                <DeleteKey key="delete" name={card.name} disabled={loading} />
                 {dirty && (
                     <Button
                         key="reset"
