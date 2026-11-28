@@ -8,6 +8,8 @@
     /* Поверхности */
     --color-bg: #05030f;
     --color-surface: rgb(255 255 255 / 0.04);
+    /* Карточки с --blur-glass: тёмный фон, чтобы планета не осветляла подложку под текстом */
+    --color-glass: rgb(21 19 31 / 0.62);
     --color-surface-hover: rgb(255 255 255 / 0.07);
     --color-surface-pressed: rgb(255 255 255 / 0.14);
     --color-surface-solid: #120c2c;
@@ -20,16 +22,16 @@
     --color-border-control: rgb(255 255 255 / 0.4);
 
     /* Акцент */
-    --color-primary: #7a5af8;
+    --color-primary: #7352f5;
     --color-primary-deep: #6543f5;
     --color-focus: #a48cff;
-    --color-primary-text: #8b6cff;
+    --color-primary-text: #aa94ff;
     --color-primary-soft: rgb(122 90 248 / 0.16);
 
     /* Текст */
     --color-text-primary: #ece9ff;
-    --color-text-secondary: #a09ac0;
-    --color-text-disabled: #6f6990;
+    --color-text-secondary: #b4aed0;
+    --color-text-disabled: #948eb4;
     --color-on-primary: #ffffff;
 
     /* Статусы */
