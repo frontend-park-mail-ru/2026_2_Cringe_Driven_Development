@@ -4,17 +4,13 @@ import { expect, test } from 'bun:test';
 import {
     createOnlineConfKeyInput,
     listOnlineConfKeysInput,
-    onlineConfMeInput,
     resolveOnlineConfUserInput,
     updateOnlineConfKeyInput,
 } from '@cdd/schemas/validate';
 
 import { GoError, unwrap } from '../src/go/errors.ts';
-import {
-    onlineConfCardResponse,
-    onlineConfHomeResponse,
-    onlineConfNotebookResponse,
-} from '../src/go/responses.ts';
+import { onlineConfCardResponse, onlineConfMeResponse } from '../src/go/responses.ts';
+import { loadSettings } from '../src/settings.ts';
 
 const flag = {
     name: 'workspace.notebook_comments',
@@ -133,33 +129,34 @@ test('a card from OnlineConf that breaks the contract is not passed on', () => {
     ).toThrow(GoError);
 });
 
-test('product screen values: screen is required, flag decision is never filled in', () => {
-    expect(onlineConfMeInput({ screen: 'notebook' }).success).toBe(true);
-    expect(onlineConfMeInput({}).success).toBe(false);
-    expect(onlineConfMeInput({ screen: 'admin' }).success).toBe(false);
-
-    const ok = { status: 200, data: { notebook_max_cells: 500, notebook_run_all: false } };
-    expect(unwrap(ok, [200], onlineConfNotebookResponse) as unknown).toEqual(ok.data);
-    // на главной решение флага не отдаётся, лишние поля Go отбрасываются
-    expect(unwrap(ok, [200], onlineConfHomeResponse) as unknown).toEqual({
+test('product settings: both fields are required, a failure is "unavailable", not a default', async () => {
+    const ok = {
+        status: 200,
+        data: { notebook_max_cells: 500, notebook_run_all: false, extra: 1 },
+    };
+    expect(unwrap(ok, [200], onlineConfMeResponse) as unknown).toEqual({
         notebook_max_cells: 500,
+        notebook_run_all: false,
     });
     for (const data of [
         { notebook_max_cells: 500 },
+        { notebook_run_all: true },
         { notebook_max_cells: 500, notebook_run_all: 'true' },
         { notebook_max_cells: 0, notebook_run_all: true },
         { notebook_max_cells: 1001, notebook_run_all: true },
+        { notebook_max_cells: 1.5, notebook_run_all: true },
     ]) {
-        expect(() => unwrap({ status: 200, data }, [200], onlineConfNotebookResponse)).toThrow(
-            GoError,
-        );
+        expect(() => unwrap({ status: 200, data }, [200], onlineConfMeResponse)).toThrow(GoError);
     }
-    // устаревший снимок — сбой, а не прежнее значение
-    expect(() =>
-        unwrap(
-            { status: 503, data: { code: 'onlineconf_unavailable', message: 'x' } },
-            [200],
-            onlineConfNotebookResponse,
-        ),
-    ).toThrow(GoError);
+    const stale = { status: 503, data: { code: 'onlineconf_unavailable', message: 'x' } };
+    // bootstrap: сбой OnlineConf — null, страница не падает; прочие ошибки не глотаются
+    expect(
+        await loadSettings({
+            getOnlineConfMe: async () => unwrap(stale, [200], onlineConfMeResponse),
+        }),
+    ).toBeNull();
+    const settings = { notebook_max_cells: 3, notebook_run_all: false };
+    expect(await loadSettings({ getOnlineConfMe: () => Promise.resolve(settings) })).toBe(settings);
+    const bug = new Error('session ended');
+    await expect(loadSettings({ getOnlineConfMe: () => Promise.reject(bug) })).rejects.toBe(bug);
 });

@@ -1,39 +1,33 @@
-import type { OnlineConfScreen } from '@cdd/schemas/types';
+import type { OnlineConfMe } from '@cdd/schemas/types';
+import { takePreloadedSettings } from '@stores/preloaded';
+import { useSessionStore } from '@stores/session';
 import { api, BffError } from './bff';
 
-/** Публичные значения OnlineConf по экранам (backend#158): решение флага уже посчитал сервер. */
-export type ScreenConfig = {
-    home: { notebook_max_cells: number };
-    notebook: { notebook_max_cells: number; notebook_run_all: boolean };
-};
-
 /**
- * Значения OnlineConf экрана для пользователя текущей сессии. Без кеша: ответ прежней сессии
- * отсекает `api`, сбой (в том числе устаревшие данные OnlineConf) — {@link BffError}, а не
- * значение по умолчанию.
- * @param screen экран продукта
+ * Публичные настройки продукта для пользователя текущей сессии (backend#158): лимит ячеек и
+ * решение флага «Запустить всё», уже посчитанное OnlineConf. При исходном открытии страницы —
+ * снимок из первого HTML без запроса, один раз и только для той же сессии и адреса; дальше —
+ * `GET /api/onlineconf/me`. Кеша нет: ответ прежней сессии отсекает `api`. Сбой — ошибка, а не
+ * `true`, `1000` или прошлое значение.
  * @param signal отмена запроса
- * @returns значения экрана
- * @throws {BffError} сбой запроса или ответ без решения флага
+ * @returns настройки
+ * @throws {BffError} настройки недоступны или сбой запроса
  */
-export async function readScreenConfig<S extends OnlineConfScreen>(
-    screen: S,
-    signal?: AbortSignal,
-): Promise<ScreenConfig[S]> {
-    const data = await api('GET', '/api/onlineconf/me', {
-        params: { query: { screen } },
-        init: { signal },
-    });
-    // решение флага не подставляется: без него ответ не по протоколу
-    if (screen === 'notebook' && typeof data.notebook_run_all !== 'boolean') {
-        throw new BffError('protocol', 'Нет решения notebook_run_all');
+export async function readOnlineConf(signal?: AbortSignal): Promise<OnlineConfMe> {
+    const preloaded = takePreloadedSettings(useSessionStore.getState().user, location.pathname);
+    if (!preloaded) return api('GET', '/api/onlineconf/me', { init: { signal } });
+    if (!preloaded.value) {
+        throw new BffError('http', 'Настройки OnlineConf недоступны', {
+            status: 502,
+            code: 'BAD_GATEWAY',
+        });
     }
-    return data as ScreenConfig[S];
+    return preloaded.value;
 }
 
 /**
  * Значение конфига: `found: false` — ключа нет в ответе; `false`, `0` и `null` — найденные значения.
- * @param values значения экрана
+ * @param values настройки
  * @param key имя поля
  */
 export function configValue<T extends object, K extends keyof T>(

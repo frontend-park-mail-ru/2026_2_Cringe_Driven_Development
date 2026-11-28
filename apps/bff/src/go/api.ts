@@ -19,7 +19,6 @@ import type {
     OnlineConfList,
     OnlineConfMe,
     OnlineConfPaths,
-    OnlineConfScreen,
     OnlineConfUpdate,
     OnlineConfUser,
     RuntimeBatchExecuteRequest,
@@ -50,8 +49,7 @@ import {
     notebookResponse,
     onlineConfCardResponse,
     onlineConfListResponse,
-    onlineConfHomeResponse,
-    onlineConfNotebookResponse,
+    onlineConfMeResponse,
     onlineConfUserResponse,
     runtimeBatchResponse,
     runtimeEventsResponse,
@@ -142,7 +140,7 @@ export type Go = {
     resolveOnlineConfUser(
         query: OnlineConfPaths['/admin/users/resolve']['GET']['params']['query'],
     ): Promise<OnlineConfUser>;
-    getOnlineConfMe(screen: OnlineConfScreen): Promise<OnlineConfMe>;
+    getOnlineConfMe(): Promise<OnlineConfMe>;
 };
 
 /**
@@ -569,16 +567,11 @@ export function createGo(session: Session): Go {
                 [200],
                 onlineConfUserResponse,
             ),
-        getOnlineConfMe: async (screen) =>
+        getOnlineConfMe: async () =>
             unwrap(
-                await call((init) =>
-                    workspaceRequest('GET', '/onlineconf/me', {
-                        params: { query: { screen } },
-                        init,
-                    }),
-                ),
+                await call((init) => onlineconfRequest('GET', '/api/v1/onlineconf/me', { init })),
                 [200],
-                screen === 'notebook' ? onlineConfNotebookResponse : onlineConfHomeResponse,
+                onlineConfMeResponse,
             ),
     };
 }

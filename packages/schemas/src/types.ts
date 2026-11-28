@@ -596,27 +596,16 @@ export type WorkspacePaths = {
             responses: { 200: { interrupt_requested: true } } & RuntimeConflictErrors;
         };
     };
-    // shortcut: контракта нет в spec/workspace, путь и ответ — из задачи backend#158; заменить
-    // описанием из спеки после contract:fetch
-    '/onlineconf/me': {
-        GET: {
-            params: { query: { screen: OnlineConfScreen } };
-            responses: { 200: OnlineConfMe } & Errors<400 | 401 | 403 | 500 | 503, Error>;
-        };
-    };
 };
 
 /** Scope ключа OnlineConf. */
 export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
 
-/** Экран продукта, для которого Workspace отдаёт публичные значения OnlineConf. */
-export type OnlineConfScreen = 'home' | 'notebook';
-
 /**
- * Публичные значения OnlineConf для пользователя сессии (backend#158): эффективный лимит ячеек
- * и, только для `notebook`, решение флага «Запустить всё».
+ * Публичные настройки продукта для пользователя сессии (`ProductSettings`, backend#158): лимит
+ * ячеек и решение флага «Запустить всё»; оба поля обязательны.
  */
-export type OnlineConfMe = { notebook_max_cells: number; notebook_run_all?: boolean };
+export type OnlineConfMe = { notebook_max_cells: number; notebook_run_all: boolean };
 
 /** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
 export interface OnlineConfUser {
@@ -706,7 +695,7 @@ type OnlineConfErrors<S extends number = never> = Errors<
 >;
 type KeyPath = { path: { name: string } };
 
-/** Карта операций OnlineConf: пути от корня сервиса, без `/api/v1`. */
+/** Карта операций OnlineConf: пути от корня сервиса (`ONLINECONF_API_URL` без `/api/v1`). */
 export type OnlineConfPaths = {
     '/admin/access': { GET: { responses: { 204: undefined } & OnlineConfErrors } };
     '/admin/keys': {
@@ -736,4 +725,5 @@ export type OnlineConfPaths = {
             responses: { 200: OnlineConfUser } & OnlineConfErrors<400 | 404>;
         };
     };
+    '/api/v1/onlineconf/me': { GET: { responses: { 200: OnlineConfMe } & OnlineConfErrors } };
 };

@@ -263,14 +263,9 @@ export const onlineConfListResponse: Validator<OnlineConfList> = validator(onlin
 /** Карточка ключа OnlineConf. */
 export const onlineConfCardResponse: Validator<OnlineConfCard> = validator(onlineConfCard);
 
-const maxCells = { notebook_max_cells: int({ min: 1, max: 1000 }) };
-
-/** Публичные значения OnlineConf для главной: только лимит ячеек, лишние поля отбрасываются. */
-export const onlineConfHomeResponse: Validator<OnlineConfMe> = validator(object(maxCells));
-
-/** Публичные значения OnlineConf для блокнота: без `notebook_run_all` ответ не принимается. */
-export const onlineConfNotebookResponse: Validator<OnlineConfMe> = validator(
-    object({ ...maxCells, notebook_run_all: boolean }),
+/** Публичные настройки продукта: оба поля обязательны, лишние отбрасываются. */
+export const onlineConfMeResponse: Validator<OnlineConfMe> = validator(
+    object({ notebook_max_cells: int({ min: 1, max: 1000 }), notebook_run_all: boolean }),
 );
 
 /** Пользователь Identity по ID или логину. */
