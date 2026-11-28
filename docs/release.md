@@ -167,7 +167,7 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 
 1. выбранный published immutable Release (проверка выше) → SHA, `image_ref`, каталог ассетов и `release_id`;
 2. анонимная доступность точного digest и метка `org.opencontainers.image.revision` = SHA;
-3. Release check: `index.html` и все JS и CSS из него отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется.
+3. Release check: `index.html`, `onlineconf.html` админки OnlineConf и все JS и CSS из них отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется.
 
 Затем создаётся запись `production` (`ref` — SHA **выбранного образа**, в том числе при откате;
 `payload` — `image_ref`, `assets`, `action` = `deploy`/`rollback`, `run` — ссылка на этот запуск,
@@ -178,6 +178,8 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 `healthy` (внутренний `/health`), и пробу снаружи. После него Health check workflow:
 
 - `https://cellestial.ru/login` — ровно один `<script id="bootstrap">` с `{"user":null}`,
+  `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
+- `https://cellestial.ru/onlineconf/keys` — HTML админки OnlineConf без bootstrap продукта,
   `<meta name="release">` этого SHA, `Cache-Control: private, no-store`;
 - JS и CSS из HTML — с CDN `releases/<sha>/` и отдаются с типом JS или CSS (чанк — с CORS);
 - `GET /api/users/me` без сессии — `UNAUTHORIZED` (401), `/api/unknown` — 404 не HTML;

@@ -54,11 +54,12 @@ PR требует ревью frontend-ментора. Merge оставляет �
 
 Репозиторий — монорепа на bun workspaces и [Turborepo](https://turborepo.com)
 
-| Каталог            | Пакет          | Что внутри                                                                                                                                                               |
-| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/client`      | `@cdd/client`  | клиент: Vite, `src/`, `index.html`                                                                                                                                       |
-| `apps/bff`         | `@cdd/bff`     | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                            |
-| `packages/schemas` | `@cdd/schemas` | типы Go и `GoPaths` — `@cdd/schemas/types`; ручные общие проверки входов браузера и BFF — `@cdd/schemas/validate`; тексты правил логина и пароля — `@cdd/schemas/inputs` |
+| Каталог                 | Пакет                   | Что внутри                                                                                                                                                                                                                                 |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/client`           | `@cdd/client`           | клиент: Vite, `src/`, `index.html`                                                                                                                                                                                                         |
+| `apps/onlineconf-admin` | `@cdd/onlineconf-admin` | админка OnlineConf — отдельная SPA на `/onlineconf/`. Собирается в `apps/client/dist` после клиента как `onlineconf.html` и свои чанки: выходит тем же релизом. В `bun run dev` — свой Vite на `http://127.0.0.1:5174/onlineconf/` без BFF |
+| `apps/bff`              | `@cdd/bff`              | BFF: HTTP API на `Bun.serve`, сессия в cookie, пользователь в первом HTML — раздел «BFF» ниже                                                                                                                                              |
+| `packages/schemas`      | `@cdd/schemas`          | типы Go и `GoPaths` — `@cdd/schemas/types`; ручные общие проверки входов браузера и BFF — `@cdd/schemas/validate`; тексты правил логина и пароля — `@cdd/schemas/inputs`                                                                   |
 
 В корне остаются общее: `spec/` с контрактом, `scripts/` (копия контракта из backend и выкатка), конфиги
 `oxlint` и `oxfmt`, `.env` — его читают и клиент, и скрипты
@@ -86,19 +87,19 @@ PR требует ревью frontend-ментора. Merge оставляет �
 `__Host-Http-session`, CSRF, пользователь в первом HTML (`<script id="bootstrap">`). Устройство — трек
 [BFF](https://docs.cellestial.ru/modules/2/tracks/bff).
 
-| Переменная                               | Что это                                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `SESSION_KEY`                            | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                      |
-| `APP_ORIGIN`                             | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                |
-| `IDENTITY_API_URL` и `WORKSPACE_API_URL` | адреса Identity и Workspace с префиксом API. В production обязателен HTTPS                                 |
-| `GO_API_TLS_CA_FILE`                     | путь к PEM доверенного CA. На стенде `/run/secrets/go-api/ca.crt`                                          |
-| `GO_API_TLS_CERT_FILE`                   | путь к PEM сертификата `cellestial-bff`. На стенде `/run/secrets/go-api/client.crt`                        |
-| `GO_API_TLS_KEY_FILE`                    | путь к приватному ключу. На стенде `/run/secrets/go-api/client.key`                                        |
-| `PORT`                                   | порт BFF, по умолчанию `3000`                                                                              |
-| `BFF_KEY`                                | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                 |
-| `HTML_TEMPLATE`                          | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе)                         |
-| `SERVE_CLIENT_ASSETS`                    | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN |
-| `SKIP_PUBLIC_FILES`                      | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                       |
+| Переменная                               | Что это                                                                                                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_KEY`                            | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                                                                    |
+| `APP_ORIGIN`                             | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                                                              |
+| `IDENTITY_API_URL` и `WORKSPACE_API_URL` | адреса Identity и Workspace с префиксом API. В production обязателен HTTPS                                                                               |
+| `GO_API_TLS_CA_FILE`                     | путь к PEM доверенного CA. На стенде `/run/secrets/go-api/ca.crt`                                                                                        |
+| `GO_API_TLS_CERT_FILE`                   | путь к PEM сертификата `cellestial-bff`. На стенде `/run/secrets/go-api/client.crt`                                                                      |
+| `GO_API_TLS_KEY_FILE`                    | путь к приватному ключу. На стенде `/run/secrets/go-api/client.key`                                                                                      |
+| `PORT`                                   | порт BFF, по умолчанию `3000`                                                                                                                            |
+| `BFF_KEY`                                | S2S-ключ для Go (`X-BFF-Key`), на двух VPS                                                                                                               |
+| `HTML_TEMPLATE`                          | `index.html` сборки клиента, по умолчанию `/app/client/index.html` (путь в образе). Рядом BFF берёт `onlineconf.html` админки, кроме `SKIP_PUBLIC_FILES` |
+| `SERVE_CLIENT_ASSETS`                    | `1` — BFF сам отдаёт JS и CSS из `assets/` рядом с шаблоном, задаёт `bun run preview`; на проде они на CDN                                               |
+| `SKIP_PUBLIC_FILES`                      | `1` — не отдавать манифест и иконки, задаёт `bun run dev`: без сборки клиента их нет                                                                     |
 
 По прямому запросу страницы BFF решает, можно ли её открыть (`apps/bff/src/html.ts`). Список путей
 страниц — `PAGES` в `apps/bff/src/pages.ts` (`@cdd/bff/pages`); из него же берут `path` маршруты
@@ -108,6 +109,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | ----------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | гость (нет сессии или её не восстановить) | `/login`, `/register`                    | приложение, 200                                                                                                                                                        |
 | гость                                     | `/`, `/notebooks/:id`, неизвестный адрес | `302` на `/login`, блокнот у Go не запрашивается                                                                                                                       |
+| любой                                     | `/onlineconf`, `/onlineconf/*`           | админка OnlineConf, 200, без проверки сессии: права проверяет её API                                                                                                   |
 | любой                                     | `/404`                                   | приложение со статусом 404, страница «Не найдено»                                                                                                                      |
 | вошедший                                  | неизвестный адрес                        | `302` на `/404`                                                                                                                                                        |
 | вошедший                                  | `/notebooks/:id`                         | блокнот запрашивается у Go до HTML: свой — 200 и блокнот в bootstrap, отсутствующий, чужой (Go отвечает 404 на оба) и некорректный ID — `302` на `/404`, сбой Go — 503 |

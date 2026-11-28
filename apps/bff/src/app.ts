@@ -1,14 +1,17 @@
 import { errorBody, ApiError } from './errors.ts';
 import { upstreamMetrics } from './go/metrics.ts';
 import { serveRoute } from './http.ts';
+import { HTML_HEADERS } from './html.ts';
 import { logged } from './log.ts';
-import { pageOf } from './pages.ts';
+import { isAdminPage, pageOf } from './pages.ts';
 import { routes } from './router/index.ts';
 
 /** Что приложению нужно от запуска: шаблон, публичные файлы и обработчики, которые есть. */
 export type AppDeps = {
     template: string;
     publicFiles: Map<string, Bun.BunFile>;
+    /** HTML админки OnlineConf: отдельная SPA на `/onlineconf/` */
+    adminTemplate?: string;
     html?: (req: Request) => Promise<Response>;
 };
 
@@ -33,7 +36,8 @@ const notFound = (): Response =>
  * `/robots.txt` (без сессии и Go, при любом `Accept`) и публичные файлы. HEAD GET-маршрута Bun
  * обслуживает тем же обработчиком и отбрасывает тело; HEAD POST-маршрута и неверный метод уходят
  * в `fetch`. В `fetch`: `/api` и `/api/*` — JSON 404 (в Go не уходят), GET/HEAD с
- * `Accept: text/html` — HTML (на неизвестный адрес — со статусом 404), остальное — 404.
+ * `Accept: text/html` — HTML (`/onlineconf` и `/onlineconf/*` — админка OnlineConf, на неизвестный
+ * адрес — со статусом 404), остальное — 404.
  * @returns маршруты и `fetch`
  */
 export function createApp(deps: AppDeps): App {
@@ -57,13 +61,14 @@ export function createApp(deps: AppDeps): App {
         if (path === '/api' || path.startsWith('/api/')) return apiNotFound();
         const page = req.method === 'GET' || req.method === 'HEAD';
         if (!page || !req.headers.get('Accept')?.includes('text/html')) return notFound();
+        // права проверяет OnlineConf на каждом запросе API, сессия для HTML не нужна
+        if (deps.adminTemplate !== undefined && isAdminPage(path)) {
+            return new Response(deps.adminTemplate, { headers: HTML_HEADERS });
+        }
         if (deps.html) return deps.html(req);
         return new Response(deps.template, {
             status: pageOf(path) ? 200 : 404,
-            headers: {
-                'Content-Type': 'text/html; charset=UTF-8',
-                'Cache-Control': 'private, no-store',
-            },
+            headers: HTML_HEADERS,
         });
     });
 

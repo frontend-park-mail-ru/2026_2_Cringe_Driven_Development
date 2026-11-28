@@ -51,3 +51,7 @@ export function matchesPage(page: string, pathname: string): boolean {
 export function pageOf(pathname: string): Page | undefined {
     return (Object.keys(PAGES) as Page[]).find((page) => matchesPage(PAGES[page], pathname));
 }
+
+/** Адрес админки OnlineConf — отдельной SPA, её роутер работает с `basepath` `/onlineconf`. */
+export const isAdminPage = (pathname: string): boolean =>
+    pathname === '/onlineconf' || pathname.startsWith('/onlineconf/');

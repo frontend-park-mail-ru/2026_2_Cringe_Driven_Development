@@ -1,0 +1,19 @@
+{
+    "name": "@cdd/onlineconf-admin",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "lint": "oxlint",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@cdd-team/react": "^1.7.1",
+        "@cdd-team/router": "^0.1.0"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2",
+        "vite": "^8.3.5"
+    }
+}
