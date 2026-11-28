@@ -5,8 +5,13 @@ import { createHtmlHandler } from './html.ts';
  * BFF целиком для `Bun.serve`: HTTP API, HTML, публичные файлы.
  * @param template проверенный HTML-шаблон клиента
  * @param publicFiles публичные файлы по имени
+ * @param adminTemplate HTML админки OnlineConf
  * @returns `routes` и `fetch` для `Bun.serve`
  */
-export function createBff(template: string, publicFiles: Map<string, Bun.BunFile>): App {
-    return createApp({ template, publicFiles, html: createHtmlHandler(template) });
+export function createBff(
+    template: string,
+    publicFiles: Map<string, Bun.BunFile>,
+    adminTemplate?: string,
+): App {
+    return createApp({ template, publicFiles, adminTemplate, html: createHtmlHandler(template) });
 }

@@ -1,5 +1,5 @@
 // Точка входа BFF: запросы принимаются только после проверки конфигурации, шаблона и public.
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { createBff } from './bff.ts';
 import { env } from './env.ts';
@@ -12,8 +12,15 @@ const STOP_TIMEOUT_MS = 10_000;
 async function start(): Promise<void> {
     let template: string;
     let publicFiles: Map<string, Bun.BunFile>;
+    let adminTemplate: string | undefined;
     try {
         template = await loadTemplate(env.HTML_TEMPLATE);
+        // HTML админки OnlineConf — из той же сборки; в bun run dev сборки нет, админка там на своём Vite
+        if (!env.SKIP_PUBLIC_FILES) {
+            adminTemplate = await Bun.file(
+                join(dirname(env.HTML_TEMPLATE), 'onlineconf.html'),
+            ).text();
+        }
         publicFiles = env.SKIP_PUBLIC_FILES
             ? new Map()
             : await loadPublicFiles(dirname(env.HTML_TEMPLATE));
@@ -26,7 +33,10 @@ async function start(): Promise<void> {
         process.exit(1);
     }
 
-    const server = Bun.serve({ port: env.PORT, ...createBff(template, publicFiles) });
+    const server = Bun.serve({
+        port: env.PORT,
+        ...createBff(template, publicFiles, adminTemplate),
+    });
     console.log(
         JSON.stringify({ time: new Date().toISOString(), msg: 'listening', port: server.port }),
     );

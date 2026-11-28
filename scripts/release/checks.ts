@@ -60,17 +60,24 @@ async function checkAssets(html: string, base: string, where: string): Promise<n
     return assets.length;
 }
 
+/** HTML продукта и админки OnlineConf в каталоге выпуска: обе SPA выходят одним SHA. */
+const RELEASE_HTML = ['index.html', 'onlineconf.html'];
+
 async function releaseCheckOnce(sha: string): Promise<number> {
     const base = `${cdnUrl()}/releases/${sha}/`;
-    const html = await (await get(`${base}index.html`)).text();
-    if (releaseOf(html) !== sha) {
-        throw new Error(`${base}index.html: release='${releaseOf(html) ?? ''}', нужен '${sha}'`);
+    let assets = 0;
+    for (const name of RELEASE_HTML) {
+        const html = await (await get(`${base}${name}`)).text();
+        if (releaseOf(html) !== sha) {
+            throw new Error(`${base}${name}: release='${releaseOf(html) ?? ''}', нужен '${sha}'`);
+        }
+        assets += await checkAssets(html, base, `${base}${name}`);
     }
-    return checkAssets(html, base, `${base}index.html`);
+    return assets;
 }
 
 /**
- * Релиз отдаётся с CDN: его index.html и все JS и CSS из него. Выполняется после заливки и до
+ * Релиз отдаётся с CDN: его index.html, onlineconf.html и все JS и CSS из них. Выполняется после заливки и до
  * переключения: без любого из ассетов прод не меняется.
  */
 export async function releaseCheck(sha: string): Promise<void> {
@@ -116,27 +123,36 @@ async function checkGo(site: string): Promise<void> {
     }
 }
 
+/** Страница прода этого выпуска: `Cache-Control: private, no-store` и `<meta name="release">` SHA. */
+async function releasePage(url: string, sha: string): Promise<string> {
+    const page = await get(url, { Accept: 'text/html' });
+    if (page.headers.get('cache-control') !== 'private, no-store') {
+        throw new Error(`${url}: Cache-Control='${page.headers.get('cache-control') ?? ''}'`);
+    }
+    const html = await page.text();
+    if (releaseOf(html) !== sha) {
+        throw new Error(`${url}: release='${releaseOf(html) ?? ''}', ждём '${sha}'`);
+    }
+    return html;
+}
+
 async function healthOnce(sha: string): Promise<string> {
     const site = siteUrl();
     const base = `${cdnUrl()}/releases/${sha}/`;
     /** Гостю HTML отдаёт `/login`: защищённые страницы ведут его туда редиректом BFF. */
-    const page = await get(`${site}/login`, { Accept: 'text/html' });
-    if (page.headers.get('cache-control') !== 'private, no-store') {
-        throw new Error(
-            `${site}/login: Cache-Control='${page.headers.get('cache-control') ?? ''}'`,
-        );
-    }
-    const html = await page.text();
+    const html = await releasePage(`${site}/login`, sha);
     const bootstraps = [
         ...html.matchAll(/<script id="bootstrap" type="application\/json">([^<]*)<\/script>/g),
     ];
     if (bootstraps.length !== 1 || bootstraps[0]![1] !== '{"user":null}') {
         throw new Error(`${site}/login: нужен ровно один bootstrap {"user":null}`);
     }
-    if (releaseOf(html) !== sha) {
-        throw new Error(`${site}/login: release='${releaseOf(html) ?? ''}', ждём '${sha}'`);
-    }
-    const assets = await checkAssets(html, base, `${site}/login`);
+    // вложенный адрес админки OnlineConf: её HTML этого выпуска, не продукта
+    const admin = await releasePage(`${site}/onlineconf/keys`, sha);
+    if (admin.includes('id="bootstrap"')) throw new Error(`${site}/onlineconf/keys: HTML продукта`);
+    const assets =
+        (await checkAssets(html, base, `${site}/login`)) +
+        (await checkAssets(admin, base, `${site}/onlineconf/keys`));
     const me = await fetch(`${site}/api/users/me`, {
         headers: { 'X-CSRF': '1' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -163,7 +179,8 @@ async function healthOnce(sha: string): Promise<string> {
 }
 
 /**
- * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, его JS и CSS с CDN,
+ * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, HTML админки OnlineConf
+ * на `/onlineconf/keys`, их JS и CSS с CDN,
  * UNAUTHORIZED API без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
  * вход со случайными данными. Выполняется после переключения; образ, healthy и внутренний
  * `/health` проверяет Ansible (`deploy-bff.yml`).

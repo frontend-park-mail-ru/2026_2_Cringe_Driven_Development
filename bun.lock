@@ -41,6 +41,17 @@
         "vite-plugin-svgr": "^5.2.0",
       },
     },
+    "apps/onlineconf-admin": {
+      "name": "@cdd/onlineconf-admin",
+      "dependencies": {
+        "@cdd-team/react": "^1.7.1",
+        "@cdd-team/router": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^7.0.2",
+        "vite": "^8.3.5",
+      },
+    },
     "packages/schemas": {
       "name": "@cdd/schemas",
     },
@@ -99,6 +110,8 @@
     "@cdd/bff": ["@cdd/bff@workspace:apps/bff"],
 
     "@cdd/client": ["@cdd/client@workspace:apps/client"],
+
+    "@cdd/onlineconf-admin": ["@cdd/onlineconf-admin@workspace:apps/onlineconf-admin"],
 
     "@cdd/schemas": ["@cdd/schemas@workspace:packages/schemas"],
 

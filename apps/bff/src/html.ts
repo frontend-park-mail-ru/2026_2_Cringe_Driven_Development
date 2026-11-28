@@ -8,7 +8,8 @@ import { SessionEnded } from './session/refresh.ts';
 import { createSession } from './session/session.ts';
 import type { BootstrapData } from './types.ts';
 
-const HTML_HEADERS = {
+/** Заголовки HTML страниц: ответ зависит от сессии и выпуска, не кешируется. */
+export const HTML_HEADERS = {
     'Content-Type': 'text/html; charset=UTF-8',
     'Cache-Control': 'private, no-store',
 };

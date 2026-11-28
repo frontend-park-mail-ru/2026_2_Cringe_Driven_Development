@@ -5,8 +5,9 @@ import { join } from 'node:path';
 const ORIGIN = 'http://localhost:4173';
 const root = join(import.meta.dir, '../..');
 
-const build = Bun.spawnSync(['bun', 'run', 'build'], {
-    cwd: join(root, 'apps/client'),
+// админка OnlineConf собирается в тот же dist после клиента (turbo.json)
+const build = Bun.spawnSync(['bunx', 'turbo', 'run', 'build', '--filter=@cdd/onlineconf-admin'], {
+    cwd: root,
     /** Пустые значения важнее корневого .env: с ними чанки ищутся здесь, а не на CDN релиза */
     env: { ...process.env, RELEASE_SHA: '', CDN_URL: '' },
     stdio: ['ignore', 'inherit', 'inherit'],

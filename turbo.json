@@ -9,6 +9,13 @@
             "env": ["RELEASE_SHA", "CDN_URL", "VITE_STATIC_URL"],
             "outputs": ["dist/**"]
         },
+        // админка дописывает onlineconf.html и свои чанки в dist клиента — после его сборки, которая
+        // очищает dist. Кеш выключен: turbo хранит выходы задачи только внутри её пакета
+        "@cdd/onlineconf-admin#build": {
+            "dependsOn": ["^build", "@cdd/client#build"],
+            "env": ["RELEASE_SHA", "CDN_URL"],
+            "cache": false
+        },
         "lint": {
             "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/oxlint.config.ts"]
         },
