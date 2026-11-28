@@ -8,6 +8,8 @@ const ACCESS: Record<string, () => Response> = {
     s2s: () => Response.json({ code: 's2s_forbidden', message: 'key' }, { status: 403 }),
     down: () => Response.json({ code: 'unavailable', message: 'down' }, { status: 503 }),
     expired: () => Response.json({ code: 'unauthorized', message: 'session' }, { status: 401 }),
+    // `users/me` отвечает, а проверка роли получает 401 и refresh не удаётся
+    lost: () => Response.json({ code: 'unauthorized', message: 'session' }, { status: 401 }),
 };
 const accessCalls: string[] = [];
 
@@ -161,4 +163,12 @@ test('users/me: isAdmin по роли OnlineConf, сбой проверки — 
         expect(res.status).toBe(200);
         expect(await res.json()).toMatchObject({ login: 'u', isAdmin });
     }
+});
+
+test('users/me: конец сессии при проверке роли — 401 и удаление cookie, а не isAdmin: false', async () => {
+    const res = await fetch(`http://127.0.0.1:${bff.port}/api/users/me`, {
+        headers: { 'X-CSRF': '1', Cookie: cookies.lost! },
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.getSetCookie().some((c) => c.includes('Max-Age=0'))).toBe(true);
 });

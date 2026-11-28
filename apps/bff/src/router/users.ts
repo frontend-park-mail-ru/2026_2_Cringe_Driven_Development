@@ -1,6 +1,7 @@
 import { avatarInput, changePasswordInput, updateLoginInput } from '@cdd/schemas/validate';
 
 import { route } from '../http.ts';
+import { SessionEnded } from '../session/refresh.ts';
 
 /** Текущий пользователь: данные профиля, смена логина, пароля и аватара. */
 export const users = [
@@ -8,12 +9,18 @@ export const users = [
         method: 'GET',
         path: '/api/users/me',
         access: 'authed',
-        /** `isAdmin` — роль OnlineConf; сбой проверки роли профиль не ломает, ссылки в админку нет */
+        /**
+         * `isAdmin` — роль OnlineConf; сбой проверки роли профиль не ломает, ссылки в админку нет.
+         * Конец сессии при проверке пробрасывается: клиент получает `UNAUTHORIZED`.
+         */
         async handle({ go }) {
             const me = await go.getCurrentUser();
             const isAdmin = await go.getOnlineConfAccess().then(
                 () => true,
-                () => false,
+                (err: unknown) => {
+                    if (err instanceof SessionEnded) throw err;
+                    return false;
+                },
             );
             return { ...me, isAdmin };
         },
