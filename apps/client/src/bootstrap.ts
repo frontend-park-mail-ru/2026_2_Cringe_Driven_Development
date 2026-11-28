@@ -15,8 +15,8 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Данные, которые BFF положил в первый HTML. Блок должен быть ровно один, `<script>` с
- * `type="application/json"`, а в нём — `{ user: объект | null }` и, на странице своего блокнота,
- * `notebookPage`. Иначе — {@link BootstrapError}: гостем вместо пользователя и запасным запросом
+ * `type="application/json"`, а в нём — `{ user: объект | null }`, на странице своего блокнота —
+ * `notebookPage`, на главной и в блокноте вошедшего — `onlineconf` (настройки или `null`). Иначе — {@link BootstrapError}: гостем вместо пользователя и запасным запросом
  * дефект не прикрывается.
  */
 export function readBootstrap(): BootstrapData {
@@ -58,6 +58,19 @@ export function readBootstrap(): BootstrapData {
         }
         if (queue !== null && !(isObject(queue) && Array.isArray(queue.items))) {
             throw new BootstrapError('runtime_queue — не очередь и не null');
+        }
+    }
+    if ('onlineconf' in data) {
+        const settings = data.onlineconf;
+        if (
+            settings !== null &&
+            !(
+                isObject(settings) &&
+                Number.isInteger(settings.notebook_max_cells) &&
+                typeof settings.notebook_run_all === 'boolean'
+            )
+        ) {
+            throw new BootstrapError('onlineconf — не настройки и не null');
         }
     }
     return data as BootstrapData;

@@ -4,7 +4,7 @@ import { onSessionLost } from './api/bff';
 import { readBootstrap } from './bootstrap';
 import { RouterProvider } from '@cdd-team/router';
 import { router } from './router';
-import { setPreloadedNotebook } from './stores/preloaded';
+import { setPreloadedNotebook, setPreloadedSettings } from './stores/preloaded';
 import { watchConnection } from '@stores/connection';
 import { initSession, loseSession } from './stores/session';
 import { showToast } from './stores/toast';
@@ -20,9 +20,10 @@ if (!container) throw new Error('Не найден элемент #root');
  */
 let started = false;
 try {
-    const { user, notebookPage } = readBootstrap();
+    const { user, notebookPage, onlineconf } = readBootstrap();
     initSession(user);
     setPreloadedNotebook(notebookPage);
+    setPreloadedSettings(onlineconf, user, location.pathname);
     started = true;
 } catch (error) {
     console.error(error);

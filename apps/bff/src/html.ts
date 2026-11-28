@@ -6,6 +6,7 @@ import { loadNotebook } from './notebook.ts';
 import { type Page, decodeSegment, isAdminPage, pageOf } from './pages.ts';
 import { SessionEnded } from './session/refresh.ts';
 import { type Session, createSession } from './session/session.ts';
+import { loadSettings } from './settings.ts';
 import type { BootstrapData } from './types.ts';
 
 /** Заголовки HTML страниц: ответ зависит от сессии и выпуска, не кешируется. */
@@ -109,6 +110,8 @@ const notebookId = (pathname: string): number | undefined => {
  * - Вошедший: неизвестный адрес и `/404` — `302` на главную. Метаданные и content блокнота BFF
  *   загружает до выдачи HTML: свой — 200 и данные в bootstrap; отсутствующий, чужой (Go отвечает
  *   404 на оба) и некорректный ID — `302` на главную; сбой Go — 503.
+ * - Вошедший на главной и в блокноте: настройки OnlineConf (`onlineconf/me`) в bootstrap; сбой
+ *   OnlineConf — `onlineconf: null` в 200, не 503. Гостю настройки не запрашиваются.
  * - `/onlineconf` и `/onlineconf/*` при `adminTemplate`: см. {@link serveAdmin}.
  * @param template проверенный HTML-шаблон клиента
  * @param adminTemplate HTML админки OnlineConf
@@ -129,6 +132,7 @@ export function createHtmlHandler(
         }
         let user: BootstrapData['user'] = null;
         let notebookPage: BootstrapData['notebookPage'];
+        let onlineconf: BootstrapData['onlineconf'];
         try {
             if (session.active) {
                 const me = await go.getCurrentUser();
@@ -157,6 +161,9 @@ export function createHtmlHandler(
                     return redirect('/', headers);
                 }
             }
+            // после блокнота, а не параллельно: вызовы одной сессии не делят refresh
+            if (user && (page === 'index' || page === 'notebook'))
+                onlineconf = await loadSettings(go);
         } catch (err) {
             if (!(err instanceof SessionEnded)) {
                 session.setCookies(headers);
@@ -171,7 +178,11 @@ export function createHtmlHandler(
         const status = 200;
         return renderBootstrap(
             template,
-            notebookPage ? { user, notebookPage } : { user },
+            {
+                user,
+                ...(notebookPage && { notebookPage }),
+                ...(onlineconf !== undefined && { onlineconf }),
+            },
             headers,
             status,
         );

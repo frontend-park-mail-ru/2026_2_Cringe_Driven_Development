@@ -35,7 +35,9 @@ export type RuntimeError =
     | 'too_large'
     | 'failed'
     | 'stopFailed'
-    | 'interruptFailed';
+    | 'interruptFailed'
+    | 'run_all_disabled'
+    | 'settings_unavailable';
 
 /** Обычный интервал между обходами опроса. */
 export const POLL_INTERVAL_MS = 2000;
@@ -455,7 +457,9 @@ const fail = (error: RuntimeError): void => set({ error, failure: get().failure 
 
 /** Сбой, после которого команда могла быть принята: повтор — только с теми же ID и телом. */
 const uncertain = (error: unknown): boolean =>
-    !isBffError(error) || UNKNOWN_RESULT.has(error.code ?? '');
+    !isBffError(error) ||
+    // 502, но по контракту операция не принята
+    (error.appCode !== 'onlineconf_unavailable' && UNKNOWN_RESULT.has(error.code ?? ''));
 
 const errorOf = (error: unknown): RuntimeError => {
     if (uncertain(error)) return 'network';
@@ -466,6 +470,8 @@ const errorOf = (error: unknown): RuntimeError => {
             return 'unavailable';
         case 'conflict':
             return 'conflict';
+        case 'onlineconf_unavailable':
+            return 'settings_unavailable';
         default:
             return 'failed';
     }
@@ -671,7 +677,9 @@ async function send(command: Command): Promise<void> {
         set({ busy: null });
         unsent = uncertain(error) ? command : null;
         set({ awaitingRetry: unsent !== null });
-        const reason = errorOf(error);
+        const disabled =
+            command.kind === 'executeAll' && isBffError(error) && error.appCode === 'forbidden';
+        const reason = disabled ? 'run_all_disabled' : errorOf(error);
         fail(reason);
         // исходник на сервере другой: свежий снимок или выбор версии, сам код не уходит
         if (reason === 'conflict') void recheck();

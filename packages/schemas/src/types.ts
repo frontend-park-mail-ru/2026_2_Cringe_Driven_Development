@@ -601,6 +601,12 @@ export type WorkspacePaths = {
 /** Scope ключа OnlineConf. */
 export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
 
+/**
+ * Публичные настройки продукта для пользователя сессии (`ProductSettings`, backend#158): лимит
+ * ячеек и решение флага «Запустить всё»; оба поля обязательны.
+ */
+export type OnlineConfMe = { notebook_max_cells: number; notebook_run_all: boolean };
+
 /** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
 export interface OnlineConfUser {
     id: number;
@@ -708,7 +714,7 @@ type OnlineConfErrors<S extends number = never> = Errors<
 >;
 type KeyPath = { path: { name: string } };
 
-/** Карта операций OnlineConf: пути от корня сервиса, без `/api/v1`. */
+/** Карта операций OnlineConf: пути от корня сервиса (`ONLINECONF_API_URL` без `/api/v1`). */
 export type OnlineConfPaths = {
     '/admin/access': { GET: { responses: { 204: undefined } & OnlineConfErrors } };
     '/admin/keys': {
@@ -744,4 +750,5 @@ export type OnlineConfPaths = {
             responses: { 200: OnlineConfUser } & OnlineConfErrors<400 | 404>;
         };
     };
+    '/api/v1/onlineconf/me': { GET: { responses: { 200: OnlineConfMe } & OnlineConfErrors } };
 };

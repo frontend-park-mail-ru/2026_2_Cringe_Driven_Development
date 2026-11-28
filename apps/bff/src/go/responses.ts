@@ -33,6 +33,7 @@ import type {
     OnlineConfCard,
     OnlineConfEvaluation,
     OnlineConfList,
+    OnlineConfMe,
     OnlineConfUser,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
@@ -267,6 +268,11 @@ export const onlineConfCardResponse: Validator<OnlineConfCard> = validator(onlin
 /** Решение по флагу для пользователя. */
 export const onlineConfEvaluationResponse: Validator<OnlineConfEvaluation> =
     validator(onlineConfEvaluation);
+
+/** Публичные настройки продукта: оба поля обязательны, лишние отбрасываются. */
+export const onlineConfMeResponse: Validator<OnlineConfMe> = validator(
+    object({ notebook_max_cells: int({ min: 1, max: 1000 }), notebook_run_all: boolean }),
+);
 
 /** Пользователь Identity по ID или логину. */
 export const onlineConfUserResponse: Validator<OnlineConfUser> = validator(onlineConfUser);
