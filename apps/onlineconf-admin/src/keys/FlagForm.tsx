@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from '@cdd-team/react';
 import { api, isBffError, type Output } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Textarea } from '@components/Input/Textarea';
+import { DeleteKey } from './DeleteKey';
 import { errorText } from './errorText';
 import { rolloutChoices, rolloutHint } from './rules';
 import { UserList } from './UserList';
@@ -240,6 +241,7 @@ export function FlagForm({
                 <p key="status" className={styles.status} aria-live="polite">
                     {status}
                 </p>
+                <DeleteKey key="delete" name={card.name} disabled={loading} />
                 {dirty && (
                     <Button
                         key="reset"
