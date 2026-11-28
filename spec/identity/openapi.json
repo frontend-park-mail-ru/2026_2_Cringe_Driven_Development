@@ -1981,6 +1981,7 @@
               "invalid_totp",
               "invalid_current_password",
               "rate_limited",
+              "onlineconf_unavailable",
               "dependency_unavailable",
               "deadline_exceeded"
             ]

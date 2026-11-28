@@ -12,6 +12,7 @@ import {
     object,
     oneOf,
     onlineConfCard,
+    onlineConfEvaluation,
     onlineConfList,
     onlineConfUser,
     record,
@@ -30,6 +31,7 @@ import type {
     NotebookContentChange,
     NotebookListPage,
     OnlineConfCard,
+    OnlineConfEvaluation,
     OnlineConfList,
     OnlineConfUser,
     RuntimeBatchExecution,
@@ -261,6 +263,10 @@ export const onlineConfListResponse: Validator<OnlineConfList> = validator(onlin
 
 /** Карточка ключа OnlineConf. */
 export const onlineConfCardResponse: Validator<OnlineConfCard> = validator(onlineConfCard);
+
+/** Решение по флагу для пользователя. */
+export const onlineConfEvaluationResponse: Validator<OnlineConfEvaluation> =
+    validator(onlineConfEvaluation);
 
 /** Пользователь Identity по ID или логину. */
 export const onlineConfUserResponse: Validator<OnlineConfUser> = validator(onlineConfUser);

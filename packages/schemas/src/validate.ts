@@ -639,6 +639,12 @@ export const onlineConfCard = byType(
     }),
 );
 
+/** Ответ OnlineConf: решение по сохранённому флагу для пользователя. */
+export const onlineConfEvaluation = object({
+    enabled: boolean,
+    reason: oneOf(['disabled', 'excluded', 'included', 'rollout']),
+});
+
 /** Query списка ключей: подстрока имени и необязательные фильтры. */
 export const listOnlineConfKeysInput = validator(
     query({
@@ -650,6 +656,11 @@ export const listOnlineConfKeysInput = validator(
 
 /** Query карточки ключа по полному имени. */
 export const getOnlineConfKeyInput = validator(query({ name: onlineConfName }));
+
+/** Query проверки сохранённого флага для пользователя Identity. */
+export const evaluateOnlineConfKeyInput = validator(
+    query({ name: onlineConfName, user_id: intParam({ min: 1 }) }),
+);
 
 /** Удаление ключа по полному имени. */
 export const deleteOnlineConfKeyInput = validator(object({ name: onlineConfName }, 'strict'));
