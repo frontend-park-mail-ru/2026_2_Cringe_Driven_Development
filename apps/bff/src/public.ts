@@ -26,7 +26,8 @@ export const PUBLIC_FILES: readonly string[] = [
 export async function loadClientAssets(dir: string): Promise<Map<string, Bun.BunFile>> {
     const files = new Map<string, Bun.BunFile>();
     for await (const name of new Bun.Glob('assets/**').scan(dir)) {
-        files.set(name, Bun.file(join(dir, name)));
+        // на Windows Glob отдаёт путь с `\`, а имя — это путь адреса
+        files.set(name.replaceAll('\\', '/'), Bun.file(join(dir, name)));
     }
     return files;
 }
