@@ -3,7 +3,6 @@ import { api, isBffError, type Output } from '@api/bff';
 import { Icon } from '@components/Icon/Icon';
 import { Input } from '@components/Input/Input';
 import { errorText } from './errorText';
-import { userQuery } from './rules';
 import styles from './KeyPage.module.css';
 
 type ConfUser = Output<'/api/onlineconf/users/resolve'>;
@@ -11,7 +10,7 @@ type ConfUser = Output<'/api/onlineconf/users/resolve'>;
 /** Столько пользователей BFF принимает в одном списке. */
 const LIMIT = 1000;
 
-/** Список пользователей флага: добавление по ID или логину по Enter и удаление. */
+/** Список пользователей флага: добавление по логину по Enter и удаление. */
 export function UserList({
     id,
     label,
@@ -49,10 +48,10 @@ export function UserList({
 
     // значение приходит из поля: сразу после ввода `text` ещё может быть прежним
     const add = async (sent: string) => {
-        if (disabled || lookupRef.current || !sent.trim()) return;
-        const query = userQuery(sent);
-        if (!query) {
-            setError('Введите userID или логин до 32 символов');
+        const login = sent.trim();
+        if (disabled || lookupRef.current || !login) return;
+        if (login.length > 32) {
+            setError('Логин не длиннее 32 символов');
             return;
         }
         const controller = new AbortController();
@@ -62,7 +61,7 @@ export function UserList({
         setError(undefined);
         try {
             const found = await api('GET', '/api/onlineconf/users/resolve', {
-                params: { query },
+                params: { query: { login } },
                 init: { signal },
             });
             if (signal.aborted) return;
@@ -101,7 +100,7 @@ export function UserList({
                 label={label}
                 name={id}
                 value={text}
-                placeholder="userID или логин, затем Enter"
+                placeholder="Логин, затем Enter"
                 hint={busy ? 'Ищем пользователя…' : undefined}
                 error={error}
                 disabled={disabled}
