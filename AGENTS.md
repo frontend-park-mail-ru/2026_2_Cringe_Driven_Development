@@ -7,7 +7,7 @@
 Код/PR/issues — в Cringe-Driven-Development-Team/frontend: ветка web-N,
 в PR `Closes #N` создаёт штатную связь с задачей; merge оставляет её открытой
 с `Ready for build`, проверенный Release даёт `Ready for release`. Только CD после
-Health check и сохранённого production success закрывает completed и ставит `Done`.
+успешного Switch BFF и сохранённого production success закрывает completed и ставит `Done`.
 Rollback меняет Status на `Rollback from production` без reopen; следующий CD возвращает
 `Done`. Ручные reopen после merge и not planned/duplicate защищены; ручное completed
 сохраняет Done и допускает rollback после первого подтверждённого CD. Сбой карточек

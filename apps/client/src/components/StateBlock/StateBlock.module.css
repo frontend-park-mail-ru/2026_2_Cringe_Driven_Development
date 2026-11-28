@@ -9,7 +9,7 @@
     padding: 56px 24px;
     border: 1px dashed var(--color-border-control);
     border-radius: 16px;
-    background: var(--color-surface);
+    background: var(--color-glass);
     backdrop-filter: var(--blur-glass);
     text-align: center;
 }

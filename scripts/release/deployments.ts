@@ -191,7 +191,7 @@ export async function startProduction(
 }
 
 /**
- * Итог записи production: success — только после проверок фактически запущенного выпуска.
+ * Итог записи production: success — только после успешного переключения BFF.
  * @param id id записи Deployment строкой
  * @param state success, failure или error
  */
@@ -202,9 +202,9 @@ export async function finishProduction(id: string, state: string): Promise<void>
     }
     const description =
         state === 'success'
-            ? 'Образ запущен, healthy; HTML, RPC и ассеты проверены'
+            ? 'Образ запущен, digest подтверждён, BFF готов'
             : state === 'failure'
-              ? 'Проверка после переключения не прошла'
+              ? 'Переключение BFF не прошло'
               : 'Выкатка прервана до проверки результата';
     await setDeploymentState(Number(id), state, description);
 }

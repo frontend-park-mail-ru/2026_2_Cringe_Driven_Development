@@ -648,7 +648,18 @@ export type OnlineConfCard =
           OnlineConfCardMeta & {
               include_users: OnlineConfUser[];
               exclude_users: OnlineConfUser[];
+              rollout_policy: OnlineConfRolloutPolicy;
           });
+
+/**
+ * Регламент раскатки флага от сервера: ступени, ближайшая ступень выше сохранённой
+ * (null на 100% или у выключенного флага) и время UTC, с которого она доступна (null — сразу).
+ */
+export interface OnlineConfRolloutPolicy {
+    stages: number[];
+    next_percent: number | null;
+    next_allowed_at: string | null;
+}
 
 /** Список ключей с общими счётчиками до фильтрации. */
 export interface OnlineConfList {
@@ -684,6 +695,7 @@ export interface OnlineConfError {
         | 's2s_forbidden'
         | 'not_found'
         | 'key_name_taken'
+        | 'rollout_step_not_allowed'
         | 'internal_error'
         | 'dependency_unavailable';
     message: string;

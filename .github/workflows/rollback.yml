@@ -127,21 +127,17 @@ jobs:
       - name: Remove deployment secrets
         if: always()
         run: rm -rf "$RUNNER_TEMP/deploy"
-      - name: Health check
-        id: health
-        env:
-          SHA: ${{ steps.target.outputs.sha }}
-        run: bun run release health "$SHA"
+      # success — только если Switch BFF подтвердил digest и readiness; не запускался или отменён — error
       - name: Production result
         id: finish
         if: always() && steps.start.outputs.deployment_id
         env:
           ID: ${{ steps.start.outputs.deployment_id }}
-          RESULT: ${{ steps.health.outcome == 'success' && 'success' || (steps.switch.outcome == 'success' && 'failure' || 'error') }}
+          RESULT: ${{ steps.switch.outcome == 'success' && 'success' || (steps.switch.outcome == 'failure' && 'failure' || 'error') }}
         run: bun run release finish "$ID" "$RESULT"
       - name: Update release issues
         id: board
-        if: "!cancelled() && steps.health.outcome == 'success' && steps.finish.outcome == 'success'"
+        if: "!cancelled() && steps.switch.outcome == 'success' && steps.finish.outcome == 'success'"
         env:
           ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
           RELEASE_DEPLOYMENT_ID: ${{ steps.start.outputs.deployment_id }}

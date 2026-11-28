@@ -126,7 +126,7 @@ body {
     border: 1px solid rgb(205 190 255 / 0.3);
     border-radius: 50%;
     background:
-        radial-gradient(1200px 260px at 50% 0, rgb(160 154 192 / 0.12), transparent), #05030f;
+        radial-gradient(1200px 260px at 50% 0, rgb(180 174 208 / 0.12), transparent), #05030f;
     box-shadow:
         0 -26px 90px -6px rgb(139 108 255 / 0.55),
         0 -2px 18px rgb(230 215 255 / 0.45);
@@ -162,7 +162,7 @@ body {
     padding: 56px 24px;
     border: 1px dashed rgb(255 255 255 / 0.4);
     border-radius: 16px;
-    background: rgb(255 255 255 / 0.04);
+    background: rgb(21 19 31 / 0.62);
     backdrop-filter: blur(20px);
 }
 
@@ -184,7 +184,7 @@ h1 {
 p {
     font-size: 14px;
     line-height: 20px;
-    color: #a09ac0;
+    color: #b4aed0;
 }
 
 .button {
@@ -206,7 +206,7 @@ p {
     }
 
     &:focus-visible {
-        outline: 2px solid #8b6cff;
+        outline: 2px solid #aa94ff;
         outline-offset: 2px;
     }
 }

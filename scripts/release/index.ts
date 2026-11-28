@@ -2,7 +2,7 @@
 // и на CDN; образ BFF — публичный GHCR по digest; готовые выпуски — GitHub Releases, история прода
 // — GitHub Deployments (production). HTML отдаёт работающий образ BFF, указателя в S3 нет.
 import { appendFileSync } from 'node:fs';
-import { health, releaseCheck } from './checks.ts';
+import { releaseCheck } from './checks.ts';
 import {
     assertReleaseDirection,
     finishProduction,
@@ -35,7 +35,6 @@ const USAGE = `Использование: bun run release <команда>
   target                          цель отката по истории production
   start <sha> <image_ref> <deploy|rollback>   запись production до переключения (RELEASE_ID)
   finish <deployment_id> <success|failure|error>   итог записи production
-  health <sha>                    Health check: прод отдаёт выпуск через BFF
   retention                       удалить старые ассеты
   direction <deploy|rollback> <sha>       проверить направление от RELEASE_BEFORE_SHA
   board <publish|deploy|rollback> <sha>    карточки операции; deploy/rollback требуют RELEASE_DEPLOYMENT_ID
@@ -141,8 +140,6 @@ async function main(command: string | undefined, args: string[]): Promise<void> 
             );
         case 'finish':
             return finishProduction(args[0] ?? '', args[1] ?? '');
-        case 'health':
-            return health(checkSha(args[0]));
         case 'retention':
             return retention();
         default:
