@@ -10,12 +10,21 @@ const services = [
         host: 'identity.internal.cellestial.ru',
         remotePort: 8444,
         port: 18444,
+        prefix: '/api/v1',
     },
     {
         variable: 'WORKSPACE_API_URL',
         host: 'workspace.internal.cellestial.ru',
         remotePort: 8445,
         port: 18445,
+        prefix: '/api/v1',
+    },
+    {
+        variable: 'ONLINECONF_API_URL',
+        host: 'onlineconf.internal.cellestial.ru',
+        remotePort: 8446,
+        port: 18446,
+        prefix: '',
     },
 ] as const;
 const HEALTH_TIMEOUT_MS = 15_000;
@@ -32,8 +41,8 @@ for (const name of required) {
 }
 const { DEV_TUNNEL_SSH_HOST: sshHost, DEV_TUNNEL_BACKEND_HOST: backendHost } = process.env;
 const env = { ...process.env };
-for (const { variable, host, port } of services) {
-    env[variable] = `https://127.0.0.1:${port}/api/v1`;
+for (const { variable, host, port, prefix } of services) {
+    env[variable] = `https://127.0.0.1:${port}${prefix}`;
     env[`${variable}_TLS_SERVER_NAME`] = host;
 }
 const endpoints = services.map(({ variable }) => {
@@ -98,12 +107,12 @@ if (!(await Promise.all(endpoints.map(waitHealth))).every(Boolean)) {
     ssh.kill();
     fail(
         sshAlive()
-            ? `Identity или Workspace не ответил на /health за ${HEALTH_TIMEOUT_MS / 1000} с: проверьте DEV_TUNNEL_BACKEND_HOST`
+            ? `Identity, Workspace или OnlineConf не ответил на /health за ${HEALTH_TIMEOUT_MS / 1000} с: проверьте DEV_TUNNEL_BACKEND_HOST`
             : `SSH завершился с кодом ${ssh.exitCode}: проверьте доступ к ${sshHost}`,
     );
 }
 
-console.log(`dev:tunnel: Identity и Workspace доступны через SSH`);
+console.log(`dev:tunnel: Identity, Workspace и OnlineConf доступны через SSH`);
 const dev = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: join(import.meta.dir, '../..'),
     env,

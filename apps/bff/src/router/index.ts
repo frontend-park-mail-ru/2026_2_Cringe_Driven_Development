@@ -2,6 +2,7 @@ import type { PathsOf } from '../http.ts';
 import { auth } from './auth.ts';
 import { cells } from './cells.ts';
 import { notebooks } from './notebooks.ts';
+import { onlineconf } from './onlineconf.ts';
 import { runtime } from './runtime.ts';
 import { twoFactor } from './twoFactor.ts';
 import { users } from './users.ts';
@@ -14,6 +15,7 @@ export const routes = [
     ...notebooks,
     ...cells,
     ...runtime,
+    ...onlineconf,
 ] as const;
 
 /** Карта операций BFF для общего клиента: `createClient<BffPaths>`. */

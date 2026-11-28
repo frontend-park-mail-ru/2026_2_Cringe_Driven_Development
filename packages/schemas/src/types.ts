@@ -1,5 +1,6 @@
 /**
- * Типы контракта Go: редактируемый исходник по закреплённой копии spec/identity и spec/workspace, не
+ * Типы контракта Go: редактируемый исходник по закреплённой копии spec/identity, spec/workspace и
+ * spec/onlineconf, не
  * генерация. Описаны только операции, которые вызывает приложение. Компилятор проверяет вызовы
  * относительно этих типов, но не доказывает их соответствие спеке: риск расхождения принят
  * (frontend#253). Ограничения min/max/pattern/format проверяются в рантайме, не здесь.
@@ -593,6 +594,83 @@ export type WorkspacePaths = {
         POST: {
             params: { path: RuntimeId };
             responses: { 200: { interrupt_requested: true } } & RuntimeConflictErrors;
+        };
+    };
+};
+
+/** Scope ключа OnlineConf: frontend или имя микросервиса. */
+export type OnlineConfScope = string;
+
+/** Конфиг OnlineConf: произвольное JSON-значение, `false`, `0` и `null` — тоже значения. */
+export interface OnlineConfConfigValue {
+    kind: 'config';
+    value: unknown;
+}
+
+/** Флаг OnlineConf: процент раскатки и списки пользователей, которые не пересекаются. */
+export interface OnlineConfFlagValue {
+    kind: 'flag';
+    rollout_percent: number;
+    include_user_ids: number[];
+    exclude_user_ids: number[];
+}
+
+/** Значение ключа OnlineConf по виду. */
+export type OnlineConfKeyValue = OnlineConfConfigValue | OnlineConfFlagValue;
+
+/** Ключ OnlineConf: scope и имя задают его однозначно. */
+export type OnlineConfKey = { scope: OnlineConfScope; name: string } & OnlineConfKeyValue;
+
+/** Ключ OnlineConf в списке. */
+export interface OnlineConfKeySummary {
+    scope: OnlineConfScope;
+    name: string;
+    kind: OnlineConfKeyValue['kind'];
+}
+
+/** Ошибка OnlineConf. */
+export interface OnlineConfError {
+    code:
+        | 'validation_error'
+        | 'unauthorized'
+        | 'forbidden'
+        | 's2s_forbidden'
+        | 'not_found'
+        | 'conflict'
+        | 'internal'
+        | 'dependency_unavailable';
+    message: string;
+}
+
+type OnlineConfErrors = Errors<401 | 403 | 500 | 503, OnlineConfError>;
+type KeyPath = { path: { scope: OnlineConfScope; name: string } };
+
+/** Карта операций OnlineConf: пути от корня сервиса, без `/api/v1`. */
+export type OnlineConfPaths = {
+    '/admin/access': { GET: { responses: { 204: undefined } & OnlineConfErrors } };
+    '/admin/keys': {
+        GET: {
+            params: { query: { scope: OnlineConfScope; search?: string } };
+            responses: { 200: { items: OnlineConfKeySummary[] } } & Errors<400, OnlineConfError> &
+                OnlineConfErrors;
+        };
+        POST: {
+            body: Json<OnlineConfKey>;
+            responses: { 201: OnlineConfKey } & Errors<400 | 409, OnlineConfError> &
+                OnlineConfErrors;
+        };
+    };
+    '/admin/keys/{scope}/{name}': {
+        GET: {
+            params: KeyPath;
+            responses: { 200: OnlineConfKey } & Errors<400 | 404, OnlineConfError> &
+                OnlineConfErrors;
+        };
+        PUT: {
+            params: KeyPath;
+            body: Json<OnlineConfKeyValue>;
+            responses: { 200: OnlineConfKey } & Errors<400 | 404 | 409, OnlineConfError> &
+                OnlineConfErrors;
         };
     };
 };

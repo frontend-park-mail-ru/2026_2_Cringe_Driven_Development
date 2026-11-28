@@ -92,6 +92,7 @@ PR требует ревью frontend-ментора. Merge оставляет �
 | `SESSION_KEY`                            | ключ AES-256-GCM сессии: base64 ровно 32 байт (`openssl rand -base64 32`), обязателен                                                                    |
 | `APP_ORIGIN`                             | origin приложения без пути (`https://cellestial.ru`) — для CSRF, обязателен                                                                              |
 | `IDENTITY_API_URL` и `WORKSPACE_API_URL` | адреса Identity и Workspace с префиксом API. В production обязателен HTTPS                                                                               |
+| `ONLINECONF_API_URL`                     | адрес OnlineConf — корень сервиса, без `/api/v1`. Обязателен, в production — HTTPS                                                                       |
 | `GO_API_TLS_CA_FILE`                     | путь к PEM доверенного CA. На стенде `/run/secrets/go-api/ca.crt`                                                                                        |
 | `GO_API_TLS_CERT_FILE`                   | путь к PEM сертификата `cellestial-bff`. На стенде `/run/secrets/go-api/client.crt`                                                                      |
 | `GO_API_TLS_KEY_FILE`                    | путь к приватному ключу. На стенде `/run/secrets/go-api/client.key`                                                                                      |
@@ -118,6 +119,13 @@ PR требует ревью frontend-ментора. Merge оставляет �
 нового HTML нет, и то же поведение повторяет клиент: гость с защищённого или неизвестного маршрута
 уходит на `/login`, вошедший с неизвестного — на `/404`, а `NOT_FOUND` от `notebooks.get` ведёт на
 `/404`.
+
+Админка при старте вызывает `GET /api/onlineconf/access`. BFF передаёт OnlineConf access-токен из
+сессии и `X-BFF-Key`, роль `onlineconf_admin` проверяет OnlineConf по Identity. Ответы: `204` —
+администратор, `401` — нет входа (админка предлагает войти), `403` с `appCode: forbidden` — нет роли
+(отказ, продуктовая сессия не завершается), сбой OnlineConf — `502`. Ключи — `GET
+/api/onlineconf/keys/list` и `/keys/get`, `POST /api/onlineconf/keys/create` и `/keys/update` с той же
+проверкой. Локально API админки проверяется через `bun run preview`: dev-Vite админки работает без BFF.
 
 Неверная конфигурация или шаблон без ровно одного `<script id="bootstrap" type="application/json">`
 не дают BFF стартовать; в вывод попадают только имена переменных.
@@ -290,17 +298,18 @@ GO_API_TLS_KEY_FILE=/absolute/path/to/client.key
 bun run dev:tunnel   # туннель, затем bun run dev: https://localhost:5173
 ```
 
-Команда обращается к **production Go** и использует ваш SSH-доступ к gateway: поднимает туннель и проверяет `/health` обоих API и запускает `bun run dev` с `IDENTITY_API_URL` и `WORKSPACE_API_URL` туннеля поверх `.env`. Нет
-переменной, занят порт `18444` или `18445` или туннель не поднялся — команда завершается с причиной, Vite и BFF не
+Команда обращается к **production Go** и использует ваш SSH-доступ к gateway: поднимает туннель и проверяет `/health` всех трёх API и запускает `bun run dev` с `IDENTITY_API_URL`, `WORKSPACE_API_URL` и `ONLINECONF_API_URL` туннеля поверх `.env`. Нет
+переменной, занят порт `18444`, `18445` или `18446` или туннель не поднялся — команда завершается с причиной, Vite и BFF не
 запускаются. Ctrl+C останавливает dev и туннель, обрыв туннеля — dev. Обычный `bun run dev` туннель не
 запускает. Подробности — `scripts/dev/tunnel.ts`.
 
 ### Адреса API
 
 Для production задайте `IDENTITY_API_URL=https://identity.internal.cellestial.ru:8444/api/v1`
-и `WORKSPACE_API_URL=https://workspace.internal.cellestial.ru:8445/api/v1`.
-Оба сервиса используют общий комплект `GO_API_TLS_*_FILE`. Туннель пробрасывает
-локальные порты 18444 и 18445 и проверяет DNS SAN каждого сервиса.
+и `WORKSPACE_API_URL=https://workspace.internal.cellestial.ru:8445/api/v1`, для OnlineConf —
+`ONLINECONF_API_URL=https://onlineconf.internal.cellestial.ru:8446` (без `/api/v1`).
+Сервисы используют общий комплект `GO_API_TLS_*_FILE`. Туннель пробрасывает
+локальные порты 18444, 18445 и 18446 и проверяет DNS SAN каждого сервиса.
 
 `GET /metrics` возвращает число upstream-вызовов и суммарное время до заголовков
 ответа с метками `service` и `outcome`. Идентификатор запроса доступен в access-логе.

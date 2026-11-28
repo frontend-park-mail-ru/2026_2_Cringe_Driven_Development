@@ -1,4 +1,4 @@
-// Ручные проверки ответов Go по закреплённому контракту spec/identity и spec/workspace. Только для BFF: в браузер
+// Ручные проверки ответов Go по закреплённому контракту spec/identity, spec/workspace и spec/onlineconf. Только для BFF: в браузер
 // не импортируются. Тип Validator<DTO> сверяет проверку с редактируемыми типами @cdd/schemas/types.
 import {
     array,
@@ -11,6 +11,8 @@ import {
     number,
     object,
     oneOf,
+    onlineConfKey,
+    onlineConfKeySummary,
     record,
     string,
     url,
@@ -26,6 +28,8 @@ import type {
     NotebookContent,
     NotebookContentChange,
     NotebookListPage,
+    OnlineConfKey,
+    OnlineConfKeySummary,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
     RuntimeExecution,
@@ -249,3 +253,11 @@ export const stoppedResponse: Validator<{ stopped: true }> = validator(
 export const interruptResponse: Validator<{ interrupt_requested: true }> = validator(
     object({ interrupt_requested: literal(true) }),
 );
+
+/** Ключи scope OnlineConf. */
+export const onlineConfKeysResponse: Validator<{ items: OnlineConfKeySummary[] }> = validator(
+    object({ items: array(onlineConfKeySummary, { max: 500 }) }),
+);
+
+/** Ключ OnlineConf. */
+export const onlineConfKeyResponse: Validator<OnlineConfKey> = validator(onlineConfKey('strip'));

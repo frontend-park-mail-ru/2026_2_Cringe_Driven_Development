@@ -542,3 +542,93 @@ export const runtimeSessionValue: Validator<RuntimeSession> = validator(
         cleanup_error: nullable(string()),
     }),
 );
+
+/** Scope ключа OnlineConf: frontend или имя микросервиса. */
+const onlineConfScope = string({ pattern: /^[a-z][a-z0-9-]{0,31}$/ });
+/** Имя ключа OnlineConf, уникальное в scope. */
+const onlineConfName = string({ pattern: /^[a-z][a-z0-9_.-]{0,127}$/ });
+/** Ключ OnlineConf однозначно задают scope и имя. */
+const onlineConfId = { scope: onlineConfScope, name: onlineConfName };
+/** ID пользователей флага: до 1000 положительных целых. */
+const userIds = array(int({ min: 1 }), { max: 1000 });
+
+/**
+ * Любое JSON-значение, включая `false`, `0` и `null`; отсутствие поля — ошибка.
+ * @param value проверяемое значение
+ * @param path путь до поля
+ * @param issues накопитель проблем
+ */
+const json: Check<{} | null> = (value, path, issues) =>
+    value === undefined ? fail(issues, path, 'Обязательное поле') : (value as {} | null);
+
+/**
+ * Флаг: ID в каждом списке не повторяются, списки не пересекаются.
+ * @param check проверка полей флага
+ */
+const distinctUsers =
+    <T extends { include_user_ids: number[]; exclude_user_ids: number[] }, W>(
+        check: Check<T, W>,
+    ): Check<T, W> =>
+    (value, path, issues) => {
+        const flag = check(value, path, issues);
+        if (flag === INVALID) return flag;
+        for (const field of ['include_user_ids', 'exclude_user_ids'] as const) {
+            if (new Set(flag[field]).size !== flag[field].length) {
+                return fail(issues, [...path, field], 'ID повторяются');
+            }
+        }
+        const include = new Set(flag.include_user_ids);
+        if (flag.exclude_user_ids.some((id) => include.has(id))) {
+            return fail(issues, [...path, 'exclude_user_ids'], 'Пересекается с include_user_ids');
+        }
+        return flag;
+    };
+
+/**
+ * Вариант по `kind`: проблемы — в полях своего вида, а не «не подходит ни один вариант».
+ * @param config проверка конфига
+ * @param flag проверка флага
+ */
+const byKind =
+    <C, F, WC, WF>(config: Check<C, WC>, flag: Check<F, WF>): Check<C | F, WC | WF> =>
+    (value, path, issues) => {
+        const kind = isRecord(value) ? value.kind : undefined;
+        if (kind === 'config') return config(value, path, issues);
+        if (kind === 'flag') return flag(value, path, issues);
+        return fail(issues, [...path, 'kind'], 'Одно из: config, flag');
+    };
+
+/**
+ * Ключ OnlineConf: scope, имя и значение своего вида.
+ * @param mode лишние поля: `strict` — вход, `strip` — ответ Go
+ */
+export const onlineConfKey = (mode: 'strip' | 'strict') =>
+    byKind(
+        object({ ...onlineConfId, kind: literal('config'), value: json }, mode),
+        distinctUsers(
+            object(
+                {
+                    ...onlineConfId,
+                    kind: literal('flag'),
+                    rollout_percent: int({ min: 0, max: 100 }),
+                    include_user_ids: userIds,
+                    exclude_user_ids: userIds,
+                },
+                mode,
+            ),
+        ),
+    );
+
+/** Ключ OnlineConf в списке. */
+export const onlineConfKeySummary = object({ ...onlineConfId, kind: oneOf(['config', 'flag']) });
+
+/** Query списка ключей OnlineConf: scope и необязательная подстрока имени. */
+export const listOnlineConfKeysInput = validator(
+    query({ scope: onlineConfScope, search: optional(string({ max: 128 })) }),
+);
+
+/** Query ключа OnlineConf по scope и имени. */
+export const getOnlineConfKeyInput = validator(query(onlineConfId));
+
+/** Ключ OnlineConf для создания и замены: при любой проблеме ничего не сохраняется. */
+export const onlineConfKeyInput = validator(onlineConfKey('strict'));

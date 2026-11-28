@@ -1,0 +1,1164 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cellestial OnlineConf API",
+    "version": "1.0.0",
+    "description": "Внутренний административный HTTP API OnlineConf. Пути от корня сервиса, без /api/v1. Все операции требуют mTLS с идентичностью BFF, X-BFF-Key и access-токен пользователя с ролью onlineconf_admin из Identity. Ключ однозначно задают scope и имя; вид ключа (config или flag) после создания не меняется."
+  },
+  "tags": [
+    {
+      "name": "admin",
+      "description": "Проверка доступа и управление ключами OnlineConf."
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/admin/access": {
+      "get": {
+        "summary": "Проверка доступа",
+        "description": "Подтверждает, что текущий пользователь может работать с OnlineConf. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "getAdminAccess",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Пользователь с ролью onlineconf_admin."
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "s2s": {
+                    "summary": "s2s",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  },
+                  "role": {
+                    "summary": "role",
+                    "value": {
+                      "code": "forbidden",
+                      "message": "onlineconf_admin role required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity или хранилище OnlineConf недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "dependency_unavailable",
+                  "message": "authorization unavailable"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/keys": {
+      "get": {
+        "summary": "Ключи scope",
+        "description": "Ключи одного scope, отсортированные по имени. Ключи других scope не возвращаются. shortcut: без пагинации, ответ ограничен 500 ключами; курсор — когда scope перерастёт лимит. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "listKeys",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Scope"
+            },
+            "example": "frontend"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Подстрока имени без учёта регистра; пробелы по краям обрезаются, пустая строка — весь scope.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "example": "editor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ключи scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "scope": "frontend",
+                      "name": "editor.theme",
+                      "kind": "config"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "include_user_ids and exclude_user_ids intersect"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "s2s": {
+                    "summary": "s2s",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  },
+                  "role": {
+                    "summary": "role",
+                    "value": {
+                      "code": "forbidden",
+                      "message": "onlineconf_admin role required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity или хранилище OnlineConf недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "dependency_unavailable",
+                  "message": "authorization unavailable"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать ключ",
+        "description": "Создаёт конфиг или флаг. При любой ошибке проверки ключ не создаётся. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "createKey",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Созданный ключ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Key"
+                },
+                "examples": {
+                  "config": {
+                    "summary": "config",
+                    "value": {
+                      "scope": "frontend",
+                      "name": "editor.theme",
+                      "kind": "config",
+                      "value": {
+                        "default": "dark",
+                        "allowed": [
+                          "dark",
+                          "light"
+                        ]
+                      }
+                    }
+                  },
+                  "flag": {
+                    "summary": "flag",
+                    "value": {
+                      "scope": "workspace",
+                      "name": "notebook.comments",
+                      "kind": "flag",
+                      "rollout_percent": 25,
+                      "include_user_ids": [
+                        1,
+                        7
+                      ],
+                      "exclude_user_ids": [
+                        42
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "include_user_ids and exclude_user_ids intersect"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ключ с таким scope и именем уже существует.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "conflict",
+                  "message": "key already exists"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "s2s": {
+                    "summary": "s2s",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  },
+                  "role": {
+                    "summary": "role",
+                    "value": {
+                      "code": "forbidden",
+                      "message": "onlineconf_admin role required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity или хранилище OnlineConf недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "dependency_unavailable",
+                  "message": "authorization unavailable"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Key"
+              },
+              "examples": {
+                "config": {
+                  "summary": "config",
+                  "value": {
+                    "scope": "frontend",
+                    "name": "editor.theme",
+                    "kind": "config",
+                    "value": {
+                      "default": "dark",
+                      "allowed": [
+                        "dark",
+                        "light"
+                      ]
+                    }
+                  }
+                },
+                "flag": {
+                  "summary": "flag",
+                  "value": {
+                    "scope": "workspace",
+                    "name": "notebook.comments",
+                    "kind": "flag",
+                    "rollout_percent": 25,
+                    "include_user_ids": [
+                      1,
+                      7
+                    ],
+                    "exclude_user_ids": [
+                      42
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/keys/{scope}/{name}": {
+      "get": {
+        "summary": "Карточка ключа",
+        "description": "Ключ со значением. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "getKey",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Scope"
+            },
+            "example": "frontend"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Name"
+            },
+            "example": "editor.theme"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ключ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Key"
+                },
+                "examples": {
+                  "config": {
+                    "summary": "config",
+                    "value": {
+                      "scope": "frontend",
+                      "name": "editor.theme",
+                      "kind": "config",
+                      "value": {
+                        "default": "dark",
+                        "allowed": [
+                          "dark",
+                          "light"
+                        ]
+                      }
+                    }
+                  },
+                  "flag": {
+                    "summary": "flag",
+                    "value": {
+                      "scope": "workspace",
+                      "name": "notebook.comments",
+                      "kind": "flag",
+                      "rollout_percent": 25,
+                      "include_user_ids": [
+                        1,
+                        7
+                      ],
+                      "exclude_user_ids": [
+                        42
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "include_user_ids and exclude_user_ids intersect"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ключа с таким scope и именем нет.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "key not found"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "s2s": {
+                    "summary": "s2s",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  },
+                  "role": {
+                    "summary": "role",
+                    "value": {
+                      "code": "forbidden",
+                      "message": "onlineconf_admin role required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity или хранилище OnlineConf недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "dependency_unavailable",
+                  "message": "authorization unavailable"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Изменить ключ",
+        "description": "Заменяет значение ключа целиком. Вид ключа должен совпадать с сохранённым. При ошибке ни одно поле не меняется. Требуются X-BFF-Key и Authorization: Bearer <access_token> пользователя с ролью onlineconf_admin; порядок проверки: S2S → Bearer → роль → валидация.",
+        "operationId": "updateKey",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-BFF-Key",
+            "in": "header",
+            "required": true,
+            "example": "<bff-key>",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Общий секрет BFF и OnlineConf. Проверяется до Bearer, разбора тела и валидации. Отсутствующий, неверный или повторяющийся заголовок: 403 s2s_forbidden."
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Scope"
+            },
+            "example": "frontend"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Name"
+            },
+            "example": "editor.theme"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Изменённый ключ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Key"
+                },
+                "examples": {
+                  "config": {
+                    "summary": "config",
+                    "value": {
+                      "scope": "frontend",
+                      "name": "editor.theme",
+                      "kind": "config",
+                      "value": {
+                        "default": "dark",
+                        "allowed": [
+                          "dark",
+                          "light"
+                        ]
+                      }
+                    }
+                  },
+                  "flag": {
+                    "summary": "flag",
+                    "value": {
+                      "scope": "workspace",
+                      "name": "notebook.comments",
+                      "kind": "flag",
+                      "rollout_percent": 25,
+                      "include_user_ids": [
+                        1,
+                        7
+                      ],
+                      "exclude_user_ids": [
+                        42
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Тело или параметры не прошли проверку: неизвестное поле, имя или scope вне формата, процент вне 0..100, повтор ID или пересечение списков. Ничего не сохраняется.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "validation_error",
+                  "message": "include_user_ids and exclude_user_ids intersect"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ключа с таким scope и именем нет.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "not_found",
+                  "message": "key not found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Вид в запросе не совпадает с видом ключа.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "conflict",
+                  "message": "key kind cannot change"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access-токен отсутствует, истёк или сессия отозвана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "X-BFF-Key отсутствует или неверен (s2s_forbidden) либо у пользователя нет роли onlineconf_admin (forbidden). Проверка ключа выполняется первой.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "s2s": {
+                    "summary": "s2s",
+                    "value": {
+                      "code": "s2s_forbidden",
+                      "message": "service access forbidden"
+                    }
+                  },
+                  "role": {
+                    "summary": "role",
+                    "value": {
+                      "code": "forbidden",
+                      "message": "onlineconf_admin role required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "internal",
+                  "message": "internal error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity или хранилище OnlineConf недоступны.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "dependency_unavailable",
+                  "message": "authorization unavailable"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyValue"
+              },
+              "examples": {
+                "config": {
+                  "summary": "config",
+                  "value": {
+                    "kind": "config",
+                    "value": false
+                  }
+                },
+                "flag": {
+                  "summary": "flag",
+                  "value": {
+                    "kind": "flag",
+                    "rollout_percent": 100,
+                    "include_user_ids": [],
+                    "exclude_user_ids": [
+                      42
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access-токен пользователя, передаваемый BFF из его сессии."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "unauthorized",
+              "forbidden",
+              "s2s_forbidden",
+              "not_found",
+              "conflict",
+              "internal",
+              "dependency_unavailable"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "Scope": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,31}$",
+        "description": "Потребитель: frontend или имя микросервиса.",
+        "examples": [
+          "frontend"
+        ]
+      },
+      "Name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+        "description": "Имя ключа, уникальное в scope.",
+        "examples": [
+          "editor.theme"
+        ]
+      },
+      "ConfigValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "config"
+          },
+          "value": {
+            "description": "Произвольное JSON-значение: объект, массив, строка, число, булево или null. Тип сохраняется; false, 0 и null — значения, а не отсутствие ключа."
+          }
+        }
+      },
+      "FlagValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "rollout_percent",
+          "include_user_ids",
+          "exclude_user_ids"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "flag"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Доля пользователей, для которых флаг включён, от 0 до 100 включительно."
+          },
+          "include_user_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Пользователи, для которых флаг включён независимо от процента. Не пересекается с exclude_user_ids."
+          },
+          "exclude_user_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Пользователи, для которых флаг выключен независимо от процента."
+          }
+        }
+      },
+      "KeyValue": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConfigValue"
+          },
+          {
+            "$ref": "#/components/schemas/FlagValue"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "config": "#/components/schemas/ConfigValue",
+            "flag": "#/components/schemas/FlagValue"
+          }
+        }
+      },
+      "ConfigKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "name",
+          "kind",
+          "value"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "kind": {
+            "type": "string",
+            "const": "config"
+          },
+          "value": {
+            "description": "Произвольное JSON-значение: объект, массив, строка, число, булево или null. Тип сохраняется; false, 0 и null — значения, а не отсутствие ключа."
+          }
+        }
+      },
+      "FlagKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "name",
+          "kind",
+          "rollout_percent",
+          "include_user_ids",
+          "exclude_user_ids"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "kind": {
+            "type": "string",
+            "const": "flag"
+          },
+          "rollout_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Доля пользователей, для которых флаг включён, от 0 до 100 включительно."
+          },
+          "include_user_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Пользователи, для которых флаг включён независимо от процента. Не пересекается с exclude_user_ids."
+          },
+          "exclude_user_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "Пользователи, для которых флаг выключен независимо от процента."
+          }
+        }
+      },
+      "Key": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConfigKey"
+          },
+          {
+            "$ref": "#/components/schemas/FlagKey"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "config": "#/components/schemas/ConfigKey",
+            "flag": "#/components/schemas/FlagKey"
+          }
+        }
+      },
+      "KeySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "name": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "config",
+              "flag"
+            ]
+          }
+        }
+      },
+      "KeyList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/KeySummary"
+            }
+          }
+        }
+      }
+    }
+  }
+}

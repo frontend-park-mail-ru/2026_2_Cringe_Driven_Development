@@ -11,7 +11,7 @@ const SPEC_DIR = join(root, 'spec');
 const MANIFEST = join(SPEC_DIR, 'contract-source.json');
 const REPOSITORY = 'Cringe-Driven-Development-Team/backend';
 const SOURCE_DIR = 'spec';
-const specs = ['identity', 'workspace'].map((service) => `${service}/openapi.json`);
+const specs = ['identity', 'workspace', 'onlineconf'].map((service) => `${service}/openapi.json`);
 const DEFAULT_BRANCH = 'main';
 
 interface Manifest {

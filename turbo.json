@@ -37,6 +37,7 @@
             "passThroughEnv": [
                 "IDENTITY_API_URL",
                 "WORKSPACE_API_URL",
+                "ONLINECONF_API_URL",
                 "GO_API_TLS_*",
                 "*_API_URL_TLS_SERVER_NAME",
                 "BFF_KEY"

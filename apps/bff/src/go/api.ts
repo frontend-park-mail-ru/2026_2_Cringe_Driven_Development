@@ -14,6 +14,8 @@ import type {
     NotebookContent,
     NotebookContentChange,
     NotebookListPage,
+    OnlineConfKey,
+    OnlineConfKeySummary,
     RuntimeBatchExecuteRequest,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
@@ -40,6 +42,8 @@ import {
     notebookContentResponse,
     notebookListResponse,
     notebookResponse,
+    onlineConfKeyResponse,
+    onlineConfKeysResponse,
     runtimeBatchResponse,
     runtimeEventsResponse,
     runtimeExecutionResponse,
@@ -49,7 +53,7 @@ import {
     twoFactorSetupResponse,
     userResponse,
 } from './responses.ts';
-import { identityRequest, withRequestId, workspaceRequest } from './request.ts';
+import { identityRequest, onlineconfRequest, withRequestId, workspaceRequest } from './request.ts';
 
 /**
  * Заголовок `If-Match` для правки содержимого блокнота.
@@ -118,6 +122,14 @@ export type Go = {
     stopRuntimeExecutions(id: string): Promise<{ stopped: true }>;
     interruptRuntimeKernel(id: string): Promise<{ interrupt_requested: true }>;
     touchRuntimeSession(id: string): Promise<{ accepted: true }>;
+    getOnlineConfAccess(): Promise<void>;
+    listOnlineConfKeys(query: {
+        scope: string;
+        search?: string;
+    }): Promise<{ items: OnlineConfKeySummary[] }>;
+    getOnlineConfKey(scope: string, name: string): Promise<OnlineConfKey>;
+    createOnlineConfKey(key: OnlineConfKey): Promise<OnlineConfKey>;
+    updateOnlineConfKey(key: OnlineConfKey): Promise<OnlineConfKey>;
 };
 
 /**
@@ -474,6 +486,56 @@ export function createGo(session: Session): Go {
                 ),
                 [200],
                 acceptedResponse,
+            ),
+        getOnlineConfAccess: async () => {
+            unwrap(
+                await call((init) => onlineconfRequest('GET', '/admin/access', { init })),
+                [204],
+            );
+        },
+        listOnlineConfKeys: async (query) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('GET', '/admin/keys', { params: { query }, init }),
+                ),
+                [200],
+                onlineConfKeysResponse,
+            ),
+        getOnlineConfKey: async (scope, name) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('GET', '/admin/keys/{scope}/{name}', {
+                        params: { path: { scope, name } },
+                        init,
+                    }),
+                ),
+                [200],
+                onlineConfKeyResponse,
+            ),
+        createOnlineConfKey: async (body) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('POST', '/admin/keys', {
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
+                [201],
+                onlineConfKeyResponse,
+            ),
+        updateOnlineConfKey: async ({ scope, name, ...body }) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('PUT', '/admin/keys/{scope}/{name}', {
+                        params: { path: { scope, name } },
+                        contentType: 'application/json',
+                        body,
+                        init,
+                    }),
+                ),
+                [200],
+                onlineConfKeyResponse,
             ),
     };
 }
