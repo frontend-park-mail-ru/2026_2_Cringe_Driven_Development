@@ -65,4 +65,14 @@ export const onlineconf = [
         input: { from: 'query', validate: resolveOnlineConfUserInput },
         handle: ({ go }, input) => go.resolveOnlineConfUser(input),
     }),
+    /**
+     * Публичные настройки продукта без админской роли: решение флага считает OnlineConf для
+     * пользователя сессии; просроченный снимок (`503`) — `502`, а не прежнее значение.
+     */
+    route({
+        method: 'GET',
+        path: '/api/onlineconf/me',
+        access: 'authed',
+        handle: ({ go }) => go.getOnlineConfMe(),
+    }),
 ] as const;

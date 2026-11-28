@@ -70,6 +70,15 @@
     margin: 0 auto;
 }
 
+/* Почему добавление и «Запустить всё» недоступны: как приглушённый баннер окружения */
+.limits {
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: var(--color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    color: var(--color-text-secondary);
+}
+
 /* Свой слой: плашки кнопок и вставки поверх ячеек, но под прилипшей шапкой */
 .cells {
     position: relative;

@@ -17,6 +17,7 @@ import type {
     OnlineConfCard,
     OnlineConfCreate,
     OnlineConfList,
+    OnlineConfMe,
     OnlineConfPaths,
     OnlineConfUpdate,
     OnlineConfUser,
@@ -48,6 +49,7 @@ import {
     notebookResponse,
     onlineConfCardResponse,
     onlineConfListResponse,
+    onlineConfMeResponse,
     onlineConfUserResponse,
     runtimeBatchResponse,
     runtimeEventsResponse,
@@ -138,6 +140,7 @@ export type Go = {
     resolveOnlineConfUser(
         query: OnlineConfPaths['/admin/users/resolve']['GET']['params']['query'],
     ): Promise<OnlineConfUser>;
+    getOnlineConfMe(): Promise<OnlineConfMe>;
 };
 
 /**
@@ -563,6 +566,12 @@ export function createGo(session: Session): Go {
                 ),
                 [200],
                 onlineConfUserResponse,
+            ),
+        getOnlineConfMe: async () =>
+            unwrap(
+                await call((init) => onlineconfRequest('GET', '/api/v1/onlineconf/me', { init })),
+                [200],
+                onlineConfMeResponse,
             ),
     };
 }
