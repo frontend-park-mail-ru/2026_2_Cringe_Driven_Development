@@ -4,12 +4,17 @@ import { expect, test } from 'bun:test';
 import {
     createOnlineConfKeyInput,
     listOnlineConfKeysInput,
+    onlineConfMeInput,
     resolveOnlineConfUserInput,
     updateOnlineConfKeyInput,
 } from '@cdd/schemas/validate';
 
 import { GoError, unwrap } from '../src/go/errors.ts';
-import { onlineConfCardResponse } from '../src/go/responses.ts';
+import {
+    onlineConfCardResponse,
+    onlineConfHomeResponse,
+    onlineConfNotebookResponse,
+} from '../src/go/responses.ts';
 
 const flag = {
     name: 'workspace.notebook_comments',
@@ -125,5 +130,36 @@ test('a card from OnlineConf that breaks the contract is not passed on', () => {
     expect(key).toEqual(card);
     expect(() =>
         unwrap({ status: 200, data: { ...card, format: 'yaml' } }, [200], onlineConfCardResponse),
+    ).toThrow(GoError);
+});
+
+test('product screen values: screen is required, flag decision is never filled in', () => {
+    expect(onlineConfMeInput({ screen: 'notebook' }).success).toBe(true);
+    expect(onlineConfMeInput({}).success).toBe(false);
+    expect(onlineConfMeInput({ screen: 'admin' }).success).toBe(false);
+
+    const ok = { status: 200, data: { notebook_max_cells: 500, notebook_run_all: false } };
+    expect(unwrap(ok, [200], onlineConfNotebookResponse) as unknown).toEqual(ok.data);
+    // на главной решение флага не отдаётся, лишние поля Go отбрасываются
+    expect(unwrap(ok, [200], onlineConfHomeResponse) as unknown).toEqual({
+        notebook_max_cells: 500,
+    });
+    for (const data of [
+        { notebook_max_cells: 500 },
+        { notebook_max_cells: 500, notebook_run_all: 'true' },
+        { notebook_max_cells: 0, notebook_run_all: true },
+        { notebook_max_cells: 1001, notebook_run_all: true },
+    ]) {
+        expect(() => unwrap({ status: 200, data }, [200], onlineConfNotebookResponse)).toThrow(
+            GoError,
+        );
+    }
+    // устаревший снимок — сбой, а не прежнее значение
+    expect(() =>
+        unwrap(
+            { status: 503, data: { code: 'onlineconf_unavailable', message: 'x' } },
+            [200],
+            onlineConfNotebookResponse,
+        ),
     ).toThrow(GoError);
 });

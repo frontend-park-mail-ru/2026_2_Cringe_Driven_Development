@@ -31,6 +31,7 @@ import type {
     NotebookListPage,
     OnlineConfCard,
     OnlineConfList,
+    OnlineConfMe,
     OnlineConfUser,
     RuntimeBatchExecution,
     RuntimeEventsResponse,
@@ -261,6 +262,16 @@ export const onlineConfListResponse: Validator<OnlineConfList> = validator(onlin
 
 /** Карточка ключа OnlineConf. */
 export const onlineConfCardResponse: Validator<OnlineConfCard> = validator(onlineConfCard);
+
+const maxCells = { notebook_max_cells: int({ min: 1, max: 1000 }) };
+
+/** Публичные значения OnlineConf для главной: только лимит ячеек, лишние поля отбрасываются. */
+export const onlineConfHomeResponse: Validator<OnlineConfMe> = validator(object(maxCells));
+
+/** Публичные значения OnlineConf для блокнота: без `notebook_run_all` ответ не принимается. */
+export const onlineConfNotebookResponse: Validator<OnlineConfMe> = validator(
+    object({ ...maxCells, notebook_run_all: boolean }),
+);
 
 /** Пользователь Identity по ID или логину. */
 export const onlineConfUserResponse: Validator<OnlineConfUser> = validator(onlineConfUser);

@@ -698,6 +698,9 @@ export const updateOnlineConfKeyInput = validator(
 );
 
 /** Query поиска пользователя: ровно один из `id` и `login`. */
+/** Query продуктовых значений OnlineConf: экран обязателен. */
+export const onlineConfMeInput = validator(query({ screen: oneOf(['home', 'notebook']) }));
+
 export const resolveOnlineConfUserInput = validator(
     exactlyOne(query({ id: intParam({ min: 1 }) }), query({ login: string({ min: 1, max: 32 }) })),
 );

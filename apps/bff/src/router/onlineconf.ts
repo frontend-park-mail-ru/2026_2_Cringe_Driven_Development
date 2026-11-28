@@ -3,6 +3,7 @@ import {
     deleteOnlineConfKeyInput,
     getOnlineConfKeyInput,
     listOnlineConfKeysInput,
+    onlineConfMeInput,
     resolveOnlineConfUserInput,
     updateOnlineConfKeyInput,
 } from '@cdd/schemas/validate';
@@ -64,5 +65,16 @@ export const onlineconf = [
         access: 'authed',
         input: { from: 'query', validate: resolveOnlineConfUserInput },
         handle: ({ go }, input) => go.resolveOnlineConfUser(input),
+    }),
+    /**
+     * Продуктовые значения для экрана без админской роли: решение флага считает Workspace для
+     * пользователя сессии; устаревший снимок OnlineConf (`503`) — `502`, а не прежнее значение.
+     */
+    route({
+        method: 'GET',
+        path: '/api/onlineconf/me',
+        access: 'authed',
+        input: { from: 'query', validate: onlineConfMeInput },
+        handle: ({ go }, input) => go.getOnlineConfMe(input.screen),
     }),
 ] as const;

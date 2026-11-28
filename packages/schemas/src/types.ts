@@ -596,12 +596,29 @@ export type WorkspacePaths = {
             responses: { 200: { interrupt_requested: true } } & RuntimeConflictErrors;
         };
     };
+    // shortcut: контракта нет в spec/workspace, путь и ответ — из задачи backend#158; заменить
+    // описанием из спеки после contract:fetch
+    '/onlineconf/me': {
+        GET: {
+            params: { query: { screen: OnlineConfScreen } };
+            responses: { 200: OnlineConfMe } & Errors<400 | 401 | 403 | 500 | 503, Error>;
+        };
+    };
 };
 
 /** Scope ключа OnlineConf. */
 export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
 
 /** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
+/** Экран продукта, для которого Workspace отдаёт публичные значения OnlineConf. */
+export type OnlineConfScreen = 'home' | 'notebook';
+
+/**
+ * Публичные значения OnlineConf для пользователя сессии (backend#158): эффективный лимит ячеек
+ * и, только для `notebook`, решение флага «Запустить всё».
+ */
+export type OnlineConfMe = { notebook_max_cells: number; notebook_run_all?: boolean };
+
 export interface OnlineConfUser {
     id: number;
     login: string;
