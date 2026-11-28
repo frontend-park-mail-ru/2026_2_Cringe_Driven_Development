@@ -2,8 +2,6 @@ import { ReleaseError, cdnUrl, siteUrl } from './env.ts';
 
 const TIMEOUT_MS = 10_000;
 const INTERVAL_MS = Number(process.env.CHECK_INTERVAL_MS || 5000);
-/** Сколько ждать прод: после переключения Caddy и BFF отвечают не сразу. */
-const HEALTH_WAIT_MS = Number(process.env.HEALTH_WAIT_MS || 120_000);
 const RELEASE_CHECK_TRIES = 3;
 const ASSET_TYPES: Record<string, string[]> = {
     js: ['text/javascript', 'application/javascript'],
@@ -95,109 +93,4 @@ export async function releaseCheck(sha: string): Promise<void> {
         }
     }
     throw new ReleaseError(`Release check не прошёл: релиз ${sha} не отдаётся с CDN`);
-}
-
-/**
- * Вход со случайными данными доходит до Go: только его отказ `invalid_credentials` подтверждает
- * BFF, S2S и обработчик входа. Такой логин не создаёт ни пользователя, ни сессии.
- */
-async function checkGo(site: string): Promise<void> {
-    const url = `${site}/api/auth/login`;
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF': '1', Origin: site },
-        body: JSON.stringify({
-            login: `health_${crypto.randomUUID().replaceAll('-', '').slice(0, 24)}`,
-            password: crypto.randomUUID(),
-        }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    const body = (await res.json().catch(() => undefined)) as
-        | { error?: { code?: string; appCode?: string } }
-        | undefined;
-    const { code, appCode } = body?.error ?? {};
-    if (res.status !== 400 || code !== 'BAD_REQUEST' || appCode !== 'invalid_credentials') {
-        throw new Error(
-            `${url}: ${res.status} ${code ?? ''} ${appCode ?? ''}, нужен отказ Go invalid_credentials`,
-        );
-    }
-}
-
-/** Страница прода этого выпуска: `Cache-Control: private, no-store` и `<meta name="release">` SHA. */
-async function releasePage(url: string, sha: string): Promise<string> {
-    const page = await get(url, { Accept: 'text/html' });
-    if (page.headers.get('cache-control') !== 'private, no-store') {
-        throw new Error(`${url}: Cache-Control='${page.headers.get('cache-control') ?? ''}'`);
-    }
-    const html = await page.text();
-    if (releaseOf(html) !== sha) {
-        throw new Error(`${url}: release='${releaseOf(html) ?? ''}', ждём '${sha}'`);
-    }
-    return html;
-}
-
-async function healthOnce(sha: string): Promise<string> {
-    const site = siteUrl();
-    const base = `${cdnUrl()}/releases/${sha}/`;
-    /** Гостю HTML отдаёт `/login`: защищённые страницы ведут его туда редиректом BFF. */
-    const html = await releasePage(`${site}/login`, sha);
-    const bootstraps = [
-        ...html.matchAll(/<script id="bootstrap" type="application\/json">([^<]*)<\/script>/g),
-    ];
-    if (bootstraps.length !== 1 || bootstraps[0]![1] !== '{"user":null}') {
-        throw new Error(`${site}/login: нужен ровно один bootstrap {"user":null}`);
-    }
-    // вложенный адрес админки OnlineConf: её HTML этого выпуска, не продукта
-    const admin = await releasePage(`${site}/onlineconf/keys`, sha);
-    if (admin.includes('id="bootstrap"')) throw new Error(`${site}/onlineconf/keys: HTML продукта`);
-    const assets =
-        (await checkAssets(html, base, `${site}/login`)) +
-        (await checkAssets(admin, base, `${site}/onlineconf/keys`));
-    const me = await fetch(`${site}/api/users/me`, {
-        headers: { 'X-CSRF': '1' },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    const body = (await me.json().catch(() => undefined)) as
-        | { error?: { code?: string } }
-        | undefined;
-    if (me.status !== 401 || body?.error?.code !== 'UNAUTHORIZED') {
-        throw new Error(`${site}/api/users/me без сессии: ${me.status}, нужен UNAUTHORIZED`);
-    }
-    const unknown = await fetch(`${site}/api/unknown`, {
-        headers: { Accept: 'text/html' },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    await unknown.body?.cancel();
-    if (
-        unknown.status !== 404 ||
-        (unknown.headers.get('content-type') ?? '').includes('text/html')
-    ) {
-        throw new Error(`${site}/api/unknown: ${unknown.status}, нужен 404 не HTML`);
-    }
-    await checkGo(site);
-    return `JS и CSS (файлов: ${assets})`;
-}
-
-/**
- * Прод отдаёт выпуск через BFF: гостевой HTML с одним bootstrap и релизом SHA, HTML админки OnlineConf
- * на `/onlineconf/keys`, их JS и CSS с CDN,
- * UNAUTHORIZED API без сессии, 404 не HTML на неизвестном /api и отказ Go `invalid_credentials` на
- * вход со случайными данными. Выполняется после переключения; образ, healthy и внутренний
- * `/health` проверяет Ansible (`deploy-bff.yml`).
- */
-
-export async function health(sha: string): Promise<void> {
-    const deadline = Date.now() + HEALTH_WAIT_MS;
-    for (;;) {
-        try {
-            const assets = await healthOnce(sha);
-            console.log(`OK: ${siteUrl()} отдаёт выпуск ${sha} через BFF, ${assets} с CDN`);
-            return;
-        } catch (err) {
-            console.log(message(err));
-        }
-        if (Date.now() + INTERVAL_MS > deadline) break;
-        await Bun.sleep(INTERVAL_MS);
-    }
-    throw new ReleaseError(`Health check не прошёл: ${siteUrl()} не отдаёт выпуск ${sha}`);
 }
