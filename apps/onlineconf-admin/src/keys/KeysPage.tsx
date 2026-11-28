@@ -1,5 +1,5 @@
 import { useEffect, useState } from '@cdd-team/react';
-import { Link } from '@cdd-team/router';
+import { Link, useNavigate, useSearch } from '@cdd-team/router';
 import { api, type Output } from '@api/bff';
 import { Badge } from '@components/Badge/Badge';
 import { Button } from '@components/Button/Button';
@@ -11,7 +11,7 @@ import { timeAgo } from '@utils/date';
 import { domProps } from '@utils/dom-props';
 import { plural } from '@utils/plural';
 import { CreateKeyModal } from './CreateKeyModal';
-import { valuePreview, type ConfItem } from './format';
+import { scopes, valuePreview, type ConfItem } from './format';
 import styles from './KeysPage.module.css';
 
 type KeyList = Output<'/api/onlineconf/keys/list'>;
@@ -24,8 +24,26 @@ interface Filters {
 }
 
 const noFilters: Filters = { scope: '', type: '' };
+
 const all = { value: '', label: 'Все' };
 const typeOptions = [all, { value: 'config', label: 'Конфиг' }, { value: 'flag', label: 'Флаг' }];
+
+/** Поиск и фильтры списка из адреса: так они переживают переход в карточку и обратно. */
+export function keysSearch({ search, scope, type }: Record<string, unknown>): {
+    search?: string;
+    scope?: Scope;
+    type?: KeyType;
+} {
+    // роутер разбирает `true` и `{…}` как JSON — возвращаем им вид строки
+    const text =
+        search === undefined || typeof search === 'string' ? search : JSON.stringify(search);
+    // все три ключа всегда: роутер накладывает результат на сырые параметры адреса
+    return {
+        search: text?.slice(0, 256) || undefined,
+        scope: scopes.find((item) => item === scope),
+        type: type === 'config' || type === 'flag' ? type : undefined,
+    };
+}
 
 const columns: Column<ConfItem>[] = [
     {
@@ -74,9 +92,15 @@ const columns: Column<ConfItem>[] = [
 
 /** Список ключей OnlineConf с серверным поиском и фильтрами. */
 export function KeysPage() {
-    const [search, setSearch] = useState('');
+    const saved = useSearch({ from: '/keys' });
+    const navigate = useNavigate();
+    const [search, setSearch] = useState(saved.search ?? '');
     const [creating, setCreating] = useState(false);
-    const [request, setRequest] = useState({ text: '', filters: noFilters, delayed: false });
+    const [request, setRequest] = useState({
+        text: saved.search?.trim() ?? '',
+        filters: { scope: saved.scope ?? '', type: saved.type ?? '' } as Filters,
+        delayed: false,
+    });
     const [settled, setSettled] = useState<{
         request: typeof request;
         status: 'ready' | 'failed';
@@ -99,6 +123,8 @@ export function KeysPage() {
             ...(type && { type }),
         };
         const load = () => {
+            // после debounce, а не на каждую букву: браузеры ограничивают частоту replaceState
+            void navigate({ to: '/keys', search: query, replace: true });
             void api('GET', '/api/onlineconf/keys/list', {
                 params: { query },
                 init: { signal },
@@ -119,7 +145,7 @@ export function KeysPage() {
             clearTimeout(timer);
             controller.abort();
         };
-    }, [request]);
+    }, [request, navigate]);
 
     return (
         <section aria-labelledby="keys-title">

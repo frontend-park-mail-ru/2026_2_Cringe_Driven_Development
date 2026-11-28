@@ -1,5 +1,8 @@
 import type { Output } from '@api/bff';
 
+/** Области ключей OnlineConf. */
+export const scopes = ['frontend', 'bff', 'identity', 'workspace'] as const;
+
 /** Строка списка ключей OnlineConf. */
 export type ConfItem = Output<'/api/onlineconf/keys/list'>['items'][number];
 

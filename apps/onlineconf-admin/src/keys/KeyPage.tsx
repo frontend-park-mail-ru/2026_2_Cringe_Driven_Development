@@ -43,7 +43,10 @@ function KeyDetails({ name }: { name: string }) {
             },
             (error) => {
                 if (signal.aborted) return;
-                const missing = isBffError(error) && error.appCode === 'not_found';
+                // некорректное имя BFF отклоняет с BAD_REQUEST: повтор не поможет
+                const missing =
+                    isBffError(error) &&
+                    (error.appCode === 'not_found' || error.code === 'BAD_REQUEST');
                 setResult({ status: missing ? 'missing' : 'failed' });
             },
         );

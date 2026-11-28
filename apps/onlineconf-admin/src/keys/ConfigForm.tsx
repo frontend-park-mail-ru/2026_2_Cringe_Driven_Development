@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from '@cdd-team/react';
-import { api, isBffError, type Output } from '@api/bff';
+import { useEffect, useMemo, useRef, useState } from '@cdd-team/react';
+import { api, type Output } from '@api/bff';
 import { Button } from '@components/Button/Button';
 import { Textarea } from '@components/Input/Textarea';
+import { errorText } from './errorText';
 import { checkJson } from './json';
+import { setUnsaved } from '../leaveGuard';
 import styles from './KeyPage.module.css';
 
 type Config = Extract<Output<'/api/onlineconf/keys/get'>, { type: 'config' }>;
@@ -18,6 +20,11 @@ export function ConfigForm({ card, onSaved }: { card: Config; onSaved: (card: Co
     const sendingRef = useRef(false);
     const json = useMemo(() => checkJson(text), [text]);
     const dirty = text !== savedText || description !== card.description;
+
+    useEffect(() => {
+        setUnsaved(dirty);
+        return () => setUnsaved(false);
+    }, [dirty]);
 
     const submit = async (event: Event) => {
         event.preventDefault();
@@ -40,11 +47,7 @@ export function ConfigForm({ card, onSaved }: { card: Config; onSaved: (card: Co
             onSaved(updated);
         } catch (cause) {
             if (form.current?.isConnected) {
-                setError(
-                    isBffError(cause)
-                        ? cause.message
-                        : 'Не удалось сохранить конфиг. Попробуйте ещё раз.',
-                );
+                setError(errorText(cause, 'Не удалось сохранить конфиг. Попробуйте ещё раз.'));
             }
         } finally {
             sendingRef.current = false;

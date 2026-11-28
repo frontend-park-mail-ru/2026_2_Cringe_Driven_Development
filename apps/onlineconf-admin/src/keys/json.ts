@@ -6,6 +6,10 @@ type JsonResult = { ok: true; value: JsonValue } | { ok: false; message: string 
 const quotedString = /"(?:[^"\\\x00-\x1f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/.source;
 const jsonNumber = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/.source;
 const numberTokens = new RegExp(quotedString + '|(' + jsonNumber + ')', 'g');
+const colon = /[ \t\n\r]*:/.source;
+const brackets = /[{}[\]]/.source;
+// строка (с двоеточием после неё — это имя поля) или границы объектов и массивов
+const keyTokens = new RegExp('(' + quotedString + ')(' + colon + ')?|' + brackets, 'g');
 
 /** Разбирает JSON, сохраняя его тип, и возвращает строку первой синтаксической ошибки. */
 export function checkJson(text: string): JsonResult {
@@ -26,9 +30,13 @@ export function checkJson(text: string): JsonResult {
                 message: 'Слишком большое число: значение изменится при сохранении',
             };
         }
-        return hasRoundedNumber(text)
-            ? { ok: false, message: 'Число потеряет точность при сохранении' }
-            : { ok: true, value };
+        if (hasRoundedNumber(text)) {
+            return { ok: false, message: 'Число потеряет точность при сохранении' };
+        }
+        const repeated = repeatedKey(text);
+        return repeated === undefined
+            ? { ok: true, value }
+            : { ok: false, message: 'Поле «' + repeated + '» повторяется: сохранится только одно' };
     } catch (error) {
         if (error instanceof RangeError) {
             return { ok: false, message: 'Слишком глубокая вложенность JSON' };
@@ -57,6 +65,21 @@ function hasRoundedNumber(text: string): boolean {
         }
     }
     return false;
+}
+
+/** Первое повторное имя поля в одном объекте валидного JSON: разбор оставил бы только одно. */
+function repeatedKey(text: string): string | undefined {
+    const open: Set<string>[] = [];
+    for (const [token, quoted, isName] of text.matchAll(keyTokens)) {
+        if (token === '{' || token === '[') open.push(new Set());
+        else if (token === '}' || token === ']') open.pop();
+        else if (quoted && isName) {
+            const key = String(JSON.parse(quoted));
+            const keys = open.at(-1);
+            if (keys?.has(key)) return key;
+            keys?.add(key);
+        }
+    }
 }
 
 /** Определяет позицию ошибки по грамматике JSON независимо от текста исключения браузера. */

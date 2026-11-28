@@ -6,13 +6,14 @@ import { Input } from '@components/Input/Input';
 import { Select } from '@components/Input/Select';
 import { Textarea } from '@components/Input/Textarea';
 import { Modal } from '@components/Modal/Modal';
+import { errorText } from './errorText';
+import { scopes } from './format';
 import { keyNameError } from './name';
 import styles from './KeyPage.module.css';
 
 type Scope = JsonInput<'/api/onlineconf/keys/create'>['scope'];
 
 const nameId = 'new-key-name';
-const scopes: Scope[] = ['frontend', 'bff', 'identity', 'workspace'];
 const scopeOptions = scopes.map((scope) => ({ value: scope, label: scope }));
 const types = [{ value: 'config', label: 'Конфиг' }];
 const formats = [{ value: 'json', label: 'JSON' }];
@@ -67,11 +68,7 @@ export function CreateKeyModal({
             if (isBffError(cause) && cause.appCode === 'key_name_taken') {
                 setNameError('Ключ уже существует');
             } else {
-                setError(
-                    isBffError(cause)
-                        ? cause.message
-                        : 'Не удалось создать ключ. Попробуйте ещё раз.',
-                );
+                setError(errorText(cause, 'Не удалось создать ключ. Попробуйте ещё раз.'));
             }
         } finally {
             sendingRef.current = false;

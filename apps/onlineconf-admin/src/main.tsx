@@ -10,7 +10,8 @@ import '../../client/src/styles/tokens.css';
 import '../../client/src/styles/global.css';
 import { AccessGate } from './AccessGate';
 import { KeyPage } from './keys/KeyPage';
-import { KeysPage } from './keys/KeysPage';
+import { KeysPage, keysSearch } from './keys/KeysPage';
+import { guardedHistory } from './leaveGuard';
 
 const rootRoute = createRootRoute({
     component: AccessGate,
@@ -28,6 +29,7 @@ const indexRoute = createRoute({
 const keysRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: 'keys',
+    validateSearch: keysSearch,
     component: KeysPage,
 });
 
@@ -41,6 +43,7 @@ const keyRoute = createRoute({
 const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute, keysRoute, keyRoute]),
     basepath: '/onlineconf',
+    history: guardedHistory,
 });
 
 declare module '@cdd-team/router' {
