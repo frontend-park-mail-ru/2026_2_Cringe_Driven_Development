@@ -8,7 +8,9 @@ import { Select } from '@components/Input/Select';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { Table, type Column } from '@components/Table/Table';
 import { timeAgo } from '@utils/date';
+import { domProps } from '@utils/dom-props';
 import { plural } from '@utils/plural';
+import { CreateKeyModal } from './CreateKeyModal';
 import { valuePreview, type ConfItem } from './format';
 import styles from './KeysPage.module.css';
 
@@ -73,6 +75,7 @@ const columns: Column<ConfItem>[] = [
 /** Список ключей OnlineConf с серверным поиском и фильтрами. */
 export function KeysPage() {
     const [search, setSearch] = useState('');
+    const [creating, setCreating] = useState(false);
     const [request, setRequest] = useState({ text: '', filters: noFilters, delayed: false });
     const [settled, setSettled] = useState<{
         request: typeof request;
@@ -142,6 +145,7 @@ export function KeysPage() {
                             aria-label="Поиск по названию"
                             placeholder="Поиск по названию"
                             value={search}
+                            {...domProps({ maxlength: 256 })}
                             onInput={(event) => {
                                 const value = (event.target as HTMLInputElement).value;
                                 setSearch(value);
@@ -154,7 +158,7 @@ export function KeysPage() {
                             }}
                         />
                     </div>
-                    <Button key="create" icon="plus" disabled>
+                    <Button key="create" icon="plus" onClick={() => setCreating(true)}>
                         Создать ключ
                     </Button>
                 </div>
@@ -225,6 +229,13 @@ export function KeysPage() {
                     />
                 )}
             </div>
+            {creating && (
+                <CreateKeyModal
+                    key="create"
+                    initialScope={filters.scope}
+                    onClose={() => setCreating(false)}
+                />
+            )}
         </section>
     );
 }

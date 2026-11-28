@@ -1,0 +1,132 @@
+.back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    font: var(--font-body-accent);
+    color: var(--color-primary-text);
+
+    &:hover {
+        color: var(--color-text-primary);
+    }
+}
+
+.heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.title {
+    font: var(--font-title);
+    letter-spacing: var(--tracking-title);
+    overflow-wrap: anywhere;
+}
+
+.config {
+    --color-primary-soft: var(--color-surface-pressed);
+    --color-primary-text: var(--color-text-secondary);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+}
+
+.panel {
+    padding: 24px;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: var(--color-surface);
+}
+
+.fields,
+.editor {
+    display: grid;
+    gap: 24px;
+
+    & p[id$='-message'] {
+        height: auto;
+
+        &:has(> span:empty) {
+            display: none;
+        }
+
+        & > span {
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+    }
+}
+
+.row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.json {
+    & textarea {
+        min-height: 220px;
+        font: var(--font-code);
+    }
+}
+
+.infoTitle {
+    margin-bottom: 16px;
+    font: var(--font-body-accent);
+}
+
+.info {
+    display: grid;
+    gap: 16px;
+    margin: 0;
+
+    & dt {
+        margin-bottom: 4px;
+        font: var(--font-caption);
+        color: var(--color-text-secondary);
+    }
+
+    & dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+}
+
+.author {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    & > .avatar {
+        width: 24px;
+        height: 24px;
+        font: var(--font-caption);
+    }
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.status,
+.error {
+    font: var(--font-caption);
+}
+
+.status {
+    color: var(--color-text-secondary);
+}
+
+.error {
+    color: var(--color-error);
+}

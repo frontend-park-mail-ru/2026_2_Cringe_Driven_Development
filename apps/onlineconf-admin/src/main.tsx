@@ -9,6 +9,7 @@ import {
 import '../../client/src/styles/tokens.css';
 import '../../client/src/styles/global.css';
 import { AccessGate } from './AccessGate';
+import { KeyPage } from './keys/KeyPage';
 import { KeysPage } from './keys/KeysPage';
 
 const rootRoute = createRootRoute({
@@ -33,7 +34,7 @@ const keysRoute = createRoute({
 const keyRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: 'keys/$name',
-    component: () => <h1>{keyRoute.useParams().name}</h1>,
+    component: KeyPage,
 });
 
 // Адреса соответствуют HTML админки, который отдаёт BFF.
