@@ -3,7 +3,7 @@
   "info": {
     "title": "Cellestial OnlineConf API",
     "version": "1.0.0",
-    "description": "Внутренний административный HTTP API OnlineConf. Пути заданы от корня сервиса. Межсервисное подключение использует mTLS. Сервис проверяет X-BFF-Key, затем пользовательский Bearer-токен и роль onlineconf_admin в Identity, затем параметры и тело запроса. Продуктовый метод /api/v1/onlineconf/me роли не требует (backend#158)."
+    "description": "Внутренний HTTP API OnlineConf. Пути заданы от корня сервиса. Межсервисное подключение использует mTLS. Сервис проверяет X-BFF-Key, затем пользовательский Bearer-токен и роль onlineconf_admin в Identity, затем параметры и тело запроса. Продуктовый метод /api/v1/onlineconf/me роли не требует (backend#158)."
   },
   "tags": [
     {
@@ -197,7 +197,18 @@
                         "login": "admin"
                       },
                       "include_users": [],
-                      "exclude_users": []
+                      "exclude_users": [],
+                      "rollout_policy": {
+                        "stages": [
+                          0,
+                          10,
+                          25,
+                          50,
+                          100
+                        ],
+                        "next_percent": null,
+                        "next_allowed_at": null
+                      }
                     }
                   }
                 }
@@ -337,7 +348,18 @@
                           "id": 17,
                           "login": "user17"
                         }
-                      ]
+                      ],
+                      "rollout_policy": {
+                        "stages": [
+                          0,
+                          10,
+                          25,
+                          50,
+                          100
+                        ],
+                        "next_percent": 50,
+                        "next_allowed_at": "2026-11-28T10:01:00Z"
+                      }
                     }
                   }
                 }
@@ -425,7 +447,18 @@
                           "id": 17,
                           "login": "user17"
                         }
-                      ]
+                      ],
+                      "rollout_policy": {
+                        "stages": [
+                          0,
+                          10,
+                          25,
+                          50,
+                          100
+                        ],
+                        "next_percent": 50,
+                        "next_allowed_at": "2026-11-28T10:01:00Z"
+                      }
                     }
                   }
                 }
@@ -444,6 +477,21 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "description": "Переход между процентами запрещён. Перечитайте карточку флага.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "code": "rollout_step_not_allowed",
+                  "message": "Переход на этот процент раскатки пока недоступен",
+                  "request_id": "onlineconf-example"
+                }
+              }
+            }
+          },
           "500": {
             "$ref": "#/components/responses/InternalError"
           },
@@ -451,7 +499,7 @@
             "$ref": "#/components/responses/IdentityUnavailable"
           }
         },
-        "description": "Тело должно соответствовать типу существующего ключа. ID в списках флага должны существовать в Identity. Списки не пересекаются. Повторяющиеся ID внутри одного списка сохраняются один раз.",
+        "description": "Тело должно соответствовать типу существующего ключа. ID в списках флага должны существовать в Identity. Списки не пересекаются. Повторяющиеся ID внутри одного списка сохраняются один раз. Повышение возможно только на ближайшую ступень. Первый шаг с 0% до 10% доступен сразу при включённом флаге, включая включение тем же запросом. Для остальных повышений требуется 60 секунд на текущем включённом проценте.",
         "requestBody": {
           "required": true,
           "content": {
@@ -515,6 +563,79 @@
           },
           "503": {
             "$ref": "#/components/responses/AuthorizationUnavailable"
+          }
+        }
+      }
+    },
+    "/admin/keys/{name}/evaluate": {
+      "get": {
+        "summary": "Проверить флаг для выбранного пользователя",
+        "description": "Вычисляет состояние для существующего пользователя по сохранённому флагу из свежего снимка. Bearer-токен принадлежит текущему администратору. Введите один параметр user_id.",
+        "operationId": "onlineConfEvaluateFlag",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Полное имя сохранённого флага.",
+            "schema": {
+              "$ref": "#/components/schemas/Name"
+            },
+            "example": "workspace.notebook_run_all"
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "description": "Положительный десятичный ID пользователя Identity.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "example": 42
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Состояние флага и причина решения.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagEvaluation"
+                },
+                "example": {
+                  "enabled": false,
+                  "reason": "excluded"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/SnapshotUnavailable"
           }
         }
       }
@@ -588,7 +709,7 @@
     "/api/v1/onlineconf/me": {
       "get": {
         "summary": "Публичные настройки продукта для текущей сессии",
-        "description": "Продуктовый, не административный метод: роль onlineconf_admin не нужна. Вызывают доверенные BFF (X-BFF-Key) и Workspace с Bearer пользователя; пользователь определяется по сессии в Identity, user_id и параметр экрана не принимаются. Возвращает только два публичных значения — без правил, процентов, списков пользователей и произвольных ключей.",
+        "description": "Продуктовый, не административный метод: роль onlineconf_admin не нужна. Вызывают доверенные BFF (X-BFF-Key) и Workspace (X-Workspace-Key) с Bearer пользователя; пользователь определяется по сессии в Identity, user_id и параметр экрана не принимаются. Возвращает только два публичных значения — без правил, процентов, списков пользователей и произвольных ключей.",
         "operationId": "getProductSettings",
         "tags": [
           "product"
@@ -620,7 +741,17 @@
           "503": {
             "$ref": "#/components/responses/SnapshotUnavailable"
           }
-        }
+        },
+        "security": [
+          {
+            "bffKey": [],
+            "sessionBearer": []
+          },
+          {
+            "workspaceKey": [],
+            "sessionBearer": []
+          }
+        ]
       }
     }
   },
@@ -636,9 +767,43 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Пользовательский access-токен с ролью onlineconf_admin."
+      },
+      "workspaceKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Workspace-Key",
+        "description": "Сервисный ключ Workspace для продуктового метода."
+      },
+      "sessionBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Access-токен текущей пользовательской сессии. Проверяется в Identity."
       }
     },
     "schemas": {
+      "FlagEvaluation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "reason"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "excluded",
+              "included",
+              "rollout"
+            ],
+            "description": "Первое применимое правило: общий выключатель, персональное исключение, персональное включение или процент раскатки."
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "additionalProperties": false,
@@ -886,7 +1051,8 @@
           "created_by",
           "updated_by",
           "include_users",
-          "exclude_users"
+          "exclude_users",
+          "rollout_policy"
         ],
         "properties": {
           "name": {
@@ -938,6 +1104,9 @@
             "items": {
               "$ref": "#/components/schemas/User"
             }
+          },
+          "rollout_policy": {
+            "$ref": "#/components/schemas/RolloutPolicy"
           }
         }
       },
@@ -1080,6 +1249,55 @@
           "notebook_run_all": {
             "type": "boolean",
             "description": "Решение флага workspace.notebook_run_all для пользователя сессии по правилам #156. Отсутствие ключа на свежем снимке — true."
+          }
+        }
+      },
+      "RolloutPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stages",
+          "next_percent",
+          "next_allowed_at"
+        ],
+        "properties": {
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "enum": [
+                0,
+                10,
+                25,
+                50,
+                100
+              ]
+            },
+            "minItems": 5,
+            "maxItems": 5,
+            "description": "Фиксированные ступени в порядке повышения.",
+            "example": [
+              0,
+              10,
+              25,
+              50,
+              100
+            ]
+          },
+          "next_percent": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Ближайшая большая ступень. Для выключенного флага и на 100% равно null."
+          },
+          "next_allowed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Начало текущей положительной ступени плюс 60 секунд, в UTC. Равно null на 0% или когда следующей ступени нет."
           }
         }
       }
@@ -1292,7 +1510,7 @@
         }
       },
       "SnapshotUnavailable": {
-        "description": "Снимок настроек недоступен или просрочен (#157), либо недоступна проверка сессии в Identity. Значения по умолчанию не подставляются.",
+        "description": "Снимок настроек недоступен или просрочен (#157), либо недоступна проверка сессии, роли или пользователя в Identity. Значения по умолчанию не подставляются.",
         "content": {
           "application/json": {
             "schema": {

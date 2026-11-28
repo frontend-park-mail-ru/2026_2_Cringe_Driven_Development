@@ -16,6 +16,7 @@ import type {
     NotebookListPage,
     OnlineConfCard,
     OnlineConfCreate,
+    OnlineConfEvaluation,
     OnlineConfList,
     OnlineConfMe,
     OnlineConfPaths,
@@ -48,6 +49,7 @@ import {
     notebookListResponse,
     notebookResponse,
     onlineConfCardResponse,
+    onlineConfEvaluationResponse,
     onlineConfListResponse,
     onlineConfMeResponse,
     onlineConfUserResponse,
@@ -137,6 +139,7 @@ export type Go = {
     createOnlineConfKey(key: OnlineConfCreate): Promise<OnlineConfCard>;
     updateOnlineConfKey(name: string, key: OnlineConfUpdate): Promise<OnlineConfCard>;
     deleteOnlineConfKey(name: string): Promise<void>;
+    evaluateOnlineConfFlag(name: string, userId: number): Promise<OnlineConfEvaluation>;
     resolveOnlineConfUser(
         query: OnlineConfPaths['/admin/users/resolve']['GET']['params']['query'],
     ): Promise<OnlineConfUser>;
@@ -559,6 +562,17 @@ export function createGo(session: Session): Go {
                 [204],
             );
         },
+        evaluateOnlineConfFlag: async (name, userId) =>
+            unwrap(
+                await call((init) =>
+                    onlineconfRequest('GET', '/admin/keys/{name}/evaluate', {
+                        params: { path: { name }, query: { user_id: userId } },
+                        init,
+                    }),
+                ),
+                [200],
+                onlineConfEvaluationResponse,
+            ),
         resolveOnlineConfUser: async (query) =>
             unwrap(
                 await call((init) =>

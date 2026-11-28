@@ -1,6 +1,7 @@
 import {
     createOnlineConfKeyInput,
     deleteOnlineConfKeyInput,
+    evaluateOnlineConfKeyInput,
     getOnlineConfKeyInput,
     listOnlineConfKeysInput,
     resolveOnlineConfUserInput,
@@ -35,6 +36,13 @@ export const onlineconf = [
         access: 'authed',
         input: { from: 'query', validate: getOnlineConfKeyInput },
         handle: ({ go }, input) => go.getOnlineConfKey(input.name),
+    }),
+    route({
+        method: 'GET',
+        path: '/api/onlineconf/keys/evaluate',
+        access: 'authed',
+        input: { from: 'query', validate: evaluateOnlineConfKeyInput },
+        handle: ({ go }, input) => go.evaluateOnlineConfFlag(input.name, input.user_id),
     }),
     route({
         method: 'POST',

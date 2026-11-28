@@ -21,7 +21,15 @@ function sameUsers(left: ConfUser[], right: ConfUser[]): boolean {
 }
 
 /** Сохраняет правила и описание флага, обновляя форму из ответа сервера. */
-export function FlagForm({ card, onSaved }: { card: Flag; onSaved: (card: Flag) => void }) {
+export function FlagForm({
+    card,
+    onSaved,
+    onDirtyChange,
+}: {
+    card: Flag;
+    onSaved: (card: Flag) => void;
+    onDirtyChange: (dirty: boolean) => void;
+}) {
     const [enabled, setEnabled] = useState(card.enabled);
     const [percent, setPercent] = useState(card.rollout_percent);
     const [now, setNow] = useState(0);
@@ -49,8 +57,9 @@ export function FlagForm({ card, onSaved }: { card: Flag; onSaved: (card: Flag) 
 
     useEffect(() => {
         setUnsaved(dirty);
+        onDirtyChange(dirty);
         return () => setUnsaved(false);
-    }, [dirty]);
+    }, [dirty, onDirtyChange]);
 
     // Время клиента — только подсказка: после выдержки шаг становится доступным сам
     useEffect(() => {

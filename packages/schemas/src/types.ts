@@ -661,6 +661,12 @@ export interface OnlineConfRolloutPolicy {
     next_allowed_at: string | null;
 }
 
+/** Сохранённое решение по флагу для пользователя и первое применимое правило. */
+export interface OnlineConfEvaluation {
+    enabled: boolean;
+    reason: 'disabled' | 'excluded' | 'included' | 'rollout';
+}
+
 /** Список ключей с общими счётчиками до фильтрации. */
 export interface OnlineConfList {
     items: (OnlineConfConfigItem | OnlineConfFlagItem)[];
@@ -697,6 +703,7 @@ export interface OnlineConfError {
         | 'key_name_taken'
         | 'rollout_step_not_allowed'
         | 'internal_error'
+        | 'onlineconf_unavailable'
         | 'dependency_unavailable';
     message: string;
 }
@@ -730,6 +737,12 @@ export type OnlineConfPaths = {
             responses: { 200: OnlineConfCard } & OnlineConfErrors<400 | 404>;
         };
         DELETE: { params: KeyPath; responses: { 204: undefined } & OnlineConfErrors<404> };
+    };
+    '/admin/keys/{name}/evaluate': {
+        GET: {
+            params: { path: { name: string }; query: { user_id: number } };
+            responses: { 200: OnlineConfEvaluation } & OnlineConfErrors<400 | 404>;
+        };
     };
     '/admin/users/resolve': {
         GET: {

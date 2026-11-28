@@ -132,7 +132,8 @@ HTML админки BFF отдаёт только после подтвержд�
 (отказ, продуктовая сессия не завершается), сбой OnlineConf — `502`. Ключ задаёт полное имя
 (`<scope>.<имя>`). Ключи — `GET /api/onlineconf/keys/list` (`search`, `scope`, `type`) и `/keys/get?name=`,
 `POST /api/onlineconf/keys/create`, `/keys/update` (полная замена, `type` выбирает набор полей) и
-`/keys/delete`; пользователь для списков флага — `GET /api/onlineconf/users/resolve?id=` или `?login=`. Отказы
+`/keys/delete`; пользователь для списков флага — `GET /api/onlineconf/users/resolve?id=` или `?login=`;
+сохранённое решение флага для пользователя — `GET /api/onlineconf/keys/evaluate?name=&user_id=` → `{ enabled, reason }`. Отказы
 OnlineConf (`validation_error`, `not_found`, `key_name_taken`) приходят в `appCode`. Всё — с той же
 проверкой. Локально API админки проверяется через `bun run preview`: dev-Vite админки работает без BFF.
 
