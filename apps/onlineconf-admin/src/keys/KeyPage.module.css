@@ -154,92 +154,28 @@
 .rollout {
     display: grid;
     gap: 8px;
-}
-
-.rolloutControls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.slider {
-    --track: linear-gradient(
-        to right,
-        var(--color-primary) var(--fill),
-        var(--color-surface-pressed) var(--fill)
-    );
-
-    appearance: none;
-    flex: 1;
     min-width: 0;
-    height: 20px;
     margin: 0;
-    background: transparent;
+    padding: 0;
+    border: 0;
+}
+
+.stages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+
+.stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     cursor: pointer;
 
-    &::-webkit-slider-runnable-track {
-        height: 6px;
-        border-radius: 3px;
-        background: var(--track);
-    }
-
-    &::-webkit-slider-thumb {
-        appearance: none;
-        width: 20px;
-        height: 20px;
-        margin-top: -7px;
-        border: 3px solid var(--color-primary);
-        border-radius: 50%;
-        background: var(--color-on-primary);
-    }
-
-    &::-moz-range-track {
-        height: 6px;
-        border-radius: 3px;
-        background: var(--track);
-    }
-
-    &::-moz-range-thumb {
-        box-sizing: border-box;
-        width: 20px;
-        height: 20px;
-        border: 3px solid var(--color-primary);
-        border-radius: 50%;
-        background: var(--color-on-primary);
-    }
-
-    &:disabled {
+    &:has(input:disabled) {
         opacity: 0.5;
         cursor: default;
     }
-
-    /* свои фоны дорожки в forced colors пропадают: оставляем системный ползунок */
-    @media (forced-colors: active) {
-        appearance: auto;
-    }
-}
-
-.percent {
-    flex: none;
-    width: 96px;
-
-    /* подпись нужна только скринридеру: над ползунком есть своя */
-    & label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
-
-    & > div {
-        gap: 0;
-    }
-}
-
-.percentSign {
-    color: var(--color-text-secondary);
 }
 
 .users {

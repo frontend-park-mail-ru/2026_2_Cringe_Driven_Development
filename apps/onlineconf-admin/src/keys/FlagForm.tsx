@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from '@cdd-team/react';
-import { api, type Output } from '@api/bff';
+import { api, isBffError, type Output } from '@api/bff';
 import { Button } from '@components/Button/Button';
-import { Input } from '@components/Input/Input';
 import { Textarea } from '@components/Input/Textarea';
 import { errorText } from './errorText';
-import { parsePercent } from './rules';
+import { rolloutChoices, rolloutHint } from './rules';
 import { UserList } from './UserList';
 import { setUnsaved } from '../leaveGuard';
 import styles from './KeyPage.module.css';
@@ -32,7 +31,8 @@ export function FlagForm({
     onDirtyChange: (dirty: boolean) => void;
 }) {
     const [enabled, setEnabled] = useState(card.enabled);
-    const [percentText, setPercentText] = useState(String(card.rollout_percent));
+    const [percent, setPercent] = useState(card.rollout_percent);
+    const [now, setNow] = useState(0);
     const [include, setInclude] = useState(card.include_users);
     const [exclude, setExclude] = useState(card.exclude_users);
     const [includePending, setIncludePending] = useState(false);
@@ -43,16 +43,17 @@ export function FlagForm({
     const [loading, setLoading] = useState(false);
     const form = useRef<HTMLFormElement | null>(null);
     const sendingRef = useRef(false);
-    const percent = parsePercent(percentText);
     const pending = includePending || excludePending;
+    const policy = card.rollout_policy;
+    const hint = rolloutHint(card.enabled, card.rollout_percent, policy, now);
     const dirty =
         pending ||
         enabled !== card.enabled ||
-        percentText !== String(card.rollout_percent) ||
+        percent !== card.rollout_percent ||
         !sameUsers(include, card.include_users) ||
         !sameUsers(exclude, card.exclude_users) ||
         description !== card.description;
-    const invalid = percent === undefined || pending;
+    const invalid = pending;
 
     useEffect(() => {
         setUnsaved(dirty);
@@ -60,20 +61,39 @@ export function FlagForm({
         return () => setUnsaved(false);
     }, [dirty, onDirtyChange]);
 
+    // Время клиента — только подсказка: после выдержки шаг становится доступным сам
+    useEffect(() => {
+        setNow(Date.now());
+        if (policy.next_allowed_at === null) return;
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [policy.next_allowed_at]);
+
     const fill = (source: Flag) => {
         setEnabled(source.enabled);
-        setPercentText(String(source.rollout_percent));
+        setPercent(source.rollout_percent);
         setInclude(source.include_users);
         setExclude(source.exclude_users);
         setDescription(source.description);
     };
 
+    /** Перечитывает карточку после отказа сервера: форма показывает только подтверждённое. */
+    const reload = async () => {
+        try {
+            const fresh = await api('GET', '/api/onlineconf/keys/get', {
+                params: { query: { name: card.name } },
+            });
+            if (fresh.type !== 'flag' || !form.current?.isConnected) return;
+            fill(fresh);
+            onSaved(fresh);
+        } catch {
+            // карточка остаётся прежней; текст ошибки уже показан
+        }
+    };
+
     const submit = async (event: Event) => {
         event.preventDefault();
-        // Enter сразу после ввода отправляет форму раньше перерисовки: процент берётся из поля
-        const field = form.current?.elements.namedItem('rollout_percent');
-        const entered = field instanceof HTMLInputElement ? parsePercent(field.value) : undefined;
-        if (sendingRef.current || !dirty || entered === undefined || pending) return;
+        if (sendingRef.current || !dirty || pending) return;
         sendingRef.current = true;
         setLoading(true);
         setError(undefined);
@@ -85,7 +105,7 @@ export function FlagForm({
                     type: 'flag',
                     description,
                     enabled,
-                    rollout_percent: entered,
+                    rollout_percent: percent,
                     include_user_ids: include.map((user) => user.id),
                     exclude_user_ids: exclude.map((user) => user.id),
                 },
@@ -98,23 +118,26 @@ export function FlagForm({
             fill(updated);
             onSaved(updated);
         } catch (cause) {
-            if (form.current?.isConnected) {
-                setError(errorText(cause, 'Не удалось сохранить флаг. Попробуйте ещё раз.'));
+            if (!form.current?.isConnected) return;
+            if (isBffError(cause) && cause.appCode === 'rollout_step_not_allowed') {
+                setError(
+                    'Этот шаг раскатки сейчас недоступен: выдержка ещё идёт или процент уже изменили. Показано актуальное состояние.',
+                );
+                await reload();
+                return;
             }
+            setError(errorText(cause, 'Не удалось сохранить флаг. Попробуйте ещё раз.'));
         } finally {
             sendingRef.current = false;
             if (form.current?.isConnected) setLoading(false);
         }
     };
 
-    const status =
-        percent === undefined
-            ? 'Исправьте ошибку, чтобы сохранить'
-            : pending
-              ? 'Добавьте пользователя по Enter или очистите поле'
-              : dirty
-                ? 'Есть несохранённые изменения'
-                : 'Нет несохранённых изменений';
+    const status = pending
+        ? 'Добавьте пользователя по Enter или очистите поле'
+        : dirty
+          ? 'Есть несохранённые изменения'
+          : 'Нет несохранённых изменений';
 
     return (
         <form
@@ -141,52 +164,42 @@ export function FlagForm({
             <p key="enabled-hint" id="flag-enabled-hint" className={styles.toggleHint}>
                 Если выключить, флаг не работает ни у кого; процент и списки сохранятся.
             </p>
-            <div key="rollout" className={styles.rollout}>
-                <label key="label" className={styles.status} htmlFor="flag-rollout">
-                    Раскатка на процент пользователей
-                </label>
-                <div key="controls" className={styles.rolloutControls}>
-                    <input
-                        key="slider"
-                        id="flag-rollout"
-                        className={styles.slider}
-                        style={{ '--fill': `${percent ?? card.rollout_percent}%` }}
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={String(percent ?? card.rollout_percent)}
-                        disabled={loading}
-                        onInput={(event) =>
-                            setPercentText((event.target as HTMLInputElement).value)
-                        }
-                    />
-                    <div key="number" className={styles.percent}>
-                        <Input
-                            id="flag-percent"
-                            label="Процент"
-                            name="rollout_percent"
-                            value={percentText}
-                            invalid={percent === undefined}
-                            reserveMessage={false}
-                            disabled={loading}
-                            autocomplete="off"
-                            onValueChange={setPercentText}
-                        />
-                    </div>
-                    <span key="sign" className={styles.percentSign} aria-hidden="true">
-                        %
-                    </span>
+            <fieldset key="rollout" className={styles.rollout} aria-describedby="flag-rollout-hint">
+                <legend key="label" className={styles.status}>
+                    Раскатка на процент пользователей · сохранено {card.rollout_percent}%
+                </legend>
+                <div key="stages" className={styles.stages}>
+                    {rolloutChoices(card.rollout_percent, policy).map((stage) => {
+                        const raise = stage > card.rollout_percent;
+                        return (
+                            <label key={stage} className={styles.stage}>
+                                <input
+                                    key="radio"
+                                    type="radio"
+                                    name="rollout_percent"
+                                    value={String(stage)}
+                                    checked={percent === stage}
+                                    disabled={loading || (raise && (hint.waiting || !enabled))}
+                                    onChange={() => setPercent(stage)}
+                                />
+                                <span key="text">
+                                    {stage}%
+                                    {stage === card.rollout_percent
+                                        ? ' · сейчас'
+                                        : raise
+                                          ? ' · следующий шаг'
+                                          : ''}
+                                </span>
+                            </label>
+                        );
+                    })}
                 </div>
-                {percent === undefined && (
-                    <p key="error" className={styles.error} role="alert">
-                        Целое число от 0 до 100
-                    </p>
-                )}
-                <p key="hint" className={styles.status}>
-                    Пользователь попадает в раскатку по хэшу userID и ключа — при увеличении
-                    процента уже включённые остаются.
+                <p key="hint" id="flag-rollout-hint" className={styles.status} aria-live="polite">
+                    {hint.text} Снизить процент или выключить флаг можно сразу. Пользователь
+                    попадает в раскатку по хэшу userID и ключа — при увеличении процента уже
+                    включённые остаются.
                 </p>
-            </div>
+            </fieldset>
             <UserList
                 key={'include-' + resets}
                 id="flag-include"

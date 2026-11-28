@@ -636,6 +636,11 @@ export const onlineConfCard = byType(
         ...cardMeta,
         include_users: array(onlineConfUser),
         exclude_users: array(onlineConfUser),
+        rollout_policy: object({
+            stages: array(int({ min: 0, max: 100 })),
+            next_percent: nullable(int({ min: 0, max: 100 })),
+            next_allowed_at: nullable(datetime),
+        }),
     }),
 );
 
