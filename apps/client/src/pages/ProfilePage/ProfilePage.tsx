@@ -33,10 +33,10 @@ export function ProfilePage() {
     useEffect(() => {
         let alive = true;
         api('GET', '/api/users/me')
-            .then(({ isAdmin, ...user }) => {
+            .then(({ isAdmin: admin, ...user }) => {
                 if (!alive) return;
                 useSessionStore.setState({ user });
-                setIsAdmin(isAdmin);
+                setIsAdmin(admin);
                 setStatus('ready');
             })
             .catch(() => {
