@@ -23,7 +23,7 @@ export type JsonInput<P extends BffPath, M extends keyof BffPaths[P] = keyof Bff
     OperationOf<P, M> extends { body: { 'application/json': infer B } } ? B : never;
 
 /** Пользователь, как его отдаёт `users/me`. */
-export type User = Output<'/api/users/me'>;
+export type User = Omit<Output<'/api/users/me'>, 'isAdmin'>;
 
 /** Страница списка блокнотов из `notebooks/list`. */
 export type NotebookListPage = Output<'/api/notebooks/list'>;

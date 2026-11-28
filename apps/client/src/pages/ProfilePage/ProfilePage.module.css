@@ -51,6 +51,10 @@
     }
 }
 
+.admin {
+    align-self: flex-start;
+}
+
 .title {
     font: var(--font-title);
     letter-spacing: var(--tracking-title);
