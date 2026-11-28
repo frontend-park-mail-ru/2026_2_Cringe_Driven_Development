@@ -1,5 +1,6 @@
 import type { Output } from '@api/bff';
 import { Avatar } from '@components/Avatar/Avatar';
+import { plural } from '@utils/plural';
 import styles from './KeyPage.module.css';
 
 type KeyCard = Output<'/api/onlineconf/keys/get'>;
@@ -19,6 +20,7 @@ export function InfoPanel({ card }: { card: KeyCard }) {
                     <dt key="label">Скоуп</dt>
                     <dd key="value">{card.scope}</dd>
                 </div>
+                {card.type === 'flag' && <Reach key="reach" card={card} />}
                 {card.type === 'config' && (
                     <div key="format">
                         <dt key="label">Формат</dt>
@@ -39,6 +41,22 @@ export function InfoPanel({ card }: { card: KeyCard }) {
                 />
             </dl>
         </aside>
+    );
+}
+
+/** Кому включён флаг по сохранённым настройкам; это не статистика запросов. */
+function Reach({ card }: { card: Extract<KeyCard, { type: 'flag' }> }) {
+    const { enabled, rollout_percent: percent, include_users, exclude_users } = card;
+    const manual = `+ ${include_users.length} вручную`;
+    const excluded = plural(exclude_users.length, 'исключён', 'исключены', 'исключено');
+    return (
+        <div>
+            <dt key="label">Сейчас включён у</dt>
+            <dd key="value">{enabled ? `${percent}% пользователей` : 'Никого: флаг выключен'}</dd>
+            <dd key="details">
+                {enabled ? `${manual} · ${excluded}` : `настроено ${percent}% ${manual}`}
+            </dd>
+        </div>
     );
 }
 
