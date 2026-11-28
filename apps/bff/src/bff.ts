@@ -13,5 +13,5 @@ export function createBff(
     publicFiles: Map<string, Bun.BunFile>,
     adminTemplate?: string,
 ): App {
-    return createApp({ template, publicFiles, adminTemplate, html: createHtmlHandler(template) });
+    return createApp({ template, publicFiles, html: createHtmlHandler(template, adminTemplate) });
 }
