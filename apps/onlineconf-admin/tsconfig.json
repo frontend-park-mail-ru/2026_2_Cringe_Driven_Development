@@ -6,7 +6,8 @@
         "moduleDetection": "force",
         "jsx": "react-jsx",
         "jsxImportSource": "@cdd-team/react",
-        "types": ["vite/client"],
+        // bun — для исходников BFF, откуда берутся типы маршрутов
+        "types": ["vite/client", "bun"],
         "moduleResolution": "bundler",
         "verbatimModuleSyntax": true,
         "allowImportingTsExtensions": true,
@@ -27,5 +28,5 @@
         "skipLibCheck": true,
         "noUncheckedIndexedAccess": true
     },
-    "include": ["src", "vite.config.ts", "test", "../client/src/svg.d.ts", "../client/src/jsx.d.ts"]
+    "include": ["src", "vite.config.ts", "../client/src/svg.d.ts", "../client/src/jsx.d.ts"]
 }

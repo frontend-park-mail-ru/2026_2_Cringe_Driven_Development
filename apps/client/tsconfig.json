@@ -7,7 +7,8 @@
         "moduleDetection": "force",
         "jsx": "react-jsx",
         "jsxImportSource": "@cdd-team/react",
-        "types": ["vite/client"],
+        // bun — для исходников BFF, откуда берутся типы маршрутов
+        "types": ["vite/client", "bun"],
 
         // Bundler mode
         "moduleResolution": "bundler",
