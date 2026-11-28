@@ -47,14 +47,14 @@ export function UserList({
     useEffect(() => onPendingChange(pending), [pending, onPendingChange]);
     useEffect(() => () => lookupRef.current?.abort(), []);
 
-    const add = async () => {
-        if (disabled || lookupRef.current || !text.trim()) return;
-        const query = userQuery(text);
+    // значение приходит из поля: сразу после ввода `text` ещё может быть прежним
+    const add = async (sent: string) => {
+        if (disabled || lookupRef.current || !sent.trim()) return;
+        const query = userQuery(sent);
         if (!query) {
             setError('Введите userID или логин до 32 символов');
             return;
         }
-        const sent = text;
         const controller = new AbortController();
         const { signal } = controller;
         lookupRef.current = controller;
@@ -106,7 +106,7 @@ export function UserList({
                 error={error}
                 disabled={disabled}
                 autocomplete="off"
-                onEnter={() => void add()}
+                onEnter={(value) => void add(value)}
                 onValueChange={(value) => {
                     setText(value);
                     setError(undefined);

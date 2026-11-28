@@ -61,7 +61,10 @@ export function FlagForm({ card, onSaved }: { card: Flag; onSaved: (card: Flag) 
 
     const submit = async (event: Event) => {
         event.preventDefault();
-        if (sendingRef.current || !dirty || percent === undefined || pending) return;
+        // Enter сразу после ввода отправляет форму раньше перерисовки: процент берётся из поля
+        const field = form.current?.elements.namedItem('rollout_percent');
+        const entered = field instanceof HTMLInputElement ? parsePercent(field.value) : undefined;
+        if (sendingRef.current || !dirty || entered === undefined || pending) return;
         sendingRef.current = true;
         setLoading(true);
         setError(undefined);
@@ -73,7 +76,7 @@ export function FlagForm({ card, onSaved }: { card: Flag; onSaved: (card: Flag) 
                     type: 'flag',
                     description,
                     enabled,
-                    rollout_percent: percent,
+                    rollout_percent: entered,
                     include_user_ids: include.map((user) => user.id),
                     exclude_user_ids: exclude.map((user) => user.id),
                 },
@@ -130,16 +133,20 @@ export function FlagForm({ card, onSaved }: { card: Flag; onSaved: (card: Flag) 
                 Если выключить, флаг не работает ни у кого; процент и списки сохранятся.
             </p>
             <div key="rollout" className={styles.rollout}>
+                <label key="label" className={styles.status} htmlFor="flag-rollout">
+                    Раскатка на процент пользователей
+                </label>
                 <div key="controls" className={styles.rolloutControls}>
                     <input
                         key="slider"
+                        id="flag-rollout"
                         className={styles.slider}
+                        style={{ '--fill': `${percent ?? card.rollout_percent}%` }}
                         type="range"
                         min="0"
                         max="100"
                         value={String(percent ?? card.rollout_percent)}
                         disabled={loading}
-                        aria-label="Раскатка на процент пользователей"
                         onInput={(event) =>
                             setPercentText((event.target as HTMLInputElement).value)
                         }

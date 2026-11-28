@@ -47,7 +47,9 @@ export function CreateKeyModal({
     const submit = async (event: Event) => {
         event.preventDefault();
         if (sendingRef.current || nameError) return;
-        const trimmed = name.trim();
+        // Enter сразу после ввода отправляет форму раньше перерисовки: имя берётся из поля
+        const field = form.current?.elements.namedItem('name');
+        const trimmed = field instanceof HTMLInputElement ? field.value.trim() : '';
         const invalid = keyNameError(trimmed, scope);
         setError(undefined);
         if (invalid) {

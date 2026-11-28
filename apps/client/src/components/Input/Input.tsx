@@ -34,8 +34,8 @@ interface InputProps {
     icon?: IconName;
     /** Строка под полем есть, даже пустая (по умолчанию): форма не прыгает при валидации */
     reserveMessage?: boolean;
-    /** Enter в поле: форму вокруг не отправляет */
-    onEnter?: () => void;
+    /** Enter в поле: форму вокруг не отправляет. Значение — из самого поля, а не из отрисовки */
+    onEnter?: (value: string) => void;
     /** Новое значение при каждом вводе */
     onValueChange: (value: string) => void;
     /** Поле потеряло фокус */
@@ -95,7 +95,8 @@ export function Input({
                         if (!onEnter || event.key !== 'Enter') return;
                         event.preventDefault();
                         // Safari отдаёт подтверждение IME с isComposing: false и keyCode 229
-                        if (!event.isComposing && event.keyCode !== 229) onEnter();
+                        if (event.isComposing || event.keyCode === 229) return;
+                        onEnter((event.target as HTMLInputElement).value);
                     }}
                 />
                 {icon && <Icon key="icon" name={icon} className={styles.icon} />}

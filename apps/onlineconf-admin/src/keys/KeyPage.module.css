@@ -163,13 +163,59 @@
 }
 
 .slider {
+    --track: linear-gradient(
+        to right,
+        var(--color-primary) var(--fill),
+        var(--color-surface-pressed) var(--fill)
+    );
+
+    appearance: none;
     flex: 1;
     min-width: 0;
-    accent-color: var(--color-primary);
+    height: 20px;
+    margin: 0;
+    background: transparent;
     cursor: pointer;
 
+    &::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--track);
+    }
+
+    &::-webkit-slider-thumb {
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        margin-top: -7px;
+        border: 3px solid var(--color-primary);
+        border-radius: 50%;
+        background: var(--color-on-primary);
+    }
+
+    &::-moz-range-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--track);
+    }
+
+    &::-moz-range-thumb {
+        box-sizing: border-box;
+        width: 20px;
+        height: 20px;
+        border: 3px solid var(--color-primary);
+        border-radius: 50%;
+        background: var(--color-on-primary);
+    }
+
     &:disabled {
+        opacity: 0.5;
         cursor: default;
+    }
+
+    /* свои фоны дорожки в forced colors пропадают: оставляем системный ползунок */
+    @media (forced-colors: active) {
+        appearance: auto;
     }
 }
 
