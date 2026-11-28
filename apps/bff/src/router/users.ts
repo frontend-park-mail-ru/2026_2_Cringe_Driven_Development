@@ -8,7 +8,15 @@ export const users = [
         method: 'GET',
         path: '/api/users/me',
         access: 'authed',
-        handle: ({ go }) => go.getCurrentUser(),
+        /** `isAdmin` — роль OnlineConf; сбой проверки роли профиль не ломает, ссылки в админку нет */
+        async handle({ go }) {
+            const me = await go.getCurrentUser();
+            const isAdmin = await go.getOnlineConfAccess().then(
+                () => true,
+                () => false,
+            );
+            return { ...me, isAdmin };
+        },
     }),
     route({
         method: 'POST',

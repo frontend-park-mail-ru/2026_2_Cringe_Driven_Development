@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from '@cdd-team/react';
 
 import { api } from '@api/bff';
-import { Button } from '@components/Button/Button';
+import { clsx } from '@cdd-team/clsx';
+import { Button, buttonClassName } from '@components/Button/Button';
 import { Header } from '@components/Header/Header';
 import { Icon } from '@components/Icon/Icon';
 import { Logo } from '@components/Logo/Logo';
@@ -26,14 +27,16 @@ export function ProfilePage() {
     const login = useSessionStore((state) => state.user?.login ?? '');
     const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
     const [attempt, setAttempt] = useState(0);
+    const [isAdmin, setIsAdmin] = useState(false);
     const profile = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         let alive = true;
         api('GET', '/api/users/me')
-            .then((user) => {
+            .then(({ isAdmin, ...user }) => {
                 if (!alive) return;
                 useSessionStore.setState({ user });
+                setIsAdmin(isAdmin);
                 setStatus('ready');
             })
             .catch(() => {
@@ -74,6 +77,16 @@ export function ProfilePage() {
                             Профиль
                         </h1>
                     </div>
+                    {status === 'ready' && isAdmin && (
+                        // админка — отдельная SPA за BFF: полная загрузка страницы, не переход роутера
+                        <a
+                            key="admin"
+                            href="/onlineconf"
+                            className={clsx(buttonClassName('secondary'), styles.admin)}
+                        >
+                            Админка
+                        </a>
+                    )}
                     {status === 'loading' && <ProfileSkeleton key="skeleton" />}
                     {status === 'error' && (
                         <StateBlock

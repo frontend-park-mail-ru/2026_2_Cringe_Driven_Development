@@ -148,3 +148,17 @@ test('API OnlineConf остаётся JSON и не становится HTML-р�
     expect(res.status).toBe(404);
     expect(res.headers.get('Content-Type')).toContain('application/json');
 });
+
+test('users/me: isAdmin по роли OnlineConf, сбой проверки — false', async () => {
+    for (const [session, isAdmin] of [
+        ['admin', true],
+        ['user', false],
+        ['down', false],
+    ] as const) {
+        const res = await fetch(`http://127.0.0.1:${bff.port}/api/users/me`, {
+            headers: { 'X-CSRF': '1', Cookie: cookies[session]! },
+        });
+        expect(res.status).toBe(200);
+        expect(await res.json()).toMatchObject({ login: 'u', isAdmin });
+    }
+});
