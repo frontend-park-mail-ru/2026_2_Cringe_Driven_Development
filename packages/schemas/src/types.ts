@@ -609,7 +609,6 @@ export type WorkspacePaths = {
 /** Scope ключа OnlineConf. */
 export type OnlineConfScope = 'frontend' | 'bff' | 'identity' | 'workspace';
 
-/** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
 /** Экран продукта, для которого Workspace отдаёт публичные значения OnlineConf. */
 export type OnlineConfScreen = 'home' | 'notebook';
 
@@ -619,6 +618,7 @@ export type OnlineConfScreen = 'home' | 'notebook';
  */
 export type OnlineConfMe = { notebook_max_cells: number; notebook_run_all?: boolean };
 
+/** Пользователь в карточке OnlineConf: ID и логин, подтверждённые Identity. */
 export interface OnlineConfUser {
     id: number;
     login: string;
