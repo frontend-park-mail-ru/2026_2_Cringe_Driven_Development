@@ -65,7 +65,8 @@ git remote -v
 
 Выпуск коммита `main` — два артефакта одного SHA: ассеты клиента (JS, CSS, неперсональный
 `index.html`) в S3 и на CDN в неизменяемом `releases/<sha>/` и **публичный** образ BFF в GHCR с
-серверным бандлом и HTML того же коммита. На прод выкатывается образ по digest: HTML отдаёт
+серверным бандлом и HTML того же коммита. HTML админки OnlineConf (`onlineconf.html`) на CDN не
+заливается: его отдаёт только BFF после проверки роли. На прод выкатывается образ по digest: HTML отдаёт
 работающий BFF, S3-указателя и копии корневого `index.html` больше нет. Готовые выпуски — GitHub
 Releases (один на SHA, скачиваемые сборка клиента и образ BFF), история прода — GitHub Deployments. Шаги — команды `scripts/release/` (`bun run release <команда>`).
 
@@ -167,7 +168,7 @@ GitHub → Packages → `bff` → Package settings → Change visibility → Pub
 
 1. выбранный published immutable Release (проверка выше) → SHA, `image_ref`, каталог ассетов и `release_id`;
 2. анонимная доступность точного digest и метка `org.opencontainers.image.revision` = SHA;
-3. Release check: `index.html`, `onlineconf.html` админки OnlineConf и все JS и CSS из них отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется.
+3. Release check: `index.html` и все JS и CSS из него отдаются с CDN с типом JS или CSS, JS — с CORS; без любого ассета прод не меняется. В CI, где есть сборка, так же проверяются JS и CSS из `onlineconf.html` админки, а сам `onlineconf.html` с CDN должен не отдаваться.
 
 Затем создаётся запись `production` (`ref` — SHA **выбранного образа**, в том числе при откате;
 `payload` — `image_ref`, `assets`, `action` = `deploy`/`rollback`, `run` — ссылка на этот запуск,

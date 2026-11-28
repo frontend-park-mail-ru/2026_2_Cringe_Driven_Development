@@ -27,6 +27,8 @@ const TYPES: Record<string, string> = {
     '.wasm': 'application/wasm',
 };
 const PARALLEL = 8;
+/** HTML админки OnlineConf отдаёт только BFF после проверки роли; на публичный CDN он не попадает. */
+export const PRIVATE_FILES = ['onlineconf.html'];
 
 /**
  * Заливка `dist` в `releases/{sha}/`. Релиз неизменяемый: если он уже залит целиком (есть
@@ -38,7 +40,8 @@ export async function upload(sha: string, dir = 'apps/client/dist'): Promise<voi
     const files = entries
         .filter((entry) => entry.isFile())
         .map((entry) => join(entry.parentPath, entry.name).slice(dir.length + 1))
-        .map((file) => file.replaceAll('\\', '/'));
+        .map((file) => file.replaceAll('\\', '/'))
+        .filter((file) => !PRIVATE_FILES.includes(file));
     if (!files.includes('index.html')) {
         throw new ReleaseError(`В ${dir} нет index.html — сборка не выполнена`);
     }
