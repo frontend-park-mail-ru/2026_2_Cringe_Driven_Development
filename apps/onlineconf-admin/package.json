@@ -9,10 +9,16 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
+        "@cdd-team/clsx": "^0.1.0",
+        "@cdd-team/http-client": "^0.1.1",
         "@cdd-team/react": "^1.7.1",
-        "@cdd-team/router": "^0.1.0"
+        "@cdd-team/router": "^0.1.0",
+        "@cdd-team/zustand": "^1.0.1",
+        "@cdd/schemas": "workspace:*"
     },
     "devDependencies": {
+        "@cdd/bff": "workspace:*",
+        "@cdd/client": "workspace:*",
         "typescript": "^7.0.2",
         "vite": "^8.3.5"
     }

@@ -11,10 +11,21 @@
         "verbatimModuleSyntax": true,
         "allowImportingTsExtensions": true,
         "isolatedModules": true,
+        "resolveJsonModule": true,
+        "paths": {
+            "@api/*": ["../client/src/api/*"],
+            "@assets/*": ["../client/src/assets/*"],
+            "@components/*": ["../client/src/components/*"],
+            "@layouts/*": ["../client/src/layouts/*"],
+            "@modules/*": ["../client/src/modules/*"],
+            "@pages/*": ["../client/src/pages/*"],
+            "@stores/*": ["../client/src/stores/*"],
+            "@utils/*": ["../client/src/utils/*"]
+        },
         "noEmit": true,
         "strict": true,
         "skipLibCheck": true,
         "noUncheckedIndexedAccess": true
     },
-    "include": ["src", "vite.config.ts"]
+    "include": ["src", "vite.config.ts", "test", "../client/src/svg.d.ts", "../client/src/jsx.d.ts"]
 }
