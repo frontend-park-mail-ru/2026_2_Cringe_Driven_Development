@@ -327,6 +327,58 @@
     }
 }
 
+.side,
+.check {
+    display: grid;
+    gap: 12px;
+}
+
+.side {
+    gap: 24px;
+}
+
+.check {
+    /* иначе колонка grid растянется под длинный логин */
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.checkTitle {
+    margin-bottom: 4px;
+    font: var(--font-body-accent);
+}
+
+.checkUser,
+.result,
+.failure {
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    overflow-wrap: anywhere;
+}
+
+.checkUser {
+    display: grid;
+}
+
+.result {
+    border-color: var(--color-border-control);
+    font: var(--font-body-accent);
+
+    &.resultOn {
+        border-color: var(--color-success);
+        background: color-mix(in srgb, var(--color-success) 10%, transparent);
+    }
+}
+
+.failure {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    border-color: var(--color-error-border);
+    background: var(--color-error-soft);
+}
+
 .actions {
     display: flex;
     flex-wrap: wrap;

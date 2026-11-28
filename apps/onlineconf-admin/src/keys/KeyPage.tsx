@@ -6,6 +6,7 @@ import { Button } from '@components/Button/Button';
 import { Icon } from '@components/Icon/Icon';
 import { StateBlock } from '@components/StateBlock/StateBlock';
 import { ConfigForm } from './ConfigForm';
+import { FlagCheck } from './FlagCheck';
 import { FlagForm } from './FlagForm';
 import { InfoPanel } from './InfoPanel';
 import styles from './KeyPage.module.css';
@@ -31,6 +32,8 @@ export function KeyPage() {
 function KeyDetails({ name }: { name: string }) {
     const [result, setResult] = useState<CardState>({ status: 'loading' });
     const [attempt, setAttempt] = useState(0);
+    const [dirty, setDirty] = useState(false);
+    const [revision, setRevision] = useState(0);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -102,11 +105,20 @@ function KeyDetails({ name }: { name: string }) {
                         <FlagForm
                             key={name}
                             card={card}
-                            onSaved={(updated) => setResult({ status: 'ready', card: updated })}
+                            onSaved={(updated) => {
+                                setResult({ status: 'ready', card: updated });
+                                setRevision((value) => value + 1);
+                            }}
+                            onDirtyChange={setDirty}
                         />
                     )}
                 </div>
-                <InfoPanel key="info" card={card} />
+                <div key="side" className={styles.side}>
+                    <InfoPanel key="info" card={card} />
+                    {card.type === 'flag' && (
+                        <FlagCheck key="check" name={name} dirty={dirty} revision={revision} />
+                    )}
+                </div>
             </div>
         </>
     );
